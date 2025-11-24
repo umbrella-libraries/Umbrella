@@ -82,6 +82,7 @@ public abstract class UmbrellaApiController : ControllerBase
 		OperationResultStatus.Conflict => Conflict(operationResult.PrimaryValidationMessage ?? "Conflict"),
 		OperationResultStatus.Forbidden => Forbidden(operationResult.PrimaryValidationMessage ?? "Forbidden"),
 		OperationResultStatus.NoContent => NoContent(),
+		OperationResultStatus.NotAllowed => MethodNotAllowed(operationResult.PrimaryValidationMessage ?? "Method Not Allowed"),
 		OperationResultStatus.InvalidOperation when operationResult.ValidationResults is { Count: > 0 } => ValidationProblem(operationResult.ValidationResults.ToModelStateDictionary()),
 		OperationResultStatus.InvalidOperation => BadRequest(operationResult.PrimaryValidationMessage ?? "Invalid Operation"),
 		OperationResultStatus.Created => Created(),
@@ -116,7 +117,7 @@ public abstract class UmbrellaApiController : ControllerBase
 	{
 		Guard.IsNotNull(exception);
 
-		switch(exception.Status)
+		switch (exception.Status)
 		{
 			case OperationResultStatus.GenericFailure when exception.ValidationResults is not { Count: > 0 }:
 				_ = Logger.WriteError(state: new { exception.Status }, message: exception.Message);

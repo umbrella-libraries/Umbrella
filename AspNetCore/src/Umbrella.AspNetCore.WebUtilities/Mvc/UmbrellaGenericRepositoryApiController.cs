@@ -1,8 +1,8 @@
 ﻿// Copyright (c) Zinofi Digital Ltd. All Rights Reserved.
 // Licensed under the MIT License.
 
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Umbrella.DataAccess.Abstractions;
@@ -12,7 +12,6 @@ using Umbrella.Utilities.Data.Pagination;
 using Umbrella.Utilities.Data.Sorting;
 using Umbrella.Utilities.Mapping.Abstractions;
 using Umbrella.Utilities.Primitives.Abstractions;
-using Umbrella.Utilities.Threading.Abstractions;
 
 namespace Umbrella.AspNetCore.WebUtilities.Mvc;
 
@@ -37,6 +36,9 @@ namespace Umbrella.AspNetCore.WebUtilities.Mvc;
 /// <typeparam name="TRepositoryOptions">The type of the repository options.</typeparam>
 /// <typeparam name="TEntityKey">The type of the entity key.</typeparam>
 /// <seealso cref="UmbrellaDataAccessApiController" />
+[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+[UmbrellaProducesResponseType(StatusCodes.Status500InternalServerError)]
 public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPaginatedResultModel, TModel, TCreateModel, TCreateResultModel, TUpdateModel, TUpdateResultModel, TRepository, TEntity, TRepositoryOptions, TEntityKey> : UmbrellaDataAccessApiController
 	where TPaginatedResultModel : PaginatedResultModel<TSlimModel>, new()
 	where TCreateResultModel : ICreateResultModel<TEntityKey>, new()
@@ -388,20 +390,14 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// <param name="hostingEnvironment">The hosting environment.</param>
 	/// <param name="mapper">The mapper.</param>
 	/// <param name="repository">The repository.</param>
-	/// <param name="authorizationService">The authorization service.</param>
-	/// <param name="synchronizationManager">The synchronization manager.</param>
-	/// <param name="dataAccessUnitOfWork">The data access unit of work.</param>
 	/// <param name="dataAccessService">The data access service.</param>
 	protected UmbrellaGenericRepositoryApiController(
 		ILogger logger,
 		IWebHostEnvironment hostingEnvironment,
 		IUmbrellaMapper mapper,
 		Lazy<TRepository> repository,
-		IAuthorizationService authorizationService,
-		ISynchronizationManager synchronizationManager,
-		Lazy<IDataAccessUnitOfWork> dataAccessUnitOfWork,
 		IUmbrellaRepositoryCoreDataService dataAccessService)
-		: base(logger, hostingEnvironment, mapper, authorizationService, synchronizationManager, dataAccessUnitOfWork, dataAccessService)
+		: base(logger, hostingEnvironment, mapper, dataAccessService)
 	{
 		Repository = repository;
 	}
@@ -427,6 +423,11 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// </remarks>
 	/// <seealso cref="UmbrellaDataAccessApiController.ReadAllAsync"/>
 	[HttpGet("SearchSlim")]
+	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
+	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
 	public virtual Task<IActionResult> SearchSlimAsync(int pageNumber, int pageSize, [FromQuery] SortExpression<TEntity>[]? sorters = null, [FromQuery] FilterExpression<TEntity>[]? filters = null, FilterExpressionCombinator? filterCombinator = null, CancellationToken cancellationToken = default)
 		=> SlimReadEndpointEnabled
 		? ReadAllAsync<TEntity, TEntity, TEntityKey, TRepositoryOptions, TSlimModel, TPaginatedResultModel>(
@@ -462,6 +463,12 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// </remarks>
 	/// <seealso cref="UmbrellaDataAccessApiController.ReadAsync"/>
 	[HttpGet]
+	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
+	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
+	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
 	public virtual Task<IActionResult> GetAsync(TEntityKey id, CancellationToken cancellationToken = default)
 		=> ReadEndpointEnabled
 		? ReadAsync<TEntity, TEntityKey, TRepository, TRepositoryOptions, TModel>(
@@ -496,6 +503,13 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// </remarks>
 	/// <seealso cref="UmbrellaDataAccessApiController.CreateAsync"/>
 	[HttpPost]
+	[UmbrellaProducesResponseType(StatusCodes.Status201Created)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
+	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
+	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
+	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
 	public virtual Task<IActionResult> PostAsync(TCreateModel model, CancellationToken cancellationToken = default)
 		=> CreateEndpointEnabled
 		? CreateAsync<TEntity, TEntityKey, TRepository, TRepositoryOptions, TCreateModel, TCreateResultModel>(
@@ -531,6 +545,14 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// </remarks>
 	/// <seealso cref="UmbrellaDataAccessApiController.UpdateAsync"/>
 	[HttpPut]
+	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
+	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
+	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
+	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
+	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
 	public virtual Task<IActionResult> PutAsync(TUpdateModel model, CancellationToken cancellationToken = default)
 		=> UpdateEndpointEnabled
 		? UpdateAsync<TEntity, TEntityKey, TRepository, TRepositoryOptions, TUpdateModel, TUpdateResultModel>(
@@ -566,6 +588,13 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// </remarks>
 	/// <seealso cref="UmbrellaDataAccessApiController.DeleteAsync"/>
 	[HttpDelete]
+	[UmbrellaProducesResponseType(StatusCodes.Status204NoContent)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
+	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
+	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
+	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
 	public virtual Task<IActionResult> DeleteAsync(TEntityKey id, CancellationToken cancellationToken = default)
 		=> DeleteEndpointEnabled
 		? DeleteAsync(
@@ -581,22 +610,22 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 			DeleteLock)
 		: Task.FromResult<IActionResult>(MethodNotAllowed("Unsupported Endpoint"));
 
-    /// <summary>
-    /// Loads the paginated results from the <typeparamref name="TRepository"/> using the specified parameters. This method is called internally by the <c>SearchSlim</c> method.
-    /// </summary>
+	/// <summary>
+	/// Loads the paginated results from the <typeparamref name="TRepository"/> using the specified parameters. This method is called internally by the <c>SearchSlim</c> method.
+	/// </summary>
 	/// <remarks>
 	/// This calls the <c>FindAllAsync</c> method on the <typeparamref name="TRepository"/> by default. Override this method to change this behaviour.
 	/// </remarks>
-    /// <param name="pageNumber">The page number.</param>
-    /// <param name="pageSize">Size of the page.</param>
-    /// <param name="sorters">The sorters.</param>
-    /// <param name="filters">The filters.</param>
-    /// <param name="filterCombinator">The filter combinator.</param>
-    /// <param name="options">The options.</param>
-    /// <param name="childOptions">The child options.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The paginated collection of entities from the <typeparamref name="TRepository"/>.</returns>
-    protected virtual Task<PaginatedResultModel<TEntity>> LoadSearchSlimDataAsync(int pageNumber, int pageSize, SortExpression<TEntity>[]? sorters, FilterExpression<TEntity>[]? filters, FilterExpressionCombinator? filterCombinator, TRepositoryOptions? options, IEnumerable<RepoOptions>? childOptions, CancellationToken cancellationToken) => Repository.Value.FindAllAsync(pageNumber, pageSize, false, SearchSlimIncludeMap, sorters, filters, filterCombinator ?? FilterExpressionCombinator.And, options, childOptions, cancellationToken: cancellationToken);
+	/// <param name="pageNumber">The page number.</param>
+	/// <param name="pageSize">Size of the page.</param>
+	/// <param name="sorters">The sorters.</param>
+	/// <param name="filters">The filters.</param>
+	/// <param name="filterCombinator">The filter combinator.</param>
+	/// <param name="options">The options.</param>
+	/// <param name="childOptions">The child options.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The paginated collection of entities from the <typeparamref name="TRepository"/>.</returns>
+	protected virtual Task<PaginatedResultModel<TEntity>> LoadSearchSlimDataAsync(int pageNumber, int pageSize, SortExpression<TEntity>[]? sorters, FilterExpression<TEntity>[]? filters, FilterExpressionCombinator? filterCombinator, TRepositoryOptions? options, IEnumerable<RepoOptions>? childOptions, CancellationToken cancellationToken) => Repository.Value.FindAllAsync(pageNumber, pageSize, false, SearchSlimIncludeMap, sorters, filters, filterCombinator ?? FilterExpressionCombinator.And, options, childOptions, cancellationToken: cancellationToken);
 
 	/// <summary>
 	/// Loads the entity with the specified <paramref name="id"/> from the <typeparamref name="TRepository"/> using the specified parameters.
@@ -705,42 +734,42 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// <returns>An optional <see cref="IOperationResult"/> that can be used to an error result if there is a problem. By default, this should return <see langword="null"/> if processing is successful.</returns>
 	protected virtual Task<IOperationResult?> BeforeDeleteEntityAsync(TEntity entity, CancellationToken cancellationToken) => Task.FromResult<IOperationResult?>(null);
 
-    /// <summary>
-    /// This is called by the <c>Post</c> endpoint after the <typeparamref name="TCreateModel"/> has been mapped to a new instance of <typeparamref name="TEntity"/>,
+	/// <summary>
+	/// This is called by the <c>Post</c> endpoint after the <typeparamref name="TCreateModel"/> has been mapped to a new instance of <typeparamref name="TEntity"/>,
 	/// saved to the database and the <typeparamref name="TCreateResultModel"/> has been created.
-    /// </summary>
+	/// </summary>
 	/// <remarks>
 	/// By default, this does nothing. Override this method to add custom behaviour and augment the output models.
 	/// </remarks>
-    /// <param name="entity">The entity.</param>
-    /// <param name="model">The model.</param>
-    /// <param name="result">The result.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>An Task that completes when the operation has completed.</returns>
-    protected virtual Task AfterCreateEntityAsync(TEntity entity, TCreateModel model, TCreateResultModel result, CancellationToken cancellationToken) => Task.CompletedTask;
+	/// <param name="entity">The entity.</param>
+	/// <param name="model">The model.</param>
+	/// <param name="result">The result.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>An Task that completes when the operation has completed.</returns>
+	protected virtual Task AfterCreateEntityAsync(TEntity entity, TCreateModel model, TCreateResultModel result, CancellationToken cancellationToken) => Task.CompletedTask;
 
-    /// <summary>
-    /// This is called by the <c>Put</c> endpoint after the <typeparamref name="TUpdateModel"/> has been mapped to an existing instance of <typeparamref name="TEntity"/>,
+	/// <summary>
+	/// This is called by the <c>Put</c> endpoint after the <typeparamref name="TUpdateModel"/> has been mapped to an existing instance of <typeparamref name="TEntity"/>,
 	/// saved to the database and the <typeparamref name="TUpdateResultModel"/> has been created.
-    /// </summary>
+	/// </summary>
 	/// <remarks>
 	/// By default, this does nothing. Override this method to add custom behaviour and augment the output models.
 	/// </remarks>
-    /// <param name="entity">The entity.</param>
-    /// <param name="model">The model.</param>
-    /// <param name="result">The result.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>An Task that completes when the operation has completed.</returns>
-    protected virtual Task AfterUpdateEntityAsync(TEntity entity, TUpdateModel model, TUpdateResultModel result, CancellationToken cancellationToken) => Task.CompletedTask;
+	/// <param name="entity">The entity.</param>
+	/// <param name="model">The model.</param>
+	/// <param name="result">The result.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>An Task that completes when the operation has completed.</returns>
+	protected virtual Task AfterUpdateEntityAsync(TEntity entity, TUpdateModel model, TUpdateResultModel result, CancellationToken cancellationToken) => Task.CompletedTask;
 
-    /// <summary>
-    /// This is called by the <c>Delete</c> endpoint after the <typeparamref name="TEntity"/> has been deleted from the <typeparamref name="TRepository"/>.
-    /// </summary>
+	/// <summary>
+	/// This is called by the <c>Delete</c> endpoint after the <typeparamref name="TEntity"/> has been deleted from the <typeparamref name="TRepository"/>.
+	/// </summary>
 	/// <remarks>
 	/// By default, this does nothing. Override this method to add custom behaviour and augment the output models.
 	/// </remarks>
-    /// <param name="entity">The entity.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>An Task that completes when the operation has completed.</returns>
-    protected virtual Task AfterDeleteEntityAsync(TEntity entity, CancellationToken cancellationToken) => Task.CompletedTask;
+	/// <param name="entity">The entity.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>An Task that completes when the operation has completed.</returns>
+	protected virtual Task AfterDeleteEntityAsync(TEntity entity, CancellationToken cancellationToken) => Task.CompletedTask;
 }

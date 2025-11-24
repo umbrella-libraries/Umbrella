@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Umbrella.DataAccess.Abstractions;
@@ -93,6 +94,11 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TItem, T
 	/// Please see this for further details regarding behaviour.
 	/// </remarks>
 	[HttpGet("SearchSlim")]
+	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
+	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
 	public virtual async Task<IActionResult> SearchSlimAsync(int pageNumber, int pageSize, [FromQuery] IEnumerable<SortExpressionDescriptor>? sorters = null, [FromQuery] IEnumerable<FilterExpressionDescriptor>? filters = null, FilterExpressionCombinator? filterCombinator = null, CancellationToken cancellationToken = default)
 	{
 		try
@@ -123,6 +129,12 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TItem, T
 	/// Please see this for further details regarding behaviour.
 	/// </remarks>
 	[HttpGet]
+	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
+	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
+	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
 	public virtual async Task<IActionResult> GetAsync(TEntityKey id, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -156,6 +168,13 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TItem, T
 	/// </remarks>
 	/// <seealso cref="UmbrellaDataAccessApiController.CreateAsync"/>
 	[HttpPost]
+	[UmbrellaProducesResponseType(StatusCodes.Status201Created)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
+	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
+	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
+	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
 	public virtual async Task<IActionResult> PostAsync(TCreateItem model, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -189,6 +208,14 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TItem, T
 	/// </remarks>
 	/// <seealso cref="UmbrellaDataAccessApiController.UpdateAsync"/>
 	[HttpPut]
+	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
+	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
+	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
+	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
+	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
 	public virtual async Task<IActionResult> PutAsync(TUpdateItem model, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -221,6 +248,13 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TItem, T
 	/// </remarks>
 	/// <seealso cref="UmbrellaDataAccessApiController.DeleteAsync"/>
 	[HttpDelete]
+	[UmbrellaProducesResponseType(StatusCodes.Status204NoContent)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
+	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
+	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
+	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
 	public virtual async Task<IActionResult> DeleteAsync(TEntityKey id, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -244,6 +278,10 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TItem, T
 	/// <param name="cancellationToken">A cancellation token that can be used to cancel the operation.</param>
 	/// <returns>An <see cref="IActionResult"/> containing a boolean value indicating whether the entity exists. The result is <see langword="true"/> if the entity exists; otherwise, <see langword="false"/>.</returns>
 	[HttpGet("ExistsById")]
+	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
+	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
 	public virtual async Task<IActionResult> ExistsByIdAsync(TEntityKey id, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -266,6 +304,10 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TItem, T
 	/// <param name="cancellationToken">A cancellation token that can be used to cancel the operation.</param>
 	/// <returns>An <see cref="IActionResult"/> containing the total count of resources if successful; otherwise, an error response.</returns>
 	[HttpGet("TotalCount")]
+	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
+	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
 	public virtual async Task<IActionResult> TotalCountAsync(CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();

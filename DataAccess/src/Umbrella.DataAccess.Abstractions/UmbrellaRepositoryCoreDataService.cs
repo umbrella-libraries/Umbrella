@@ -319,7 +319,9 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 			}
 
 			IOperationResult<TEntity> saveResult = await repository.Value.SaveEntityAsync(entity, repoOptions: options, childOptions: childOptions, cancellationToken: cancellationToken).ConfigureAwait(false);
-			await DataAccessUnitOfWork.Value.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+			if (Options.DataAccessUnitOfWorkExclusionFilter?.Invoke(entity) is not true)
+				await DataAccessUnitOfWork.Value.CommitAsync(cancellationToken).ConfigureAwait(false);
 
 			if (saveResult.Status is OperationResultStatus.GenericSuccess)
 			{
@@ -446,7 +448,9 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 			}
 
 			IOperationResult<TEntity> saveResult = await repository.Value.SaveEntityAsync(entity, repoOptions: options, childOptions: childOptions, cancellationToken: cancellationToken).ConfigureAwait(false);
-			await DataAccessUnitOfWork.Value.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+			if (Options.DataAccessUnitOfWorkExclusionFilter?.Invoke(entity) is not true)
+				await DataAccessUnitOfWork.Value.CommitAsync(cancellationToken).ConfigureAwait(false);
 
 			if (saveResult.Status is OperationResultStatus.GenericSuccess)
 			{
@@ -552,7 +556,10 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 				return result;
 
 			await repository.Value.DeleteEntityAsync(entity, repoOptions: options, childOptions: childOptions, cancellationToken: cancellationToken).ConfigureAwait(false);
-			await DataAccessUnitOfWork.Value.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+			if (Options.DataAccessUnitOfWorkExclusionFilter?.Invoke(entity) is not true)
+				await DataAccessUnitOfWork.Value.CommitAsync(cancellationToken).ConfigureAwait(false);
+
 			await afterDeleteEntityAsyncCallback(entity, cancellationToken).ConfigureAwait(false);
 
 			return OperationResult.NoContent();

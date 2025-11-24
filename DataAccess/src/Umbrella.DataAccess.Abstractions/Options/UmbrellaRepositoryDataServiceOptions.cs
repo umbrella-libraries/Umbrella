@@ -110,6 +110,15 @@ public class UmbrellaRepositoryDataServiceOptions : ISanitizableUmbrellaOptions,
 	/// </summary>
 	public string DeletePolicyName { get; set; } = CorePolicyNames.Delete;
 
+	/// <summary>
+	/// Gets or sets a predicate used to determine whether a given object should be excluded from unit of work operations
+	/// in data access scenarios.
+	/// </summary>
+	/// <remarks>If set, the filter is invoked for each object to evaluate whether it should be excluded. Objects
+	/// for which the filter returns <see langword="true"/> will not participate in unit of work processing. If the filter
+	/// is <see langword="null"/>, no objects are excluded by this mechanism.</remarks>
+	public Func<object, bool>? DataAccessUnitOfWorkExclusionFilter { get; set; }
+
 	/// <inheritdoc />
 	public void Sanitize()
 	{

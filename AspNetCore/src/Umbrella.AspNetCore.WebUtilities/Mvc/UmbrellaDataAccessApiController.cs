@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using CommunityToolkit.Diagnostics;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -13,7 +12,6 @@ using Umbrella.Utilities.Data.Pagination;
 using Umbrella.Utilities.Data.Sorting;
 using Umbrella.Utilities.Mapping.Abstractions;
 using Umbrella.Utilities.Primitives.Abstractions;
-using Umbrella.Utilities.Threading.Abstractions;
 
 namespace Umbrella.AspNetCore.WebUtilities.Mvc;
 
@@ -48,21 +46,6 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 	protected IUmbrellaMapper Mapper { get; }
 
 	/// <summary>
-	/// Gets the authorization service.
-	/// </summary>
-	protected IAuthorizationService AuthorizationService { get; }
-
-	/// <summary>
-	/// Gets the synchronization manager.
-	/// </summary>
-	protected ISynchronizationManager SynchronizationManager { get; }
-
-	/// <summary>
-	/// Gets the data access unit of work.
-	/// </summary>
-	protected Lazy<IDataAccessUnitOfWork> DataAccessUnitOfWork { get; }
-
-	/// <summary>
 	/// Gets the data access service used for database operations.
 	/// </summary>
 	protected IUmbrellaRepositoryCoreDataService DataAccessService { get; }
@@ -73,24 +56,15 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 	/// <param name="logger">The logger.</param>
 	/// <param name="hostingEnvironment">The hosting environment.</param>
 	/// <param name="mapper">The mapper.</param>
-	/// <param name="authorizationService">The authorization service.</param>
-	/// <param name="synchronizationManager">The synchronization manager.</param>
-	/// <param name="dataAccessUnitOfWork">The data access unit of work.</param>
 	/// <param name="dataAccessService">The data access service.</param>
 	protected UmbrellaDataAccessApiController(
 		ILogger logger,
 		IWebHostEnvironment hostingEnvironment,
 		IUmbrellaMapper mapper,
-		IAuthorizationService authorizationService,
-		ISynchronizationManager synchronizationManager,
-		Lazy<IDataAccessUnitOfWork> dataAccessUnitOfWork,
 		IUmbrellaRepositoryCoreDataService dataAccessService)
 		: base(logger, hostingEnvironment)
 	{
 		Mapper = mapper;
-		AuthorizationService = authorizationService;
-		SynchronizationManager = synchronizationManager;
-		DataAccessUnitOfWork = dataAccessUnitOfWork;
 		DataAccessService = dataAccessService;
 	}
 

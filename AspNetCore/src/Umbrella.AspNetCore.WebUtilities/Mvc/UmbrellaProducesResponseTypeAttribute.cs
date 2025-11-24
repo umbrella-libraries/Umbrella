@@ -5,6 +5,7 @@ namespace Umbrella.AspNetCore.WebUtilities.Mvc;
 /// <summary>
 /// An attribute that specifies the response type for a controller action.
 /// </summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
 public sealed class UmbrellaProducesResponseTypeAttribute : ProducesResponseTypeAttribute
 {
 	/// <summary>
