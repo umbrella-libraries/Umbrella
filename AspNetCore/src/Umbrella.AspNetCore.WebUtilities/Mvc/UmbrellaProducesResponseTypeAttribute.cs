@@ -65,6 +65,7 @@ public sealed class UmbrellaProducesResponseTypeAttribute : ProducesResponseType
 /// responses. The attribute can be applied multiple times to document different status codes or content types for a
 /// single action.</remarks>
 /// <typeparam name="T">The type of the response returned by the action.</typeparam>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
 public sealed class UmbrellaProducesResponseTypeAttribute<T> : ProducesResponseTypeAttribute<T>
 {
 	/// <summary>
