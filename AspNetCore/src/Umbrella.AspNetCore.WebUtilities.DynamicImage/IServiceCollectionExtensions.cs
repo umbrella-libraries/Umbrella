@@ -17,12 +17,15 @@ public static class IServiceCollectionExtensions
 	/// Adds the <see cref="Umbrella.AspNetCore.WebUtilities.DynamicImage"/> services to the specified <see cref="IServiceCollection"/> dependency injection container builder.
 	/// </summary>
 	/// <param name="services">The services dependency injection container builder to which the services will be added.</param>
+	/// <param name="dynamicImageTagHelperOptionsBuilder">The dynamic image tag helper options builder.</param>
 	/// <returns>The <see cref="IServiceCollection"/> dependency injection container builder.</returns>
-	public static IServiceCollection AddUmbrellaAspNetCoreWebUtilitiesDynamicImage(this IServiceCollection services)
+	public static IServiceCollection AddUmbrellaAspNetCoreWebUtilitiesDynamicImage(
+		this IServiceCollection services,
+		Action<IServiceProvider, DynamicImageTagHelperOptions>? dynamicImageTagHelperOptionsBuilder = null)
 	{
 		Guard.IsNotNull(services, nameof(services));
 
-		_ = services.AddSingleton<DynamicImageTagHelperOptions>();
+		_ = services.ConfigureUmbrellaOptions(dynamicImageTagHelperOptionsBuilder);
 
 		return services;
 	}

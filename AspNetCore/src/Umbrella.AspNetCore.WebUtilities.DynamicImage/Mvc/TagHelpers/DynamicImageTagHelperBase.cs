@@ -176,8 +176,6 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 		if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
 			return url;
 
-		url = StripUrlPrefix(url);
-
 		return base.ResolveImageUrl(url);
 	}
 
@@ -194,9 +192,17 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	}
 
 	/// <summary>
-	/// Strips the URL prefix from the provided URL if a strip prefix is configured in the options.
+	/// Removes the configured prefix from the specified URL if it is present.
 	/// </summary>
-	/// <param name="url">The URL to strip the prefix from.</param>
-	/// <returns>The URL without the prefix.</returns>
-	protected string StripUrlPrefix(string url) => !string.IsNullOrEmpty(DynamicImageTagHelperOptions.StripPrefix) ? url[DynamicImageTagHelperOptions.StripPrefix.Length..] : url;
+	/// <remarks>The prefix to remove is specified by the <see cref="DynamicImageTagHelperOptions.StripPrefix"/> property. The comparison is
+	/// case-insensitive. If the prefix is not set or not present at the start of the URL, the original URL is returned
+	/// unchanged.</remarks>
+	/// <param name="url">The URL string from which to remove the prefix. Cannot be null or empty.</param>
+	/// <returns>A string containing the URL with the prefix removed if it was present; otherwise, the original URL.</returns>
+	protected string StripUrlPrefix(string url)
+	{
+		Guard.IsNotNullOrEmpty(url);
+
+		return !string.IsNullOrEmpty(DynamicImageTagHelperOptions.StripPrefix) && url.StartsWith(DynamicImageTagHelperOptions.StripPrefix, StringComparison.OrdinalIgnoreCase) ? url[DynamicImageTagHelperOptions.StripPrefix.Length..] : url;
+	}
 }
