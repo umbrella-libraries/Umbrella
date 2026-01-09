@@ -3,6 +3,7 @@
 
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using CommunityToolkit.Diagnostics;
 using Umbrella.Utilities.Constants;
 
 namespace Umbrella.FileSystem.AzureStorage.Extensions;
@@ -17,20 +18,29 @@ public static class BlobContainerClientExtensions
 	/// </summary>
 	/// <param name="container">The container.</param>
 	/// <param name="directoryName">Name of the directory.</param>
-	/// <param name="topLevelOnly">Specifies whether to get the top level only or to get all blobs in nested folders.</param>
+	/// <param name="topLevelOnly">
+	/// Specifies whether to get the top level only or to get all blobs in nested folders.
+	/// </param>
 	/// <param name="directorySeparator">The directory separator.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>A list of all blobs inside the directory.</returns>
 	public static async Task<List<BlobClient>> GetBlobsByDirectoryAsync(this BlobContainerClient container, string directoryName, bool topLevelOnly = true, char directorySeparator = '/', CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		Guard.IsNotNull(container);
 
 		string? prefix = !string.IsNullOrWhiteSpace(directoryName) ? CleanDirectoryName(directoryName, directorySeparator) : null;
 
 		var lstBlob = new List<BlobClient>();
 		var lstItem = new List<BlobItem>();
 
-		await foreach (BlobHierarchyItem item in container.GetBlobsByHierarchyAsync(delimiter: directorySeparator.ToString(), prefix: prefix, cancellationToken: cancellationToken))
+		var options = new GetBlobsByHierarchyOptions
+		{
+			Delimiter = directorySeparator.ToString(),
+			Prefix = prefix
+		};
+
+		await foreach (BlobHierarchyItem item in container.GetBlobsByHierarchyAsync(options, cancellationToken))
 		{
 			if (!item.IsBlob)
 			{
@@ -56,7 +66,7 @@ public static class BlobContainerClientExtensions
 
 		Span<char> directoryNameSpan = length <= StackAllocConstants.MaxCharSize ? stackalloc char[length] : new char[length];
 		directoryNameReadOnlySpan.CopyTo(directoryNameSpan);
-		directoryNameSpan[directoryNameSpan.Length - 1] = directorySeparator;
+		directoryNameSpan[^1] = directorySeparator;
 
 		return directoryNameSpan.ToString();
 	}

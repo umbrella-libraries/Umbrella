@@ -43,6 +43,10 @@
 		<DebugType>embedded</DebugType>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(TargetFramework)'=='netstandard2.0' Or '$(TargetFramework)'=='net461'">
+		<NoWarn>CA1062</NoWarn>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<Using Include="System" />
 		<Using Include="System.Collections.Generic" />
