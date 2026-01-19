@@ -253,7 +253,7 @@ public abstract class GenericDbRepository<TEntity, TDbContext, TRepoOptions, TEn
 			if (pushChangesToDb)
 				_ = await Context.Value.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-			return OperationResult<TEntity>.Success(entity);
+			return isNew ? OperationResult<TEntity>.Created(entity) : OperationResult<TEntity>.Success(entity);
 		}
 		catch (DbUpdateConcurrencyException exc) when (Logger.WriteError(exc, new { entity.Id, pushChangesToDb, addToContext, repoOptions, childOptions }, "Concurrency Exception for Id"))
 		{

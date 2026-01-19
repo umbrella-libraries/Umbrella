@@ -323,7 +323,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 			if (Options.DataAccessUnitOfWorkExclusionFilter?.Invoke(entity) is not true)
 				await DataAccessUnitOfWork.Value.CommitAsync(cancellationToken).ConfigureAwait(false);
 
-			if (saveResult.Status is OperationResultStatus.GenericSuccess)
+			if (saveResult.Status is OperationResultStatus.Created)
 			{
 				TResultModel? result = default;
 
