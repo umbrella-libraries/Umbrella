@@ -21,9 +21,14 @@ public static class ExpressionExtensions
 	/// Gets the name of the member specified in the supplied expression.
 	/// </summary>
 	/// <param name="expression">The expression.</param>
-	/// <param name="throwException">if set to <see langword="true"/>, an exception will be thrown when the member name cannot be determined instead of returning null.</param>
+	/// <param name="throwException">
+	/// if set to <see langword="true"/> , an exception will be thrown when the member name cannot be determined instead of
+	/// returning null.
+	/// </param>
 	/// <returns>The member name.</returns>
-	/// <exception cref="Exception">The body of the expression must be either a {nameof(MemberExpression)} or a {nameof(UnaryExpression)}.</exception>
+	/// <exception cref="Exception">
+	/// The body of the expression must be either a {nameof(MemberExpression)} or a {nameof(UnaryExpression)}.
+	/// </exception>
 	public static string? GetMemberName(this LambdaExpression expression, bool throwException = true)
 	{
 		Guard.IsNotNull(expression);
@@ -40,11 +45,14 @@ public static class ExpressionExtensions
 	}
 
 	/// <summary>
-	/// Gets the full path of the member specified in the supplied expression, e.g. it will transform Parent -> Child -> Name into Parent.Child.Name.
+	/// Gets the full path of the member specified in the supplied expression, e.g. it will transform Parent -> Child ->
+	/// Name into Parent.Child.Name.
 	/// </summary>
 	/// <param name="lambdaExpression">The expression.</param>
 	/// <returns>The member path.</returns>
-	/// <exception cref="Exception">The body of the expression must be either a {nameof(MemberExpression)} or a {nameof(UnaryExpression)}.</exception>
+	/// <exception cref="Exception">
+	/// The body of the expression must be either a {nameof(MemberExpression)} or a {nameof(UnaryExpression)}.
+	/// </exception>
 	public static string GetMemberPath(this LambdaExpression lambdaExpression)
 	{
 		Guard.IsNotNull(lambdaExpression, nameof(lambdaExpression));
@@ -120,8 +128,8 @@ public static class ExpressionExtensions
 	/// <returns>A single combined predicate expression.</returns>
 	public static Expression<Func<TSource, bool>> CombineOr<TSource>(this Expression<Func<TSource, bool>> left, Expression<Func<TSource, bool>> right)
 	{
-		Guard.IsNotNull(left, nameof(left));
-		Guard.IsNotNull(right, nameof(right));
+		Guard.IsNotNull(left);
+		Guard.IsNotNull(right);
 
 		var l = left.Parameters[0];
 		var r = right.Parameters[0];
@@ -133,17 +141,16 @@ public static class ExpressionExtensions
 	}
 
 	/// <summary>
-	/// Gets the display text for the given expression by trying the following in order:
-	/// <list type="bullet">
-	/// <item>Use a <see cref="DisplayAttribute"/>.</item>
-	/// <item>Use a <see cref="DisplayNameAttribute"/>.</item>
-	/// <item>Use Humanizer to convert the member name to a friendly string using <see cref="LetterCasing.Title"/>.</item>
-	/// </list>
+	/// Gets the display text for the given expression by trying the following in order: <list type="bullet"> <item> Use a
+	/// <see cref="DisplayAttribute"/> .</item> <item> Use a <see cref="DisplayNameAttribute"/> .</item> <item> Use
+	/// Humanizer to convert the member name to a friendly string using <see cref="LetterCasing.Title"/> .</item> </list>
 	/// </summary>
 	/// <param name="expression">The expression.</param>
 	/// <returns>The display name according to the specified rules.</returns>
 	public static string? GetDisplayText(this LambdaExpression expression)
 	{
+		Guard.IsNotNull(expression);
+
 		MemberExpression? memberExpression = GetMemberExpression(expression);
 
 		return memberExpression?.Member.GetDisplayText();
@@ -151,20 +158,39 @@ public static class ExpressionExtensions
 
 	/// <summary>
 	/// Gets the short display text for the given expression by trying to read the <see cref="DisplayAttribute.ShortName"/>
-	/// property of a <see cref="DisplayAttribute"/> that has been applied to the member specified using the given expression.
+	/// property of a <see cref="DisplayAttribute"/> that has been applied to the member specified using the given
+	/// expression.
 	/// </summary>
 	/// <param name="expression">The expression.</param>
 	/// <returns>The short display name if it has a value; otherwise <see langword="null"/>.</returns>
 	public static string? GetShortNameDisplayText(this LambdaExpression expression)
 	{
+		Guard.IsNotNull(expression);
+
 		MemberExpression? memberExpression = GetMemberExpression(expression);
 
 		return memberExpression?.Member.GetShortDisplayText();
 	}
 
 	/// <summary>
+	/// Gets the display description for the given expression by trying the following in order: <list type="bullet"> <item>
+	/// Use a <see cref="DisplayAttribute"/> .</item> <item> Use a <see cref="DescriptionAttribute"/> .</item> </list>
+	/// </summary>
+	/// <param name="expression">The expression.</param>
+	/// <returns>The display description if it has a value; otherwise <see langword="null"/>.</returns>
+	public static string? GetDisplayDescriptionText(this LambdaExpression expression)
+	{
+		Guard.IsNotNull(expression);
+
+		MemberExpression? memberExpression = GetMemberExpression(expression);
+		
+		return memberExpression?.Member.GetDisplayDescriptionText();
+	}
+
+	/// <summary>
 	/// Gets the member path for the given expression by trying to read the <see cref="UmbrellaMemberPathAttribute.Value"/>
-	/// property of a <see cref="UmbrellaMemberPathAttribute"/> that has been applied to the member specified using the given expression.
+	/// property of a <see cref="UmbrellaMemberPathAttribute"/> that has been applied to the member specified using the
+	/// given expression.
 	/// </summary>
 	/// <param name="expression">The expression.</param>
 	/// <returns>The member path if it has a value; otherwise <see langword="null"/>.</returns>

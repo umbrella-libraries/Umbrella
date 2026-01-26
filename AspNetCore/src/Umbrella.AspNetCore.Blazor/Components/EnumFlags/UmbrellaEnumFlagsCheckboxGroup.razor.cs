@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components.Forms;
+﻿using CommunityToolkit.Diagnostics;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -9,8 +10,8 @@ using Umbrella.Utilities.Helpers;
 namespace Umbrella.AspNetCore.Blazor.Components.EnumFlags;
 
 /// <summary>
-/// A component that can be used to render all possible values of an enum that has been marked
-/// using the <see cref="FlagsAttribute"/>.
+/// A component that can be used to render all possible values of an enum that has been marked using the
+/// <see cref="FlagsAttribute"/> .
 /// </summary>
 /// <typeparam name="TEnum">The type of the enum for the options being rendered.</typeparam>
 /// <seealso cref="InputBase{TEnum}" />
@@ -28,8 +29,8 @@ public partial class UmbrellaEnumFlagsCheckboxGroup<TEnum> : InputBase<TEnum>
 	protected IReadOnlyCollection<UmbrellaEnumFlagsCheckboxGroupItem<TEnum>> Options { get; private set; } = Array.Empty<UmbrellaEnumFlagsCheckboxGroupItem<TEnum>>();
 
 	/// <summary>
-	/// Gets or sets a value indicating whether or not there should be an option at the top of the
-	/// rendered list of checkboxes that can be used to select or deselect all other options.
+	/// Gets or sets a value indicating whether or not there should be an option at the top of the rendered list of
+	/// checkboxes that can be used to select or deselect all other options.
 	/// </summary>
 	[Parameter]
 	public bool ShowAllOption { get; set; }
@@ -38,17 +39,23 @@ public partial class UmbrellaEnumFlagsCheckboxGroup<TEnum> : InputBase<TEnum>
 	/// Gets or sets the display name of 'All' option.
 	/// </summary>
 	/// <remarks>
-	/// Defaults to <c>All</c>
+	/// Defaults to <c> All</c>
 	/// </remarks>
 	[Parameter]
 	public string AllOptionDisplayName { get; set; } = "All";
 
 	/// <summary>
-	/// Gets or sets an optional callback that can be used to determine how the enum value
-	/// is displayed as a string in the UI.
+	/// Gets or sets an optional callback that can be used to determine how the enum value is displayed as a string in the
+	/// UI.
 	/// </summary>
 	[Parameter]
 	public Func<TEnum, string>? OptionDisplayNameSelector { get; set; }
+
+	/// <summary>
+	/// Gets or sets a value indicating whether or not descriptions should be shown for each option if they exist.
+	/// </summary>
+	[Parameter]
+	public bool ShowDescriptions { get; set; }
 
 	/// <inheritdoc />
 	protected override void OnInitialized()
@@ -64,12 +71,12 @@ public partial class UmbrellaEnumFlagsCheckboxGroup<TEnum> : InputBase<TEnum>
 
 		foreach (var value in lstValue)
 		{
-			lstOption.Add(new UmbrellaEnumFlagsCheckboxGroupItem<TEnum>(value, OptionDisplayNameSelector?.Invoke(value) ?? value.ToDisplayString(), CurrentValue.HasFlag(value), false));
+			lstOption.Add(new UmbrellaEnumFlagsCheckboxGroupItem<TEnum>(value, OptionDisplayNameSelector?.Invoke(value) ?? value.ToDisplayString(), value.ToDisplayDescriptionString(), CurrentValue.HasFlag(value), false));
 		}
 
 		if (ShowAllOption)
 		{
-			ShowAllOptionItem = new UmbrellaEnumFlagsCheckboxGroupItem<TEnum>(default!, AllOptionDisplayName, lstOption.All(x => x.IsSelected), true);
+			ShowAllOptionItem = new UmbrellaEnumFlagsCheckboxGroupItem<TEnum>(default!, AllOptionDisplayName, null, lstOption.All(x => x.IsSelected), true);
 
 			lstOption.Insert(0, ShowAllOptionItem);
 		}
@@ -83,6 +90,8 @@ public partial class UmbrellaEnumFlagsCheckboxGroup<TEnum> : InputBase<TEnum>
 	/// <param name="option">The option being selected or deselected.</param>
 	protected void OnOptionSelectionChanged(UmbrellaEnumFlagsCheckboxGroupItem<TEnum> option)
 	{
+		Guard.IsNotNull(option);
+
 		option.IsSelected = !option.IsSelected;
 
 		if (ShowAllOptionItem is not null && !option.IsAllOption)

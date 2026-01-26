@@ -9,7 +9,13 @@
             var option = Options.ElementAt(i);
 
             <li class="u-enum-flags__item">
-                <UmbrellaCheckbox Value="option.IsSelected" ValueExpression="() => option.IsSelected" ValueChanged="() => OnOptionSelectionChanged(option)" Text="@option.Text" />
+                <UmbrellaCheckbox Value="option.IsSelected" ValueExpression="() => option.IsSelected" ValueChanged="() => OnOptionSelectionChanged(option)">
+                    <span class="u-enum-flags__item-text">@option.Text</span>
+                    @if (ShowDescriptions && !string.IsNullOrEmpty(option.Description))
+                    {
+                        <span class="u-enum-flags__item-description">@option.Description</span>
+                    }
+                </UmbrellaCheckbox>
             </li>
         }
     </ul>

@@ -12,12 +12,16 @@ public sealed record UmbrellaEnumFlagsCheckboxGroupItem<TEnum>
 	/// </summary>
 	/// <param name="value">The value.</param>
 	/// <param name="text">The text.</param>
+	/// <param name="description">The optional description.</param>
 	/// <param name="isSelected">Specifies whether this item should be in a selected state.</param>
-	/// <param name="isAllOption">Specifies whether this item is the one that can be used to select or deselect all other items.</param>
-	public UmbrellaEnumFlagsCheckboxGroupItem(TEnum value, string text, bool isSelected, bool isAllOption)
+	/// <param name="isAllOption">
+	/// Specifies whether this item is the one that can be used to select or deselect all other items.
+	/// </param>
+	public UmbrellaEnumFlagsCheckboxGroupItem(TEnum value, string text, string? description, bool isSelected, bool isAllOption)
 	{
 		Value = value;
 		Text = text;
+		Description = description;
 		IsSelected = isSelected;
 		IsAllOption = isAllOption;
 	}
@@ -31,6 +35,11 @@ public sealed record UmbrellaEnumFlagsCheckboxGroupItem<TEnum>
 	/// Gets the text shown in the UI.
 	/// </summary>
 	public string Text { get; }
+
+	/// <summary>
+	/// Gets the description shown in the UI.
+	/// </summary>
+	public string? Description { get; }
 
 	/// <summary>
 	/// Gets or sets a value indicating whether this instance is selected.

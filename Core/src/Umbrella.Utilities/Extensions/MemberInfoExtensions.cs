@@ -16,12 +16,9 @@ namespace Umbrella.Utilities.Extensions;
 public static class MemberInfoExtensions
 {
 	/// <summary>
-	/// Gets the display text for the given member by trying the following in order:
-	/// <list type="bullet">
-	/// <item>Use a <see cref="DisplayAttribute"/>.</item>
-	/// <item>Use a <see cref="DisplayNameAttribute"/>.</item>
-	/// <item>Use Humanizer to convert the member name to a friendly string using <see cref="LetterCasing.Title"/>.</item>
-	/// </list>
+	/// Gets the display text for the given member by trying the following in order: <list type="bullet"> <item> Use a
+	/// <see cref="DisplayAttribute"/> .</item> <item> Use a <see cref="DisplayNameAttribute"/> .</item> <item> Use
+	/// Humanizer to convert the member name to a friendly string using <see cref="LetterCasing.Title"/> .</item> </list>
 	/// </summary>
 	/// <param name="memberInfo">The member.</param>
 	/// <returns>The display name according to the specified rules.</returns>
@@ -29,7 +26,7 @@ public static class MemberInfoExtensions
 	{
 		Guard.IsNotNull(memberInfo);
 
-		return memberInfo.GetCustomAttribute<DisplayAttribute>()?.Name
+		return memberInfo.GetCustomAttribute<DisplayAttribute>()?.GetName()
 			?? memberInfo.GetCustomAttribute<DisplayNameAttribute>()?.DisplayName
 			?? memberInfo.Name.Humanize(LetterCasing.Title);
 	}
@@ -44,7 +41,21 @@ public static class MemberInfoExtensions
 	{
 		Guard.IsNotNull(memberInfo);
 
-		return memberInfo.GetCustomAttribute<DisplayAttribute>()?.ShortName;
+		return memberInfo.GetCustomAttribute<DisplayAttribute>()?.GetShortName();
+	}
+
+	/// <summary>
+	/// Gets the display description for the given member by trying the following in order: <list type="bullet"> <item> Use
+	/// a <see cref="DisplayAttribute"/> .</item> <item> Use a <see cref="DescriptionAttribute"/> .</item> </list>
+	/// </summary>
+	/// <param name="memberInfo">The member information.</param>
+	/// <returns>The display description if it has a value; otherwise <see langword="null"/>.</returns>
+	public static string? GetDisplayDescriptionText(this MemberInfo memberInfo)
+	{
+		Guard.IsNotNull(memberInfo);
+
+		return memberInfo.GetCustomAttribute<DisplayAttribute>()?.GetDescription()
+			?? memberInfo.GetCustomAttribute<DescriptionAttribute>()?.Description;
 	}
 
 	/// <summary>
