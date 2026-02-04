@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Umbrella.AspNetCore.WebUtilities.Mvc;
@@ -20,11 +21,15 @@ public static class IMvcBuilderExtensions
 	/// Configures custom API behavior options for Umbrella, including a validation problem details response for invalid
 	/// model states.
 	/// </summary>
-	/// <remarks>This method customizes the response returned when model validation fails, returning a problem
-	/// details object with a status code of 400 or 422 depending on the model state. Use this method to ensure consistent
-	/// validation error responses across your API.</remarks>
+	/// <remarks>
+	/// This method customizes the response returned when model validation fails, returning a problem details object with a
+	/// status code of 400 or 422 depending on the model state. Use this method to ensure consistent validation error
+	/// responses across your API.
+	/// </remarks>
 	/// <param name="builder">The MVC builder to configure. Cannot be null.</param>
-	/// <returns>The same <see cref="IMvcBuilder"/> instance so that additional configuration calls can be chained.</returns>
+	/// <returns>
+	/// The same <see cref="IMvcBuilder"/> instance so that additional configuration calls can be chained.
+	/// </returns>
 	public static IMvcBuilder ConfigureUmbrellaApiBehaviorOptions(this IMvcBuilder builder)
 	{
 		Guard.IsNotNull(builder);
@@ -56,7 +61,9 @@ public static class IMvcBuilderExtensions
 	/// Configures Umbrella MVC options, including the insertion of Umbrella's custom model binders.
 	/// </summary>
 	/// <param name="builder">The MVC builder to configure. Cannot be null.</param>
-	/// <returns>The same <see cref="IMvcBuilder"/> instance so that additional configuration calls can be chained.</returns>
+	/// <returns>
+	/// The same <see cref="IMvcBuilder"/> instance so that additional configuration calls can be chained.
+	/// </returns>
 	public static IMvcBuilder ConfigureUmbrellaMvcOptions(this IMvcBuilder builder)
 	{
 		Guard.IsNotNull(builder);
@@ -74,7 +81,9 @@ public static class IMvcBuilderExtensions
 	/// </summary>
 	/// <param name="builder">The MVC builder to configure. Cannot be null.</param>
 	/// <param name="isDevelopment">Determines whether the application is running in a development environment.</param>
-	/// <returns>The same <see cref="IMvcBuilder"/> instance so that additional configuration calls can be chained.</returns>
+	/// <returns>
+	/// The same <see cref="IMvcBuilder"/> instance so that additional configuration calls can be chained.
+	/// </returns>
 	public static IMvcBuilder ConfigureUmbrellaJsonOptions(this IMvcBuilder builder, bool isDevelopment)
 	{
 		Guard.IsNotNull(builder);
@@ -83,6 +92,7 @@ public static class IMvcBuilderExtensions
 		{
 			options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
 			options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+			options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 			options.JsonSerializerOptions.WriteIndented = isDevelopment;
 		});
 
@@ -94,14 +104,14 @@ public static class IMvcBuilderExtensions
 	/// </summary>
 	/// <param name="builder">The MVC builder to configure. Cannot be null.</param>
 	/// <param name="isDevelopment">Determines whether the application is running in a development environment.</param>
-	/// <returns>The same <see cref="IMvcBuilder"/> instance so that additional configuration calls can be chained.</returns>
+	/// <returns>
+	/// The same <see cref="IMvcBuilder"/> instance so that additional configuration calls can be chained.
+	/// </returns>
 	/// <remarks>
-	/// Internally, this method calls:
-	/// <list type="bullet">
-	/// <item><see cref="ConfigureUmbrellaApiBehaviorOptions(IMvcBuilder)"/></item>
-	/// <item><see cref="ConfigureUmbrellaMvcOptions(IMvcBuilder)"/></item>
-	/// <item><see cref="ConfigureUmbrellaJsonOptions(IMvcBuilder, bool)"/></item>
-	/// </list>
+	/// Internally, this method calls: <list type="bullet"> <item>
+	/// <see cref="ConfigureUmbrellaApiBehaviorOptions(IMvcBuilder)"/> </item> <item>
+	/// <see cref="ConfigureUmbrellaMvcOptions(IMvcBuilder)"/> </item> <item>
+	/// <see cref="ConfigureUmbrellaJsonOptions(IMvcBuilder, bool)"/> </item> </list>
 	/// </remarks>
 	public static IMvcBuilder ConfigureUmbrellaMvcBuilderOptions(this IMvcBuilder builder, bool isDevelopment)
 	{
