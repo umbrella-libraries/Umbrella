@@ -1,6 +1,4 @@
 ﻿
-
-
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Devices;

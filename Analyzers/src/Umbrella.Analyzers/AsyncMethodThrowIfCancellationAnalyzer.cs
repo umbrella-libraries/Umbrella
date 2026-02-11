@@ -18,58 +18,58 @@ public class AsyncMethodThrowIfCancellationAnalyzer : DiagnosticAnalyzer
 	/// </summary>
 	public const string DiagnosticId = "UA004";
 
-    /// <summary>
-    /// Gets the diagnostic rule for the analyzer.
-    /// </summary>
-    public static readonly DiagnosticDescriptor Rule = new(
-        DiagnosticId,
-        "Async methods with CancellationToken should call ThrowIfCancellationRequested",
-        "Async method '{0}' should call 'cancellationToken.ThrowIfCancellationRequested()' as the first line of the method body",
-        "CodeStyle",
-        DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+	/// <summary>
+	/// Gets the diagnostic rule for the analyzer.
+	/// </summary>
+	public static readonly DiagnosticDescriptor Rule = new(
+		DiagnosticId,
+		"Async methods with CancellationToken should call ThrowIfCancellationRequested",
+		"Async method '{0}' should call 'cancellationToken.ThrowIfCancellationRequested()' as the first line of the method body",
+		"CodeStyle",
+		DiagnosticSeverity.Error,
+		isEnabledByDefault: true);
 
 	/// <inheritdoc />
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
 
 	/// <inheritdoc />
 	public override void Initialize(AnalysisContext context)
-    {
+	{
 		if (context is null)
 			throw new ArgumentNullException(nameof(context));
 
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.EnableConcurrentExecution();
-        context.RegisterSyntaxNodeAction(AnalyzeMethod, SyntaxKind.MethodDeclaration);
-    }
+		context.EnableConcurrentExecution();
+		context.RegisterSyntaxNodeAction(AnalyzeMethod, SyntaxKind.MethodDeclaration);
+	}
 
-    private static void AnalyzeMethod(SyntaxNodeAnalysisContext context)
-    {
-        var methodDeclaration = (MethodDeclarationSyntax)context.Node;
+	private static void AnalyzeMethod(SyntaxNodeAnalysisContext context)
+	{
+		var methodDeclaration = (MethodDeclarationSyntax)context.Node;
 
-        if (!methodDeclaration.Modifiers.Any(SyntaxKind.AsyncKeyword))
-            return;
+		if (!methodDeclaration.Modifiers.Any(SyntaxKind.AsyncKeyword))
+			return;
 
-        var cancellationTokenParameter = methodDeclaration.ParameterList.Parameters
-            .FirstOrDefault(p => p.Type is IdentifierNameSyntax type && type.Identifier.Text == "CancellationToken");
+		var cancellationTokenParameter = methodDeclaration.ParameterList.Parameters
+			.FirstOrDefault(p => p.Type is IdentifierNameSyntax type && type.Identifier.Text == "CancellationToken");
 
-        if (cancellationTokenParameter == null)
-            return;
+		if (cancellationTokenParameter == null)
+			return;
 
-        var body = methodDeclaration.Body;
-        if (body == null || body.Statements.Count == 0)
-            return;
+		var body = methodDeclaration.Body;
+		if (body == null || body.Statements.Count == 0)
+			return;
 
-        var firstStatement = body.Statements[0];
-        if (firstStatement is ExpressionStatementSyntax expressionStatement &&
-            expressionStatement.Expression is InvocationExpressionSyntax invocation &&
-            invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-            memberAccess.Name.Identifier.Text == "ThrowIfCancellationRequested")
-        {
-            return;
-        }
+		var firstStatement = body.Statements[0];
+		if (firstStatement is ExpressionStatementSyntax expressionStatement &&
+			expressionStatement.Expression is InvocationExpressionSyntax invocation &&
+			invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+			memberAccess.Name.Identifier.Text == "ThrowIfCancellationRequested")
+		{
+			return;
+		}
 
-        var diagnostic = Diagnostic.Create(Rule, methodDeclaration.Identifier.GetLocation(), methodDeclaration.Identifier.Text);
-        context.ReportDiagnostic(diagnostic);
-    }
+		var diagnostic = Diagnostic.Create(Rule, methodDeclaration.Identifier.GetLocation(), methodDeclaration.Identifier.Text);
+		context.ReportDiagnostic(diagnostic);
+	}
 }

@@ -1,10 +1,8 @@
 ﻿
-
-
-using CommunityToolkit.Diagnostics;
-using Microsoft.AspNetCore.Components.Rendering;
 using System.ComponentModel.DataAnnotations;
 using System.Linq.Expressions;
+using CommunityToolkit.Diagnostics;
+using Microsoft.AspNetCore.Components.Rendering;
 
 namespace Umbrella.AspNetCore.Blazor.Components.Form;
 
@@ -48,6 +46,8 @@ public class LabelText : ComponentBase
 	/// <inheritdoc />
 	protected override void BuildRenderTree(RenderTreeBuilder builder)
 	{
+		Guard.IsNotNull(builder);
+
 		base.BuildRenderTree(builder);
 
 		var expressionBody = ForTarget.Body;

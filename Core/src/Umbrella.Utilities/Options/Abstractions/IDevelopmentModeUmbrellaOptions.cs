@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.Utilities.Options.Abstractions;
 
 /// <summary>

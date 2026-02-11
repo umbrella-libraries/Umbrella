@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Diagnostics.CodeAnalysis;
 using Xamarin.Forms;
 

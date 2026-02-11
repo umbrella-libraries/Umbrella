@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Globalization;
 using System.Linq.Expressions;
 using Umbrella.Utilities.Data.Abstractions;

@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Umbrella.Utilities.Constants;

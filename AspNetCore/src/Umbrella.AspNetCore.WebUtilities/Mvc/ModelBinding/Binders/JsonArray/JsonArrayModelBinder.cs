@@ -1,6 +1,6 @@
-﻿using CommunityToolkit.Diagnostics;
+﻿using System.Text.Json;
+using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using System.Text.Json;
 
 namespace Umbrella.AspNetCore.WebUtilities.Mvc.ModelBinding.Binders.JsonArray;
 

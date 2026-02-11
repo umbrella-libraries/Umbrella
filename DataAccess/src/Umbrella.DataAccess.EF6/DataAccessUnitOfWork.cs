@@ -1,5 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
-using System.Data.Entity;
+﻿using System.Data.Entity;
+using Microsoft.Extensions.Logging;
 using Umbrella.DataAccess.Abstractions;
 using Umbrella.DataAccess.Abstractions.Exceptions;
 

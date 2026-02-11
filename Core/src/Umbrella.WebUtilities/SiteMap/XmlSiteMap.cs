@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Xml.Serialization;
 using CommunityToolkit.Diagnostics;
 using Umbrella.Utilities.Extensions;

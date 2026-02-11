@@ -1,10 +1,10 @@
-﻿using CommunityToolkit.Diagnostics;
+﻿using System.Globalization;
+using System.Security.Claims;
+using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
-using System.Globalization;
-using System.Security.Claims;
 using Umbrella.AppFramework.Shared.Constants;
 using Umbrella.AspNetCore.WebUtilities.Extensions;
 using Umbrella.AspNetCore.WebUtilities.Middleware;

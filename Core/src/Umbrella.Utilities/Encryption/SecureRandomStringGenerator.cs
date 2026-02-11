@@ -1,11 +1,8 @@
-﻿
-
-
-using CommunityToolkit.Diagnostics;
-using Microsoft.Extensions.Logging;
-using System.Buffers;
+﻿using System.Buffers;
 using System.Globalization;
 using System.Security.Cryptography;
+using CommunityToolkit.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Constants;
 using Umbrella.Utilities.Encryption.Abstractions;
 using Umbrella.Utilities.Encryption.Options;

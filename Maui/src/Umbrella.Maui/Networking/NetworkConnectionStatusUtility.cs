@@ -1,6 +1,4 @@
 ﻿
-
-
 using Microsoft.Maui.Networking;
 using Umbrella.Utilities.Networking.Abstractions;
 

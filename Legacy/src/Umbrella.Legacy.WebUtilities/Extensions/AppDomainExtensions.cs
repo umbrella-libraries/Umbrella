@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.Legacy.WebUtilities.Extensions;
 
 /// <summary>

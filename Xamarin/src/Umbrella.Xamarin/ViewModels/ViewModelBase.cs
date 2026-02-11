@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Umbrella.AppFramework.Security.Abstractions;

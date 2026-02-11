@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Umbrella.Utilities.Options.Abstractions;

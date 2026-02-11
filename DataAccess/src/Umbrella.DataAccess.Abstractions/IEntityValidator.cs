@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.ComponentModel.DataAnnotations;
 
 namespace Umbrella.DataAccess.Abstractions;

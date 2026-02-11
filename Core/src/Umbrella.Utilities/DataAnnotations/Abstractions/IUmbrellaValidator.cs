@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.ComponentModel.DataAnnotations;
 using Umbrella.Utilities.DataAnnotations.Enumerations;
 

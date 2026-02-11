@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Text.RegularExpressions;
 
 namespace Umbrella.DataAnnotations.RegularExpressions;

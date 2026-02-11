@@ -1,9 +1,6 @@
-﻿
-
-
+﻿using System.Globalization;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Components.Forms;
-using System.Globalization;
 
 namespace Umbrella.AspNetCore.Blazor.Components.Radio;
 
@@ -48,7 +45,7 @@ public abstract class UmbrellaRadioBase<TValue> : InputBase<TValue>
 	/// Called by the Blazor infrastructure when the <see cref="SelectedValue"/> changes.
 	/// </summary>
 	/// <param name="args">The <see cref="ChangeEventArgs"/>.</param>
-	protected void OnValueChange(ChangeEventArgs args) => CurrentValueAsString = args.Value?.ToString();
+	protected void OnValueChange(ChangeEventArgs args) => CurrentValueAsString = args?.Value?.ToString();
 
 	/// <inheritdoc />
 	protected override bool TryParseValueFromString(string? value, out TValue result, out string validationErrorMessage)

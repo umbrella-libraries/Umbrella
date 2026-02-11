@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Globalization;
 using System.Reflection;
 using Umbrella.Utilities.Exceptions;

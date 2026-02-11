@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.ComponentModel.DataAnnotations;
 using Microsoft.Extensions.Logging;
 using Umbrella.AppFramework.Services.Abstractions;

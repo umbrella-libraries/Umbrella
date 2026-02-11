@@ -22,7 +22,7 @@ public sealed class RequiredNonEmptyCollectionAttribute : ValidationAttribute
 			return new ValidationResult(FormatErrorMessage(validationContext.DisplayName), memberNames);
 
 		bool isValid = ValidationHelper.IsNonEmptyCollection(value);
-		
+
 		return isValid
 			? ValidationResult.Success
 			: new ValidationResult(FormatErrorMessage(validationContext.DisplayName), memberNames);

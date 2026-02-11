@@ -1,6 +1,4 @@
 ﻿
-
-
 using Umbrella.AppFramework.Services.Abstractions;
 using Umbrella.AppFramework.Services.Enumerations;
 using Xamarin.Forms;

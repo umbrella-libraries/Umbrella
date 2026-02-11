@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 using Microsoft.Extensions.Caching.Memory;
@@ -77,7 +75,7 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 			string cacheKey = CacheKeyUtility.Create<DynamicImageTagHelper>($"{src}:{ImageMaxPixelDensity}:{SizeWidths}");
 			string? srcsetValue = Cache.GetOrCreate(
 				cacheKey,
-				entry => 
+				entry =>
 				{
 					_ = entry
 						.SetAbsoluteExpiration(TimeSpan.FromHours(1))

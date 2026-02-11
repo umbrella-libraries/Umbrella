@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Windows.Input;
 using Microsoft.Extensions.Logging;
 using Umbrella.AppFramework.Services.Abstractions;

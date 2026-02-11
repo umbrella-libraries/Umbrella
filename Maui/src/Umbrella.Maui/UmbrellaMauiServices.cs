@@ -1,6 +1,4 @@
 ﻿
-
-
 using Microsoft.Extensions.DependencyInjection;
 using Umbrella.Maui.Exceptions;
 

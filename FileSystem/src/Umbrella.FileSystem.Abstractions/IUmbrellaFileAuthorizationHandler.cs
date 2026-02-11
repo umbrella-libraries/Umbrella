@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Security.Claims;
 
 namespace Umbrella.FileSystem.Abstractions;

@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Runtime.Serialization;
 
 namespace Umbrella.Utilities.Exceptions;

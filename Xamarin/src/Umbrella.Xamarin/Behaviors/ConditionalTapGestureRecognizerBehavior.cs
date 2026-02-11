@@ -1,6 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using Microsoft.Extensions.Logging;
 using Xamarin.Forms;
 
 namespace Umbrella.Xamarin.Behaviors;

@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Globalization;
 using System.Text;
 using log4net;
@@ -159,5 +157,5 @@ public class Log4NetLogger : ILogger
 			}
 		}
 	}
-#endregion
+	#endregion
 }

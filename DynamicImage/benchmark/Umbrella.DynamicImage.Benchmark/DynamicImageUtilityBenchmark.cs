@@ -1,6 +1,4 @@
 ﻿
-
-
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
 using Microsoft.Extensions.Logging;

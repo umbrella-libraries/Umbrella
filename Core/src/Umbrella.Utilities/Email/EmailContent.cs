@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -192,7 +190,7 @@ public class EmailContent
 			value = value.Replace(newLineToken, "<br />");
 #endif
 
-        return value;
+		return value;
 	}
-#endregion
+	#endregion
 }

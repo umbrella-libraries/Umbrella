@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Reflection;
 using Umbrella.Utilities.Mapping.Mapperly.Abstractions;
 using Umbrella.Utilities.Mapping.Mapperly.Enumerations;

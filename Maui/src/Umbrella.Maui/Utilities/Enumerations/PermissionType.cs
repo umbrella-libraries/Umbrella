@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.Maui.Utilities.Enumerations;
 
 /// <summary>

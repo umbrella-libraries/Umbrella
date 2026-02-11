@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Globalization;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Diagnostics;
@@ -22,7 +20,7 @@ public class DynamicImageUtility : IDynamicImageUtility
 	private static readonly (DynamicImageParseUrlResult, DynamicImageOptions) _skipParseUrlResult = (DynamicImageParseUrlResult.Skip, default);
 	private static readonly Regex _densityRegex = new("@([0-9]*)x$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 	private static readonly char[] _segmentSeparatorArray = ['/'];
-	
+
 	/// <summary>
 	/// Gets the logger.
 	/// </summary>
@@ -36,7 +34,7 @@ public class DynamicImageUtility : IDynamicImageUtility
 	{
 		Logger = logger;
 	}
-	
+
 	/// <inheritdoc />
 	public virtual DynamicImageFormat ParseImageFormat(string format)
 	{

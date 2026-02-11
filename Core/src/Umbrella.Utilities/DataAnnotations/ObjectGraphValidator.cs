@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Collections;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
@@ -238,7 +236,7 @@ public class ObjectGraphValidator : IObjectGraphValidator
 	{
 		// Copy items defensively to avoid unintended mutations propagating.
 		IDictionary<object, object?>? items = parentContext?.Items;
-		
+
 		if (items is not null && items.Count > 0)
 			items = new Dictionary<object, object?>(items);
 

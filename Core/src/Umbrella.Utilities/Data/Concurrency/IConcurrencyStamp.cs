@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.Utilities.Data.Concurrency;
 
 /// <summary>

@@ -1,8 +1,8 @@
-﻿using CommunityToolkit.Diagnostics;
-using Microsoft.Extensions.Logging;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using CommunityToolkit.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Data.Filtering;
 using Umbrella.Utilities.Data.Sorting;
 using Umbrella.Utilities.Exceptions;

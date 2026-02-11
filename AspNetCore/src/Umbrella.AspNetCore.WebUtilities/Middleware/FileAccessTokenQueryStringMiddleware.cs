@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Security.Claims;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Http;
@@ -51,7 +49,7 @@ public class FileAccessTokenQueryStringMiddleware
 		{
 			string? jwt = context.Request.Query[AppQueryStringKeys.FileAccessToken];
 
-			if(string.IsNullOrEmpty(jwt))
+			if (string.IsNullOrEmpty(jwt))
 			{
 				await _next(context);
 

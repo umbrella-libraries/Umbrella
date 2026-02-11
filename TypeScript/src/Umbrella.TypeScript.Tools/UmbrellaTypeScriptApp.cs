@@ -1,12 +1,10 @@
 ﻿
-
-
-using CommunityToolkit.Diagnostics;
-using Microsoft.Extensions.CommandLineUtils;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
 using System.Text.Json;
+using CommunityToolkit.Diagnostics;
+using Microsoft.Extensions.CommandLineUtils;
 
 namespace Umbrella.TypeScript.Tools;
 
@@ -71,7 +69,7 @@ public class UmbrellaTypeScriptApp<TOptions> : CommandLineApplication
 			_ = sbOutput.AppendLine(strOutput);
 
 			using StreamWriter sw = File.CreateText(toolOptions.OutputPath!);
-			
+
 			sw.Write(sbOutput.ToString());
 
 			return 0;

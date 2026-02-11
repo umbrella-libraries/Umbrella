@@ -1,6 +1,4 @@
 ﻿
-
-
 #pragma warning disable IDE0130
 namespace Microsoft.Extensions.Hosting;
 

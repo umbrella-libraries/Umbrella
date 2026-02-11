@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 
 namespace Umbrella.Utilities.Comparers;

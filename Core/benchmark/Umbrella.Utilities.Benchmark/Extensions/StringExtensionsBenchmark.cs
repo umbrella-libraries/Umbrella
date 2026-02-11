@@ -17,9 +17,9 @@ public class StringExtensionsBenchmark
 	[Benchmark]
 	public string RemapInternationalCharactersToAsciiBenchmark_Span_ShortString() => ShortString.RemapInternationalCharactersToAscii();
 
-    [Benchmark]
-    public string RemapInternationalCharactersToAsciiBenchmark_StringBuilder_LongString() => LongString.RemapInternationalCharactersToAscii_StringBuilder();
+	[Benchmark]
+	public string RemapInternationalCharactersToAsciiBenchmark_StringBuilder_LongString() => LongString.RemapInternationalCharactersToAscii_StringBuilder();
 
-    [Benchmark]
-    public string RemapInternationalCharactersToAsciiBenchmark_Span_LongString() => LongString.RemapInternationalCharactersToAscii();
+	[Benchmark]
+	public string RemapInternationalCharactersToAsciiBenchmark_Span_LongString() => LongString.RemapInternationalCharactersToAscii();
 }

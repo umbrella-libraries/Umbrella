@@ -1,10 +1,7 @@
-﻿
-
-
-using Microsoft.Extensions.Logging;
-using System.Data.Entity;
+﻿using System.Data.Entity;
 using System.Linq.Expressions;
 using System.Security.Claims;
+using Microsoft.Extensions.Logging;
 using Umbrella.DataAccess.Abstractions;
 using Umbrella.DataAccess.Abstractions.Exceptions;
 using Umbrella.DataAccess.EF6.Extensions;
@@ -53,7 +50,7 @@ public abstract class ReadOnlyGenericDbRepository<TEntity, TDbContext, TRepoOpti
 	where TEntity : class, IEntity<int>
 	where TDbContext : UmbrellaDbContext
 	where TRepoOptions : RepoOptions, new()
-{	
+{
 	/// <summary>
 	/// Initializes a new instance of the <see cref="ReadOnlyGenericDbRepository{TEntity, TDbContext, TRepoOptions}"/> class.
 	/// </summary>

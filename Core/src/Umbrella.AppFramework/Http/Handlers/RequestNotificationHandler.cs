@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Net.Http;
 using Umbrella.AppFramework.Http.Handlers.Options;
 using Umbrella.AppFramework.Services.Abstractions;

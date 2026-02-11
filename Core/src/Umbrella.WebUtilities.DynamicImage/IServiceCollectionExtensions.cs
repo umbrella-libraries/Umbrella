@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.WebUtilities.DynamicImage.Middleware.Options;
 

@@ -1,9 +1,6 @@
-﻿
-
-
-using CommunityToolkit.Diagnostics;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Reflection;
+using CommunityToolkit.Diagnostics;
 
 namespace Umbrella.Utilities.Extensions;
 
@@ -13,43 +10,64 @@ namespace Umbrella.Utilities.Extensions;
 public static class TypeExtensions
 {
 	/// <summary>
-	/// Gets the public or private instance properties defined on the specified <paramref name="type"/>.
+	/// Gets the public or private instance properties defined on the specified <paramref name="type"/> .
 	/// </summary>
 	/// <param name="type">The type.</param>
 	/// <returns>The properties.</returns>
-	public static PropertyInfo[] GetPublicOrPrivateProperties(this Type type) => type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+	public static PropertyInfo[] GetPublicOrPrivateProperties(this Type type)
+	{
+		Guard.IsNotNull(type);
+
+		return type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+	}
 
 	/// <summary>
-	/// Determines which of the specified <paramref name="types"/> are assignable to the specified <paramref name="superType"/>
-	/// and returns a filtered collection containing the matches.
+	/// Determines which of the specified <paramref name="types"/> are assignable to the specified
+	/// <paramref name="superType"/> and returns a filtered collection containing the matches.
 	/// </summary>
 	/// <param name="types">The types.</param>
 	/// <param name="superType">The super type.</param>
 	/// <returns>A filtered collection containing the matches.</returns>
-	public static IEnumerable<Type> AssignableTo(this IEnumerable<Type> types, Type superType) => Enumerable.Where(types, new Func<Type, bool>(superType.IsAssignableFrom));
+	public static IEnumerable<Type> AssignableTo(this IEnumerable<Type> types, Type superType)
+	{
+		Guard.IsNotNull(superType);
+
+		return Enumerable.Where(types, new Func<Type, bool>(superType.IsAssignableFrom));
+	}
 
 	/// <summary>
-	/// Filters the specified <paramref name="types"/> to remove any types marked as <see langword="abstract"/>.
+	/// Filters the specified <paramref name="types"/> to remove any types marked as <see langword="abstract"/> .
 	/// </summary>
 	/// <param name="types">The types.</param>
 	/// <returns>The filtered collection of concrete types.</returns>
 	public static IEnumerable<Type> Concrete(this IEnumerable<Type> types) => Enumerable.Where(types, type => !type.IsAbstract);
 
 	/// <summary>
-	/// Determines whether the specified <paramref name="type"/> is <see cref="Nullable{T}"/>.
+	/// Determines whether the specified <paramref name="type"/> is <see cref="Nullable{T}"/> .
 	/// </summary>
 	/// <param name="type">The type.</param>
 	/// <returns>
-	///   <see langword="true"/> if the specified <paramref name="type"/> is <see cref="Nullable{T}"/>; otherwise, <see langword="false"/>.
+	/// <see langword="true"/> if the specified <paramref name="type"/> is <see cref="Nullable{T}"/> ; otherwise,
+	/// <see langword="false"/> .
 	/// </returns>
-	public static bool IsNullableType(this Type type) => type.IsGenericType && type.GetGenericTypeDefinition().Equals(typeof(Nullable<>));
+	public static bool IsNullableType(this Type type)
+	{
+		Guard.IsNotNull(type);
+
+		return type.IsGenericType && type.GetGenericTypeDefinition().Equals(typeof(Nullable<>));
+	}
 
 	/// <summary>
 	/// Determines whether the type is permitted to have a null value.
 	/// </summary>
 	/// <param name="type">The type.</param>
 	/// <returns><see langword="true"/> if it is; otherwise <see langword="false"/>.</returns>
-	public static bool CanBeNull(this Type type) => !type.IsValueType || IsNullableType(type);
+	public static bool CanBeNull(this Type type)
+	{
+		Guard.IsNotNull(type);
+
+		return !type.IsValueType || IsNullableType(type);
+	}
 
 	/// <summary>
 	/// Gets a dictionary of value / name pairs for the specified enum type.
@@ -69,12 +87,14 @@ public static class TypeExtensions
 	}
 
 	/// <summary>
-	/// Determines whether the specified <paramref name="givenType"/> is assignable to the specified <paramref name="genericType"/>.
+	/// Determines whether the specified <paramref name="givenType"/> is assignable to the specified
+	/// <paramref name="genericType"/> .
 	/// </summary>
 	/// <param name="givenType">The target type.</param>
 	/// <param name="genericType">The generic type we want to assign to.</param>
 	/// <returns>
-	///   <see langword="true" /> if the <paramref name="givenType"/> can be assigned to the specified <paramref name="genericType"/>; otherwise, <see langword="false" />.
+	/// <see langword="true" /> if the <paramref name="givenType"/> can be assigned to the specified
+	/// <paramref name="genericType"/> ; otherwise, <see langword="false" /> .
 	/// </returns>
 	public static bool IsAssignableToGenericType(this Type givenType, Type genericType)
 	{
@@ -98,10 +118,13 @@ public static class TypeExtensions
 	}
 
 	/// <summary>
-	/// Gets the element type for a type which implements <see cref="IEnumerable{T}"/>.
+	/// Gets the element type for a type which implements <see cref="IEnumerable{T}"/> .
 	/// </summary>
 	/// <param name="givenType">The type to inspect.</param>
-	/// <returns>A tuple specifying if the <paramref name="givenType"/> implements <see cref="IEnumerable{T}"/> and if so, the type of its elements.</returns>
+	/// <returns>
+	/// A tuple specifying if the <paramref name="givenType"/> implements <see cref="IEnumerable{T}"/> and if so, the type
+	/// of its elements.
+	/// </returns>
 	public static (bool isEnumerable, Type? elementType) GetIEnumerableTypeData(this Type givenType)
 	{
 		Guard.IsNotNull(givenType);
@@ -123,10 +146,13 @@ public static class TypeExtensions
 	}
 
 	/// <summary>
-	/// Gets the original type, if one exists, for the specified type in cases where the specified type has been dynamically proxied at runtime.
+	/// Gets the original type, if one exists, for the specified type in cases where the specified type has been
+	/// dynamically proxied at runtime.
 	/// </summary>
 	/// <param name="type">The type.</param>
-	/// <returns>The original type, if it has been dynamically proxied, otherwise the same type instance passed into the method.</returns>
+	/// <returns>
+	/// The original type, if it has been dynamically proxied, otherwise the same type instance passed into the method.
+	/// </returns>
 	public static Type? GetOriginalType(this Type type) => type switch
 	{
 		var _ when type.Name?.EndsWith("_DynamicProxy", StringComparison.Ordinal) is true => type.BaseType,

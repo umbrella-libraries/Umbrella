@@ -32,22 +32,22 @@ public static class AsyncValidator
 		ICollection<ValidationResult>? validationResults, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-		
+
 		if (validationContext is null)
 			throw new ArgumentNullException(nameof(validationContext));
 
 		var propertyType = _store.GetPropertyType(validationContext);
 		string propertyName = validationContext.MemberName!;
-		
+
 		EnsureValidPropertyType(propertyName, propertyType, value);
 
 		bool result = true;
 		bool breakOnFirstError = validationResults == null;
-		
+
 		var attributes = _store.GetPropertyValidationAttributes(validationContext);
-		
+
 		var errors = await GetValidationErrorsAsync(value, validationContext, attributes, breakOnFirstError, cancellationToken).ConfigureAwait(false);
-		
+
 		foreach (var err in errors)
 		{
 			result = false;
@@ -95,18 +95,18 @@ public static class AsyncValidator
 
 		if (instance is null)
 			throw new ArgumentNullException(nameof(instance));
-		
+
 		if (validationContext is null)
 			throw new ArgumentNullException(nameof(validationContext));
-		
+
 		if (instance != validationContext.ObjectInstance)
 			throw new ArgumentException(SR.Validator_InstanceMustMatchValidationContextInstance, nameof(instance));
 
 		bool result = true;
 		bool breakOnFirstError = validationResults == null;
-		
+
 		var errors = await GetObjectValidationErrorsAsync(instance, validationContext, validateAllProperties, breakOnFirstError, cancellationToken).ConfigureAwait(false);
-		
+
 		foreach (var err in errors)
 		{
 			result = false;
@@ -140,12 +140,12 @@ public static class AsyncValidator
 
 		if (validationAttributes is null)
 			throw new ArgumentNullException(nameof(validationAttributes));
-		
+
 		bool result = true;
 		bool breakOnFirstError = validationResults is null;
-		
+
 		var errors = await GetValidationErrorsAsync(value, validationContext, validationAttributes, breakOnFirstError, cancellationToken).ConfigureAwait(false);
-		
+
 		foreach (var err in errors)
 		{
 			result = false;
@@ -170,18 +170,18 @@ public static class AsyncValidator
 	public static async Task ValidatePropertyAsync(object? value, ValidationContext validationContext, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-		
+
 		if (validationContext is null)
 			throw new ArgumentNullException(nameof(validationContext));
-		
+
 		var propertyType = _store.GetPropertyType(validationContext);
-		
+
 		EnsureValidPropertyType(validationContext.MemberName!, propertyType, value);
-		
+
 		var attributes = _store.GetPropertyValidationAttributes(validationContext);
-		
+
 		var errors = await GetValidationErrorsAsync(value, validationContext, attributes, false, cancellationToken).ConfigureAwait(false);
-		
+
 		if (errors.Count > 0)
 			errors[0].ThrowValidationException();
 	}
@@ -220,15 +220,15 @@ public static class AsyncValidator
 
 		if (instance is null)
 			throw new ArgumentNullException(nameof(instance));
-		
+
 		if (validationContext is null)
 			throw new ArgumentNullException(nameof(validationContext));
-		
+
 		if (instance != validationContext.ObjectInstance)
 			throw new ArgumentException(SR.Validator_InstanceMustMatchValidationContextInstance, nameof(instance));
-		
+
 		var errors = await GetObjectValidationErrorsAsync(instance, validationContext, validateAllProperties, false, cancellationToken).ConfigureAwait(false);
-		
+
 		if (errors.Count > 0)
 			errors[0].ThrowValidationException();
 	}
@@ -254,9 +254,9 @@ public static class AsyncValidator
 
 		if (validationAttributes is null)
 			throw new ArgumentNullException(nameof(validationAttributes));
-		
+
 		var errors = await GetValidationErrorsAsync(value, validationContext, validationAttributes, false, cancellationToken).ConfigureAwait(false);
-		
+
 		if (errors.Count > 0)
 			errors[0].ThrowValidationException();
 	}
@@ -281,23 +281,23 @@ public static class AsyncValidator
 		ValidationContext validationContext, bool validateAllProperties, bool breakOnFirstError, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-		
+
 		var errors = await GetObjectPropertyValidationErrorsAsync(instance, validationContext, validateAllProperties, breakOnFirstError, cancellationToken).ConfigureAwait(false);
-		
+
 		if (errors.Count > 0)
 			return errors;
 
 		var attributes = _store.GetTypeValidationAttributes(validationContext);
-		
+
 		errors.AddRange(await GetValidationErrorsAsync(instance, validationContext, attributes, breakOnFirstError, cancellationToken).ConfigureAwait(false));
-		
+
 		if (errors.Count > 0)
 			return errors;
 
 		if (instance is IValidatableObject validatable)
 		{
 			var results = validatable.Validate(validationContext);
-			
+
 			if (results != null)
 			{
 				foreach (var result in results)
@@ -317,14 +317,14 @@ public static class AsyncValidator
 		ValidationContext validationContext, bool validateAllProperties, bool breakOnFirstError, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-		
+
 		var properties = GetPropertyValues(instance, validationContext);
 		var errors = new List<ValidationError>();
-		
+
 		foreach (var property in properties)
 		{
 			var attributes = _store.GetPropertyValidationAttributes(property.Key);
-			
+
 			if (validateAllProperties)
 			{
 				errors.AddRange(await GetValidationErrorsAsync(property.Value, property.Key, attributes, breakOnFirstError, cancellationToken).ConfigureAwait(false));
@@ -338,10 +338,10 @@ public static class AsyncValidator
 						ValidationResult? validationResult = attribute is AsyncValidationAttribute asyncAttr
 							? await asyncAttr.GetValidationResultAsync(property.Value, property.Key, cancellationToken).ConfigureAwait(false)
 							: reqAttr.GetValidationResult(property.Value, property.Key);
-						
+
 						if (validationResult != ValidationResult.Success)
 							errors.Add(new ValidationError(reqAttr, property.Value, validationResult!));
-						
+
 						break;
 					}
 				}
@@ -358,15 +358,15 @@ public static class AsyncValidator
 		ValidationContext validationContext, IEnumerable<ValidationAttribute> attributes, bool breakOnFirstError, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-		
+
 		if (validationContext is null)
 			throw new ArgumentNullException(nameof(validationContext));
-		
+
 		var errors = new List<ValidationError>();
-		
+
 		ValidationError? validationError;
 		RequiredAttribute? required = null;
-		
+
 		foreach (var attribute in attributes)
 		{
 			required = attribute as RequiredAttribute;
@@ -376,9 +376,9 @@ public static class AsyncValidator
 				if (!await TryValidateAsync(value, validationContext, required, cancellationToken).ConfigureAwait(false))
 				{
 					validationError = new ValidationError(required, value, required.GetValidationResult(value, validationContext)!);
-					
+
 					errors.Add(validationError);
-					
+
 					return errors; // Required failure aborts
 				}
 
@@ -395,11 +395,11 @@ public static class AsyncValidator
 					var validationResult = attr is AsyncValidationAttribute asyncAttr
 						? await asyncAttr.GetValidationResultAsync(value, validationContext, cancellationToken).ConfigureAwait(false)
 						: attr.GetValidationResult(value, validationContext);
-					
+
 					validationError = new ValidationError(attr, value, validationResult!);
-					
+
 					errors.Add(validationError);
-					
+
 					if (breakOnFirstError)
 						break;
 				}
@@ -413,11 +413,11 @@ public static class AsyncValidator
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		Debug.Assert(validationContext != null);
-		
+
 		ValidationResult? validationResult = attribute is AsyncValidationAttribute asyncAttribute
 			? await asyncAttribute.GetValidationResultAsync(value, validationContext!, cancellationToken).ConfigureAwait(false)
 			: attribute.GetValidationResult(value, validationContext!);
-		
+
 		return validationResult == ValidationResult.Success;
 	}
 
@@ -433,7 +433,7 @@ public static class AsyncValidator
 	{
 		if (value is null)
 			return !destinationType.IsValueType || (destinationType.IsGenericType && destinationType.GetGenericTypeDefinition() == typeof(Nullable<>));
-		
+
 		return destinationType.IsInstanceOfType(value);
 	}
 
@@ -447,12 +447,12 @@ public static class AsyncValidator
 	{
 		var properties = TypeDescriptor.GetProperties(instance.GetType());
 		var items = new List<KeyValuePair<ValidationContext, object?>>(properties.Count);
-		
+
 		foreach (PropertyDescriptor property in properties)
 		{
 			var context = CreateValidationContext(instance, validationContext);
 			context.MemberName = property.Name;
-			
+
 			if (_store.GetPropertyValidationAttributes(context).Any())
 				items.Add(new KeyValuePair<ValidationContext, object?>(context, property.GetValue(instance)));
 		}
@@ -464,7 +464,7 @@ public static class AsyncValidator
 	{
 		private readonly object? _value;
 		private readonly ValidationAttribute? _validationAttribute;
-		
+
 		internal ValidationError(ValidationAttribute? validationAttribute, object? value, ValidationResult validationResult)
 		{
 			_validationAttribute = validationAttribute;

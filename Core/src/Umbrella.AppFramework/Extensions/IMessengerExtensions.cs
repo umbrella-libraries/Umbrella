@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.Messaging;
 

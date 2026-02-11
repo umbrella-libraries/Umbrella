@@ -1,6 +1,4 @@
 ﻿
-
-
 using AutoMapper;
 using Umbrella.Utilities.Exceptions;
 

@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Reflection;
 using System.Text;
 using Umbrella.TypeScript.Annotations.Attributes;

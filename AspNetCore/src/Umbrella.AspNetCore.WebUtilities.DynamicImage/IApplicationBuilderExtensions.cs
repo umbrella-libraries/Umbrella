@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.AspNetCore.WebUtilities.DynamicImage.Middleware;
 using Umbrella.DynamicImage.Abstractions;

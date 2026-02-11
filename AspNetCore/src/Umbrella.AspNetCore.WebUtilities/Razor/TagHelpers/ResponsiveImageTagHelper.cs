@@ -36,7 +36,7 @@ public class ResponsiveImageTagHelper : TagHelper
 	/// </summary>
 	[HtmlAttributeName("image-lazy-loading")]
 	public bool ImageLazyLoading { get; set; } = true;
-	
+
 	/// <summary>
 	/// Gets the logger.
 	/// </summary>
@@ -61,7 +61,7 @@ public class ResponsiveImageTagHelper : TagHelper
 	/// Gets the responsive image helper.
 	/// </summary>
 	public IResponsiveImageHelper ResponsiveImageHelper { get; }
-	
+
 	/// <summary>
 	/// Initializes a new instance of the <see cref="ResponsiveImageTagHelper"/> class.
 	/// </summary>

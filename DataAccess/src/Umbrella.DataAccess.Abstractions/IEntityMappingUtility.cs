@@ -1,6 +1,4 @@
 ﻿
-
-
 using Umbrella.Utilities.Mapping.Abstractions;
 
 namespace Umbrella.DataAccess.Abstractions;

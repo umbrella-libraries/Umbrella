@@ -1,9 +1,6 @@
-﻿
-
-
+﻿using System.Security.Claims;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 
 namespace Umbrella.AspNetCore.Shared.Extensions;
 

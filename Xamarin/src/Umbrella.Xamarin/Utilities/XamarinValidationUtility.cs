@@ -1,9 +1,7 @@
 ﻿
-
-
+using System.ComponentModel.DataAnnotations;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
-using System.ComponentModel.DataAnnotations;
 using Umbrella.Utilities.DataAnnotations.Abstractions;
 using Umbrella.Utilities.Extensions;
 using Umbrella.Xamarin.Controls;
@@ -256,7 +254,7 @@ public class XamarinValidationUtility : IXamarinValidationUtility
 			validatableProperties.Add(errorControlName);
 			validatableProperties.Add(errorControlNameBase);
 		}
-		
+
 		return validatableProperties.Distinct().ToArray();
 	}
 }

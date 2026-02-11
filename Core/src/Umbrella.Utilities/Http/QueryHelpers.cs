@@ -1,10 +1,7 @@
-﻿
-
-
+﻿using System.Text;
+using System.Text.Encodings.Web;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Primitives;
-using System.Text;
-using System.Text.Encodings.Web;
 
 namespace Umbrella.Utilities.Http;
 

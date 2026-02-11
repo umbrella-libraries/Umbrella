@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
@@ -198,7 +196,7 @@ public record OperationResult<TResult> : OperationResult, IOperationResult<TResu
 	/// <param name="errorMessage">The error message that describes the reason the action is forbidden. Cannot be null or empty.</param>
 	/// <returns>An operation result with a status of Forbidden and the provided error message.</returns>
 	public static new OperationResult<TResult> Forbidden(string errorMessage) => Failure(OperationResultStatus.Forbidden, default, [new ValidationResult(errorMessage)]);
-	
+
 	/// <summary>
 	/// Creates an <see cref="OperationResult{TResult}"/> that indicates no content is available for the requested
 	/// operation.

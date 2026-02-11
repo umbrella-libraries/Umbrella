@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.FileSystem.Abstractions;
 
@@ -64,7 +62,7 @@ public class DynamicImageItem
 
 		if (Content.Length is 0 && UmbrellaFileInfo is not null)
 			Content = await UmbrellaFileInfo.ReadAsByteArrayAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-		
+
 		return Content;
 	}
 

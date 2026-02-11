@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.Utilities.Mapping.Mapperly.Enumerations;
 
 /// <summary>

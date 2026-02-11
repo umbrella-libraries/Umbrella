@@ -1,6 +1,6 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System.Reflection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.Reflection;
 using Umbrella.DataAccess.Abstractions;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Primitives;

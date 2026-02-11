@@ -1,6 +1,4 @@
 ﻿
-
-
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Mime.Abstractions;

@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.Utilities.DataAnnotations.Enumerations;
 
 /// <summary>

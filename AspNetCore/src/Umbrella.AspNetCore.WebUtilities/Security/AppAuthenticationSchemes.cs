@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.AspNetCore.WebUtilities.Security;
 
 /// <summary>

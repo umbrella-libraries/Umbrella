@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.AppFramework.Http.Handlers.Options;
 
 /// <summary>

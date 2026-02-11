@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.AspNetCore.WebUtilities.Security.Policies;
 using Umbrella.Utilities.Security.Policies;

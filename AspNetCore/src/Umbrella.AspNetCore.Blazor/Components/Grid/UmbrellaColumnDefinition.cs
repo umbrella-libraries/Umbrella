@@ -1,6 +1,6 @@
-﻿using CommunityToolkit.Diagnostics;
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using System.Text.Json;
+using CommunityToolkit.Diagnostics;
 using Umbrella.Utilities.Data.Filtering;
 using Umbrella.Utilities.Data.Sorting;
 using Umbrella.Utilities.Dating;
@@ -167,7 +167,7 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 
 	/// <inheritdoc/>
 	public UmbrellaColumnFilterType FilterControlType { get; }
-	
+
 	/// <inheritdoc/>
 	public FilterType FilterMatchType { get; }
 

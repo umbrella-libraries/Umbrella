@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.DataAccess.Abstractions;
 
 /// <summary>

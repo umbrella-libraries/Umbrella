@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.Utilities.Security.Policies;
 
 /// <summary>

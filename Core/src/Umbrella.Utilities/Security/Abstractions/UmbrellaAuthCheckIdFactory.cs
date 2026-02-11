@@ -1,8 +1,5 @@
-﻿
-
-
+﻿using System.Collections.Concurrent;
 using Microsoft.Extensions.ObjectPool;
-using System.Collections.Concurrent;
 using Umbrella.Utilities.Exceptions;
 
 namespace Umbrella.Utilities.Security.Abstractions;

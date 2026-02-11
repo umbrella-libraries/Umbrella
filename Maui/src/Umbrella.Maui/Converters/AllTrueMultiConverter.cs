@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Globalization;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Maui.Controls;

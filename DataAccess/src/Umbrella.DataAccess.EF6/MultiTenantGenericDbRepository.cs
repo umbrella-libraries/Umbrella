@@ -1,6 +1,4 @@
 ﻿
-
-
 using Microsoft.Extensions.Logging;
 using Umbrella.DataAccess.Abstractions;
 using Umbrella.Utilities.Data.Abstractions;

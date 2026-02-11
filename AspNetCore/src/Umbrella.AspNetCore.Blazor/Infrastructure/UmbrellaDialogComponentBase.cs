@@ -1,6 +1,4 @@
 ﻿
-
-
 using Blazored.Modal;
 using Microsoft.Extensions.Logging;
 

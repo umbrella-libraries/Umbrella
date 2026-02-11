@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Buffers;
 using System.Security.Cryptography;
 using CommunityToolkit.Diagnostics;

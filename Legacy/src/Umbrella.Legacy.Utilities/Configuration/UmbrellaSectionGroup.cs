@@ -1,5 +1,5 @@
-﻿using CommunityToolkit.Diagnostics;
-using System.Configuration;
+﻿using System.Configuration;
+using CommunityToolkit.Diagnostics;
 
 namespace Umbrella.Legacy.Utilities.Configuration;
 

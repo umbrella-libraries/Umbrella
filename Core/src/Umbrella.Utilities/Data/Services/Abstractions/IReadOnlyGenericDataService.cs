@@ -1,6 +1,4 @@
 ﻿
-
-
 using Umbrella.Utilities.Data.Abstractions;
 using Umbrella.Utilities.Primitives.Abstractions;
 

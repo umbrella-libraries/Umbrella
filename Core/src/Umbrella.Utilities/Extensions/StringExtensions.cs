@@ -1,10 +1,7 @@
-﻿
-
-
-using CommunityToolkit.Diagnostics;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using CommunityToolkit.Diagnostics;
 using Umbrella.Utilities.Constants;
 
 namespace Umbrella.Utilities.Extensions;

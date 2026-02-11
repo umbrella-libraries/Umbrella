@@ -1,6 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Exceptions;
 using Umbrella.Utilities.Security.Abstractions;
 

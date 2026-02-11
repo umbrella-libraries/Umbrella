@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Globalization;
 using Umbrella.Utilities.CalendarGrid;
 using Umbrella.Utilities.Extensions;

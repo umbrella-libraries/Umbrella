@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.AspNetCore.Blazor.Components.Dialog;
 
 /// <summary>

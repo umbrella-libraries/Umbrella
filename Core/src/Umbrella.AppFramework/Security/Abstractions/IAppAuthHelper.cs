@@ -32,7 +32,7 @@ public interface IAppAuthHelper
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>An task used to await completion of the operation.</returns>
 	ValueTask LocalLogoutAsync(bool executeDefaultPostLogoutAction = true, CancellationToken cancellationToken = default);
-	
+
 	/// <summary>
 	/// Gets the current <see cref="ClaimsPrincipal"/> asynchronously based on ambient state.
 	/// </summary>

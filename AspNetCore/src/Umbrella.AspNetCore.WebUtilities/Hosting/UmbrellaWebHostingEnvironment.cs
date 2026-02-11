@@ -1,15 +1,12 @@
-﻿
-
-
+﻿using System.Buffers;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.RegularExpressions;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
-using System.Buffers;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Text.RegularExpressions;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Hosting;
 using Umbrella.WebUtilities.Exceptions;

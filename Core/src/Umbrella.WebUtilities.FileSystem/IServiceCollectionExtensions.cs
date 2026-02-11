@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.WebUtilities.FileSystem.Middleware.Options;

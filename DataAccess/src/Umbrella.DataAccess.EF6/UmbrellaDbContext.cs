@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Data.Entity;
 using Umbrella.DataAccess.Abstractions;
 

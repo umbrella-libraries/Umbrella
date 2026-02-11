@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.DataAnnotations;
 
 /// <summary>

@@ -1,6 +1,4 @@
 ﻿
-
-
 using Umbrella.Utilities.Networking.Abstractions;
 using Xamarin.Essentials;
 

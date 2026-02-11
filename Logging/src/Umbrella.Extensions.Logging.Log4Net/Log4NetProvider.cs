@@ -1,9 +1,9 @@
-﻿using log4net;
+﻿using System.Collections.Concurrent;
+using System.Reflection;
+using log4net;
 using log4net.Config;
 using log4net.Repository;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
-using System.Reflection;
 
 namespace Umbrella.Extensions.Logging.Log4Net;
 

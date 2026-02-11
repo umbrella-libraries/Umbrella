@@ -54,7 +54,7 @@ public interface IDynamicImageResizer
 	/// <param name="filterQuality">The options for filter quality when resizing.</param>
 	/// <param name="qualityRequest">A value between 0-100. The quality is a suggestion, and not all formats (for example, PNG) or image libraries (e.g. FreeImage) respect or support it. Defaults to <c>75</c>.</param>
 	/// <returns>The resized image together with its new width and height.</returns>
-	(byte[] resizedBytes, int resizedWidth, int resizedHeight) ResizeImage(byte[] originalImage, int width, int height, DynamicResizeMode resizeMode, DynamicImageFormat format, DynamicImageFilterQuality filterQuality = DynamicImageFilterQuality.Medium , int qualityRequest = 75);
+	(byte[] resizedBytes, int resizedWidth, int resizedHeight) ResizeImage(byte[] originalImage, int width, int height, DynamicResizeMode resizeMode, DynamicImageFormat format, DynamicImageFilterQuality filterQuality = DynamicImageFilterQuality.Medium, int qualityRequest = 75);
 
 	/// <summary>
 	/// Gets the dimensions of the image.

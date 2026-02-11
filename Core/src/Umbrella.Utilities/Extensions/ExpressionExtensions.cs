@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Linq.Expressions;
@@ -183,7 +181,7 @@ public static class ExpressionExtensions
 		Guard.IsNotNull(expression);
 
 		MemberExpression? memberExpression = GetMemberExpression(expression);
-		
+
 		return memberExpression?.Member.GetDisplayDescriptionText();
 	}
 

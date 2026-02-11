@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Linq.Expressions;
@@ -59,7 +57,7 @@ public class DataExpressionFactory : IDataExpressionFactory
 					return default;
 
 				var memberAccess = UmbrellaDynamicExpression.CreateMemberAccess(parameter, descriptor.MemberPath!, false);
-				
+
 				if (memberAccess is null)
 					return default;
 

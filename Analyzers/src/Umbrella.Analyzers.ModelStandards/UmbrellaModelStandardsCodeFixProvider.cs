@@ -196,7 +196,7 @@
 //	{
 //		var semanticModel = await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
 //		var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-		
+
 //		if (semanticModel == null || root == null)
 //			return document;
 

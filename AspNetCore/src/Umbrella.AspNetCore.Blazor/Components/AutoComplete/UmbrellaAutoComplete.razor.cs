@@ -62,7 +62,7 @@ public partial class UmbrellaAutoComplete : IDisposable
 	/// </summary>
 	[Parameter]
 	public EventCallback<string?> ValueChanged { get; set; }
-	
+
 	/// <inheritdoc/>
 	protected override void OnParametersSet()
 	{

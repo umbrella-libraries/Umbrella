@@ -56,7 +56,7 @@ public class UmbrellaGridComponentServiceFactory : IUmbrellaGridComponentService
 				StateHasChangedDelegate = stateHasChangedDelegate
 			};
 
-			if(initialFilterExpressions is not null)
+			if (initialFilterExpressions is not null)
 				service.InitialFilterExpressions = initialFilterExpressions;
 
 			return service;

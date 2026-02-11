@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Collections.Concurrent;
 using CommunityToolkit.Diagnostics;
 
@@ -90,7 +88,7 @@ public static class IEnumerableExtensions
 		{
 			List<TResult> lstResult = [];
 
-			foreach(var item in source)
+			foreach (var item in source)
 			{
 				lstResult.Add(await selector(item, cancellationToken).ConfigureAwait(false));
 			}

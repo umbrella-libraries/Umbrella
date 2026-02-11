@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Security.Claims;
 using Umbrella.AppFramework.Shared.Constants;
 using Umbrella.Utilities.Http;

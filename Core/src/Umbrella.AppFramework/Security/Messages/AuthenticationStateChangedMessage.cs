@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Security.Claims;
 using CommunityToolkit.Mvvm.Messaging.Messages;
 

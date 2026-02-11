@@ -1,10 +1,7 @@
-﻿
-
-
+﻿using System.Security.Claims;
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
-using System.Security.Claims;
 using Umbrella.AppFramework.Exceptions;
 using Umbrella.AppFramework.Security.Abstractions;
 using Umbrella.AppFramework.Security.Messages;

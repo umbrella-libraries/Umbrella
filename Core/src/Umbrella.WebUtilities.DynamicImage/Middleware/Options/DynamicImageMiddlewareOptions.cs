@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.ComponentModel;
 using CommunityToolkit.Diagnostics;
 using Umbrella.DynamicImage.Abstractions;

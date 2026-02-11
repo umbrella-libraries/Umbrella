@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.AppFramework.Http.Handlers;
 using Umbrella.AppFramework.Http.Handlers.Options;

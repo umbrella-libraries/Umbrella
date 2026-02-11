@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Net.Http;
 
 namespace Umbrella.Utilities.Http;

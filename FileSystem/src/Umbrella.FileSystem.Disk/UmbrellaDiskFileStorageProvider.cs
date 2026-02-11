@@ -1,10 +1,7 @@
-﻿
-
-
+﻿using System.Runtime.InteropServices;
+using System.Text;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
-using System.Runtime.InteropServices;
-using System.Text;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.Utilities.Helpers;
 using Umbrella.Utilities.Mime.Abstractions;

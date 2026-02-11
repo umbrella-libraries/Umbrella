@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Web.Http.Filters;
 
 namespace Umbrella.Legacy.WebUtilities.WebApi.Filters;

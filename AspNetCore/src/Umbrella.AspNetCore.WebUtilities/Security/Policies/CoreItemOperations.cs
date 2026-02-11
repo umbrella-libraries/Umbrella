@@ -1,6 +1,4 @@
 ﻿
-
-
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 
 namespace Umbrella.AspNetCore.WebUtilities.Security.Policies;

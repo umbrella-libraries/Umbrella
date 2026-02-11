@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.DataAccess.Abstractions;
 using Umbrella.DataAccess.Abstractions.Options;

@@ -1,7 +1,7 @@
-﻿using CommunityToolkit.Diagnostics;
+﻿using System.Security.Claims;
+using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Logging;
-using System.Security.Claims;
 using Umbrella.AppFramework.Security.Abstractions;
 using Umbrella.AppFramework.Shared.Security.Extensions;
 using Umbrella.AspNetCore.Blazor.Security.Abstractions;
@@ -59,7 +59,7 @@ public class ClaimsPrincipalAuthenticationStateProvider : AuthenticationStatePro
 
 			if (refreshTokenExpiration > _dateTimeProvider.UtcNow)
 			{
-				if(_options.OnSetAuthenticatedUserContext is not null)
+				if (_options.OnSetAuthenticatedUserContext is not null)
 					await _options.OnSetAuthenticatedUserContext(principal);
 
 				return new AuthenticationState(principal);

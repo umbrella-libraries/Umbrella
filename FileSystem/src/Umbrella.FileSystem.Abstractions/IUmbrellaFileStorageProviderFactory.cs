@@ -1,6 +1,4 @@
 ﻿
-
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Umbrella.FileSystem.Abstractions;

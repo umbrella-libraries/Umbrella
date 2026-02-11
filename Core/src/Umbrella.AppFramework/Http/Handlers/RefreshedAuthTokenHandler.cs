@@ -1,9 +1,6 @@
-﻿
-
-
-using CommunityToolkit.Diagnostics;
-using System.Net.Http;
+﻿using System.Net.Http;
 using System.Text;
+using CommunityToolkit.Diagnostics;
 using Umbrella.AppFramework.Security.Abstractions;
 using Umbrella.AppFramework.Shared.Constants;
 using Umbrella.Utilities;
@@ -37,7 +34,7 @@ public class RefreshedAuthTokenHandler : DelegatingHandler
 		Guard.IsNotNull(request);
 
 		var response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
-		
+
 		if (response.Headers.TryGetValues(AppHttpHeaderName.NewAuthToken, out var values))
 		{
 			string? token = values.FirstOrDefault()?.Trim();

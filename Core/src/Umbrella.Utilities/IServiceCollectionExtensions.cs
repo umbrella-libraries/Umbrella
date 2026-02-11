@@ -1,8 +1,5 @@
-﻿
-
-
+﻿using System.Runtime.CompilerServices;
 using CommunityToolkit.Diagnostics;
-using System.Runtime.CompilerServices;
 using Umbrella.Utilities.Caching;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Caching.Options;

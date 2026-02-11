@@ -1,6 +1,4 @@
 ﻿
-
-
 using Blazored.LocalStorage;
 using Blazored.Modal;
 using Blazored.SessionStorage;

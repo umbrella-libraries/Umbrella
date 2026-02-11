@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Runtime.InteropServices;
 
 namespace Umbrella.AspNetCore.Blazor.Components.FileUpload;

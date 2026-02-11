@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.AppFramework.Services.Abstractions;
 using Umbrella.Maui.Networking;

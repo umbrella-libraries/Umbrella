@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.AspNetCore.WebUtilities.FileSystem.Middleware;
 using Umbrella.FileSystem.Abstractions;

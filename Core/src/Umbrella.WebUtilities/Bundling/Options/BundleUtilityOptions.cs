@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
 using Umbrella.Utilities.Options;

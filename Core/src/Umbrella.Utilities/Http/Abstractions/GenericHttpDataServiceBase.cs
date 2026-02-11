@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.ComponentModel.DataAnnotations;
 using System.Net.Http;
 using CommunityToolkit.Diagnostics;

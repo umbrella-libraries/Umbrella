@@ -65,7 +65,7 @@ public class ResponsiveImageTagHelperTest
 			new TagHelperAttribute("alt", "hello"),
 			new TagHelperAttribute("image-density", 12)
 		]);
-		
+
 		var output = Mocks.CreateImageTagHelperOutput(
 		[
 			new TagHelperAttribute("alt", "hello")

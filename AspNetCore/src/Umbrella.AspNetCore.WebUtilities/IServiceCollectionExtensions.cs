@@ -1,27 +1,25 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Identity;
 using Umbrella.AspNetCore.Shared.Services.Abstractions;
-using Umbrella.AspNetCore.WebUtilities.Cookie.Abstractions;
 using Umbrella.AspNetCore.WebUtilities.Cookie;
+using Umbrella.AspNetCore.WebUtilities.Cookie.Abstractions;
 using Umbrella.AspNetCore.WebUtilities.Hosting;
 using Umbrella.AspNetCore.WebUtilities.Hosting.Options;
 using Umbrella.AspNetCore.WebUtilities.Identity;
 using Umbrella.AspNetCore.WebUtilities.Identity.Abstractions;
 using Umbrella.AspNetCore.WebUtilities.Identity.Options;
 using Umbrella.AspNetCore.WebUtilities.Middleware.Options;
+using Umbrella.AspNetCore.WebUtilities.Mvc.Services;
 using Umbrella.AspNetCore.WebUtilities.Razor;
 using Umbrella.AspNetCore.WebUtilities.Razor.Abstractions;
+using Umbrella.AspNetCore.WebUtilities.Razor.Options;
 using Umbrella.AspNetCore.WebUtilities.Security;
 using Umbrella.AspNetCore.WebUtilities.Security.Options;
 using Umbrella.AspNetCore.WebUtilities.Services;
 using Umbrella.Utilities.Hosting.Abstractions;
-using Umbrella.WebUtilities.Hosting;
-using Umbrella.AspNetCore.WebUtilities.Razor.Options;
-using Umbrella.AspNetCore.WebUtilities.Mvc.Services;
 using Umbrella.Utilities.Security.Abstractions;
+using Umbrella.WebUtilities.Hosting;
 
 #pragma warning disable IDE0130
 namespace Microsoft.Extensions.DependencyInjection;

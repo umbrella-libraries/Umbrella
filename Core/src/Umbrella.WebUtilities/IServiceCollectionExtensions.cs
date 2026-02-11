@@ -1,8 +1,5 @@
-﻿
-
-
+﻿using System.Runtime.CompilerServices;
 using CommunityToolkit.Diagnostics;
-using System.Runtime.CompilerServices;
 using Umbrella.WebUtilities.Bundling;
 using Umbrella.WebUtilities.Bundling.Abstractions;
 using Umbrella.WebUtilities.Bundling.Options;

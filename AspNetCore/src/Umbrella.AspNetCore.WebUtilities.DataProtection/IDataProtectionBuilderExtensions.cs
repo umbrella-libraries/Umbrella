@@ -1,8 +1,8 @@
-﻿using Azure.Identity;
+﻿using System.Text;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.DataProtection;
-using System.Text;
 
 #pragma warning disable IDE0130
 namespace Microsoft.Extensions.DependencyInjection;

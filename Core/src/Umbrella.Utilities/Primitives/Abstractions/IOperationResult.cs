@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.ComponentModel.DataAnnotations;
 
 namespace Umbrella.Utilities.Primitives.Abstractions;
@@ -29,7 +27,7 @@ public interface IOperationResult
 	/// <summary>
 	/// A list of validation results that contain messages detailing why it might be the case that the operation could not be completed.
 	/// </summary>
-	IReadOnlyCollection<ValidationResult>? ValidationResults { get;  }
+	IReadOnlyCollection<ValidationResult>? ValidationResults { get; }
 
 	/// <summary>
 	/// Converts the current operation result to a strongly typed result of the specified reference type.

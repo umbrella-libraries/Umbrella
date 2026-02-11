@@ -61,7 +61,7 @@ public static class SpanExtensions
 	/// e.g. if the span has a length of 10 and a value with length 5 is written from <paramref name="startIndex"/> 2,
 	/// this method will return 7.
 	/// </returns>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]	
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static int Write(this in Span<char> span, int startIndex, in ReadOnlySpan<char> value) =>
 #if NET462 || DEBUG
 		WriteInternalNetClr(span, startIndex, value);

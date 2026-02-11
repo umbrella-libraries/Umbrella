@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Maui.Converters;
 using CommunityToolkit.Mvvm.Input;

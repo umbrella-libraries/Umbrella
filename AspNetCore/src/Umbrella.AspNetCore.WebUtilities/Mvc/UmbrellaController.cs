@@ -7,7 +7,7 @@ namespace Umbrella.AspNetCore.WebUtilities.Mvc;
 /// Serves as the base class for all MVC controllers.
 /// </summary>
 public abstract class UmbrellaController : Controller
-{	
+{
 	/// <summary>
 	/// Initializes a new instance of the <see cref="UmbrellaController"/> class.
 	/// </summary>

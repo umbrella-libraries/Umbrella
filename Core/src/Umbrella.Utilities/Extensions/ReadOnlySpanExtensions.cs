@@ -1,9 +1,6 @@
-﻿
-
-
-using CommunityToolkit.Diagnostics;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Runtime.CompilerServices;
+using CommunityToolkit.Diagnostics;
 
 namespace Umbrella.Utilities.Extensions;
 

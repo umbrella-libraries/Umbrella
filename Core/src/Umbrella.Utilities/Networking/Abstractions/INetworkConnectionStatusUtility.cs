@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.Utilities.Networking.Abstractions;
 
 /// <summary>

@@ -32,7 +32,7 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	/// The height request attribute name
 	/// </summary>
 	protected const string HeightRequestAttributeName = "height-request";
-	
+
 	/// <summary>
 	/// Gets the <see cref="IDynamicImageUtility"/>.
 	/// </summary>
@@ -68,14 +68,14 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	/// </remarks>
 	public DynamicResizeMode ResizeMode { get; set; } = DynamicResizeMode.Crop;
 
-    /// <summary>
-    /// Gets or sets the filter quality for the dynamic image. Defaults to <see cref="DynamicImageFilterQuality.Medium"/>.
-    /// </summary>
-    /// <remarks>
-    /// The filter quality determines the level of filtering applied during image resizing.
-    /// Higher quality settings may result in better visual output but can increase processing time.
-    /// </remarks>
-    public DynamicImageFilterQuality FilterQuality { get; set; } = DynamicImageFilterQuality.Medium;
+	/// <summary>
+	/// Gets or sets the filter quality for the dynamic image. Defaults to <see cref="DynamicImageFilterQuality.Medium"/>.
+	/// </summary>
+	/// <remarks>
+	/// The filter quality determines the level of filtering applied during image resizing.
+	/// Higher quality settings may result in better visual output but can increase processing time.
+	/// </remarks>
+	public DynamicImageFilterQuality FilterQuality { get; set; } = DynamicImageFilterQuality.Medium;
 
 	/// <summary>
 	/// Gets or sets the quality request. This is a value between 0-100. The quality is a suggestion, and not all formats (for example, PNG) or image libraries (e.g. FreeImage) respect or support it. Defaults to <see langword="100" />.
@@ -167,7 +167,7 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 
 		return src;
 	}
-	
+
 	/// <inheritdoc/>
 	protected override string ResolveImageUrl(string url)
 	{

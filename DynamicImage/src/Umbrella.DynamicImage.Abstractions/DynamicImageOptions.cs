@@ -34,10 +34,10 @@ public readonly record struct DynamicImageOptions
 	/// </summary>
 	public string SourcePath { get; }
 
-    /// <summary>
-    /// Gets the filter quality for resizing the image.
-    /// </summary>
-    public DynamicImageFilterQuality FilterQuality { get; } = DynamicImageFilterQuality.Medium;
+	/// <summary>
+	/// Gets the filter quality for resizing the image.
+	/// </summary>
+	public DynamicImageFilterQuality FilterQuality { get; } = DynamicImageFilterQuality.Medium;
 
 	/// <summary>
 	/// Get the quality request.

@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Umbrella.Utilities.Options.Abstractions;

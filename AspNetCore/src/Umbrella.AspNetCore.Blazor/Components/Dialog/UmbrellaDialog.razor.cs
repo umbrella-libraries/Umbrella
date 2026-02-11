@@ -1,7 +1,7 @@
-﻿using Blazored.Modal;
-using Blazored.Modal.Services;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Blazored.Modal;
+using Blazored.Modal.Services;
 using Umbrella.AspNetCore.Blazor.Constants;
 
 namespace Umbrella.AspNetCore.Blazor.Components.Dialog;
@@ -123,7 +123,7 @@ public partial class UmbrellaDialog
 		UmbrellaDialogSize.FullScreen => "modal-fullscreen",
 		_ => throw new SwitchExpressionException(Size)
 	};
-	
+
 	/// <inheritdoc/>
 	protected override void OnInitialized()
 	{

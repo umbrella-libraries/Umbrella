@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Components.Forms;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.AspNetCore.Components.Forms;
 using Umbrella.AspNetCore.Blazor.Constants;
 using Umbrella.DataAnnotations.Helpers;
 using Umbrella.Utilities.DataAnnotations.Abstractions;

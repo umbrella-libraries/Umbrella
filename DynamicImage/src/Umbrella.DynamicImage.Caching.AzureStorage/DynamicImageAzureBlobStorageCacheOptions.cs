@@ -1,6 +1,4 @@
 ﻿
-
-
 using Umbrella.DynamicImage.Abstractions.Caching;
 
 namespace Umbrella.DynamicImage.Caching.AzureStorage;

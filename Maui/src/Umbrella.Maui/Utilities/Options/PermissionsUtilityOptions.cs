@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.Maui.Utilities.Enumerations;
 using Umbrella.Utilities.Options.Abstractions;

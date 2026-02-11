@@ -1,6 +1,4 @@
 ﻿
-
-
 using Microsoft.Extensions.DependencyInjection;
 using Umbrella.Xamarin.Exceptions;
 

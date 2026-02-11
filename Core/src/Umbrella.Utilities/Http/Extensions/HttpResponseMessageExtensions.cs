@@ -1,5 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
-using System.Net.Http;
+﻿using System.Net.Http;
+using Microsoft.Extensions.Logging;
 
 namespace Umbrella.Utilities.Http.Extensions;
 

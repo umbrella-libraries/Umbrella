@@ -1,7 +1,7 @@
-﻿using Microsoft.Extensions.Logging;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
+using Microsoft.Extensions.Logging;
 using Umbrella.AppFramework.Security.Abstractions;
 using Umbrella.AppFramework.Services.Abstractions;
 using Umbrella.Utilities.Http;

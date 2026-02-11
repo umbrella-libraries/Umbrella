@@ -17,43 +17,43 @@ public class PrimitiveComparisonAnalyzer : DiagnosticAnalyzer
 	/// </summary>
 	public const string DiagnosticId = "UA002";
 
-    /// <summary>
-    /// The diagnostic rule for this analyzer.
-    /// </summary>
-    public static readonly DiagnosticDescriptor Rule = new(
-        DiagnosticId,
-        "Use pattern matching for primitive and enum comparisons",
-        "Use 'is' or 'is not' instead of '==' or '!=' for primitive and enum comparisons",
-        "CodeStyle",
-        DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
+	/// <summary>
+	/// The diagnostic rule for this analyzer.
+	/// </summary>
+	public static readonly DiagnosticDescriptor Rule = new(
+		DiagnosticId,
+		"Use pattern matching for primitive and enum comparisons",
+		"Use 'is' or 'is not' instead of '==' or '!=' for primitive and enum comparisons",
+		"CodeStyle",
+		DiagnosticSeverity.Error,
+		isEnabledByDefault: true);
 
 	/// <inheritdoc />
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
 
 	/// <inheritdoc />
 	public override void Initialize(AnalysisContext context)
-    {
+	{
 		if (context is null)
 			throw new ArgumentNullException(nameof(context));
 
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.EnableConcurrentExecution();
-        context.RegisterSyntaxNodeAction(AnalyzeBinaryExpression, SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
-    }
+		context.EnableConcurrentExecution();
+		context.RegisterSyntaxNodeAction(AnalyzeBinaryExpression, SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
+	}
 
-    private static void AnalyzeBinaryExpression(SyntaxNodeAnalysisContext context)
-    {
-        var binaryExpression = (BinaryExpressionSyntax)context.Node;
-        var leftType = context.SemanticModel.GetTypeInfo(binaryExpression.Left).Type;
-        var rightType = context.SemanticModel.GetTypeInfo(binaryExpression.Right).Type;
+	private static void AnalyzeBinaryExpression(SyntaxNodeAnalysisContext context)
+	{
+		var binaryExpression = (BinaryExpressionSyntax)context.Node;
+		var leftType = context.SemanticModel.GetTypeInfo(binaryExpression.Left).Type;
+		var rightType = context.SemanticModel.GetTypeInfo(binaryExpression.Right).Type;
 
-        if (leftType != null && rightType != null &&
-            (leftType.IsValueType || leftType.TypeKind == TypeKind.Enum) &&
-            SymbolEqualityComparer.Default.Equals(leftType, rightType))
-        {
-            var diagnostic = Diagnostic.Create(Rule, binaryExpression.GetLocation());
-            context.ReportDiagnostic(diagnostic);
-        }
-    }
+		if (leftType != null && rightType != null &&
+			(leftType.IsValueType || leftType.TypeKind == TypeKind.Enum) &&
+			SymbolEqualityComparer.Default.Equals(leftType, rightType))
+		{
+			var diagnostic = Diagnostic.Create(Rule, binaryExpression.GetLocation());
+			context.ReportDiagnostic(diagnostic);
+		}
+	}
 }

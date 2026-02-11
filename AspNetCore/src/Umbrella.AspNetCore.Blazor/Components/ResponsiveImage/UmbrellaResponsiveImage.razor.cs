@@ -1,8 +1,5 @@
-﻿
-
-
+﻿using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using Umbrella.AspNetCore.Blazor.Constants;
 using Umbrella.Utilities.Imaging.Abstractions;
 

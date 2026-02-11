@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.Utilities.Extensions;
 using Umbrella.Utilities.Options.Abstractions;

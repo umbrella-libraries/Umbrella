@@ -1,12 +1,9 @@
-﻿
-
-
+﻿using System.Collections.Concurrent;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.FileSystem.AzureStorage.Extensions;
 using Umbrella.Utilities.Extensions;

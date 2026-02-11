@@ -13,5 +13,5 @@ public class StringExtensionsTest
 		string output = input.RemapInternationalCharactersToAscii();
 
 		Assert.Equal("Rio Tinto Minera Peru Limitada SAC (RTMPL) Borax Francais (BF)", output);
-    }
+	}
 }

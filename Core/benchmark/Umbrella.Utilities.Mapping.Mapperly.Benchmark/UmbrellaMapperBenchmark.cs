@@ -1,7 +1,7 @@
-﻿using BenchmarkDotNet.Attributes;
+﻿using System.Reflection;
+using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
 using Microsoft.Extensions.DependencyInjection;
-using System.Reflection;
 using Umbrella.Internal.Mocks;
 using Umbrella.Utilities.Mapping.Mapperly.Enumerations;
 using Umbrella.Utilities.Mapping.Mapperly.Options;

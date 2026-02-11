@@ -1,6 +1,4 @@
 ﻿
-
-
 using Umbrella.FileSystem.Abstractions;
 
 namespace Umbrella.FileSystem.Disk;

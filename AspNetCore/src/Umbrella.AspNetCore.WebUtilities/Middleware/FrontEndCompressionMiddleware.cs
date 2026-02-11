@@ -1,15 +1,12 @@
-﻿
-
-
+﻿using System.Buffers;
+using System.Collections.Concurrent;
+using System.IO.Compression;
+using System.Text;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
-using System.Buffers;
-using System.Collections.Concurrent;
-using System.IO.Compression;
-using System.Text;
 using Umbrella.AspNetCore.WebUtilities.Extensions;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Mime.Abstractions;
@@ -362,7 +359,7 @@ public class FrontEndCompressionMiddleware
 			throw;
 		}
 	}
-#endregion
+	#endregion
 
 	#region Private Methods
 	private IFileInfo? GetFileInfo(string path, bool watchFiles)

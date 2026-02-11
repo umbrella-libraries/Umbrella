@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Text;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Diagnostics;
@@ -205,8 +203,8 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 	public virtual async Task<IUmbrellaFileInfo> CopyAsync(IUmbrellaFileInfo sourceFile, IUmbrellaFileInfo destinationFile, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-        Guard.IsNotNull(sourceFile);
-        Guard.IsOfType<TFileInfo>(sourceFile);
+		Guard.IsNotNull(sourceFile);
+		Guard.IsOfType<TFileInfo>(sourceFile);
 		Guard.IsOfType<TFileInfo>(destinationFile);
 
 		try
@@ -244,8 +242,8 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 	public virtual async Task<IUmbrellaFileInfo> MoveAsync(IUmbrellaFileInfo sourceFile, string destinationSubpath, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-        Guard.IsNotNull(sourceFile);
-        Guard.IsOfType<TFileInfo>(sourceFile);
+		Guard.IsNotNull(sourceFile);
+		Guard.IsOfType<TFileInfo>(sourceFile);
 		Guard.IsNotNullOrWhiteSpace(destinationSubpath);
 
 		try
@@ -266,8 +264,8 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 	public virtual async Task<IUmbrellaFileInfo> MoveAsync(IUmbrellaFileInfo sourceFile, IUmbrellaFileInfo destinationFile, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-        Guard.IsNotNull(sourceFile);
-        Guard.IsOfType<TFileInfo>(sourceFile);
+		Guard.IsNotNull(sourceFile);
+		Guard.IsOfType<TFileInfo>(sourceFile);
 		Guard.IsOfType<TFileInfo>(destinationFile);
 
 		try

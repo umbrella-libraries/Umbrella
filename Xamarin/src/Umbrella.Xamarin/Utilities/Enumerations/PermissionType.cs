@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.Xamarin.Utilities.Enumerations;
 
 /// <summary>

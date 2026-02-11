@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.ComponentModel.DataAnnotations;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;

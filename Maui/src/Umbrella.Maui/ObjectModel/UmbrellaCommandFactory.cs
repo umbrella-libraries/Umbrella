@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;

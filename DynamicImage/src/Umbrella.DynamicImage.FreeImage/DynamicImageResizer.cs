@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Drawing;
 using CommunityToolkit.Diagnostics;
 using FreeImageAPI;
@@ -128,7 +126,7 @@ public class DynamicImageResizer : DynamicImageResizerBase
 	private static FreeImageBitmap LoadBitmap(byte[] bytes)
 	{
 		using var inputStream = new MemoryStream(bytes);
-		
+
 		return FreeImageBitmap.FromStream(inputStream);
 	}
 

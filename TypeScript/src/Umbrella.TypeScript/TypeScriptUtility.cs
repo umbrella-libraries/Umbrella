@@ -1,6 +1,6 @@
-﻿using Humanizer;
-using System.Collections;
+﻿using System.Collections;
 using System.Reflection;
+using Humanizer;
 using Umbrella.TypeScript.Annotations.Attributes;
 using Umbrella.TypeScript.Annotations.Enumerations;
 using Umbrella.Utilities.Extensions;

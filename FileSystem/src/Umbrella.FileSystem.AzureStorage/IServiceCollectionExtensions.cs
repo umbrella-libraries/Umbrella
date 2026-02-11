@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.FileSystem.AzureStorage;
@@ -70,9 +68,9 @@ public static class IServiceCollectionExtensions
 
 			return factory.CreateProvider<TFileProvider, TOptions>(options, services);
 		});
-		
+
 		_ = services.ReplaceSingleton<IUmbrellaFileStorageProvider>(x => x.GetRequiredService<IUmbrellaAzureBlobFileStorageProvider>());
-		
+
 		// Options
 		_ = services.ConfigureUmbrellaOptions(optionsBuilder);
 

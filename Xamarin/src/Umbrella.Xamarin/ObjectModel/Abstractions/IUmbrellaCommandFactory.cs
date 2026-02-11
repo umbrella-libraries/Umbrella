@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Windows.Input;
 using Xamarin.CommunityToolkit.ObjectModel;
 using Xamarin.Forms;

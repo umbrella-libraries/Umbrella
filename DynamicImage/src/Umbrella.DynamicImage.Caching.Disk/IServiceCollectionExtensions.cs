@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.DynamicImage.Abstractions.Caching;
 using Umbrella.DynamicImage.Caching.Disk;

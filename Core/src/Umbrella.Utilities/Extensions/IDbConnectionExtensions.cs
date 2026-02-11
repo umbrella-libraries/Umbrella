@@ -1,5 +1,5 @@
-﻿using CommunityToolkit.Diagnostics;
-using System.Data;
+﻿using System.Data;
+using CommunityToolkit.Diagnostics;
 
 namespace Umbrella.Utilities.Extensions;
 

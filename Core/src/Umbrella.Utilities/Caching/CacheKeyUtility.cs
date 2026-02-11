@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Buffers;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;

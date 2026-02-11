@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.FileSystem.Disk;
 
 /// <summary>

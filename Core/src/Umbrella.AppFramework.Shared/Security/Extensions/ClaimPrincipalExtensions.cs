@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Globalization;
 using System.Security.Claims;
 

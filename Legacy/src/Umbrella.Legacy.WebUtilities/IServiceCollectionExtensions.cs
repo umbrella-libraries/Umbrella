@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Runtime.CompilerServices;
 using CommunityToolkit.Diagnostics;
 using Umbrella.Legacy.WebUtilities.Hosting;

@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using System.Security.Claims;
 using Umbrella.AspNetCore.Shared.Services.Abstractions;
 
 namespace Umbrella.AspNetCore.WebUtilities.Services;

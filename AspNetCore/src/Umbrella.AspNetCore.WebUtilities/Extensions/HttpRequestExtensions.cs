@@ -1,10 +1,7 @@
-﻿
-
-
+﻿using System.Globalization;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
-using System.Globalization;
 
 namespace Umbrella.AspNetCore.WebUtilities.Extensions;
 

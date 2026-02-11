@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.DynamicImage.Abstractions;
 
 /// <summary>

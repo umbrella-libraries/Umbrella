@@ -1,6 +1,4 @@
 ﻿
-
-
 using Microsoft.Extensions.Logging;
 using Moq;
 using Umbrella.Utilities.Numerics;

@@ -1,9 +1,6 @@
-﻿
-
-
+﻿using System.Security.Claims;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
-using System.Security.Claims;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Security.Extensions;
 
@@ -293,7 +290,12 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 	public string GetTempWebFilePath(string fileName) => $"/{Options.WebFilesDirectoryName}{GetTempFilePath(fileName)}".ToLowerInvariant();
 
 	/// <inheritdoc/>
-	public bool IsTempFilePath(string filePath) => filePath.StartsWith(GetTempDirectoryName() + "/", StringComparison.OrdinalIgnoreCase);
+	public bool IsTempFilePath(string filePath)
+	{
+		Guard.IsNotNull(filePath);
+
+		return filePath.StartsWith(GetTempDirectoryName() + "/", StringComparison.OrdinalIgnoreCase);
+	}
 
 	/// <inheritdoc/>
 	public string GetDirectoryName(TGroupId groupId) => $"/{DirectoryName}/{groupId}";

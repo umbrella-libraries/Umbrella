@@ -1,10 +1,10 @@
-﻿using Polly;
+﻿using System.Collections.Concurrent;
+using System.Net.Http;
+using Polly;
 using Polly.Contrib.WaitAndRetry;
 using Polly.Extensions.Http;
 using Polly.Retry;
 using Polly.Timeout;
-using System.Collections.Concurrent;
-using System.Net.Http;
 
 namespace Umbrella.Utilities.Http;
 

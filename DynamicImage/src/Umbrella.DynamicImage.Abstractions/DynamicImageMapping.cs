@@ -32,7 +32,7 @@ public readonly record struct DynamicImageMapping
 	/// </summary>
 	public DynamicImageFormat Format { get; }
 	#endregion
-		
+
 	/// <summary>
 	/// Initializes a new instance of the <see cref="DynamicImageMapping"/> struct.
 	/// </summary>

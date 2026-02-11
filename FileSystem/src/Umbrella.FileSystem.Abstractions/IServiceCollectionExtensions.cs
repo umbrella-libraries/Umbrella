@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Umbrella.FileSystem.Abstractions;
 
@@ -22,7 +20,7 @@ public static class IServiceCollectionExtensions
 	public static IServiceCollection AddUmbrellaFileSystemCore(this IServiceCollection services)
 	{
 		Guard.IsNotNull(services);
-		
+
 		_ = services.AddSingleton<IUmbrellaFileStorageProviderFactory, UmbrellaFileStorageProviderFactory>();
 		_ = services.AddSingleton<IUmbrellaTempFileHandler, UmbrellaTempFileHandler>();
 

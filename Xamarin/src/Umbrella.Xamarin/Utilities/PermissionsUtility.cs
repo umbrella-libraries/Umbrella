@@ -1,6 +1,4 @@
 ﻿
-
-
 using Microsoft.Extensions.Logging;
 using Umbrella.AppFramework.Services.Abstractions;
 using Umbrella.Xamarin.Exceptions;

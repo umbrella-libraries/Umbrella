@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Mvvm.Messaging.Messages;
 using Umbrella.AppFramework.Services.Enumerations;
 

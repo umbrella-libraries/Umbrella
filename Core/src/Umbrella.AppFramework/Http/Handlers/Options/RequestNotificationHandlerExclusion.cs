@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using Umbrella.Utilities.Extensions;

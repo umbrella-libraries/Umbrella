@@ -1,14 +1,12 @@
 ﻿
-
-
-using CommunityToolkit.Diagnostics;
-using Microsoft.Extensions.Logging;
-using Moq;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using CommunityToolkit.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.DynamicImage.Abstractions.Caching;
 using Umbrella.FileSystem.Abstractions;
@@ -121,7 +119,7 @@ public class DynamicImageResizerTest
 		foreach (var option in _optionsList)
 		{
 			// FreeImage does not support Avif yet
-			if(option.Options.Format is not DynamicImageFormat.Avif)
+			if (option.Options.Format is not DynamicImageFormat.Avif)
 				OptionsList.Add([CreateDynamicImageResizer<FreeImageResizer>(), option, TestPNG]);
 
 			// TODO: SkiaSharp has issues converting PNG to BMP and GIF. It also doesn't support AVIF yet.

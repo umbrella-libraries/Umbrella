@@ -1,6 +1,4 @@
 ﻿
-
-
 using Umbrella.AppFramework.Services.Enumerations;
 
 namespace Umbrella.AppFramework.Services.Abstractions;

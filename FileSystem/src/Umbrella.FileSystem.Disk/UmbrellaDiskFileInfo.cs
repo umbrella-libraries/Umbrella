@@ -1,6 +1,4 @@
 ﻿
-
-
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Umbrella.FileSystem.Abstractions;
@@ -592,7 +590,7 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 			throw new UmbrellaFileSystemException("There has been an error setting the file name.", exc);
 		}
 	}
-#endregion
+	#endregion
 
 	#region Private Methods
 	private async Task ReloadMetadataAsync(CancellationToken cancellationToken = default)
@@ -646,5 +644,5 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 		if (IsNew)
 			throw new InvalidOperationException("Cannot read the contents of a newly created file. The file must first be written to.");
 	}
-#endregion
+	#endregion
 }

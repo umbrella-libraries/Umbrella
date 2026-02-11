@@ -1,6 +1,4 @@
 ﻿
-
-
 using Blazored.Modal;
 using Blazored.Modal.Services;
 using Umbrella.AppFramework.Services.Abstractions;

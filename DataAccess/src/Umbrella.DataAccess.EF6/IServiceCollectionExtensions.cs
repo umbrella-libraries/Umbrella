@@ -1,5 +1,5 @@
-﻿using CommunityToolkit.Diagnostics;
-using System.Data.Entity;
+﻿using System.Data.Entity;
+using CommunityToolkit.Diagnostics;
 using Umbrella.DataAccess.Abstractions;
 using Umbrella.DataAccess.EF6;
 

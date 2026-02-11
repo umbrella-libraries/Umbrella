@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
@@ -340,7 +338,7 @@ public static class StringBuilderExtensions
 
 		return builder;
 	}
-#endregion
+	#endregion
 
 	#region Private Methods
 	private static IEnumerable<char> CreateTabArray(int length)

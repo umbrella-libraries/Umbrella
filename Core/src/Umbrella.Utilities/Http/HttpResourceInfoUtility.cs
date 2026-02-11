@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.Net.Http;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;

@@ -1,6 +1,4 @@
 ﻿
-
-
 using System.ComponentModel.DataAnnotations;
 using Umbrella.AppFramework.Services.Constants;
 using Umbrella.Utilities.Http;

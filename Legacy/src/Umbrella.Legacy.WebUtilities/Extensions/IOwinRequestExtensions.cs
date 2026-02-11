@@ -1,9 +1,7 @@
 ﻿
-
-
+using System.Globalization;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Owin;
-using System.Globalization;
 
 namespace Umbrella.Legacy.WebUtilities.Extensions;
 

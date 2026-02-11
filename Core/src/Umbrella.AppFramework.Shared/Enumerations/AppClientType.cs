@@ -1,6 +1,4 @@
 ﻿
-
-
 namespace Umbrella.AppFramework.Shared.Enumerations;
 
 /// <summary>
