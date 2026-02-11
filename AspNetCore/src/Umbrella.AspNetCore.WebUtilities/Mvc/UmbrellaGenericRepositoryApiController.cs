@@ -1,5 +1,5 @@
-﻿// Copyright (c) Zinofi Digital Ltd. All Rights Reserved.
-// Licensed under the MIT License.
+﻿
+
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;

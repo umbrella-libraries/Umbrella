@@ -1,5 +1,5 @@
-﻿// Copyright (c) Zinofi Digital Ltd. All Rights Reserved.
-// Licensed under the MIT License.
+﻿
+
 
 using Umbrella.AppFramework.Services.Abstractions;
 using Umbrella.AppFramework.Services.Enumerations;
