@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Umbrella.AspNetCore.Blazor.Constants;
@@ -84,31 +85,31 @@ public partial class UmbrellaColumn<TItem, TValue>
 	}
 
 	/// <summary>
-	/// Gets or sets the property path override used as the <see cref="FilterExpressionDescriptor.MemberPath"/> property value when
-	/// creating filters.
+	/// Gets or sets the property path override used as the <see cref="FilterExpressionDescriptor.MemberPath"/> property
+	/// value when creating filters.
 	/// </summary>
 	/// <remarks>
-	/// If this value is <see langword="null"/>, the <see cref="MemberPathOverride"/> will be used.
+	/// If this value is <see langword="null"/> , the <see cref="MemberPathOverride"/> will be used.
 	/// </remarks>
 	[Parameter]
 	public string? FilterMemberPathOverride { get; set; }
 
 	/// <summary>
-	/// Gets or sets the property path override used as the value <see cref="SortExpressionDescriptor.MemberPath"/> property value when
-	/// creating sorters.
+	/// Gets or sets the property path override used as the value <see cref="SortExpressionDescriptor.MemberPath"/>
+	/// property value when creating sorters.
 	/// </summary>
 	/// <remarks>
-	/// If this value is <see langword="null"/>, the <see cref="MemberPathOverride"/> will be used.
+	/// If this value is <see langword="null"/> , the <see cref="MemberPathOverride"/> will be used.
 	/// </remarks>
 	[Parameter]
 	public string? SorterMemberPathOverride { get; set; }
 
 	/// <summary>
-	/// Gets or sets the property path override used as the <see cref="FilterExpressionDescriptor.MemberPath"/> and <see cref="SortExpressionDescriptor.MemberPath"/>
-	/// property values when creating filters and sorters.
+	/// Gets or sets the property path override used as the <see cref="FilterExpressionDescriptor.MemberPath"/> and
+	/// <see cref="SortExpressionDescriptor.MemberPath"/> property values when creating filters and sorters.
 	/// </summary>
 	/// <remarks>
-	/// If this value is <see langword="null"/>, the <see cref="Property"/> will be used.
+	/// If this value is <see langword="null"/> , the <see cref="Property"/> will be used.
 	/// </remarks>
 	[Parameter]
 	public string? MemberPathOverride { get; set; }
@@ -117,8 +118,9 @@ public partial class UmbrellaColumn<TItem, TValue>
 	/// Gets or sets the text for the column heading.
 	/// </summary>
 	/// <remarks>
-	/// If not specified, i.e. it is <see langword="null"/>, the code will check for the presence of a <see cref="DisplayAttribute"/>
-	/// and use it's value. As a last resort, the member name will be used. To hide the heading, set this property to an empty string.
+	/// If not specified, i.e. it is <see langword="null"/> , the code will check for the presence of a
+	/// <see cref="DisplayAttribute"/> and use it's value. As a last resort, the member name will be used. To hide the
+	/// heading, set this property to an empty string.
 	/// </remarks>
 	[Parameter]
 	public string? Heading { get; set; }
@@ -127,8 +129,8 @@ public partial class UmbrellaColumn<TItem, TValue>
 	/// Gets the column short heading display text to be applied to the column heading only.
 	/// </summary>
 	/// <remarks>
-	/// If not specified, <see cref="Heading"/> is used. The <see cref="Heading"/> property will always be used for the filter field
-	/// name and will also be shown as a tooltip for the column heading where this property has a value.
+	/// If not specified, <see cref="Heading"/> is used. The <see cref="Heading"/> property will always be used for the
+	/// filter field name and will also be shown as a tooltip for the column heading where this property has a value.
 	/// </remarks>
 	[Parameter]
 	public string? ShortHeading { get; set; }
@@ -158,13 +160,14 @@ public partial class UmbrellaColumn<TItem, TValue>
 	public UmbrellaColumnFilterType FilterControlType { get; set; }
 
 	/// <summary>
-	/// Gets or sets the type of the filter match. Defaults to <see cref="FilterType.Contains"/>.
+	/// Gets or sets the type of the filter match. Defaults to <see cref="FilterType.Contains"/> .
 	/// </summary>
 	[Parameter]
 	public FilterType FilterMatchType { get; set; } = FilterType.Contains;
 
 	/// <summary>
-	/// Gets or sets the filter options that appear in the drop down when <see cref="FilterControlType"/> is set to <see cref="UmbrellaColumnFilterType.Options"/>.
+	/// Gets or sets the filter options that appear in the drop down when <see cref="FilterControlType"/> is set to
+	/// <see cref="UmbrellaColumnFilterType.Options"/> .
 	/// </summary>
 	[Parameter]
 	public IReadOnlyCollection<object>? FilterOptions { get; set; }
@@ -176,31 +179,32 @@ public partial class UmbrellaColumn<TItem, TValue>
 	public UmbrellaColumnFilterOptionsType? FilterOptionsType { get; set; }
 
 	/// <summary>
-	/// Gets or sets the filter option display name selector used to convert a value in the <see cref="FilterOptions"/> collection to a friendly display name.
+	/// Gets or sets the filter option display name selector used to convert a value in the <see cref="FilterOptions"/>
+	/// collection to a friendly display name.
 	/// </summary>
 	/// <remarks>
-	/// An example of where this might be required is when populating the <see cref="FilterOptions"/> collection with a list of enums. This selector can be used to
-	/// convert enum names to friendlier formatted display names.
+	/// An example of where this might be required is when populating the <see cref="FilterOptions"/> collection with a
+	/// list of enums. This selector can be used to convert enum names to friendlier formatted display names.
 	/// </remarks>
 	[Parameter]
 	public Func<object, string>? FilterOptionDisplayNameSelector { get; set; }
 
 	/// <summary>
-	/// Gets or sets a value that specifies whether or not this column contains actions, e.g. buttons, links,
-	/// that can be used to perform actions on the data item that this column is associated with.
+	/// Gets or sets a value that specifies whether or not this column contains actions, e.g. buttons, links, that can be
+	/// used to perform actions on the data item that this column is associated with.
 	/// </summary>
 	protected virtual bool IsActions { get; }
 
 	/// <summary>
-	/// Gets or sets the child content rendered by this column.
-	/// If no child content has been specified, the <see cref="Value"/>, in conjunction with the <see cref="Property"/> selector
-	/// is used to render the content.
+	/// Gets or sets the child content rendered by this column. If no child content has been specified, the
+	/// <see cref="Value"/> , in conjunction with the <see cref="Property"/> selector is used to render the content.
 	/// </summary>
 	[Parameter]
 	public RenderFragment? ChildContent { get; set; }
 
 	/// <summary>
-	/// Gets or sets the uncaptured attributes that have been specified on this component. This dictionary is automatically populated by Blazor.
+	/// Gets or sets the uncaptured attributes that have been specified on this component. This dictionary is automatically
+	/// populated by Blazor.
 	/// </summary>
 	[Parameter(CaptureUnmatchedValues = true)]
 	public IReadOnlyDictionary<string, object> AdditionalAttributes { get; set; } = null!;
@@ -227,29 +231,40 @@ public partial class UmbrellaColumn<TItem, TValue>
 	/// Gets or sets a value which determines how this column will be rendered.
 	/// </summary>
 	/// <remarks>
-	/// Defaults to <see cref="UmbrellaColumnDisplayMode.Full"/>.
+	/// Defaults to <see cref="UmbrellaColumnDisplayMode.Full"/> .
 	/// </remarks>
 	[Parameter]
 	public UmbrellaColumnDisplayMode DisplayMode { get; set; }
 
 	/// <summary>
+	/// Gets or sets a function that determines the display mode for the umbrella column.
+	/// </summary>
+	/// <remarks>
+	/// The function should return an instance of UmbrellaColumnDisplayMode based on the current context or conditions.
+	/// This allows for dynamic adjustment of the display mode based on user interactions or other criteria.
+	/// </remarks>
+	[Parameter]
+	public Func<UmbrellaColumnDisplayMode>? DisplayModeSelector { get; set; }
+
+	/// <summary>
 	/// Gets or sets the nullable enum option.
 	/// </summary>
 	/// <remarks>
-	/// If a value is provided, an option will be shown when the <see cref="FilterOptionsType"/> is set to <see cref="UmbrellaColumnFilterOptionsType.Enum"/>
-	/// which will show a new option after the <c>Any</c> option with an explcit value of <see langword="null" /> with the value specified for this property
-	/// value displayed as the text in the dropdown for the option.
+	/// If a value is provided, an option will be shown when the <see cref="FilterOptionsType"/> is set to
+	/// <see cref="UmbrellaColumnFilterOptionsType.Enum"/> which will show a new option after the <c> Any</c> option with
+	/// an explcit value of <see langword="null" /> with the value specified for this property value displayed as the text
+	/// in the dropdown for the option.
 	/// </remarks>
 	[Parameter]
 	public string? NullableEnumOption { get; set; }
 
 	/// <summary>
-	/// Gets or sets the addon button delegate which will be invoked when the add-on button is clicked when the <see cref="FilterControlType"/>
-	/// is set to <see cref="UmbrellaColumnFilterType.TextAddOnButton"/>.
+	/// Gets or sets the addon button delegate which will be invoked when the add-on button is clicked when the
+	/// <see cref="FilterControlType"/> is set to <see cref="UmbrellaColumnFilterType.TextAddOnButton"/> .
 	/// </summary>
 	/// <remarks>
-	/// The delegate must accept a string parameter which will be the value of the current filter and return a string, which is the new filter value
-	/// to set the text box's content to, wrapped in a <see cref="ValueTask"/>.
+	/// The delegate must accept a string parameter which will be the value of the current filter and return a string,
+	/// which is the new filter value to set the text box's content to, wrapped in a <see cref="ValueTask"/> .
 	/// </remarks>
 	[Parameter]
 	public Func<string?, ValueTask<string?>>? OnAddOnButtonClickedAsync { get; set; }
@@ -271,7 +286,9 @@ public partial class UmbrellaColumn<TItem, TValue>
 	/// <summary>
 	/// Gets or sets the add on button icon CSS class.
 	/// </summary>
-	/// <remarks>Defaults to <c>fas list-radio</c>. If no icon is required, set this property value to an empty string or null.</remarks>
+	/// <remarks>
+	/// Defaults to <c> fas list-radio</c>. If no icon is required, set this property value to an empty string or null.
+	/// </remarks>
 	[Parameter]
 	public string? AddOnButtonIconCssClass { get; set; } = "fas fa-list-ul";
 
@@ -296,7 +313,8 @@ public partial class UmbrellaColumn<TItem, TValue>
 	public int AutoCompleteMaximumSuggestions { get; set; } = 10;
 
 	/// <summary>
-	/// Gets or sets the minimum characters that need to be provided before the <see cref="AutoCompleteSearchMethod"/> delegate is invoked.
+	/// Gets or sets the minimum characters that need to be provided before the <see cref="AutoCompleteSearchMethod"/>
+	/// delegate is invoked.
 	/// </summary>
 	/// <remarks>Defaults to <c>3</c></remarks>
 	[Parameter]
@@ -310,7 +328,18 @@ public partial class UmbrellaColumn<TItem, TValue>
 	/// <inheritdoc />
 	protected override async Task OnInitializedAsync()
 	{
-		ClaimsPrincipal claimsPrincipal = ClaimsPrincipal.Current ?? new ClaimsPrincipal(new ClaimsIdentity());
+		ClaimsPrincipal? claimsPrincipal = null;
+
+		AuthenticationStateProvider? authenticationStateProvider = ServiceProvider.GetService<AuthenticationStateProvider>();
+
+		if (authenticationStateProvider is not null)
+		{
+			var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+
+			claimsPrincipal = authState.User;
+		}
+
+		claimsPrincipal ??= new ClaimsPrincipal(new ClaimsIdentity());
 
 		// Manually resolve the service here from the provider as the service may not have been registered in the DI container
 		// if the component is being used in a project that doesn't require authorization.
@@ -350,6 +379,7 @@ public partial class UmbrellaColumn<TItem, TValue>
 					FilterMemberPathOverride ?? MemberPathOverride ?? memberPathAttributeValue,
 					SorterMemberPathOverride ?? MemberPathOverride ?? memberPathAttributeValue,
 					DisplayMode,
+					DisplayModeSelector,
 					NullableEnumOption,
 					OnAddOnButtonClickedAsync,
 					AddOnButtonCssClass,

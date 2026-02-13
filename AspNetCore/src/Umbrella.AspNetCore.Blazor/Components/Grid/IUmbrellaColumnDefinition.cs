@@ -4,13 +4,14 @@ using Umbrella.Utilities.Data.Sorting;
 namespace Umbrella.AspNetCore.Blazor.Components.Grid;
 
 /// <summary>
-/// Represents a definition of an <see cref="UmbrellaColumn{TItem, TValue}"/>.
+/// Represents a definition of an <see cref="UmbrellaColumn{TItem, TValue}"/> .
 /// </summary>
 /// <typeparam name="TItem">The type of the item.</typeparam>
 public interface IUmbrellaColumnDefinition<TItem>
 {
 	/// <summary>
-	/// Gets a collection of the unmatched parameter values specified on the column component that this instance is associated with.
+	/// Gets a collection of the unmatched parameter values specified on the column component that this instance is
+	/// associated with.
 	/// </summary>
 	IReadOnlyDictionary<string, object> AdditionalAttributes { get; }
 
@@ -49,13 +50,26 @@ public interface IUmbrellaColumnDefinition<TItem>
 	/// </summary>
 	UmbrellaColumnDisplayMode DisplayMode { get; }
 
+	UmbrellaColumnDisplayMode GetDisplayMode();
+
+	/// <summary>
+	/// Gets the function that determines the display mode for the umbrella column.
+	/// </summary>
+	/// <remarks>
+	/// This property allows customization of how the umbrella column is displayed based on the provided display mode
+	/// function. The function should return an instance of UmbrellaColumnDisplayMode that dictates the visual
+	/// representation.
+	/// </remarks>
+	Func<UmbrellaColumnDisplayMode>? DisplayModelSelector { get; }
+
 	/// <summary>
 	/// Gets a value specifying whether or not the column is filterable.
 	/// </summary>
 	bool Filterable { get; }
 
 	/// <summary>
-	/// Gets a value specifying the type of control that is rendered to allow filtering, if enabled using the <see cref="Filterable"/> property.
+	/// Gets a value specifying the type of control that is rendered to allow filtering, if enabled using the
+	/// <see cref="Filterable"/> property.
 	/// </summary>
 	UmbrellaColumnFilterType FilterControlType { get; }
 
@@ -65,11 +79,11 @@ public interface IUmbrellaColumnDefinition<TItem>
 	FilterType FilterMatchType { get; }
 
 	/// <summary>
-	/// Gets or sets the property path override used as the <see cref="FilterExpressionDescriptor.MemberPath"/> property value when
-	/// creating filters.
+	/// Gets or sets the property path override used as the <see cref="FilterExpressionDescriptor.MemberPath"/> property
+	/// value when creating filters.
 	/// </summary>
 	/// <remarks>
-	/// If this value is <see langword="null"/>, the <see cref="PropertyName"/> will be used.
+	/// If this value is <see langword="null"/> , the <see cref="PropertyName"/> will be used.
 	/// </remarks>
 	string? FilterMemberPathOverride { get; }
 
@@ -102,19 +116,20 @@ public interface IUmbrellaColumnDefinition<TItem>
 	/// Gets or sets the nullable enum option.
 	/// </summary>
 	/// <remarks>
-	/// If a value is provided, an option will be shown when the <see cref="FilterOptionsType"/> is set to <see cref="UmbrellaColumnFilterOptionsType.Enum"/>
-	/// which will show a new option after the <c>Any</c> option with an explcit value of <see langword="null" /> with the value specified for this property
-	/// value displayed as the text in the dropdown for the option.
+	/// If a value is provided, an option will be shown when the <see cref="FilterOptionsType"/> is set to
+	/// <see cref="UmbrellaColumnFilterOptionsType.Enum"/> which will show a new option after the <c> Any</c> option with
+	/// an explcit value of <see langword="null" /> with the value specified for this property value displayed as the text
+	/// in the dropdown for the option.
 	/// </remarks>
 	string? NullableEnumOption { get; set; }
 
 	/// <summary>
-	/// Gets or sets the addon button delegate which will be invoked when the add-on button is clicked when the <see cref="FilterControlType"/>
-	/// is set to <see cref="UmbrellaColumnFilterType.TextAddOnButton"/>.
+	/// Gets or sets the addon button delegate which will be invoked when the add-on button is clicked when the
+	/// <see cref="FilterControlType"/> is set to <see cref="UmbrellaColumnFilterType.TextAddOnButton"/> .
 	/// </summary>
 	/// <remarks>
-	/// The delegate must accept a string parameter which will be the value of the current filter and return a string, which is the new filter value
-	/// to set the text box's content to, wrapped in a <see cref="ValueTask"/>.
+	/// The delegate must accept a string parameter which will be the value of the current filter and return a string,
+	/// which is the new filter value to set the text box's content to, wrapped in a <see cref="ValueTask"/> .
 	/// </remarks>
 	Func<string?, ValueTask<string?>>? OnAddOnButtonClickedAsync { get; set; }
 
@@ -139,16 +154,16 @@ public interface IUmbrellaColumnDefinition<TItem>
 	bool Sortable { get; }
 
 	/// <summary>
-	/// Gets or sets the property path override used as the value <see cref="SortExpressionDescriptor.MemberPath"/> property value when
-	/// creating sorters.
+	/// Gets or sets the property path override used as the value <see cref="SortExpressionDescriptor.MemberPath"/>
+	/// property value when creating sorters.
 	/// </summary>
 	/// <remarks>
-	/// If this value is <see langword="null"/>, the <see cref="PropertyName"/> will be used.
+	/// If this value is <see langword="null"/> , the <see cref="PropertyName"/> will be used.
 	/// </remarks>
 	string? SorterMemberPathOverride { get; }
 
 	/// <summary>
-	/// Gets a friendly display name for a specified filter <paramref name="option"/>.
+	/// Gets a friendly display name for a specified filter <paramref name="option"/> .
 	/// </summary>
 	/// <param name="option">The filter option.</param>
 	/// <returns>The friendly display name.</returns>
@@ -158,13 +173,13 @@ public interface IUmbrellaColumnDefinition<TItem>
 	/// Gets the type of the filter value.
 	/// </summary>
 	/// <remarks>
-	/// This is the <see cref="Type"/> of the <see cref="FilterValue"/>.
+	/// This is the <see cref="Type"/> of the <see cref="FilterValue"/> .
 	/// </remarks>
 	Type FilterValueType { get; }
 
 	/// <summary>
 	/// Converts the <see cref="FilterValue"/> to a string displayed as a date range, e.g. 01/01/2023 - 31/12/2023, if the
-	/// <see cref="FilterControlType"/> is <see cref="UmbrellaColumnFilterType.DateRange"/>.
+	/// <see cref="FilterControlType"/> is <see cref="UmbrellaColumnFilterType.DateRange"/> .
 	/// </summary>
 	/// <returns>The date range as a string.</returns>
 	string? ToDateRangeDisplayValue();
@@ -185,7 +200,8 @@ public interface IUmbrellaColumnDefinition<TItem>
 	int AutoCompleteMaximumSuggestions { get; }
 
 	/// <summary>
-	/// Gets or sets the minimum characters that need to be provided before the <see cref="AutoCompleteSearchMethod"/> delegate is invoked.
+	/// Gets or sets the minimum characters that need to be provided before the <see cref="AutoCompleteSearchMethod"/>
+	/// delegate is invoked.
 	/// </summary>
 	int AutoCompleteMinimumLength { get; }
 }

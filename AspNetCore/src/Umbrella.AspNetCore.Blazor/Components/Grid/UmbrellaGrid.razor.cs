@@ -484,7 +484,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 			{
 				var column = ColumnDefinitions.ElementAt(i);
 
-				if (column.DisplayMode is UmbrellaColumnDisplayMode.None)
+				if (column.GetDisplayMode() is UmbrellaColumnDisplayMode.None)
 					continue;
 
 				if (i is 0)
@@ -665,7 +665,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 
 			foreach (var column in ColumnDefinitions)
 			{
-				if (string.IsNullOrEmpty(column.PropertyName) || column.DisplayMode == UmbrellaColumnDisplayMode.None)
+				if (string.IsNullOrEmpty(column.PropertyName) || column.GetDisplayMode() == UmbrellaColumnDisplayMode.None)
 				{
 					continue;
 				}

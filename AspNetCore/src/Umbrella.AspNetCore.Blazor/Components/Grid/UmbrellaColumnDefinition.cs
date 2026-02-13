@@ -32,6 +32,7 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 	/// <param name="filterMemberPathOverride">The filter member override.</param>
 	/// <param name="sorterMemberPathOverride">The sorter member override.</param>
 	/// <param name="displayMode">The display mode.</param>
+	/// <param name="displayModelSelector"></param>
 	/// <param name="nullableEnumOption">The nullable enum option.</param>
 	/// <param name="onAddOnButtonClickedAsync">The delegate invoked when the text addon button is clicked.</param>
 	/// <param name="addOnButtonCssClass">The CSS class for the add-on button.</param>
@@ -39,8 +40,12 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 	/// <param name="addOnButtonIconCssClass">The CSS class for the icon displayed on the add-on button.</param>
 	/// <param name="autoCompleteDebounce">The autocomplete debounce in milliseconds.</param>
 	/// <param name="autoCompleteMaximumSuggestions">The maximum number of autocomplete suggestions to be shown.</param>
-	/// <param name="autoCompleteMinimumLength">The minimum length of search text required before the autocomplete search method is called.</param>
-	/// <param name="autoCompleteSearchMethod">The callback method invoked when autocomplete suggestions are required.</param>
+	/// <param name="autoCompleteMinimumLength">
+	/// The minimum length of search text required before the autocomplete search method is called.
+	/// </param>
+	/// <param name="autoCompleteSearchMethod">
+	/// The callback method invoked when autocomplete suggestions are required.
+	/// </param>
 	public UmbrellaColumnDefinition(
 		string? heading,
 		string? shortHeading,
@@ -57,6 +62,7 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 		string? filterMemberPathOverride,
 		string? sorterMemberPathOverride,
 		UmbrellaColumnDisplayMode displayMode,
+		Func<UmbrellaColumnDisplayMode>? displayModelSelector,
 		string? nullableEnumOption,
 		Func<string?, ValueTask<string?>>? onAddOnButtonClickedAsync,
 		string? addOnButtonCssClass,
@@ -83,6 +89,7 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 		FilterMemberPathOverride = filterMemberPathOverride;
 		SorterMemberPathOverride = sorterMemberPathOverride;
 		DisplayMode = displayMode;
+		DisplayModelSelector = displayModelSelector;
 		NullableEnumOption = nullableEnumOption;
 		OnAddOnButtonClickedAsync = onAddOnButtonClickedAsync;
 		AddOnButtonCssClass = addOnButtonCssClass;
@@ -151,6 +158,9 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 	public UmbrellaColumnDisplayMode DisplayMode { get; }
 
 	/// <inheritdoc/>
+	public Func<UmbrellaColumnDisplayMode>? DisplayModelSelector { get; }
+
+	/// <inheritdoc/>
 	public string? Heading { get; }
 
 	/// <inheritdoc/>
@@ -167,7 +177,7 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 
 	/// <inheritdoc/>
 	public UmbrellaColumnFilterType FilterControlType { get; }
-	
+
 	/// <inheritdoc/>
 	public FilterType FilterMatchType { get; }
 
@@ -287,5 +297,13 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 		}
 
 		return null;
+	}
+
+	public UmbrellaColumnDisplayMode GetDisplayMode()
+	{
+		if (DisplayModelSelector is not null)
+			return DisplayModelSelector();
+
+		return DisplayMode;
 	}
 }

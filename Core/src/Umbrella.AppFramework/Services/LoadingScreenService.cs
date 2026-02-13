@@ -85,18 +85,17 @@ public class LoadingScreenService : ILoadingScreenService, IDisposable
 		}
 		finally
 		{
-			if (_cancellationTokenSource is not null)
-			{
-				_cancellationTokenSource.Dispose();
-				_cancellationTokenSource = null;
-			}
+			_cancellationTokenSource?.Dispose();
+			_cancellationTokenSource = null;
 		}
 	}
 
 	/// <summary>
 	/// Releases unmanaged and - optionally - managed resources.
 	/// </summary>
-	/// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
+	/// <param name="disposing">
+	/// <c> true</c> to release both managed and unmanaged resources; <c> false</c> to release only unmanaged resources.
+	/// </param>
 	protected virtual void Dispose(bool disposing)
 	{
 		if (!_disposedValue)
