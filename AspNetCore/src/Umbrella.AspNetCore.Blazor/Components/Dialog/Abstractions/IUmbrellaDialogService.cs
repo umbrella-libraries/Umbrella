@@ -1,6 +1,7 @@
 ﻿
 using Blazored.Modal;
 using Blazored.Modal.Services;
+using Umbrella.AppFramework.Options;
 using Umbrella.AppFramework.Services.Abstractions;
 using Umbrella.AppFramework.Services.Constants;
 
@@ -60,9 +61,13 @@ public interface IUmbrellaDialogService : IDialogService
 	/// <param name="cssClass">The custom css class applied to the dialog container.</param>
 	/// <param name="buttons">The dialog buttons displayed at the bottom of the dialog.</param>
 	/// <param name="subTitle">The sub title.</param>
-	/// <param name="showCloseIcon">If set to <see langword="true"/> the close icon is shown in the top right of the dialog (if supported on the target platform).</param>
+	/// <param name="showCloseIconOverride">
+	/// This acts as an override for whether the close icon is shown in the top right of the dialog (if supported on the
+	/// target platform).
+	/// By default the value of <see cref="DialogServiceOptions.ShowCloseIcon"/> is used.
+	/// </param>
 	/// <returns>An awaitable task that completes when the dialog has been actioned</returns>
-	ValueTask<ModalResult> ShowDialogAsync(string message, string title, string cssClass, IReadOnlyCollection<UmbrellaDialogButton> buttons, string? subTitle = null, bool showCloseIcon = false);
+	ValueTask<ModalResult> ShowDialogAsync(string message, string title, string cssClass, IReadOnlyCollection<UmbrellaDialogButton> buttons, string? subTitle = null, bool? showCloseIconOverride = null);
 
 	/// <summary>
 	/// Shows a custom dialog.

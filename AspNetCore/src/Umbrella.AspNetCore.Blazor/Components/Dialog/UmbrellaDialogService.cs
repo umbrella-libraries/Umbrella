@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Umbrella.AppFramework.Options;
 using Umbrella.AppFramework.Services.Abstractions;
 using Umbrella.AppFramework.Services.Constants;
 using Umbrella.AspNetCore.Blazor.Components.Dialog.Abstractions;
@@ -89,6 +90,7 @@ public class UmbrellaDialogService : IUmbrellaDialogService
 	private readonly IModalService _modalService;
 	private readonly IServiceProvider _serviceProvider;
 	private readonly IHttpContextService _httpContextService;
+	private readonly DialogServiceOptions _options;
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="UmbrellaDialogService"/> class.
@@ -98,22 +100,25 @@ public class UmbrellaDialogService : IUmbrellaDialogService
 	/// <param name="modalService">The modal service.</param>
 	/// <param name="serviceProvider">The service provider.</param>
 	/// <param name="httpContextService">The HTTP context service.</param>
+	/// <param name="options">The dialog service options.</param>
 	public UmbrellaDialogService(
 		ILogger<UmbrellaDialogService> logger,
 		IDialogTrackerService dialogTracker,
 		IModalService modalService,
 		IServiceProvider serviceProvider,
-		IHttpContextService httpContextService)
+		IHttpContextService httpContextService,
+		DialogServiceOptions options)
 	{
 		_logger = logger;
 		_dialogTracker = dialogTracker;
 		_modalService = modalService;
 		_serviceProvider = serviceProvider;
 		_httpContextService = httpContextService;
+		_options = options;
 	}
 
 	/// <inheritdoc />
-	public async ValueTask ShowMessageAsync(string message, string title, string closeButtonText = DialogDefaults.DefaultCloseButtonText, bool showCloseIcon = false)
+	public async ValueTask ShowMessageAsync(string message, string title, string closeButtonText = DialogDefaults.DefaultCloseButtonText, bool? showCloseIconOverride = null)
 	{
 		try
 		{
@@ -126,7 +131,7 @@ public class UmbrellaDialogService : IUmbrellaDialogService
 				? _defaultMessageButtons
 				: new[] { new UmbrellaDialogButton(closeButtonText, UmbrellaDialogButtonType.Primary) };
 
-			_ = await ShowDialogAsync(message, title, "u-dialog--message", buttons, showCloseIcon: showCloseIcon);
+			_ = await ShowDialogAsync(message, title, "u-dialog--message", buttons, showCloseIconOverride: showCloseIconOverride);
 
 			_dialogTracker.Close(code);
 		}
@@ -320,16 +325,19 @@ public class UmbrellaDialogService : IUmbrellaDialogService
 	}
 
 	/// <inheritdoc />
-	public async ValueTask<ModalResult> ShowDialogAsync(string message, string title, string cssClass, IReadOnlyCollection<UmbrellaDialogButton> buttons, string? subTitle = null, bool showCloseIcon = false)
+	public async ValueTask<ModalResult> ShowDialogAsync(string message, string title, string cssClass, IReadOnlyCollection<UmbrellaDialogButton> buttons, string? subTitle = null, bool? showCloseIconOverride = null)
 	{
 		try
 		{
+			bool showCloseIcon = showCloseIconOverride ?? _options.ShowCloseIcon;
+
 			var parameters = new ModalParameters
 			{
 				{ nameof(UmbrellaDialog.SubTitle), subTitle ?? "" },
 				{ nameof(UmbrellaDialog.Message), message },
 				{ nameof(UmbrellaDialog.Buttons), buttons },
-				{ nameof(UmbrellaDialog.ShowCloseButton), showCloseIcon }
+				{ nameof(UmbrellaDialog.ShowCloseButton), showCloseIcon },
+				{ nameof(UmbrellaDialog.RenderCloseButtonIcon), _options.RenderCloseButtonIcon }
 			};
 
 			var options = new ModalOptions

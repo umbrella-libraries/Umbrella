@@ -2,6 +2,7 @@
 using CommunityToolkit.Diagnostics;
 using Umbrella.AppFramework.Http.Handlers;
 using Umbrella.AppFramework.Http.Handlers.Options;
+using Umbrella.AppFramework.Options;
 using Umbrella.AppFramework.Security;
 using Umbrella.AppFramework.Security.Abstractions;
 using Umbrella.AppFramework.Security.Options;
@@ -18,16 +19,19 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class IServiceCollectionExtensions
 {
 	/// <summary>
-	/// Adds the <see cref="Umbrella.AppFramework"/> services to the specified <see cref="IServiceCollection"/> dependency injection container builder.
+	/// Adds the <see cref="Umbrella.AppFramework"/> services to the specified <see cref="IServiceCollection"/> dependency
+	/// injection container builder.
 	/// </summary>
 	/// <param name="services">The services.</param>
 	/// <param name="appAuthHelperOptionsBuilder">The app auth helper options builder.</param>
 	/// <param name="appAuthTokenStorageServiceOptionsBuilder">The app auth token storage service options builder.</param>
+	/// <param name="dialogServiceOptionsBuilder">The dialog service options builder.</param>
 	/// <returns>The services.</returns>
 	public static IServiceCollection AddUmbrellaAppFramework(
 		this IServiceCollection services,
 		Action<IServiceProvider, AppAuthHelperOptions>? appAuthHelperOptionsBuilder = null,
-		Action<IServiceProvider, AppAuthTokenStorageServiceOptions>? appAuthTokenStorageServiceOptionsBuilder = null)
+		Action<IServiceProvider, AppAuthTokenStorageServiceOptions>? appAuthTokenStorageServiceOptionsBuilder = null,
+		Action<IServiceProvider, DialogServiceOptions>? dialogServiceOptionsBuilder = null)
 	{
 		Guard.IsNotNull(services);
 
@@ -47,6 +51,7 @@ public static class IServiceCollectionExtensions
 		// Options
 		_ = services.ConfigureUmbrellaOptions(appAuthHelperOptionsBuilder);
 		_ = services.ConfigureUmbrellaOptions(appAuthTokenStorageServiceOptionsBuilder);
+		_ = services.ConfigureUmbrellaOptions(dialogServiceOptionsBuilder);
 
 		// Default call to configure the RequestNotificationHandlerOptions
 		_ = services.ConfigureUmbrellaAppFramework();

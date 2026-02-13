@@ -19,7 +19,7 @@ public interface IDialogService
 	/// <param name="closeButtonText">The close button text.</param>
 	/// <param name="showCloseIcon">If set to <see langword="true"/> the close icon is shown in the top right of the dialog (if supported on the target platform).</param>
 	/// <returns>An awaitable task that completes when the dialog has been actioned.</returns>
-	ValueTask ShowMessageAsync(string message, string title, string closeButtonText = DialogDefaults.DefaultCloseButtonText, bool showCloseIcon = false);
+	ValueTask ShowMessageAsync(string message, string title, string closeButtonText = DialogDefaults.DefaultCloseButtonText, bool? showCloseIconOverride = null);
 
 	/// <summary>
 	/// Shows a dialog with a message indicating danger.
