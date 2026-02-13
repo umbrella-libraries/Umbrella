@@ -341,4 +341,37 @@ public static class StringExtensions
 
 		return sb.ToString();
 	}
+
+	extension(string? left)
+	{
+		/// <summary>
+		/// Determines whether the current string and the specified string are equal, using a constant-time comparison to help
+		/// prevent timing attacks.
+		/// </summary>
+		/// <remarks>
+		/// This method performs a constant-time comparison, which is useful for scenarios where resistance to timing attacks
+		/// is important, such as cryptographic operations. If both strings are null, the method returns true. If only one is
+		/// null, or if the strings have different lengths, the method returns false.
+		/// </remarks>
+		/// <param name="right">The string to compare with the current string. Can be null.</param>
+		/// <returns>true if the current string and <paramref name="right"/> are equal; otherwise, false.</returns>
+		public bool EqualsConstantTime(string? right)
+		{
+			if (left is null || right is null)
+				return left is null && right is null;
+
+			ReadOnlySpan<char> a = left.AsSpan();
+			ReadOnlySpan<char> b = right.AsSpan();
+
+			if (a.Length != b.Length)
+				return false;
+
+			int diff = 0;
+
+			for (int i = 0; i < a.Length; i++)
+				diff |= a[i] ^ b[i];
+
+			return diff == 0;
+		}
+	}
 }

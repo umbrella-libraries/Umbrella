@@ -7,9 +7,9 @@ using Microsoft.AspNetCore.Components.Rendering;
 namespace Umbrella.AspNetCore.Blazor.Components.Form;
 
 /// <summary>
-/// A component that renders a label element associated with a specific model property. The label text
-/// can be specified using the <see cref="Content"/> parameter. If it is not specified, the <see cref="DisplayAttribute"/>
-/// is used if it exists; otherwise the property name is used.
+/// A component that renders a label element associated with a specific model property. The label text can be specified
+/// using the <see cref="Content"/> parameter. If it is not specified, the <see cref="DisplayAttribute"/> is used if it
+/// exists; otherwise the property name is used.
 /// </summary>
 /// <seealso cref="ComponentBase" />
 public class LabelText : ComponentBase
@@ -65,7 +65,10 @@ public class LabelText : ComponentBase
 
 		if (Content is null)
 		{
-			builder.AddContent(3, ForTarget.GetDisplayText());
+			string? displayText = ForTarget.GetDisplayText()?.NormalizeNewLines().Replace("\r\n", "<br />", StringComparison.Ordinal);
+
+			if (!string.IsNullOrEmpty(displayText))
+				builder.AddMarkupContent(3, displayText);
 		}
 		else
 		{
