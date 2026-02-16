@@ -60,7 +60,7 @@ public interface IUmbrellaColumnDefinition<TItem>
 	/// function. The function should return an instance of UmbrellaColumnDisplayMode that dictates the visual
 	/// representation.
 	/// </remarks>
-	Func<UmbrellaColumnDisplayMode>? DisplayModelSelector { get; }
+	Func<UmbrellaColumnDisplayMode>? DisplayModeSelector { get; }
 
 	/// <summary>
 	/// Gets a value specifying whether or not the column is filterable.

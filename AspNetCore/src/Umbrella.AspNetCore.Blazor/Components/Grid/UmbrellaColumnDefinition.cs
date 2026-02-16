@@ -32,7 +32,7 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 	/// <param name="filterMemberPathOverride">The filter member override.</param>
 	/// <param name="sorterMemberPathOverride">The sorter member override.</param>
 	/// <param name="displayMode">The display mode.</param>
-	/// <param name="displayModelSelector"></param>
+	/// <param name="displayModeSelector"></param>
 	/// <param name="nullableEnumOption">The nullable enum option.</param>
 	/// <param name="onAddOnButtonClickedAsync">The delegate invoked when the text addon button is clicked.</param>
 	/// <param name="addOnButtonCssClass">The CSS class for the add-on button.</param>
@@ -62,7 +62,7 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 		string? filterMemberPathOverride,
 		string? sorterMemberPathOverride,
 		UmbrellaColumnDisplayMode displayMode,
-		Func<UmbrellaColumnDisplayMode>? displayModelSelector,
+		Func<UmbrellaColumnDisplayMode>? displayModeSelector,
 		string? nullableEnumOption,
 		Func<string?, ValueTask<string?>>? onAddOnButtonClickedAsync,
 		string? addOnButtonCssClass,
@@ -89,7 +89,7 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 		FilterMemberPathOverride = filterMemberPathOverride;
 		SorterMemberPathOverride = sorterMemberPathOverride;
 		DisplayMode = displayMode;
-		DisplayModelSelector = displayModelSelector;
+		DisplayModeSelector = displayModeSelector;
 		NullableEnumOption = nullableEnumOption;
 		OnAddOnButtonClickedAsync = onAddOnButtonClickedAsync;
 		AddOnButtonCssClass = addOnButtonCssClass;
@@ -158,7 +158,7 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 	public UmbrellaColumnDisplayMode DisplayMode { get; }
 
 	/// <inheritdoc/>
-	public Func<UmbrellaColumnDisplayMode>? DisplayModelSelector { get; }
+	public Func<UmbrellaColumnDisplayMode>? DisplayModeSelector { get; }
 
 	/// <inheritdoc/>
 	public string? Heading { get; }
@@ -301,8 +301,8 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 
 	public UmbrellaColumnDisplayMode GetDisplayMode()
 	{
-		if (DisplayModelSelector is not null)
-			return DisplayModelSelector();
+		if (DisplayModeSelector is not null)
+			return DisplayModeSelector();
 
 		return DisplayMode;
 	}

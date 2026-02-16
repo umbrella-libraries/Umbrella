@@ -356,7 +356,7 @@ public partial class UmbrellaColumn<TItem, TValue>
 
 		if (ScanMode)
 		{
-			if (DisplayMode is not UmbrellaColumnDisplayMode.None)
+			if (GetDisplayMode() is not UmbrellaColumnDisplayMode.None)
 			{
 				if (Logger.IsEnabled(LogLevel.Debug))
 					Logger.WriteDebug(message: "Creating column definition.");
@@ -393,5 +393,13 @@ public partial class UmbrellaColumn<TItem, TValue>
 				_ = UmbrellaGridInstance.AddColumnDefinition(definition);
 			}
 		}
+	}
+
+	protected UmbrellaColumnDisplayMode GetDisplayMode()
+	{
+		if (DisplayModeSelector is not null)
+			return DisplayModeSelector();
+
+		return DisplayMode;
 	}
 }
