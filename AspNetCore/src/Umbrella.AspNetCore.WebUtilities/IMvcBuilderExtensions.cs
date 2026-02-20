@@ -79,10 +79,11 @@ public static class IMvcBuilderExtensions
 		/// Configures Umbrella JSON options.
 		/// </summary>
 		/// <param name="isDevelopment">Determines whether the application is running in a development environment.</param>
+		/// <param name="addJsonStringEnumConverter">Determines whether to add a JSON string enum converter.</param>
 		/// <returns>
 		/// The same <see cref="IMvcBuilder"/> instance so that additional configuration calls can be chained.
 		/// </returns>
-		public IMvcBuilder ConfigureUmbrellaJsonOptions(bool isDevelopment)
+		public IMvcBuilder ConfigureUmbrellaJsonOptions(bool isDevelopment, bool addJsonStringEnumConverter = false)
 		{
 			Guard.IsNotNull(builder);
 
@@ -90,7 +91,10 @@ public static class IMvcBuilderExtensions
 			{
 				options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
 				options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-				options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+				
+				if (addJsonStringEnumConverter)
+					options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+				
 				options.JsonSerializerOptions.WriteIndented = isDevelopment;
 			});
 
