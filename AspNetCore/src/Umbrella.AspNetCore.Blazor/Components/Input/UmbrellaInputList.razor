@@ -1,0 +1,44 @@
+﻿@using Umbrella.AspNetCore.Blazor.Components.Messages
+@typeparam T
+
+@{
+    string guid = Guid.NewGuid().ToString("N");
+    string descriptionId = $"input-list-{guid}";
+}
+
+<div class="u-input-list">
+    <div class="u-input-list__heading">@Heading</div>
+
+    @if (Description is not null)
+    {
+        <div id="@descriptionId" class="u-input-list__description">@Description</div>
+    }
+
+    @if (Items is not { Count: > 0 })
+    {
+        <WarningMessage>
+            <p>No items have been added. Press the Add Item button to get started.</p>
+            <button type="button" class="btn btn-primary" @onclick="AddItemClickAsync">Add Item</button>
+        </WarningMessage>
+    }
+    else
+    {
+        @for (int i = 0; i < Items.Count; i++)
+        {
+            int idx = i; // Capture the current index for the lambda expression
+
+            <div class="u-input-list__item">
+                <input @bind="Items[idx]" @bind:event="oninput" class="form-control" />
+                <button type="button" class="btn btn-danger" @onclick="() => RemoveItemClickAsync(idx)">
+                    Delete
+                    <i aria-hidden="true" class="fas fa-trash"></i>
+                </button>
+            </div>
+        }
+
+        <button type="button" class="btn btn-primary u-input-list__add-button" @onclick="AddItemClickAsync">
+            Add Item
+            <i class="fas fa-plus"></i>
+        </button>
+    }
+</div>

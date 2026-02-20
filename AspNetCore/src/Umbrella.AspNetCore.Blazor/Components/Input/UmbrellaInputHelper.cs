@@ -8,6 +8,7 @@ internal static class UmbrellaInputHelper
 	{
 		Dictionary<string, object> dicAdditionalAttributes = additionalAttributes is not null ? new(additionalAttributes) : new();
 
+		SetLazyAttribute("id", () => valueExpression?.GetMemberPath());
 		SetLazyAttribute("placeholder", () => valueExpression?.GetDisplayText());
 		SetAttribute("autocomplete", "off");
 		SetAttribute("spellcheck", "false");

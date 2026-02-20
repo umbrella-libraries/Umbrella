@@ -10,14 +10,18 @@ namespace Umbrella.AspNetCore.Shared.Extensions;
 /// </summary>
 public static class StringExtensions
 {
-	/// <summary>
-	/// Encodes the specified <paramref name="value"/> as HTML and then replaces all encoded new line characters with the specified <paramref name="replacement"/>.
-	/// </summary>
-	/// <param name="value">The value.</param>
-	/// <param name="replacement">The replacement.</param>
-	/// <returns>The HTML encoded output.</returns>
-	public static MarkupString ReplaceNewLines(this string? value, string replacement = "<br />")
-		=> string.IsNullOrWhiteSpace(value)
-		? default
-		: (MarkupString)HtmlEncoder.Default.Encode(value).NormalizeHtmlEncodedNewLines().Replace(StringEncodingConstants.HtmlEncodedCrLfToken, replacement, StringComparison.Ordinal);
+	extension(string? value)
+	{
+		/// <summary>
+		/// Encodes the specified <paramref name="value"/> as HTML and then replaces all encoded new line characters with the
+		/// specified <paramref name="replacement"/> .
+		/// </summary>
+		/// <param name="replacement">The replacement.</param>
+		/// <param name="encodeHtml">Whether to encode the HTML.</param>
+		/// <returns>The HTML encoded output.</returns>
+		public MarkupString ReplaceNewLines(string replacement = "<br />", bool encodeHtml = true)
+			=> string.IsNullOrWhiteSpace(value)
+			? default
+			: (MarkupString)(encodeHtml ? HtmlEncoder.Default.Encode(value) : value).NormalizeHtmlEncodedNewLines().Replace(StringEncodingConstants.HtmlEncodedCrLfToken, replacement, StringComparison.Ordinal);
+	}
 }

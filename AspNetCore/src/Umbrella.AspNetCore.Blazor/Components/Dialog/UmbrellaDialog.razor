@@ -47,7 +47,7 @@
 					}
 					@if (!string.IsNullOrWhiteSpace(Message))
 					{
-						<p>@Message.ReplaceNewLines()</p>
+						<p>@Message.ReplaceNewLines(encodeHtml: false)</p>
 					}
 				</div>
 			}

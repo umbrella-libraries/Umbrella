@@ -1,0 +1,42 @@
+/*
+	Define and specify values for the following variables to override the default styling.
+
+	--u-input-list-gap
+*/
+
+.u-input-list
+{
+	$defaultInputListGap: 16px;
+
+	display: flex;
+	flex-direction: column;
+	gap: var(--u-input-list-gap, $defaultInputListGap);
+
+	&__heading
+	{
+		font-weight: bold;
+	}
+
+	&__description
+	{
+	}
+
+	&__item
+	{
+		display: flex;
+		align-items: center;
+		gap: var(--u-input-list-gap, $defaultInputListGap);
+
+		.btn
+		{
+			white-space: nowrap;
+		}
+	}
+
+	::deep .alert
+	{
+		display: flex;
+		flex-direction: column;
+		gap: rem-convert(8px);
+	}
+}
