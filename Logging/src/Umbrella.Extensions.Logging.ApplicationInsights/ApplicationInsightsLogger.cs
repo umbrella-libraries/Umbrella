@@ -3,7 +3,6 @@ using Microsoft.ApplicationInsights;
 using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.DataContracts;
 using Microsoft.Extensions.Logging;
-using Umbrella.Utilities;
 
 namespace Umbrella.Extensions.Logging.ApplicationInsights;
 

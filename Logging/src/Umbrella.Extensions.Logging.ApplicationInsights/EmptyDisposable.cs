@@ -1,4 +1,4 @@
-﻿namespace Umbrella.Utilities;
+﻿namespace Umbrella.Extensions.Logging.ApplicationInsights;
 
 /// <summary>
 /// A dummy <see cref="IDisposable"/> that does nothing.
