@@ -1,0 +1,68 @@
+/*
+	Define and specify values for the following variables to override the default styling.
+
+	--u-radio-color-selected
+	--u-radio-color-deselected
+	--u-radio-width
+	--u-radio-height
+	--u-radio-spacing
+	--u-radio-border-color-deselected
+	--u-radio-border-width
+	--u-radio-border-radius
+	--u-radio-font-size
+	--u-radio-font-weight
+*/
+
+.u-radio
+{
+	$colorSelected: red;
+	$colorDeselected: blue;
+	$borderColorDeselected: red;
+	$width: 24px;
+	$height: 24px;
+	$spacing: 8px;
+	$borderWidth: 1px;
+	$borderRadius: 5px;
+	$fontSize: 16px;
+	$fontWeight: 600;
+
+	position: relative;
+
+	::deep &__input
+	{
+		display: none;
+
+		&:checked
+		{
+			& + label::before
+			{
+				background: var(--u-radio-color-selected, $colorSelected);
+			}
+		}
+	}
+
+	&__label
+	{
+		position: relative;
+		display: flex;
+		align-items: center;
+		z-index: 0;
+		margin: 0;
+		padding: 0;
+		font-size: var(--u-radio-font-size, $fontSize);
+		font-weight: var(--u-radio-font-weight, $fontWeight);
+
+		&::before
+		{
+			width: var(--u-radio-width, $width);
+			min-width: var(--u-radio-width, $width);
+			height: var(--u-radio-height, $height);
+			border: var(--u-radio-border-width, $borderWidth) solid var(--u-radio-border-color-deselected, $borderColorDeselected);
+			background: var(--u-radio-color-deselected, $colorDeselected);
+			margin-right: var(--u-radio-spacing, $spacing);
+			cursor: pointer;
+			border-radius: var(--u-radio-border-radius, $borderRadius);
+			content: " ";
+		}
+	}
+}

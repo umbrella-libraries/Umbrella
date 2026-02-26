@@ -1,0 +1,27 @@
+﻿@typeparam TValue
+
+@{
+    string inputId = Id ?? Guid.NewGuid().ToString("N");
+}
+
+<div class="u-radio @CssClass">
+    <InputRadio TValue="TValue"
+                class="u-radio__input"
+                id="@inputId"
+                Value="@Value"
+                @attributes="AdditionalAttributes" />
+    <label class="u-radio__label" for="@inputId">
+        @if(string.IsNullOrEmpty(Label) && ChildContent is null && Value is Enum enumValue)
+        {
+            @enumValue.ToDisplayString()
+        }
+        else if (!string.IsNullOrEmpty(Label))
+        {
+            @Label
+        }
+        else if (ChildContent is not null)
+        {
+            @ChildContent
+        }
+    </label>
+</div>
