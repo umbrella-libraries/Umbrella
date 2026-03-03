@@ -24,6 +24,9 @@ public static class IHttpClientBuilderExtensions
 	/// <param name="firstRetryDelaySeconds">The first retry delay in seconds.</param>
 	/// <param name="retryCount">The retry count in case of failure.</param>
 	/// <returns>The builder.</returns>
+#if NET8_0_OR_GREATER
+[Obsolete("Please use the new extension methods provided by Microsoft in the Microsoft.Extensions.Http.Resilience NuGet package.")]
+#endif
 	public static IHttpClientBuilder AddUmbrellaPolicyHandlers(this IHttpClientBuilder builder, int timeout = 5, int firstRetryDelaySeconds = 2, int retryCount = 3)
 	{
 		Guard.IsNotNull(builder);
