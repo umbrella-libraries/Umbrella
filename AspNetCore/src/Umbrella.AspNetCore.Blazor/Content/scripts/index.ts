@@ -1,8 +1,14 @@
 ﻿import { UmbrellaBlazorInterop } from "./blazor/index";
 
+declare global
+{
+	interface Window
+	{
+		UmbrellaBlazorInterop: UmbrellaBlazorInterop;
+	}
+}
+
 (() =>
 {
-	// eslint-disable-next-line
-	// @ts-ignore
 	window.UmbrellaBlazorInterop = new UmbrellaBlazorInterop();
 })();

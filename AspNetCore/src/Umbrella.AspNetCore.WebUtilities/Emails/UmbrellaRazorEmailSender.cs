@@ -10,18 +10,8 @@ namespace Umbrella.AspNetCore.WebUtilities.Emails;
 /// <summary>
 /// Serves as the base class for types that send emails generated using Razor views.
 /// </summary>
-public abstract class UmbrellaRazorEmailSender
+public abstract class UmbrellaRazorEmailSender : UmbrellaEmailSenderBase
 {
-	/// <summary>
-	/// Gets the logger.
-	/// </summary>
-	protected ILogger Logger { get; }
-
-	/// <summary>
-	/// Gets the email sender.
-	/// </summary>
-	protected IEmailSender EmailSender { get; }
-
 	/// <summary>
 	/// Gets the Razor view to string renderer.
 	/// </summary>
@@ -37,9 +27,8 @@ public abstract class UmbrellaRazorEmailSender
 		ILogger logger,
 		IEmailSender emailSender,
 		IRazorViewToStringRenderer viewToStringRenderer)
+		: base(logger, emailSender)
 	{
-		Logger = logger;
-		EmailSender = emailSender;
 		ViewToStringRenderer = viewToStringRenderer;
 	}
 
@@ -74,16 +63,28 @@ public abstract class UmbrellaRazorEmailSender
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		Guard.IsNotNullOrEmpty(viewNameOrPath);
+		string? viewPath = null;
 
 		try
 		{
-			string viewPath = viewNameOrPath.StartsWith('~') ? viewNameOrPath : GetFullViewPath(viewNameOrPath);
+			viewPath = viewNameOrPath.StartsWith('~') ? viewNameOrPath : GetFullViewPath(viewNameOrPath);
 
 			string content = await ViewToStringRenderer.RenderViewToStringAsync(viewPath, model, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-			await EmailSender.SendEmailAsync(email, subject, content, fromAddress, attachments, ccList, bccList, cancellationToken).ConfigureAwait(false);
+			await SendEmailContentAsync(content, email, subject, fromAddress, attachments, ccList, bccList, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { model, email, subject, viewNameOrPath, fromAddress }))
+		catch (Exception exc) when (Logger.WriteError(exc, new
+		{
+			model,
+			email,
+			subject,
+			viewNameOrPath,
+			viewPath,
+			fromAddress,
+			attachments = SerializeAttachments(attachments),
+			ccList = SerializeStringCollection(ccList),
+			bccList = SerializeStringCollection(bccList)
+		}))
 		{
 			throw new UmbrellaWebException($"There has been an error sending the '{subject}' email.", exc);
 		}

@@ -35,6 +35,13 @@ public interface IUmbrellaBlazorInteropService
 	ValueTask ScrollToBottomAsync();
 
 	/// <summary>
+	/// Triggers a click event on the first element matching the specified selector.
+	/// </summary>
+	/// <param name="elementSelector">The element selector specified using CSS selector syntax.</param>
+	/// <returns>A <see cref="ValueTask"/> that completes when the operation has completed.</returns>
+	ValueTask TriggerElementClickAsync(string elementSelector);
+
+	/// <summary>
 	/// Opens the specified <paramref name="url"/> using the specified <paramref name="target"/>.
 	/// </summary>
 	/// <param name="url">The URL.</param>

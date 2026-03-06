@@ -102,6 +102,19 @@ public class UmbrellaBlazorInteropService : IUmbrellaBlazorInteropService
 	}
 
 	/// <inheritdoc />
+	public async ValueTask TriggerElementClickAsync(string elementSelector)
+	{
+		try
+		{
+			await _jsRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.triggerElementClick", elementSelector);
+		}
+		catch (Exception exc) when (_logger.WriteError(exc, new { elementSelector }))
+		{
+			// Do nothing here
+		}
+	}
+
+	/// <inheritdoc />
 	[JSInvokable]
 	public async ValueTask OnWindowScrolledTopAsync() => await Task.WhenAll(_windowScrolledTopEventHandlerList.Select(x => x.Invoke()));
 

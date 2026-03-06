@@ -1,6 +1,9 @@
 ﻿/* eslint-disable */
 import { BrowserEventAggregator } from './browserEventAggregator';
 
+/**
+ * Provides JavaScript interop helpers used by Blazor components.
+ */
 export class UmbrellaBlazorInterop
 {
 	#browserEventAggregator: BrowserEventAggregator | null = null;
@@ -9,6 +12,9 @@ export class UmbrellaBlazorInterop
 	blazorInteropUtility: any;
 	boundScrollTopFunction: any;
 
+	/**
+	 * Gets a lazily-initialized browser event aggregator instance.
+	 */
 	get browserEventAggregator()
 	{
 		if (this.#browserEventAggregator)
@@ -19,11 +25,29 @@ export class UmbrellaBlazorInterop
 		return this.#browserEventAggregator;
 	}
 
+	/**
+	 * Sets the current document title.
+	 * @param title The page title to apply.
+	 */
 	public setPageTitle(title: string): void
 	{
 		document.title = title;
 	}
 
+	/**
+	 * Triggers a click event for the first element matching the selector.
+	 * @param selector A valid CSS selector for the element to click.
+	 */
+	public triggerElementClick(selector: string): void
+	{
+		(document.querySelector(selector) as HTMLElement)?.click();
+	}
+
+	/**
+	 * Scrolls the window either to an absolute Y position or to an element's top position.
+	 * @param position A Y coordinate or CSS selector used as the scroll target.
+	 * @param offset An additional offset to apply to the target position.
+	 */
 	public scrollTo(position: number | string, offset = 0): void
 	{
 		if (typeof position === "number")
@@ -56,12 +80,20 @@ export class UmbrellaBlazorInterop
 		}
 	}
 
+	/**
+	 * Scrolls the window near the bottom of the current viewport.
+	 */
 	public scrollToBottom(): void
 	{
 		const bottom = window.outerHeight + 300;
 		window.scrollTo(0, bottom);
 	}
 
+	/**
+	 * Subscribes to the window scroll event and notifies Blazor when scrolled near the top.
+	 * @param blazorInteropUtility The Blazor interop utility instance used for callbacks.
+	 * @param threshold The Y-position threshold that triggers the callback.
+	 */
 	public initializeWindowScrolledTopAsync(blazorInteropUtility: any, threshold: number)
 	{
 		this.blazorInteropUtility = blazorInteropUtility;
@@ -71,11 +103,18 @@ export class UmbrellaBlazorInterop
 		window.addEventListener("scroll", this.boundScrollTopFunction);
 	}
 
+	/**
+	 * Unsubscribes the previously registered window scroll handler.
+	 */
 	public destroyWindowScrolledTopAsync()
 	{
 		window.removeEventListener("scroll", this.boundScrollTopFunction);
 	}
 
+	/**
+	 * Debounced scroll handler that notifies Blazor when window scroll position is below threshold.
+	 * @param threshold The Y-position threshold used to trigger the callback.
+	 */
 	private async windowScrolledTopAsync(threshold: number)
 	{
 		// If there's a timer, cancel it

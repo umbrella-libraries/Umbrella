@@ -1,8 +1,17 @@
+/**
+ * Aggregates browser event subscriptions and dispatches event notifications to .NET listeners.
+ */
 export class BrowserEventAggregator
 {
 	#subscriptionMap = new Map<string, BrowserEventSubscription[]>();
 	#eventHandlerMap = new Map<string, () => Promise<void>>();
 
+	/**
+	 * Adds a subscription for a browser event and attaches a shared window event handler when needed.
+	 * @param id A unique subscription identifier.
+	 * @param eventName The browser event name to subscribe to.
+	 * @param dotNetObjectReference The .NET object reference that receives event callbacks.
+	 */
 	public addEventListener(id: string, eventName: string, dotNetObjectReference: DotNetObjectReference): void
 	{
 		let subscriptions = this.#subscriptionMap.get(eventName);
@@ -26,6 +35,11 @@ export class BrowserEventAggregator
 		subscriptions.push(new BrowserEventSubscription(id, eventName, dotNetObjectReference));
 	}
 
+	/**
+	 * Removes a subscription for a browser event and detaches the window handler when no listeners remain.
+	 * @param id The unique subscription identifier.
+	 * @param eventName The browser event name to unsubscribe from.
+	 */
 	public removeEventListener(id: string, eventName: string): void
 	{
 		const subscriptions = this.#subscriptionMap.get(eventName);
@@ -57,6 +71,10 @@ export class BrowserEventAggregator
 		}
 	}
 
+	/**
+	 * Notifies all subscribers for a given browser event.
+	 * @param eventName The browser event name being dispatched.
+	 */
 	private async notifyEventSubscribersAsync(eventName: string): Promise<void>
 	{
 		const subscriptions = this.#subscriptionMap.get(eventName);
@@ -71,12 +89,24 @@ export class BrowserEventAggregator
 	}
 }
 
+/**
+ * Represents a single browser event subscription bound to a .NET callback target.
+ */
 class BrowserEventSubscription
 {
+	/**
+	 * Creates a new browser event subscription.
+	 * @param id A unique subscription identifier.
+	 * @param eventName The browser event name associated with this subscription.
+	 * @param dotNetObjectReference The .NET object reference used for publishing event callbacks.
+	 */
 	constructor(public id: string, public eventName: string, private dotNetObjectReference: DotNetObjectReference)
 	{
 	}
 
+	/**
+	 * Publishes this subscription event to the associated .NET object reference.
+	 */
 	public async publishAsync(): Promise<void>
 	{
 		await this.dotNetObjectReference.invokeMethodAsync("PublishAsync", this.eventName);
