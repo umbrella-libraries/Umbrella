@@ -111,7 +111,6 @@ public class RazorViewToStringRenderer : IRazorViewToStringRenderer
 		string? errorMessage = string.Join(
 			Environment.NewLine,
 			new[] { $"Unable to find view '{viewName}'. The following locations were searched:" }.Concat(searchedLocations));
-		;
 
 		throw new InvalidOperationException(errorMessage);
 	}
