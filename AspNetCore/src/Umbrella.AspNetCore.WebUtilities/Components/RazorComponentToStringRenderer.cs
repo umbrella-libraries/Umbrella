@@ -51,13 +51,7 @@ public class RazorComponentToStringRenderer : IRazorComponentToStringRenderer
 		try
 		{
 			HttpContext? originalHttpContext = _httpContextAccessor.HttpContext;
-			HttpContext? renderHttpContext = originalHttpContext;
-
-			if (renderHttpContext is null)
-			{
-				renderHttpContext = _options.CreateHttpContext(_serviceProvider);
-				_httpContextAccessor.HttpContext = renderHttpContext;
-			}
+			_httpContextAccessor.HttpContext ??= _options.CreateHttpContext(_serviceProvider);
 
 			await using var htmlRenderer = new HtmlRenderer(_serviceProvider, _loggerFactory);
 			try
@@ -70,7 +64,7 @@ public class RazorComponentToStringRenderer : IRazorComponentToStringRenderer
 						? ParameterView.Empty
 						: ParameterView.FromDictionary(parameters);
 
-					var renderedComponent = await htmlRenderer.RenderComponentAsync<TComponent>(parameterView).ConfigureAwait(false);
+					var renderedComponent = await htmlRenderer.RenderComponentAsync<TComponent>(parameterView);
 
 					cancellationToken.ThrowIfCancellationRequested();
 
@@ -79,8 +73,7 @@ public class RazorComponentToStringRenderer : IRazorComponentToStringRenderer
 			}
 			finally
 			{
-				if (originalHttpContext is null)
-					_httpContextAccessor.HttpContext = null;
+				_httpContextAccessor.HttpContext = originalHttpContext;
 			}
 		}
 		catch (Exception exc) when (_logger.WriteError(exc, new { component = typeof(TComponent).Name, parameters }))

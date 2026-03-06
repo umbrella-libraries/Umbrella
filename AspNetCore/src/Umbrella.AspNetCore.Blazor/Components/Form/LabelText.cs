@@ -60,8 +60,8 @@ public class LabelText : ComponentBase
 		var me = (MemberExpression)expressionBody;
 
 		builder.OpenElement(0, "label");
-		builder.AddAttribute(1, "for", ForTarget.GetMemberPath());
-		builder.AddMultipleAttributes(2, AdditionalAttributes);
+		builder.AddMultipleAttributes(1, AdditionalAttributes);
+		builder.AddAttribute(2, "for", ForTarget.GetMemberPath());
 
 		if (Content is null)
 		{

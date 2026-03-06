@@ -77,17 +77,16 @@ public abstract class BundleScriptComponentBase<TBundleUtility> : UmbrellaCompon
 			return;
 
 		builder.OpenElement(0, "script");
+		builder.AddMultipleAttributes(1, AdditionalAttributes);
 
 		if (RenderInline)
 		{
-			builder.AddAttribute(1, "nonce", NonceContext.Current);
-			builder.AddContent(2, _contentOrPath);
-			builder.AddMultipleAttributes(3, AdditionalAttributes);
+			builder.AddAttribute(2, "nonce", NonceContext.Current);
+			builder.AddContent(3, _contentOrPath);
 		}
 		else
 		{
-			builder.AddAttribute(1, "src", _contentOrPath);
-			builder.AddMultipleAttributes(2, AdditionalAttributes);
+			builder.AddAttribute(2, "src", _contentOrPath);
 		}
 
 		builder.CloseElement();

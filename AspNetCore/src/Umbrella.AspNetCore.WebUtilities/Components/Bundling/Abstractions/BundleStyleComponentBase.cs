@@ -79,16 +79,16 @@ public abstract class BundleStyleComponentBase<TBundleUtility> : UmbrellaCompone
 		if (RenderInline)
 		{
 			builder.OpenElement(0, "style");
-			builder.AddAttribute(1, "nonce", NonceContext.Current);
-			builder.AddContent(2, _contentOrPath);
-			builder.AddMultipleAttributes(3, AdditionalAttributes);
+			builder.AddMultipleAttributes(1, AdditionalAttributes);
+			builder.AddAttribute(2, "nonce", NonceContext.Current);
+			builder.AddContent(3, _contentOrPath);
 		}
 		else
 		{
 			builder.OpenElement(0, "link");
-			builder.AddAttribute(1, "rel", "stylesheet");
-			builder.AddAttribute(2, "href", _contentOrPath);
-			builder.AddMultipleAttributes(4, AdditionalAttributes);
+			builder.AddMultipleAttributes(1, AdditionalAttributes);
+			builder.AddAttribute(2, "rel", "stylesheet");
+			builder.AddAttribute(3, "href", _contentOrPath);
 		}
 
 		builder.CloseElement();
