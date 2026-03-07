@@ -82,7 +82,7 @@ public abstract class BundleScriptComponentBase<TBundleUtility> : UmbrellaCompon
 		if (RenderInline)
 		{
 			builder.AddAttribute(2, "nonce", NonceContext.Current);
-			builder.AddContent(3, _contentOrPath);
+			builder.AddMarkupContent(3, _contentOrPath);
 		}
 		else
 		{

@@ -81,7 +81,7 @@ public abstract class BundleStyleComponentBase<TBundleUtility> : UmbrellaCompone
 			builder.OpenElement(0, "style");
 			builder.AddMultipleAttributes(1, AdditionalAttributes);
 			builder.AddAttribute(2, "nonce", NonceContext.Current);
-			builder.AddContent(3, _contentOrPath);
+			builder.AddMarkupContent(3, _contentOrPath);
 		}
 		else
 		{
