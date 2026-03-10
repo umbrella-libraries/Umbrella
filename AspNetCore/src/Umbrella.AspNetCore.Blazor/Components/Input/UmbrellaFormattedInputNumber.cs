@@ -63,6 +63,17 @@ public class UmbrellaFormattedInputNumber<[DynamicallyAccessedMembers(Dynamicall
 		return string.Format(CultureInfo.CurrentCulture, $"{{0:{Format}}}", value);
 	}
 
+	/// <inheritdoc />
+	protected override bool TryParseValueFromString(string? value, [MaybeNullWhen(false)] out T result, [NotNullWhen(false)] out string? validationErrorMessage)
+	{
+		if (!base.TryParseValueFromString(value, out result, out validationErrorMessage))
+			return false;
+
+		result = NormalizeValue(result);
+
+		return true;
+	}
+
 	private void OnFocus(FocusEventArgs _)
 	{
 		_isFocused = true;
@@ -116,10 +127,86 @@ public class UmbrellaFormattedInputNumber<[DynamicallyAccessedMembers(Dynamicall
 	private string GetRawValueAsString()
 	{
 		// Show the raw value (unformatted) for editing
-		if (Value is null)
+		if (CurrentValue is null)
 			return string.Empty;
 
+		T normalizedValue = NormalizeValue(CurrentValue);
+
 		// Use InvariantCulture for raw value to avoid currency symbols, etc.
-		return Convert.ToString(Value, CultureInfo.InvariantCulture) ?? string.Empty;
+		return Convert.ToString(normalizedValue, CultureInfo.InvariantCulture) ?? string.Empty;
 	}
+
+	private T NormalizeValue(T? value)
+	{
+		if (value is null || !TryGetFractionDigits(out int fractionDigits))
+			return value!;
+
+		return value switch
+		{
+			decimal decimalValue => (T)(object)RoundDecimal(decimalValue, fractionDigits),
+			double doubleValue => (T)(object)RoundDouble(doubleValue, fractionDigits),
+			float floatValue => (T)(object)RoundFloat(floatValue, fractionDigits),
+			_ => value
+		};
+	}
+
+	private bool TryGetFractionDigits(out int fractionDigits)
+	{
+		fractionDigits = 0;
+
+		string? numericFormat = GetNumericFormat(Format);
+
+		if (string.IsNullOrWhiteSpace(numericFormat))
+			return false;
+
+		ReadOnlySpan<char> span = numericFormat.AsSpan();
+
+		if (!char.IsLetter(span[0]))
+			return false;
+
+		for (int index = 1; index < span.Length; index++)
+		{
+			if (!char.IsDigit(span[index]))
+				return false;
+		}
+
+		int? precision = span.Length > 1 ? int.Parse(span[1..], CultureInfo.InvariantCulture) : null;
+
+		switch (char.ToUpperInvariant(span[0]))
+		{
+			case 'C':
+				fractionDigits = precision ?? CultureInfo.CurrentCulture.NumberFormat.CurrencyDecimalDigits;
+				return true;
+			case 'E':
+				fractionDigits = precision ?? 6;
+				return true;
+			case 'F':
+				fractionDigits = precision ?? 2;
+				return true;
+			case 'N':
+				fractionDigits = precision ?? CultureInfo.CurrentCulture.NumberFormat.NumberDecimalDigits;
+				return true;
+			case 'P':
+				fractionDigits = precision ?? CultureInfo.CurrentCulture.NumberFormat.PercentDecimalDigits;
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	private static string? GetNumericFormat(string? format)
+		=> string.IsNullOrWhiteSpace(format)
+			? null
+			: TrySplitStandardFormat(format, out _, out string standardFormat, out _)
+				? standardFormat
+				: format;
+
+	private static decimal RoundDecimal(decimal value, int fractionDigits)
+		=> Math.Round(value, fractionDigits, MidpointRounding.AwayFromZero);
+
+	private static double RoundDouble(double value, int fractionDigits)
+		=> Math.Round(value, fractionDigits, MidpointRounding.AwayFromZero);
+
+	private static float RoundFloat(float value, int fractionDigits)
+		=> MathF.Round(value, fractionDigits, MidpointRounding.AwayFromZero);
 }
