@@ -26,7 +26,9 @@ public interface ICacheKeyUtility
 	/// </summary>
 	/// <typeparam name="T">The type of the item being cached.</typeparam>
 	/// <param name="keyParts">The key parts.</param>
-	/// <param name="keyPartsLength">Length of the key parts. This will result in exactly this number of items being read.</param>
+	/// <param name="keyPartsLength">
+	/// Length of the key parts. This will result in exactly this number of items being read.
+	/// </param>
 	/// <returns>The generated cache key.</returns>
 	string Create<T>(in ReadOnlySpan<string> keyParts, int? keyPartsLength = null);
 
@@ -35,7 +37,16 @@ public interface ICacheKeyUtility
 	/// </summary>
 	/// <param name="type">The type of the item being cached.</param>
 	/// <param name="keyParts">The key parts.</param>
-	/// <param name="keyPartsLength">Length of the key parts. This will result in exactly this number of items being read.</param>
+	/// <param name="keyPartsLength">
+	/// Length of the key parts. This will result in exactly this number of items being read.
+	/// </param>
 	/// <returns>The generated cache key.</returns>
 	string Create(Type type, in ReadOnlySpan<string> keyParts, int? keyPartsLength = null);
+
+	/// <summary>
+	/// Creates a cache key based on the key parts provided.
+	/// </summary>
+	/// <param name="keyParts">The key parts.</param>
+	/// <returns>The generated cache key.</returns>
+	string Create<T>(params scoped ReadOnlySpan<string> keyParts);
 }

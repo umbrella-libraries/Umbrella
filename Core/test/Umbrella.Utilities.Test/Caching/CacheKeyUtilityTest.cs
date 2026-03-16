@@ -25,7 +25,7 @@ public class CacheKeyUtilityTest
 	public void CreateCacheKey_Parts()
 	{
 		CacheKeyUtility utility = CreateCacheKeyUtility();
-		string[] keyParts = ["part1", "part2", "part3", "part4", "part5"];
+		ReadOnlySpan<string> keyParts = ["part1", "part2", "part3", "part4", "part5"];
 
 		string key = utility.Create<CacheKeyUtilityTest>(keyParts);
 

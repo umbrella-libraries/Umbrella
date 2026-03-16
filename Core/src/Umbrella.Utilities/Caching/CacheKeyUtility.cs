@@ -145,6 +145,9 @@ public class CacheKeyUtility : ICacheKeyUtility
 		}
 	}
 
+	/// <inheritdoc />
+	public string Create<T>(params scoped ReadOnlySpan<string> keyParts) => Create<T>(in keyParts);
+
 #if !AzureDevOps
 	[Obsolete]
 	[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
