@@ -114,7 +114,10 @@ public class ResponsiveImageTagHelper : TagHelper
 				output.Attributes.Add("srcset", srcsetValue);
 
 			if (ImageLazyLoading)
+			{
 				output.Attributes.Add("loading", "lazy");
+				output.Attributes.Add("decoding", "async");
+			}
 		}
 	}
 
@@ -134,11 +137,15 @@ public class ResponsiveImageTagHelper : TagHelper
 	}
 
 	/// <summary>
-	/// Applies the pixel density to the image URL. This is used to transform the image URL into a pixel density specific URL.
+	/// Applies the pixel density to the image URL. This is used to transform the image URL into a pixel density specific
+	/// URL.
 	/// </summary>
 	/// <param name="sanitizedImageUrl">The sanitized image URL.</param>
 	/// <param name="pixelDensity">The pixel density.</param>
 	/// <returns>The transformed image URL.</returns>
-	/// <remarks>This uses the <see cref="IResponsiveImageHelper.ApplyPixelDensity"/> method to apply the pixel density internally unless overridden.</remarks>
+	/// <remarks>
+	/// This uses the <see cref="IResponsiveImageHelper.ApplyPixelDensity"/> method to apply the pixel density internally
+	/// unless overridden.
+	/// </remarks>
 	protected virtual string ApplyPixelDensity(string sanitizedImageUrl, int pixelDensity) => ResponsiveImageHelper.ApplyPixelDensity(sanitizedImageUrl, pixelDensity);
 }

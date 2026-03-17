@@ -1,3 +1,3 @@
 ﻿<div class="u-responsive-image @CssClass">
-    <img src="@Url" srcset="@SrcSetValue" loading="@(LazyLoadingEnabled ? "lazy" : null)" @attributes="AdditionalAttributes" />
+    <img src="@Url" srcset="@SrcSetValue" loading="@(LazyLoadingEnabled ? "lazy" : null)" decoding="@(LazyLoadingEnabled ? "async" : null)" @attributes="AdditionalAttributes" />
 </div>
