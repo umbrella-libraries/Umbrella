@@ -125,23 +125,34 @@ public static class IMvcBuilderExtensions
 		/// Configures Umbrella MVC builder options.
 		/// </summary>
 		/// <param name="isDevelopment">Determines whether the application is running in a development environment.</param>
+		/// <param name="addJsonStringEnumConverter">Determines whether to add a JSON string enum converter.</param>
 		/// <returns>
 		/// The same <see cref="IMvcBuilder"/> instance so that additional configuration calls can be chained.
 		/// </returns>
 		/// <remarks>
-		/// Internally, this method calls: <list type="bullet"> <item>
-		/// <see cref="ConfigureUmbrellaApiBehaviorOptions(IMvcBuilder)"/> </item> <item>
-		/// <see cref="ConfigureUmbrellaMvcOptions(IMvcBuilder)"/> </item> <item>
-		/// <see cref="ConfigureUmbrellaJsonOptions(IMvcBuilder, bool)"/> </item> <item>
-		/// <see cref="ConfigureUmbrellaOpenApiConventions(IMvcBuilder)"/> </item> </list>
+		/// Internally, this method calls:
+		/// <list type="bullet">
+		/// <item>
+		/// <see cref="ConfigureUmbrellaApiBehaviorOptions(IMvcBuilder)"/>
+		/// </item>
+		/// <item>
+		/// <see cref="ConfigureUmbrellaMvcOptions(IMvcBuilder)"/>
+		/// </item>
+		/// <item>
+		/// <see cref="ConfigureUmbrellaJsonOptions(IMvcBuilder, bool, bool)"/>
+		/// </item>
+		/// <item>
+		/// <see cref="ConfigureUmbrellaOpenApiConventions(IMvcBuilder)"/>
+		/// </item>
+		/// </list>
 		/// </remarks>
-		public IMvcBuilder ConfigureUmbrellaMvcBuilderOptions(bool isDevelopment)
+		public IMvcBuilder ConfigureUmbrellaMvcBuilderOptions(bool isDevelopment, bool addJsonStringEnumConverter = false)
 		{
 			Guard.IsNotNull(builder);
 
 			_ = builder.ConfigureUmbrellaApiBehaviorOptions();
 			_ = builder.ConfigureUmbrellaMvcOptions();
-			_ = builder.ConfigureUmbrellaJsonOptions(isDevelopment);
+			_ = builder.ConfigureUmbrellaJsonOptions(isDevelopment, addJsonStringEnumConverter);
 			_ = builder.ConfigureUmbrellaOpenApiConventions();
 
 			return builder;
