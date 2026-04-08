@@ -35,7 +35,7 @@ public class UmbrellaTempFileHandler : UmbrellaFileHandler<int>, IUmbrellaTempFi
 	public override string DirectoryName => Options.TempFilesDirectoryName;
 
 	/// <inheritdoc/>
-	public override async Task<bool> CanAccessAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken = default)
+	public override async Task<bool> AuthorizeAsync(IUmbrellaFileInfo fileInfo, UmbrellaFileOperationType operationType, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		Guard.IsNotNull(fileInfo);
@@ -57,7 +57,7 @@ public class UmbrellaTempFileHandler : UmbrellaFileHandler<int>, IUmbrellaTempFi
 
 			return fileInfoCreatedById.Equals(currentUserId, StringComparison.Ordinal);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { fileInfo.Name }))
+		catch (Exception exc) when (Logger.WriteError(exc, new { fileInfo.Name, operationType }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem determing if the specified file can be accessed based on the current context.", exc);
 		}

@@ -5,7 +5,7 @@ namespace Umbrella.FileSystem.Abstractions;
 /// A file provider abstraction that wraps an underlying storage mechanism, e.g. Disk storage, Azure Storage.
 /// </summary>
 public interface IUmbrellaFileStorageProvider
-{
+{	
 	/// <summary>
 	/// Initializes the options of the provider.
 	/// </summary>
@@ -108,7 +108,8 @@ public interface IUmbrellaFileStorageProvider
 	Task DeleteDirectoryAsync(string subpath, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// Moves the file located at the specified <paramref name="sourceSubpath"/> to the <paramref name="destinationSubpath"/>.
+	/// Moves the file located at the specified <paramref name="sourceSubpath"/> to the
+	/// <paramref name="destinationSubpath"/>.
 	/// </summary>
 	/// <param name="sourceSubpath">The source subpath.</param>
 	/// <param name="destinationSubpath">The destination subpath.</param>

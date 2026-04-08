@@ -175,7 +175,7 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 			{
 				await file.InitializeAsync(cancellationToken).ConfigureAwait(false);
 
-				if (await CheckFileAccessAsync(file, file.Blob, cancellationToken).ConfigureAwait(false))
+				if (await AuthorizeAsync(file, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false))
 					lstResult.Add(file);
 				else
 					_ = Logger.WriteWarning(state: new { file.SubPath }, message: "File access failed.");
@@ -253,7 +253,7 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 		var fileInfo = new UmbrellaAzureBlobFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, cleanedPath, this, blob, isNew);
 		await fileInfo.InitializeAsync(cancellationToken).ConfigureAwait(false);
 
-		return !await CheckFileAccessAsync(fileInfo, blob, cancellationToken).ConfigureAwait(false)
+		return !await AuthorizeAsync(fileInfo, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false)
 			? throw new UmbrellaFileAccessDeniedException(subpath)
 			: (IUmbrellaFileInfo)fileInfo;
 	}
@@ -278,31 +278,6 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 
 	#region Private Methods
 	private static string NormalizeContainerName(string containerName) => containerName.TrimToLowerInvariant();
-	#endregion
-
-	#region Protected Methods
-	/// <summary>
-	/// Performs an access check on the file to ensure it can be accessed in the current context.
-	/// </summary>
-	/// <param name="fileInfo">The file information.</param>
-	/// <param name="blob">The BLOB.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>An awaitable <see cref="Task"/> that returns <see langword="true" /> if the file passes the check; otherwise <see langword="false" />.</returns>
-	protected virtual async Task<bool> CheckFileAccessAsync(UmbrellaAzureBlobFileInfo fileInfo, BlobClient blob, CancellationToken cancellationToken)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		Guard.IsNotNull(fileInfo);
-		Guard.IsNotNull(blob);
-
-		if (fileInfo.IsNew)
-			return true;
-
-		IUmbrellaFileAuthorizationHandler? authorizationHandler = Options.GetAuthorizationHandler(fileInfo);
-
-		return authorizationHandler is not null
-			? await authorizationHandler.CanAccessAsync(fileInfo, cancellationToken).ConfigureAwait(false)
-			: Options.AllowUnhandledFileAuthorizationChecks;
-	}
 	#endregion
 
 	#region IDisposable Support

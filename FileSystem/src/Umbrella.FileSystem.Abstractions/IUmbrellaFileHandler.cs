@@ -19,10 +19,11 @@ public interface IUmbrellaFileHandler<TGroupId> : IUmbrellaFileAuthorizationHand
 	/// <param name="writeChanges">if set to <see langword="true" /> writes changes to the file metadata.</param>
 	/// <returns>A task that completes when the operation has completed.</returns>
 	/// <remarks>
-	/// File permissions are applied as file metadata. Checks to determine if the file can be accessed in a specified context
-	/// e.g. by the current <see cref="ClaimsPrincipal"/> are <c>not</c> done automatically.
-	/// It is the responsibility of consuming code to call the <see cref="IUmbrellaFileAuthorizationHandler.CanAccessAsync(IUmbrellaFileInfo, CancellationToken)"/> before allowing
-	/// access to a file.
+	/// File permissions are applied as file metadata. Checks to determine if the file can be accessed in a specified
+	/// context e.g. by the current <see cref="ClaimsPrincipal"/> are <c> not</c> done automatically. It is the
+	/// responsibility of consuming code to call the
+	/// <see cref="IUmbrellaFileAuthorizationHandler.AuthorizeAsync(IUmbrellaFileInfo, UmbrellaFileOperationType, CancellationToken)"/>
+	/// before allowing access to a file.
 	/// </remarks>
 	Task ApplyPermissionsAsync(IUmbrellaFileInfo fileInfo, TGroupId groupId, bool writeChanges = true, CancellationToken cancellationToken = default);
 

@@ -115,7 +115,7 @@ public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProv
 
 			foreach (var file in files)
 			{
-				if (await CheckFileAccessAsync(file, file.PhysicalFileInfo, cancellationToken).ConfigureAwait(false))
+				if (await AuthorizeAsync(file, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false))
 					lstResult.Add(file);
 				else
 					_ = Logger.WriteWarning(state: new { file.SubPath }, message: "File access failed.");
@@ -149,34 +149,9 @@ public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProv
 
 		var fileInfo = new UmbrellaDiskFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, cleanedSubPath, this, physicalFileInfo, isNew);
 
-		return !await CheckFileAccessAsync(fileInfo, physicalFileInfo, cancellationToken).ConfigureAwait(false)
+		return !await AuthorizeAsync(fileInfo, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false)
 			? throw new UmbrellaFileAccessDeniedException(subpath)
 			: (IUmbrellaFileInfo)fileInfo;
-	}
-	#endregion
-
-	#region Protected Methods		
-	/// <summary>
-	/// Performs an access check on the file to ensure it can be accessed in the current context.
-	/// </summary>
-	/// <param name="fileInfo">The file information.</param>
-	/// <param name="physicalFileInfo">The physical file information.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>An awaitable <see cref="Task"/> that returns <see langword="true" /> if the file passes the check; otherwise <see langword="false" />.</returns>
-	protected virtual async Task<bool> CheckFileAccessAsync(UmbrellaDiskFileInfo fileInfo, FileInfo physicalFileInfo, CancellationToken cancellationToken)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		Guard.IsNotNull(fileInfo);
-		Guard.IsNotNull(physicalFileInfo);
-
-		if (fileInfo.IsNew)
-			return true;
-
-		IUmbrellaFileAuthorizationHandler? authorizationHandler = Options.GetAuthorizationHandler(fileInfo);
-
-		return authorizationHandler is not null
-			? await authorizationHandler.CanAccessAsync(fileInfo, cancellationToken).ConfigureAwait(false)
-			: Options.AllowUnhandledFileAuthorizationChecks;
 	}
 	#endregion
 

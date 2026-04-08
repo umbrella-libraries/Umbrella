@@ -195,7 +195,7 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 	}
 
 	/// <inheritdoc />
-	public abstract Task<bool> CanAccessAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken = default);
+	public abstract Task<bool> AuthorizeAsync(IUmbrellaFileInfo fileInfo, UmbrellaFileOperationType operationType, CancellationToken cancellationToken = default);
 
 	/// <inheritdoc />
 	public virtual async Task ApplyPermissionsAsync(IUmbrellaFileInfo fileInfo, TGroupId groupId, bool writeChanges = true, CancellationToken cancellationToken = default)

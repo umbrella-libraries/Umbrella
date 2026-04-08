@@ -17,10 +17,12 @@ public interface IUmbrellaFileAuthorizationHandler
 	string DirectoryName { get; }
 
 	/// <summary>
-	/// Determines whether the specified <paramref name="fileInfo"/> can be accessed in the current context, e.g. by the current <see cref="ClaimsPrincipal"/>.
+	/// Determines whether the specified <paramref name="fileInfo"/> can be accessed in the current context, e.g. by the
+	/// current <see cref="ClaimsPrincipal"/>.
 	/// </summary>
 	/// <param name="fileInfo">The file.</param>
+	/// <param name="operationType">The type of operation to authorize.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns><see langword="true"/> if the file can be accessed; otherwise <see langword="false"/></returns>
-	Task<bool> CanAccessAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken = default);
+	Task<bool> AuthorizeAsync(IUmbrellaFileInfo fileInfo, UmbrellaFileOperationType operationType, CancellationToken cancellationToken = default);
 }

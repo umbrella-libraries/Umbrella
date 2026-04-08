@@ -12,7 +12,8 @@ using Umbrella.Utilities.TypeConverters.Abstractions;
 namespace Umbrella.FileSystem.AzureStorage;
 
 /// <summary>
-/// An implementation of <see cref="IUmbrellaFileInfo"/> that uses Azure Blob Storage as the underlying storage mechanism.
+/// An implementation of <see cref="IUmbrellaFileInfo"/> that uses Azure Blob Storage as the underlying storage
+/// mechanism.
 /// </summary>
 /// <seealso cref="IUmbrellaFileInfo" />
 public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
@@ -33,6 +34,11 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 	/// Gets the file provider used to create this file.
 	/// </summary>
 	protected IUmbrellaAzureBlobFileStorageProvider Provider { get; }
+
+	/// <summary>
+	/// Gets the file access authorizor.
+	/// </summary>
+	protected UmbrellaFileAccessAuthorizor AccessAuthorizor { get; }
 
 	/// <summary>
 	/// Gets the generic type converter.
@@ -78,11 +84,13 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 		IGenericTypeConverter genericTypeConverter,
 		string subpath,
 		IUmbrellaAzureBlobFileStorageProvider provider,
+		UmbrellaFileAccessAuthorizor accessAuthorizor,
 		BlobClient blob,
 		bool isNew)
 	{
 		Logger = logger;
 		Provider = provider;
+		AccessAuthorizor = accessAuthorizor;
 		GenericTypeConverter = genericTypeConverter;
 
 		Blob = blob;
@@ -127,6 +135,9 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Delete, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
+
 			return await Blob.DeleteIfExistsAsync(DeleteSnapshotsOption.IncludeSnapshots, cancellationToken: cancellationToken).ConfigureAwait(false);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc))
@@ -142,6 +153,9 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
+
 			return await Blob.ExistsAsync(cancellationToken).ConfigureAwait(false);
 		}
 		catch (RequestFailedException exc) when (exc.ErrorCode == BlobErrorCode.ContainerBeingDeleted)
@@ -166,6 +180,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			// Encapsulates the Read access authorizor check and the existence check.
 			if (!await ExistsAsync(cancellationToken).ConfigureAwait(false))
 				throw new UmbrellaFileNotFoundException(SubPath);
 
@@ -196,6 +211,9 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
+
 			_ = await Blob.DownloadToAsync(target, transferOptions: CreateStorageTransferOptions(bufferSizeOverride), cancellationToken: cancellationToken).ConfigureAwait(false);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
@@ -236,6 +254,9 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			if (!await AccessAuthorizor(this, IsNew ? UmbrellaFileOperationType.Create : UmbrellaFileOperationType.Update, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
+
 			stream.Position = 0;
 
 			_ = await Blob.UploadAsync(
@@ -264,10 +285,13 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			// Encapsulates the Read access authorizor check and the existence check.
 			if (!await ExistsAsync(cancellationToken).ConfigureAwait(false))
 				throw new UmbrellaFileNotFoundException(SubPath);
 
 			var destinationFile = (UmbrellaAzureBlobFileInfo)await Provider.CreateAsync(destinationSubpath, cancellationToken).ConfigureAwait(false);
+
+			// Encapsulates the Copy access authorizor check.
 			_ = await CopyAsync(destinationFile, cancellationToken).ConfigureAwait(false);
 
 			return destinationFile;
@@ -287,8 +311,12 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			// Encapsulates the Read access authorizor check and the existence check.
 			if (!await ExistsAsync(cancellationToken).ConfigureAwait(false))
 				throw new UmbrellaFileNotFoundException(SubPath);
+
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.MoveOrCopy, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
 
 			var blobDestinationFile = (UmbrellaAzureBlobFileInfo)destinationFile;
 

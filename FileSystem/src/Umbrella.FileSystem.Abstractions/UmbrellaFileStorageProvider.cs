@@ -358,6 +358,31 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 
 		return cleanedName;
 	}
+
+	/// <summary>
+	/// Performs an access check on the file to ensure it can be accessed in the current context.
+	/// </summary>
+	/// <param name="fileInfo">The file information.</param>
+	/// <param name="policy">The file access policy.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>
+	/// An awaitable <see cref="Task"/> that returns <see langword="true" /> if the file passes the check; otherwise
+	/// <see langword="false" />.
+	/// </returns>
+	protected virtual async Task<bool> AuthorizeAsync(IUmbrellaFileInfo fileInfo, UmbrellaFileOperationType policy, CancellationToken cancellationToken)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		Guard.IsNotNull(fileInfo);
+
+		if (fileInfo.IsNew)
+			return true;
+
+		IUmbrellaFileAuthorizationHandler? authorizationHandler = Options.GetAuthorizationHandler(fileInfo);
+
+		return authorizationHandler is not null
+			? await authorizationHandler.AuthorizeAsync(fileInfo, policy, cancellationToken).ConfigureAwait(false)
+			: Options.AllowUnhandledFileAuthorizationChecks;
+	}
 	#endregion
 
 	#region Abstract Methods		
@@ -371,3 +396,5 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 	protected abstract Task<IUmbrellaFileInfo?> GetFileAsync(string subpath, bool isNew, CancellationToken cancellationToken);
 	#endregion
 }
+
+public delegate Task<bool> UmbrellaFileAccessAuthorizor(IUmbrellaFileInfo fileInfo, UmbrellaFileOperationType policy, CancellationToken cancellationToken);
