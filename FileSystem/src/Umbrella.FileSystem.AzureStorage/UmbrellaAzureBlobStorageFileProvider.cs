@@ -167,7 +167,7 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 
 			List<BlobClient> lstBlob = await container.GetBlobsByDirectoryAsync(string.Join(DirectorySeparator, parts.Skip(1)), cancellationToken: cancellationToken).ConfigureAwait(false);
 
-			UmbrellaAzureBlobFileInfo[] files = lstBlob.Select(x => new UmbrellaAzureBlobFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, $"/{parts[0]}/{x.Name}", this, x, false)).ToArray();
+			UmbrellaAzureBlobFileInfo[] files = lstBlob.Select(x => new UmbrellaAzureBlobFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, $"/{parts[0]}/{x.Name}", this, AuthorizeAsync, x, false)).ToArray();
 
 			var lstResult = new List<UmbrellaAzureBlobFileInfo>();
 
@@ -250,7 +250,7 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 		if (!isNew && !await blob.ExistsAsync(cancellationToken).ConfigureAwait(false))
 			return null;
 
-		var fileInfo = new UmbrellaAzureBlobFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, cleanedPath, this, blob, isNew);
+		var fileInfo = new UmbrellaAzureBlobFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, cleanedPath, this, AuthorizeAsync, blob, isNew);
 		await fileInfo.InitializeAsync(cancellationToken).ConfigureAwait(false);
 
 		return !await AuthorizeAsync(fileInfo, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false)

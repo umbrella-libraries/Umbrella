@@ -13,11 +13,21 @@ public enum UmbrellaFileOperationType
 	/// <summary>
 	/// The file can be accessed for creation, e.g. by uploading a new file.
 	/// </summary>
+	/// <remarks>
+	/// When trying to move a file, the create permission is required on the destination file, and the delete permission is
+	/// required on the source file. This is because moving a file typically involves deleting the source file and creating
+	/// a new file at the destination path. Therefore, both permissions are necessary to successfully move a file.
+	/// </remarks>
 	Create = 1,
 
 	/// <summary>
 	/// The file can be accessed for reading, e.g. by downloading or streaming the file content.
 	/// </summary>
+	/// <remarks>
+	/// When trying to move a file, the create permission is required on the destination file, and the delete permission is
+	/// required on the source file. This is because moving a file typically involves deleting the source file and creating
+	/// a new file at the destination path. Therefore, both permissions are necessary to successfully move a file.
+	/// </remarks>
 	Read = 2,
 
 	/// <summary>
@@ -28,11 +38,10 @@ public enum UmbrellaFileOperationType
 	/// <summary>
 	/// The file can be accessed for deletion, e.g. by deleting the file from the file system.
 	/// </summary>
-	Delete = 4,
-
-	/// <summary>
-	/// The file can be accessed for moving or copying, e.g. by moving the file to a different location or copying the file
-	/// to create a new file.
-	/// </summary>
-	MoveOrCopy = 5
+	/// <remarks>
+	/// When trying to move a file, the delete permission is required on the source file, and the create permission is
+	/// required on the destination file. This is because moving a file typically involves deleting the source file and
+	/// creating a new file at the destination path. Therefore, both permissions are necessary to successfully move a file.
+	/// </remarks>
+	Delete = 4
 }

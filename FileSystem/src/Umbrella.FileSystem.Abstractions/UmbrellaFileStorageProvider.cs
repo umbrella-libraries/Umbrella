@@ -397,4 +397,12 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 	#endregion
 }
 
+/// <summary>
+/// Defines the signature of a delegate that performs an access check on a file to ensure it can be accessed in the
+/// current context.
+/// </summary>
+/// <param name="fileInfo">The file information.</param>
+/// <param name="policy">The file access policy.</param>
+/// <param name="cancellationToken">The cancellation token.</param>
+/// <returns>An awaitable Task that returns <see langword="true" /> if the file passes the check; otherwise <see langword="false" />.</returns>
 public delegate Task<bool> UmbrellaFileAccessAuthorizor(IUmbrellaFileInfo fileInfo, UmbrellaFileOperationType policy, CancellationToken cancellationToken);

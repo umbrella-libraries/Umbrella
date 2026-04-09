@@ -291,7 +291,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 
 			var destinationFile = (UmbrellaAzureBlobFileInfo)await Provider.CreateAsync(destinationSubpath, cancellationToken).ConfigureAwait(false);
 
-			// Encapsulates the Copy access authorizor check.
+			// Encapsulates the Create access authorizor check.
 			_ = await CopyAsync(destinationFile, cancellationToken).ConfigureAwait(false);
 
 			return destinationFile;
@@ -315,7 +315,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 			if (!await ExistsAsync(cancellationToken).ConfigureAwait(false))
 				throw new UmbrellaFileNotFoundException(SubPath);
 
-			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.MoveOrCopy, cancellationToken).ConfigureAwait(false))
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Create, cancellationToken).ConfigureAwait(false))
 				throw new UmbrellaFileAccessDeniedException(SubPath);
 
 			var blobDestinationFile = (UmbrellaAzureBlobFileInfo)destinationFile;
@@ -387,6 +387,9 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
+
 			// The buffer size can't be controlled here. For chunking we should use the WriteToStreamAsync method.
 			BlobDownloadInfo response = await Blob.DownloadAsync(cancellationToken).ConfigureAwait(false);
 
@@ -501,6 +504,9 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Update, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
+
 			if (_blobProperties is not null)
 				_ = await Blob.SetMetadataAsync(_blobProperties.Metadata, cancellationToken: cancellationToken).ConfigureAwait(false);
 		}
