@@ -31,6 +31,11 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 	protected IUmbrellaDiskFileStorageProvider Provider { get; }
 
 	/// <summary>
+	/// Gets the file access authorizor.
+	/// </summary>
+	protected UmbrellaFileAccessAuthorizor AccessAuthorizor { get; }
+
+	/// <summary>
 	/// Gets the generic type converter.
 	/// </summary>
 	protected IGenericTypeConverter GenericTypeConverter { get; }
@@ -67,6 +72,7 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 		IGenericTypeConverter genericTypeConverter,
 		string subpath,
 		IUmbrellaDiskFileStorageProvider provider,
+	  UmbrellaFileAccessAuthorizor accessAuthorizor,
 		FileInfo physicalFileInfo,
 		bool isNew)
 	{
@@ -75,6 +81,7 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 
 		Logger = logger;
 		Provider = provider;
+		AccessAuthorizor = accessAuthorizor;
 		GenericTypeConverter = genericTypeConverter;
 		PhysicalFileInfo = physicalFileInfo;
 		IsNew = isNew;
@@ -100,17 +107,7 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 
 			var destinationFile = (UmbrellaDiskFileInfo)await Provider.CreateAsync(destinationSubpath, cancellationToken).ConfigureAwait(false);
 
-			Guard.IsNotNull(destinationFile.PhysicalFileInfo.Directory);
-
-			if (!destinationFile.PhysicalFileInfo.Directory.Exists)
-				destinationFile.PhysicalFileInfo.Directory.Create();
-
-			File.Copy(PhysicalFileInfo.FullName, destinationFile.PhysicalFileInfo.FullName, true);
-
-			if (File.Exists(_metadataFullFileName))
-				File.Copy(_metadataFullFileName, destinationFile.PhysicalFileInfo.FullName + UmbrellaDiskFileStorageConstants.MetadataFileExtension, true);
-
-			destinationFile.IsNew = false;
+			_ = await CopyAsync(destinationFile, cancellationToken).ConfigureAwait(false);
 
 			return destinationFile;
 		}
@@ -131,6 +128,9 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 		{
 			if (!await ExistsAsync(cancellationToken).ConfigureAwait(false))
 				throw new UmbrellaFileNotFoundException(SubPath);
+
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Create, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
 
 			var target = (UmbrellaDiskFileInfo)destinationFile;
 
@@ -162,22 +162,8 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 
 		try
 		{
-			if (!await ExistsAsync(cancellationToken).ConfigureAwait(false))
-				throw new UmbrellaFileNotFoundException(SubPath);
-
-			var destinationFile = (UmbrellaDiskFileInfo)await Provider.CreateAsync(destinationSubpath, cancellationToken).ConfigureAwait(false);
-
-			Guard.IsNotNull(destinationFile.PhysicalFileInfo.Directory);
-
-			if (!destinationFile.PhysicalFileInfo.Directory.Exists)
-				destinationFile.PhysicalFileInfo.Directory.Create();
-
-			File.Move(PhysicalFileInfo.FullName, destinationFile.PhysicalFileInfo.FullName);
-
-			if (File.Exists(_metadataFullFileName))
-				File.Move(_metadataFullFileName, destinationFile.PhysicalFileInfo.FullName + UmbrellaDiskFileStorageConstants.MetadataFileExtension);
-
-			destinationFile.IsNew = false;
+			IUmbrellaFileInfo destinationFile = await CopyAsync(destinationSubpath, cancellationToken).ConfigureAwait(false);
+			_ = await DeleteAsync(cancellationToken).ConfigureAwait(false);
 
 			return destinationFile;
 		}
@@ -196,22 +182,8 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 
 		try
 		{
-			if (!await ExistsAsync(cancellationToken).ConfigureAwait(false))
-				throw new UmbrellaFileNotFoundException(SubPath);
-
-			var target = (UmbrellaDiskFileInfo)destinationFile;
-
-			Guard.IsNotNull(target.PhysicalFileInfo.Directory);
-
-			if (!target.PhysicalFileInfo.Directory.Exists)
-				target.PhysicalFileInfo.Directory.Create();
-
-			File.Move(PhysicalFileInfo.FullName, target.PhysicalFileInfo.FullName);
-
-			if (File.Exists(_metadataFullFileName))
-				File.Move(_metadataFullFileName, target.PhysicalFileInfo.FullName + UmbrellaDiskFileStorageConstants.MetadataFileExtension);
-
-			target.IsNew = false;
+			_ = await CopyAsync(destinationFile, cancellationToken).ConfigureAwait(false);
+			_ = await DeleteAsync(cancellationToken).ConfigureAwait(false);
 
 			return destinationFile;
 		}
@@ -222,16 +194,19 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 	}
 
 	/// <inheritdoc />
-	public Task<bool> DeleteAsync(CancellationToken cancellationToken = default)
+	public async Task<bool> DeleteAsync(CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
 		try
 		{
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Delete, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
+
 			PhysicalFileInfo.Delete();
 			File.Delete(_metadataFullFileName);
 
-			return Task.FromResult(true);
+			return true;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc))
 		{
@@ -240,13 +215,16 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 	}
 
 	/// <inheritdoc />
-	public Task<bool> ExistsAsync(CancellationToken cancellationToken = default)
+	public async Task<bool> ExistsAsync(CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
 		try
 		{
-			return Task.FromResult(PhysicalFileInfo.Exists);
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
+
+			return PhysicalFileInfo.Exists;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc))
 		{
@@ -265,6 +243,9 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			if (!await ExistsAsync(cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileNotFoundException(SubPath);
+
 			byte[] bytes = new byte[PhysicalFileInfo.Length];
 
 			using (var fs = new FileStream(PhysicalFileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSizeOverride ?? UmbrellaFileSystemConstants.SmallBufferSize, true))
@@ -296,6 +277,9 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
+
 			int bufferSize = bufferSizeOverride ?? UmbrellaFileSystemConstants.SmallBufferSize;
 
 			using var fs = new FileStream(PhysicalFileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, true);
@@ -319,21 +303,8 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 
 		try
 		{
-			Guard.IsNotNull(PhysicalFileInfo.Directory);
-
-			if (!PhysicalFileInfo.Directory.Exists)
-				PhysicalFileInfo.Directory.Create();
-
-			using (var fs = new FileStream(PhysicalFileInfo.FullName, FileMode.Create, FileAccess.Write, FileShare.Write, bufferSizeOverride ?? UmbrellaFileSystemConstants.SmallBufferSize, true))
-			{
-#if NET6_0_OR_GREATER
-				await fs.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
-#else
-				await fs.WriteAsync(bytes, 0, bytes.Length, cancellationToken).ConfigureAwait(false);
-#endif
-			}
-
-			IsNew = false;
+			using var ms = new MemoryStream(bytes);
+			await WriteFromStreamAsync(ms, bufferSizeOverride, cancellationToken).ConfigureAwait(false);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
@@ -352,6 +323,9 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			if (!await AccessAuthorizor(this, IsNew ? UmbrellaFileOperationType.Create : UmbrellaFileOperationType.Update, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
+
 			Guard.IsNotNull(PhysicalFileInfo.Directory);
 
 			if (!PhysicalFileInfo.Directory.Exists)
@@ -384,7 +358,10 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 
 		try
 		{
-			return await Task.FromResult(new FileStream(PhysicalFileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSizeOverride ?? UmbrellaFileSystemConstants.SmallBufferSize, true)).ConfigureAwait(false);
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
+
+			return new FileStream(PhysicalFileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSizeOverride ?? UmbrellaFileSystemConstants.SmallBufferSize, true);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
@@ -507,6 +484,9 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 
 		try
 		{
+			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Update, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(SubPath);
+
 			if (_metadataDictionary?.Count > 0)
 			{
 				string json = UmbrellaStatics.SerializeJson(_metadataDictionary);

@@ -3,7 +3,6 @@ using System.Text;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Umbrella.FileSystem.Abstractions;
-using Umbrella.Utilities.Helpers;
 using Umbrella.Utilities.Mime.Abstractions;
 using Umbrella.Utilities.TypeConverters.Abstractions;
 
@@ -108,7 +107,7 @@ public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProv
 			UmbrellaDiskFileInfo[] files = directoryInfo
 				.GetFiles()
 				.Where(x => !x.Extension.Equals(UmbrellaDiskFileStorageConstants.MetadataFileExtension, StringComparison.OrdinalIgnoreCase))
-				.Select(x => new UmbrellaDiskFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, $"{subpath}/{x.Name}", this, x, false))
+				.Select(x => new UmbrellaDiskFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, SanitizeSubPathCore($"{subpath}/{x.Name}"), this, AuthorizeAsync, x, false))
 				.ToArray();
 
 			var lstResult = new List<UmbrellaDiskFileInfo>();
@@ -137,7 +136,7 @@ public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProv
 		Guard.IsNotNullOrWhiteSpace(subpath, nameof(subpath));
 
 		string physicalPath = CleanPath(subpath);
-		string cleanedSubPath = PathHelper.PlatformNormalize(subpath);
+		string cleanedSubPath = SanitizeSubPathCore(subpath);
 
 		if (Logger.IsEnabled(LogLevel.Debug))
 			Logger.WriteDebug(new { subpath, cleanedSubPath, physicalPath }, "File");
@@ -147,7 +146,7 @@ public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProv
 		if (!isNew && !physicalFileInfo.Exists)
 			return null;
 
-		var fileInfo = new UmbrellaDiskFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, cleanedSubPath, this, physicalFileInfo, isNew);
+		var fileInfo = new UmbrellaDiskFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, cleanedSubPath, this, AuthorizeAsync, physicalFileInfo, isNew);
 
 		return !await AuthorizeAsync(fileInfo, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false)
 			? throw new UmbrellaFileAccessDeniedException(subpath)
