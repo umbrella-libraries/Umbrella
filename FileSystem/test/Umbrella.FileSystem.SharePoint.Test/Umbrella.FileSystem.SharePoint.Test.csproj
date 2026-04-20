@@ -9,7 +9,7 @@
 		<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
 		<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
 		<WarningsAsErrors>xUnit1051</WarningsAsErrors>
-		<UserSecretsId>a3f1d9e2-7b4c-4f8a-b6e3-c2d5f0a1e8b4</UserSecretsId>
+		<UserSecretsId>e4b2c7f3-9a1d-4e8b-b3c2-f5a6d0e1c9b7</UserSecretsId>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -41,8 +41,6 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\Internal\src\Umbrella.Internal.Mocks\Umbrella.Internal.Mocks.csproj" />
-		<ProjectReference Include="..\..\src\Umbrella.FileSystem.AzureStorage\Umbrella.FileSystem.AzureStorage.csproj" />
-		<ProjectReference Include="..\..\src\Umbrella.FileSystem.Disk\Umbrella.FileSystem.Disk.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.FileSystem.SharePoint\Umbrella.FileSystem.SharePoint.csproj" />
 	</ItemGroup>
 

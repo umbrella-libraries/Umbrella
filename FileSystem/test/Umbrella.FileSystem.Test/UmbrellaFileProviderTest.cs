@@ -1,10 +1,14 @@
 ﻿
 using System.Collections.ObjectModel;
+using Azure.Identity;
 using CommunityToolkit.Diagnostics;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Graph;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.FileSystem.AzureStorage;
 using Umbrella.FileSystem.Disk;
+using Umbrella.FileSystem.SharePoint;
 using Umbrella.Internal.Mocks;
 using Umbrella.Utilities.Compilation;
 using Umbrella.Utilities.Helpers;
@@ -28,6 +32,15 @@ public class UmbrellaFileProviderTest
 #pragma warning restore CA1802 // Use literals where appropriate
 #endif
 
+	private static readonly IConfiguration _sharePointConfig = new ConfigurationBuilder()
+		.AddUserSecrets<UmbrellaFileProviderTest>()
+		.AddEnvironmentVariables()
+		.Build();
+
+	private static string SharePointTenantId => _sharePointConfig["SharePoint:TenantId"]!;
+	private static string SharePointClientId => _sharePointConfig["SharePoint:ClientId"]!;
+	private static string SharePointClientSecret => _sharePointConfig["SharePoint:ClientSecret"]!;
+
 	private const string TestFileName = "aspnet-mvc-logo.png";
 	private static string? _baseDirectory;
 
@@ -49,6 +62,21 @@ public class UmbrellaFileProviderTest
 	public static List<Func<IUmbrellaFileStorageProvider>> Providers =
 	[
 		CreateAzureBlobFileProvider,
+		CreateDiskFileProvider,
+		CreateSharePointFileProvider
+	];
+
+	// SharePoint restricts % in path segments; exclude from path-variation tests to avoid false failures
+	private static readonly List<Func<IUmbrellaFileStorageProvider>> _pathVariationProviders =
+	[
+		CreateAzureBlobFileProvider,
+		CreateDiskFileProvider
+	];
+
+	// SharePoint throws NotSupportedException for metadata operations
+	private static readonly List<Func<IUmbrellaFileStorageProvider>> _metadataCapableProviders =
+	[
+		CreateAzureBlobFileProvider,
 		CreateDiskFileProvider
 	];
 
@@ -66,13 +94,14 @@ public class UmbrellaFileProviderTest
 	];
 
 	public static List<object[]> ProvidersMemberData = Providers.Select(x => new object[] { x }).ToList();
+	public static List<object[]> MetadataCapableProvidersMemberData = _metadataCapableProviders.Select(x => new object[] { x }).ToList();
 	public static List<object[]> PathsToTestMemberData = PathsToTest.Select(x => new object[] { x }).ToList();
 
 	public static Collection<object[]> ProvidersAndPathsMemberData = [];
 
 	static UmbrellaFileProviderTest()
 	{
-		foreach (var provider in Providers)
+		foreach (var provider in _pathVariationProviders)
 		{
 			foreach (string path in PathsToTest)
 			{
@@ -662,7 +691,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(MetadataCapableProvidersMemberData))]
 	public async Task CreateAsync_Write_CopyAsync_FromPath_ToPath_WithMetadataAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -705,7 +734,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(MetadataCapableProvidersMemberData))]
 	public async Task CreateAsync_Write_CopyAsync_FromFile_ToPath_WithMetadataAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -748,7 +777,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(MetadataCapableProvidersMemberData))]
 	public async Task CreateAsync_Write_CopyAsync_FromFile_ToFile_WithMetadataAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -975,7 +1004,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(MetadataCapableProvidersMemberData))]
 	public async Task CreateAsync_Write_MoveAsync_FromPath_ToPath_WithMetadataAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -1018,7 +1047,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(MetadataCapableProvidersMemberData))]
 	public async Task CreateAsync_Write_MoveAsync_FromFile_ToPath_WithMetadataAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -1061,7 +1090,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(MetadataCapableProvidersMemberData))]
 	public async Task CreateAsync_Write_MoveAsync_FromFile_ToFile_WithMetadataAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -1135,7 +1164,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(MetadataCapableProvidersMemberData))]
 	public async Task Set_Get_MetadataValueAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -1282,7 +1311,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(MetadataCapableProvidersMemberData))]
 	public async Task Create_WriteMetaDataValue_Reload_WriteMetaDataWithoutLoadingAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -1376,12 +1405,37 @@ public class UmbrellaFileProviderTest
 		Assert.Equal("image/png", file.ContentType);
 	}
 
+	private static UmbrellaSharePointFileStorageProvider CreateSharePointFileProvider()
+	{
+		var options = new UmbrellaSharePointFileStorageProviderOptions
+		{
+			SiteId = "zinofi.sharepoint.com:/sites/Berkeley:",
+			DriveName = "General Document",
+			GraphServiceClient = new GraphServiceClient(new ClientSecretCredential(SharePointTenantId, SharePointClientId, SharePointClientSecret)),
+			AllowUnhandledFileAuthorizationChecks = true
+		};
+
+		options.Initialize(new ServiceCollection(), new ServiceCollection().BuildServiceProvider());
+
+#pragma warning disable CA2000
+		var provider = new UmbrellaSharePointFileStorageProvider(
+			CoreUtilitiesMocks.CreateLoggerFactory<UmbrellaSharePointFileStorageProvider>(),
+			CoreUtilitiesMocks.CreateMimeTypeUtility(("png", "image/png"), ("jpg", "image/jpg")),
+			CoreUtilitiesMocks.CreateGenericTypeConverter());
+#pragma warning restore CA2000
+
+		provider.InitializeOptions(options);
+
+		return provider;
+	}
+
 	private static void CheckPOCOFileType(IUmbrellaFileStorageProvider provider, IUmbrellaFileInfo file)
 	{
 		object _ = provider switch
 		{
 			UmbrellaAzureBlobStorageFileProvider => Assert.IsType<UmbrellaAzureBlobFileInfo>(file),
 			UmbrellaDiskFileStorageProvider => Assert.IsType<UmbrellaDiskFileInfo>(file),
+			UmbrellaSharePointFileStorageProvider => Assert.IsType<UmbrellaSharePointFileInfo>(file),
 			_ => throw new InvalidOperationException("Unsupported provider."),
 		};
 	}
