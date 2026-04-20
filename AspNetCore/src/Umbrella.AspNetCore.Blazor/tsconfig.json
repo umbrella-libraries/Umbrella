@@ -1,37 +1,43 @@
 {
 	"compileOnSave": false,
 	"compilerOptions": {
-		"module": "esnext",
-		"moduleResolution": "node",
-		"noEmitOnError": true,
-		"removeComments": true,
-		"strictNullChecks": true,
-		"sourceMap": true,
-		"skipDefaultLibCheck": true,
+		// Base Options
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
 		"skipLibCheck": true,
-		"strict": true,
-		"target": "es6",
-		"experimentalDecorators": true,
-		"emitDecoratorMetadata": true,
-		"strictPropertyInitialization": false,
-		"downlevelIteration": true,
+		"target": "ES2024",
+		"verbatimModuleSyntax": true,
 		"allowJs": true,
-		"allowSyntheticDefaultImports": true,
-		"lib": [ "ES2019", "dom" ],
+		"resolveJsonModule": true,
+		"moduleDetection": "force",
+		"sourceMap": true,
+		"removeComments": true,
+
+		// Strictness
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+		"noFallthroughCasesInSwitch": true,
+
+		// Transpilation Options
+		"moduleResolution": "Bundler",
+		"module": "ESNext",
+		"noEmitOnError": true,
+
+		"lib": [ "ES2024", "DOM", "DOM.Iterable" ],
+
 		"typeRoots": [
 			"./node_modules/@types",
 			"./Content/Scripts/types"
 		],
-		"types": [ "webpack-env" ],
-		"baseUrl": "/node_modules"
+		"types": [ "webpack-env", "node" ]
 	},
 	"exclude": [
 		"bin",
 		"obj",
 		"node_modules",
 		"wwwroot",
-		"gulpfile.js",
 		"webpack.*",
-		"**/postcss.config.js"
+		"gulpfile.*"
 	]
 }

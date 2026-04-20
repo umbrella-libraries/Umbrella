@@ -8,7 +8,7 @@ export class UmbrellaBlazorInterop
 {
 	#browserEventAggregator: BrowserEventAggregator | null = null;
 
-	scrollTimeout: number;
+	scrollTimeout: number | null = null;
 	blazorInteropUtility: any;
 	boundScrollTopFunction: any;
 
