@@ -69,7 +69,7 @@ public abstract class DynamicImageCache
 
 			return Cache.GetOrCreate(cacheKey, () =>
 			{
-				string rawKey = string.Format(CultureInfo.InvariantCulture, "{0}-W-{1}-H-{2}-M-{3}-F-{4}-P", options.Width, options.Height, options.ResizeMode, options.Format, options.SourcePath);
+				string rawKey = string.Format(CultureInfo.InvariantCulture, "{0}-W-{1}-H-{2}-M-{3}-F-{4}-FPX-{5}-FPY-{6}-P", options.Width, options.Height, options.ResizeMode, options.Format, options.SourcePath, options.FocalPointX?.ToString("G4", CultureInfo.InvariantCulture) ?? "null", options.FocalPointY?.ToString("G4", CultureInfo.InvariantCulture) ?? "null");
 
 				using var hasher = SHA256.Create();
 				byte[] bytes = hasher.ComputeHash(Encoding.UTF8.GetBytes(rawKey));

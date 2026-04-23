@@ -76,7 +76,7 @@ public class DynamicImageResizer : DynamicImageResizerBase
 	// into account the resize mode.
 	// TODO: Build in auto-rotate capability - see https://github.com/mono/SkiaSharp/issues/836
 	/// <inheritdoc />
-	public override (byte[] resizedBytes, int resizedWidth, int resizedHeight) ResizeImage(byte[] originalImage, int width, int height, DynamicResizeMode resizeMode, DynamicImageFormat format, DynamicImageFilterQuality filterQuality = DynamicImageFilterQuality.Medium, int qualityRequest = 75)
+	public override (byte[] resizedBytes, int resizedWidth, int resizedHeight) ResizeImage(byte[] originalImage, int width, int height, DynamicResizeMode resizeMode, DynamicImageFormat format, DynamicImageFilterQuality filterQuality = DynamicImageFilterQuality.Medium, int qualityRequest = 75, double? focalPointX = null, double? focalPointY = null)
 	{
 		Guard.IsNotNull(originalImage);
 		Guard.HasSizeGreaterThan(originalImage, 0);
@@ -90,14 +90,11 @@ public class DynamicImageResizer : DynamicImageResizerBase
 
 			SKBitmap imageToResize = image;
 
-			var result = GetDestinationDimensions(image.Width, image.Height, width, height, resizeMode);
+			var result = GetDestinationDimensions(image.Width, image.Height, width, height, resizeMode, focalPointX, focalPointY);
 
 			try
 			{
-				// TODO: Look at how we can alter the resizing code to allow the cropped area position to be varied.
-				// Could have a crop hotspot, i.e. an X and Y coordinate that we use to specify the center of the cropped area and then
-				// calculate the edges accordingly.
-				if (result.offsetX > 0 || result.offsetY > 0)
+				if (result.cropWidth < image.Width || result.cropHeight < image.Height)
 				{
 					var cropRect = SKRectI.Create(result.offsetX, result.offsetY, result.cropWidth, result.cropHeight);
 
@@ -108,9 +105,12 @@ public class DynamicImageResizer : DynamicImageResizerBase
 				}
 
 				using var resizedImage = imageToResize.Resize(new SKImageInfo(result.width, result.height), filterQuality.ToSamplingOptions());
-				using var outputImage = SKImage.FromBitmap(resizedImage);
 
-				return (outputImage.Encode(GetImageFormat(format), qualityRequest).ToArray(), result.width, result.height);
+				// SKImage.Encode returns null for AVIF in some SkiaSharp builds; SKBitmap.Encode is reliable across all supported formats.
+				using var encoded = resizedImage.Encode(GetImageFormat(format), qualityRequest)
+					?? throw new UmbrellaDynamicImageException($"SkiaSharp was unable to encode the image as {format}.", new InvalidOperationException("SKBitmap.Encode returned null."), width, height, resizeMode, format);
+
+				return (encoded.ToArray(), result.width, result.height);
 			}
 			finally
 			{
@@ -158,7 +158,7 @@ public class DynamicImageResizer : DynamicImageResizerBase
 		DynamicImageFormat.Jpeg => SKEncodedImageFormat.Jpeg,
 		DynamicImageFormat.Png => SKEncodedImageFormat.Png,
 		DynamicImageFormat.WebP => SKEncodedImageFormat.Webp,
-		DynamicImageFormat.Avif => throw new NotSupportedException("Avif is not supported."),
+		DynamicImageFormat.Avif => SKEncodedImageFormat.Avif,
 		_ => default,
 	};
 }

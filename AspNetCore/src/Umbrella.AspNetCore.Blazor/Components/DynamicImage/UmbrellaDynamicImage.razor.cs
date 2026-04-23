@@ -54,6 +54,20 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 	public DynamicImageFormat ImageFormat { get; set; } = DynamicImageFormat.Jpeg;
 
 	/// <summary>
+	/// Gets or sets the normalised X coordinate of the focal point, between 0 and 1 starting from the left of the image.
+	/// Only used with <see cref="DynamicResizeMode.CropFocalPoint"/>.
+	/// </summary>
+	[Parameter]
+	public double? FocalPointX { get; set; }
+
+	/// <summary>
+	/// Gets or sets the normalised Y coordinate of the focal point, between 0 and 1 starting from the top of the image.
+	/// Only used with <see cref="DynamicResizeMode.CropFocalPoint"/>.
+	/// </summary>
+	[Parameter]
+	public double? FocalPointY { get; set; }
+
+	/// <summary>
 	/// Gets or sets the size widths.
 	/// </summary>
 	/// <remarks>
@@ -93,7 +107,7 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 
 		string strippedUrl = StripUrlPrefix(Url);
 
-		var options = new DynamicImageOptions(strippedUrl, WidthRequest, HeightRequest, ResizeMode, ImageFormat);
+		var options = new DynamicImageOptions(strippedUrl, WidthRequest, HeightRequest, ResizeMode, ImageFormat, focalPointX: FocalPointX, focalPointY: FocalPointY);
 
 		SrcValue = DynamicImageUtility.GenerateVirtualPath(Options.DynamicImagePathPrefix, options).TrimStart('~').Replace("//", "/", StringComparison.Ordinal);
 
@@ -104,7 +118,7 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 			? ResponsiveImageHelper.GetPixelDensitySrcSetValue(SrcValue, MaxPixelDensity)
 			: ResponsiveImageHelper.GetSizeSrcSetValue(strippedUrl, SizeWidths ?? "", MaxPixelDensity, WidthRequest, HeightRequest, x =>
 			{
-				var options = new DynamicImageOptions(strippedUrl, x.imageWidth, x.imageHeight, ResizeMode, ImageFormat);
+				var options = new DynamicImageOptions(strippedUrl, x.imageWidth, x.imageHeight, ResizeMode, ImageFormat, focalPointX: FocalPointX, focalPointY: FocalPointY);
 
 				return DynamicImageUtility.GenerateVirtualPath(Options.DynamicImagePathPrefix, options).TrimStart('~').Replace("//", "/", StringComparison.Ordinal);
 			});

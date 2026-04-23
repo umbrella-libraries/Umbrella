@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<PackageId>Umbrella.DynamicImage.NetVips</PackageId>
+		<Description>This package contains an implementation of the IDynamicImageResizer built using NetVips, a .NET binding for libvips. The repo for this library can be found on github: https://github.com/kleisauke/net-vips</Description>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="NetVips" Version="3.2.0" />
+		<PackageReference Include="NetVips.Native.win-x64" Version="8.18.2" />
+		<PackageReference Include="NetVips.Native.linux-x64" Version="8.18.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Umbrella.DynamicImage.Abstractions\Umbrella.DynamicImage.Abstractions.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\..\..\icon.png" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+</Project>

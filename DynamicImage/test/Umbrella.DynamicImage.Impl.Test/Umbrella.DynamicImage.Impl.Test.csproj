@@ -21,6 +21,8 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.0" />
+		<PackageReference Include="NetVips.Native.linux-x64" Version="8.18.2" />
+		<PackageReference Include="NetVips.Native.win-x64" Version="8.18.2" />
 		<PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.2" />
 		<PackageReference Include="System.Drawing.Common" Version="10.0.7" />
 		<PackageReference Include="xunit.v3" Version="3.2.2" />
@@ -33,6 +35,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Umbrella.DynamicImage.FreeImage\Umbrella.DynamicImage.FreeImage.csproj" />
+		<ProjectReference Include="..\..\src\Umbrella.DynamicImage.NetVips\Umbrella.DynamicImage.NetVips.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.DynamicImage.SkiaSharp\Umbrella.DynamicImage.SkiaSharp.csproj" />
 	</ItemGroup>
 

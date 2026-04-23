@@ -140,10 +140,26 @@ public abstract class DynamicImageResizerBase : IDynamicImageResizer
 
 	/// <inheritdoc />
 	public (byte[] resizedBytes, int resizedWidth, int resizedHeight) ResizeImage(byte[] originalImage, DynamicImageOptions options)
-		=> ResizeImage(originalImage, options.Width, options.Height, options.ResizeMode, options.Format, options.FilterQuality, options.QualityRequest);
+		=> ResizeImage(originalImage, options.Width, options.Height, options.ResizeMode, options.Format, options.FilterQuality, options.QualityRequest, options.FocalPointX, options.FocalPointY);
 
 	/// <inheritdoc />
-	public abstract (byte[] resizedBytes, int resizedWidth, int resizedHeight) ResizeImage(byte[] originalImage, int width, int height, DynamicResizeMode resizeMode, DynamicImageFormat format, DynamicImageFilterQuality filterQuality = DynamicImageFilterQuality.Medium, int qualityRequest = 75);
+	public (byte[] resizedBytes, int resizedWidth, int resizedHeight) ResizeImage(byte[] originalImage, int width, int height, DynamicResizeMode resizeMode, DynamicImageFormat format, DynamicImageFilterQuality filterQuality = DynamicImageFilterQuality.Medium, int qualityRequest = 75)
+		=> ResizeImage(originalImage, width, height, resizeMode, format, filterQuality, qualityRequest, null, null);
+
+	/// <summary>
+	/// Resizes the image with optional focal point support.
+	/// </summary>
+	/// <param name="originalImage">The original image.</param>
+	/// <param name="width">The width.</param>
+	/// <param name="height">The height.</param>
+	/// <param name="resizeMode">The resize mode.</param>
+	/// <param name="format">The format.</param>
+	/// <param name="filterQuality">The options for filter quality when resizing.</param>
+	/// <param name="qualityRequest">A value between 0-100.</param>
+	/// <param name="focalPointX">Normalised X coordinate of the focal point (0–1), used with <see cref="DynamicResizeMode.CropFocalPoint"/>.</param>
+	/// <param name="focalPointY">Normalised Y coordinate of the focal point (0–1), used with <see cref="DynamicResizeMode.CropFocalPoint"/>.</param>
+	/// <returns>The resized image together with its new width and height.</returns>
+	public abstract (byte[] resizedBytes, int resizedWidth, int resizedHeight) ResizeImage(byte[] originalImage, int width, int height, DynamicResizeMode resizeMode, DynamicImageFormat format, DynamicImageFilterQuality filterQuality = DynamicImageFilterQuality.Medium, int qualityRequest = 75, double? focalPointX = null, double? focalPointY = null);
 
 	/// <inheritdoc />
 	public abstract (int width, int height) GetImageDimensions(byte[] bytes);
@@ -159,8 +175,10 @@ public abstract class DynamicImageResizerBase : IDynamicImageResizer
 	/// <param name="targetWidth">Width of the target.</param>
 	/// <param name="targetHeight">Height of the target.</param>
 	/// <param name="mode">The mode.</param>
+	/// <param name="focalPointX">Normalised X coordinate of the focal point (0–1).</param>
+	/// <param name="focalPointY">Normalised Y coordinate of the focal point (0–1).</param>
 	/// <returns>A tuple containing the destination dimensions.</returns>
-	protected static (int width, int height, int offsetX, int offsetY, int cropWidth, int cropHeight) GetDestinationDimensions(int originalWidth, int originalHeight, int targetWidth, int targetHeight, DynamicResizeMode mode)
+	protected static (int width, int height, int offsetX, int offsetY, int cropWidth, int cropHeight) GetDestinationDimensions(int originalWidth, int originalHeight, int targetWidth, int targetHeight, DynamicResizeMode mode, double? focalPointX = null, double? focalPointY = null)
 	{
 		int? requestedWidth = null;
 		int? requestedHeight = null;
@@ -235,6 +253,42 @@ public abstract class DynamicImageResizerBase : IDynamicImageResizer
 						requestedHeight = targetHeight;
 						cropHeight = (int)(targetHeight / (float)tempHeight * originalHeight);
 						offsetY = (originalHeight - cropHeight) / 2;
+					}
+				}
+				else
+				{
+					requestedWidth = originalWidth;
+					requestedHeight = originalHeight;
+				}
+
+				break;
+
+			case DynamicResizeMode.CropFocalPoint:
+				double fpX = focalPointX ?? 0.5;
+				double fpY = focalPointY ?? 0.5;
+
+				if (targetWidth < originalWidth || targetHeight < originalHeight)
+				{
+					var (_, tempHeightFP) = CalculateOutputDimensions(originalWidth, originalHeight, targetWidth, null);
+
+					if (tempHeightFP < targetHeight)
+					{
+						requestedHeight = targetHeight;
+						int tempWidthFP;
+						(tempWidthFP, _) = CalculateOutputDimensions(originalWidth, originalHeight, null, targetHeight);
+
+						requestedWidth = targetWidth;
+						cropWidth = (int)(targetWidth / (float)tempWidthFP * originalWidth);
+						int idealOffsetX = (int)Math.Round(fpX * originalWidth) - cropWidth / 2;
+						offsetX = Math.Max(0, Math.Min(idealOffsetX, originalWidth - cropWidth));
+					}
+					else
+					{
+						requestedWidth = targetWidth;
+						requestedHeight = targetHeight;
+						cropHeight = (int)(targetHeight / (float)tempHeightFP * originalHeight);
+						int idealOffsetY = (int)Math.Round(fpY * originalHeight) - cropHeight / 2;
+						offsetY = Math.Max(0, Math.Min(idealOffsetY, originalHeight - cropHeight));
 					}
 				}
 				else

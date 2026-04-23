@@ -124,6 +124,58 @@ public class DynamicImageUtilityTest
 		Assert.Equal($"~/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg?key=value.test.onEX&stuff=xxx", url);
 	}
 
+	[Fact]
+	public void GenerateVirtualPath_Valid_WithFocalPoint()
+	{
+		DynamicImageUtility utility = CreateDynamicImageUtility();
+
+		string url = utility.GenerateVirtualPath(DynamicImageConstants.DefaultPathPrefix, new DynamicImageOptions("/images/test.png", 100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.3));
+
+		Assert.Equal($"~/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/images/test.jpg?fpx=0.5&fpy=0.3", url);
+	}
+
+	[Fact]
+	public void GenerateVirtualPath_Valid_WithFocalPoint_AndExistingQueryString()
+	{
+		DynamicImageUtility utility = CreateDynamicImageUtility();
+
+		string url = utility.GenerateVirtualPath(DynamicImageConstants.DefaultPathPrefix, new DynamicImageOptions("/images/test.png?key=value.test.onEX&stuff=xxx", 100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.3));
+
+		Assert.Equal($"~/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/images/test.jpg?key=value.test.onEX&stuff=xxx&fpx=0.5&fpy=0.3", url);
+	}
+
+	[Fact]
+	public void TryParseUrl_Valid_WithFocalPoint()
+	{
+		DynamicImageUtility utility = CreateDynamicImageUtility();
+
+		string path = $"/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/images/test.jpg?fpx=0.5&fpy=0.3";
+
+		(DynamicImageParseUrlResult status, DynamicImageOptions imageOptions) = utility.TryParseUrl(DynamicImageConstants.DefaultPathPrefix, path);
+
+		Assert.Equal(DynamicImageParseUrlResult.Success, status);
+
+		var expected = new DynamicImageOptions("/images/test.png", 100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.3);
+
+		Assert.Equal(expected, imageOptions);
+	}
+
+	[Fact]
+	public void TryParseUrl_Valid_WithFocalPoint_AndPixelDensity()
+	{
+		DynamicImageUtility utility = CreateDynamicImageUtility();
+
+		string path = $"/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/images/test@2x.jpg?fpx=0.25&fpy=0.75";
+
+		(DynamicImageParseUrlResult status, DynamicImageOptions imageOptions) = utility.TryParseUrl(DynamicImageConstants.DefaultPathPrefix, path);
+
+		Assert.Equal(DynamicImageParseUrlResult.Success, status);
+
+		var expected = new DynamicImageOptions("/images/test.png", 200, 400, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75);
+
+		Assert.Equal(expected, imageOptions);
+	}
+
 	private static DynamicImageUtility CreateDynamicImageUtility()
 	{
 		var logger = new Mock<ILogger<DynamicImageUtility>>();

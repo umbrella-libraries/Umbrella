@@ -74,14 +74,20 @@ public class DynamicImageUtility : IDynamicImageUtility
 		{
 			string url = relativeUrl.TrimToLowerInvariant();
 
-			// Strip away any QueryString
+			// Extract focal point before stripping the query string.
+			double? focalPointX = null;
+			double? focalPointY = null;
+
 #if NET6_0_OR_GREATER
-			if (url.Contains('?', StringComparison.Ordinal))
-				url = url[..url.IndexOf('?', StringComparison.Ordinal)];
+			int qsIdx = url.IndexOf('?', StringComparison.Ordinal);
 #else
-			if (url.Contains('?'))
-				url = url[..url.IndexOf('?')];
+			int qsIdx = url.IndexOf('?');
 #endif
+			if (qsIdx >= 0)
+			{
+				(focalPointX, focalPointY) = ParseFocalPointFromQueryString(url.AsSpan(qsIdx + 1));
+				url = url[..qsIdx];
+			}
 
 			if (!Path.HasExtension(url))
 				return (DynamicImageParseUrlResult.Invalid, default);
@@ -138,7 +144,7 @@ public class DynamicImageUtility : IDynamicImageUtility
 				}
 			}
 
-			var imageOptions = new DynamicImageOptions(sourcePath, width, height, mode, overrideFormat ?? ParseImageFormat(targetExtension));
+			var imageOptions = new DynamicImageOptions(sourcePath, width, height, mode, overrideFormat ?? ParseImageFormat(targetExtension), focalPointX: focalPointX, focalPointY: focalPointY);
 
 			return (DynamicImageParseUrlResult.Success, imageOptions);
 		}
@@ -196,7 +202,6 @@ public class DynamicImageUtility : IDynamicImageUtility
 
 			string originalExtension = Path.GetExtension(path).ToLowerInvariant().Remove(0, 1);
 
-			// TODO: This needs to be extended to include the quality request and focal point
 			string virtualPath = string.Format(CultureInfo.InvariantCulture,
 				VirtualPathFormat,
 				dynamicImagePathPrefix,
@@ -213,11 +218,64 @@ public class DynamicImageUtility : IDynamicImageUtility
 			if (!string.IsNullOrEmpty(qs))
 				virtualPath += "?" + qs;
 
+			if (options.FocalPointX.HasValue && options.FocalPointY.HasValue)
+			{
+				string separator = !string.IsNullOrEmpty(qs) ? "&" : "?";
+				virtualPath += FormattableString.Invariant($"{separator}fpx={options.FocalPointX.Value:G4}&fpy={options.FocalPointY.Value:G4}");
+			}
+
 			return virtualPath;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { dynamicImagePathPrefix, options }))
 		{
 			throw new UmbrellaDynamicImageException("An error has occurred whilst generating the virtual path.", exc);
 		}
+	}
+
+	private static (double? fpx, double? fpy) ParseFocalPointFromQueryString(ReadOnlySpan<char> queryString)
+	{
+		double? fpx = null;
+		double? fpy = null;
+
+		static bool TryParseDouble(ReadOnlySpan<char> span, out double result)
+		{
+#if NET6_0_OR_GREATER
+			return double.TryParse(span, NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+#else
+			return double.TryParse(span.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+#endif
+		}
+
+		ReadOnlySpan<char> remaining = queryString;
+
+		while (!remaining.IsEmpty)
+		{
+			int ampIdx = remaining.IndexOf('&');
+			ReadOnlySpan<char> pair = ampIdx >= 0 ? remaining[..ampIdx] : remaining;
+			remaining = ampIdx >= 0 ? remaining[(ampIdx + 1)..] : ReadOnlySpan<char>.Empty;
+
+			int eqIdx = pair.IndexOf('=');
+			if (eqIdx < 0)
+				continue;
+
+			ReadOnlySpan<char> key = pair[..eqIdx];
+			ReadOnlySpan<char> value = pair[(eqIdx + 1)..];
+
+			if (key.Equals("fpx".AsSpan(), StringComparison.OrdinalIgnoreCase))
+			{
+				if (TryParseDouble(value, out double v))
+					fpx = v;
+			}
+			else if (key.Equals("fpy".AsSpan(), StringComparison.OrdinalIgnoreCase))
+			{
+				if (TryParseDouble(value, out double v))
+					fpy = v;
+			}
+
+			if (fpx.HasValue && fpy.HasValue)
+				return (fpx, fpy);
+		}
+
+		return (fpx, fpy);
 	}
 }

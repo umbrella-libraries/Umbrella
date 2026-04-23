@@ -80,7 +80,7 @@ public class DynamicImageResizer : DynamicImageResizerBase
 	}
 
 	/// <inheritdoc />
-	public override (byte[] resizedBytes, int resizedWidth, int resizedHeight) ResizeImage(byte[] originalImage, int width, int height, DynamicResizeMode resizeMode, DynamicImageFormat format, DynamicImageFilterQuality filterQuality = DynamicImageFilterQuality.None, int qualityRequest = 75)
+	public override (byte[] resizedBytes, int resizedWidth, int resizedHeight) ResizeImage(byte[] originalImage, int width, int height, DynamicResizeMode resizeMode, DynamicImageFormat format, DynamicImageFilterQuality filterQuality = DynamicImageFilterQuality.None, int qualityRequest = 75, double? focalPointX = null, double? focalPointY = null)
 	{
 		Guard.IsNotNull(originalImage);
 		Guard.HasSizeGreaterThan(originalImage, 0);
@@ -94,11 +94,11 @@ public class DynamicImageResizer : DynamicImageResizerBase
 
 			FreeImageBitmap imageToSave = image;
 
-			var result = GetDestinationDimensions(image.Width, image.Height, width, height, resizeMode);
+			var result = GetDestinationDimensions(image.Width, image.Height, width, height, resizeMode, focalPointX, focalPointY);
 
 			try
 			{
-				if (result.offsetX > 0 || result.offsetY > 0)
+				if (result.cropWidth < image.Width || result.cropHeight < image.Height)
 					imageToSave = image.Copy(new Rectangle(result.offsetX, result.offsetY, result.cropWidth, result.cropHeight));
 
 				_ = imageToSave.Rescale(result.width, result.height, FREE_IMAGE_FILTER.FILTER_LANCZOS3);

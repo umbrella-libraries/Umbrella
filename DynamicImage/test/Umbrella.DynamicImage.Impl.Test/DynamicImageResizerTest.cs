@@ -15,6 +15,7 @@ using Umbrella.Utilities.Helpers;
 using Umbrella.Utilities.Runtime;
 using Xunit;
 using FreeImageResizer = Umbrella.DynamicImage.FreeImage.DynamicImageResizer;
+using NetVipsResizer = Umbrella.DynamicImage.NetVips.DynamicImageResizer;
 using SkiaSharpResizer = Umbrella.DynamicImage.SkiaSharp.DynamicImageResizer;
 
 namespace Umbrella.DynamicImage.Impl.Test;
@@ -104,6 +105,15 @@ public class DynamicImageResizerTest
 		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.Crop, DynamicImageFormat.Avif), new Size(50, 150)),
 		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.UseHeight, DynamicImageFormat.Avif), new Size(233, 150)),
 		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.UseWidth, DynamicImageFormat.Avif), new Size(50, 32)),
+
+		// CropFocalPoint Tests — output dimensions match Crop; only crop position differs
+		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.5), new Size(50, 150)),
+		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.0, focalPointY: 0.0), new Size(50, 150)),
+		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 1.0, focalPointY: 1.0), new Size(50, 150)),
+		(new DynamicImageOptions("/dummypath.png", 150, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.5), new Size(150, 50)),
+		(new DynamicImageOptions("/dummypath.png", 150, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.0, focalPointY: 0.0), new Size(150, 50)),
+		(new DynamicImageOptions("/dummypath.png", 150, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 1.0, focalPointY: 1.0), new Size(150, 50)),
+		(new DynamicImageOptions("/dummypath.png", 150, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75), new Size(150, 50)),
 	];
 
 	public static Collection<object[]> OptionsList = [];
@@ -111,6 +121,7 @@ public class DynamicImageResizerTest
 	public static IReadOnlyCollection<object[]> ResizersList =
 	[
 		[CreateDynamicImageResizer<FreeImageResizer>()],
+		[CreateDynamicImageResizer<NetVipsResizer>()],
 		[CreateDynamicImageResizer<SkiaSharpResizer>()],
 	];
 
@@ -122,7 +133,11 @@ public class DynamicImageResizerTest
 			if (option.Options.Format is not DynamicImageFormat.Avif)
 				OptionsList.Add([CreateDynamicImageResizer<FreeImageResizer>(), option, TestPNG]);
 
-			// TODO: SkiaSharp has issues converting PNG to BMP and GIF. It also doesn't support AVIF yet.
+			// NetVips supports all formats including AVIF, but not BMP (libvips cannot write BMP to a buffer)
+			if (option.Options.Format is not DynamicImageFormat.Bmp)
+				OptionsList.Add([CreateDynamicImageResizer<NetVipsResizer>(), option, TestPNG]);
+
+			// TODO: SkiaSharp has issues converting PNG to BMP and GIF. AVIF encoding is not available in the current native build.
 			if (option.Options.Format is not DynamicImageFormat.Bmp and not DynamicImageFormat.Gif and not DynamicImageFormat.Avif)
 				OptionsList.Add([CreateDynamicImageResizer<SkiaSharpResizer>(), option, TestPNG]);
 		}
