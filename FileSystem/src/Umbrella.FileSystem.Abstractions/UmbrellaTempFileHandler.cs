@@ -11,7 +11,7 @@ namespace Umbrella.FileSystem.Abstractions;
 /// </summary>
 /// <seealso cref="UmbrellaFileHandler{Int32}" />
 /// <seealso cref="IUmbrellaTempFileHandler" />
-public class UmbrellaTempFileHandler : UmbrellaFileHandler<int>, IUmbrellaTempFileHandler
+public class UmbrellaTempFileHandler : UmbrellaFileHandler, IUmbrellaTempFileHandler
 {
 	/// <summary>
 	/// Initializes a new instance of the <see cref="UmbrellaTempFileHandler"/> class.

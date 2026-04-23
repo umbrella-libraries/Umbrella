@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Caching.Abstractions;
@@ -298,11 +298,32 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 	}
 
 	/// <inheritdoc/>
-	public string GetDirectoryName(TGroupId groupId) => $"/{DirectoryName}/{groupId}";
+	public virtual string GetDirectoryName(TGroupId groupId) => $"/{DirectoryName}/{groupId}";
 
 	/// <inheritdoc/>
 	public string GetFilePath(string fileName, TGroupId groupId) => $"{GetDirectoryName(groupId)}/{fileName}";
 
 	/// <inheritdoc/>
 	public string GetWebFilePath(string fileName, TGroupId groupId) => $"/{Options.WebFilesDirectoryName}{GetFilePath(fileName, groupId)}".ToLowerInvariant();
+}
+
+/// <summary>
+/// Serves as the base class for file handlers that do not require a group identifier.
+/// Files are stored directly under the handler's top-level directory without a group sub-folder.
+/// </summary>
+public abstract class UmbrellaFileHandler : UmbrellaFileHandler<NoGroupId>
+{
+	/// <inheritdoc />
+	protected UmbrellaFileHandler(
+		ILogger logger,
+		IHybridCache cache,
+		ICacheKeyUtility cacheKeyUtility,
+		IUmbrellaFileStorageProvider fileProvider,
+		IUmbrellaFileStorageProviderOptions options)
+		: base(logger, cache, cacheKeyUtility, fileProvider, options)
+	{
+	}
+
+	/// <inheritdoc />
+	public override string GetDirectoryName(NoGroupId groupId) => $"/{DirectoryName}";
 }
