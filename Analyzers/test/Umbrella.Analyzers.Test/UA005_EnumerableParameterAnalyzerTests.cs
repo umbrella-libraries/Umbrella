@@ -16,4 +16,19 @@ public class UA005_EnumerableParameterAnalyzerTests : AnalyzerTestBase<Enumerabl
 		const string source = @"using System.Collections.Generic; public class TestClass { public void M(IEnumerable<int> items) { } }";
 		await VerifyNoDiagnosticsAsync(source);
 	}
+
+	[Fact]
+	public async Task IReadOnlyCollectionParameter_ShouldTriggerDiagnostic()
+	{
+		const string source = @"using System.Collections.Generic; public class TestClass { public void M(IReadOnlyCollection<int> items) { } }";
+		var expected = Diagnostic(EnumerableParameterAnalyzer.Rule, 1, 99, "items", "System.Collections.Generic.IReadOnlyCollection<int>");
+		await VerifyAnalyzerAsync(source, expected);
+	}
+
+	[Fact]
+	public async Task NonCollectionParameter_ShouldNotTriggerDiagnostic()
+	{
+		const string source = @"public class TestClass { public void M(int count) { } }";
+		await VerifyNoDiagnosticsAsync(source);
+	}
 }

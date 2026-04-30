@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Umbrella.Analyzers;
 
 /// <summary>
-/// An analyzer that checks if method parameters that implement <see cref="IEnumerable{T}" /> are specified as <see cref="IEnumerable{T}" /> instead of their concrete type.
+/// An analyzer that checks if collection-like method parameters are specified as <see cref="IEnumerable{T}" /> instead of concrete or more specific collection types.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class EnumerableParameterAnalyzer : DiagnosticAnalyzer
@@ -47,6 +47,9 @@ public class EnumerableParameterAnalyzer : DiagnosticAnalyzer
 		foreach (var parameter in methodSymbol.Parameters)
 		{
 			var parameterType = parameter.Type;
+
+			if (!parameterType.IsCollectionType())
+				continue;
 
 			if (parameterType.OriginalDefinition.ToDisplayString() is not "System.Collections.Generic.IEnumerable<T>")
 			{
