@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://umbrella-libraries.github.io/Umbrella/nuget-upgrade-exclusions.schema.json",
+  "title": "NuGet safe upgrade exclusions",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "reason"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "default": "all"
+          }
+        }
+      },
+      "default": []
+    },
+    "patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pattern", "reason"],
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "default": []
+    },
+    "frameworkCoupledFamilies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": [
+        "Microsoft.Extensions.",
+        "Microsoft.AspNetCore.",
+        "Microsoft.EntityFrameworkCore"
+      ]
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowPrerelease": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "default": {
+        "allowPrerelease": false
+      }
+    }
+  },
+  "required": ["packages", "patterns", "frameworkCoupledFamilies", "options"]
+}

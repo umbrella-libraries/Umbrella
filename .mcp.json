@@ -1,0 +1,40 @@
+{
+  "servers": {
+    "aspire": {
+      "type": "stdio",
+      "command": "aspire",
+      "args": [
+        "mcp",
+        "start"
+      ]
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ]
+    },
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    },
+    "ado-remote-mcp": {
+      "type": "http",
+      "url": "https://mcp.dev.azure.com/",
+      "headers": {
+        "X-MCP-Readonly": "true",
+        "X-MCP-Toolsets": "repos,wiki,wit,pipelines"
+      }
+    },
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ]
+    }
+  }
+}

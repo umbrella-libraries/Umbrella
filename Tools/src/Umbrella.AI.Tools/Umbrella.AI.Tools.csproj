@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="15.0">
+  <PropertyGroup>
+    <AssemblyName>umbrella-ai</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <NoWarn>CS1591</NoWarn>
+    <PackageId>Umbrella.AI.Tools</PackageId>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>umbrella-ai</ToolCommandName>
+    <Description>Installs and manages Umbrella AI agent bundles in target repositories.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
+    <PackageReference Include="System.CommandLine" Version="2.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\.claude\**\*" Exclude="..\..\..\.claude\**\bin\**;..\..\..\.claude\**\obj\**" Link="tool-assets\.claude\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+      <Pack>false</Pack>
+    </None>
+    <None Include="..\..\..\.github\**\*" Exclude="..\..\..\.github\**\bin\**;..\..\..\.github\**\obj\**" Link="tool-assets\.github\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+      <Pack>false</Pack>
+    </None>
+    <None Include="..\..\..\.ai-shared\**\*" Exclude="..\..\..\.ai-shared\**\bin\**;..\..\..\.ai-shared\**\obj\**" Link="tool-assets\.ai-shared\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+      <Pack>false</Pack>
+    </None>
+  </ItemGroup>
+</Project>

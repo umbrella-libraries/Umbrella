@@ -1,0 +1,13 @@
+{
+  "$schema": "./.ai-shared/nuget-safe-upgrade/nuget-upgrade-exclusions.schema.json",
+  "packages": [],
+  "patterns": [],
+  "frameworkCoupledFamilies": [
+    "Microsoft.Extensions.",
+    "Microsoft.AspNetCore.",
+    "Microsoft.EntityFrameworkCore"
+  ],
+  "options": {
+    "allowPrerelease": false
+  }
+}

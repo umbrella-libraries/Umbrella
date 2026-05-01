@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://umbrella-libraries.github.io/ai/bundle-manifest.schema.json",
+  "title": "AI bundle manifest",
+  "type": "object",
+  "required": [
+    "bundleId",
+    "bundleVersion",
+    "installerPackageId",
+    "installerVersion",
+    "installedAt",
+    "managedFiles",
+    "managedBlocks",
+    "managedMcpServers"
+  ],
+  "properties": {
+    "bundleId": {
+      "type": "string"
+    },
+    "bundleVersion": {
+      "type": "string"
+    },
+    "installerPackageId": {
+      "type": "string"
+    },
+    "installerVersion": {
+      "type": "string"
+    },
+    "installedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "managedFiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/pathHashRecord"
+      }
+    },
+    "managedBlocks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/pathHashRecord"
+      }
+    },
+    "managedMcpServers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nameHashRecord"
+      }
+    }
+  },
+  "$defs": {
+    "pathHashRecord": {
+      "type": "object",
+      "required": [
+        "path",
+        "hash"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "hash": {
+          "type": "string"
+        }
+      }
+    },
+    "nameHashRecord": {
+      "type": "object",
+      "required": [
+        "name",
+        "hash"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "hash": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
