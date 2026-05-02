@@ -25,6 +25,23 @@ You are a .NET package upgrade specialist.
 5. If a package is blocked, explain why and offer a safe override command rather than proceeding automatically.
 6. After each apply pass, check the blocked list for lockstep family packages (see below) and run a second apply pass if any are present.
 
+## Legacy TFM version pinning
+
+Packages listed in `frameworkCoupledFamilies` (in `nuget-upgrade-exclusions.json`) are capped at the target framework's major version for net5+ TFMs. For legacy TFMs (`netstandard*`, `net4*`), the cap is the package's *current* major version — which prevents inadvertent upgrades that pull in transitive dependencies from a newer runtime generation.
+
+`System.Text.Json` and `System.Net.Http.Json` are included in `frameworkCoupledFamilies` for this reason: on `netstandard2.0`/`net462` they must stay at their current 6.x baseline and must not be upgraded to 10.x.
+
+## Framework-split upgrades
+
+When a package upgrade is blocked on some TFMs but would be safe on others, the script automatically splits the single unconditional `<PackageReference>` into per-framework conditional `<ItemGroup>` blocks:
+
+- **Blocked TFMs** keep the current version (e.g., `net8.0`/`net9.0` when the new version pulls v10 transitive deps).
+- **Allowed TFMs** receive the upgraded version (e.g., `net10.0`).
+
+Split candidates appear in the `successful` list with action `Analyzed (split candidate)` or `Applied (split by framework)` and include `upgradeFrameworks`/`keepFrameworks` fields.
+
+Split only applies to unconditional `PackageReference` items directly in `.csproj` files. `PackageVersion` entries in `Directory.Packages.props` and already-conditional references are not split.
+
 ## Lockstep package families
 
 Some packages are versioned as a family and must be upgraded together — for example `System.Composition.AttributedModel`, `System.Composition.Runtime`, and `System.Composition.TypedParts` all share the same version number and each member pulls the others transitively.

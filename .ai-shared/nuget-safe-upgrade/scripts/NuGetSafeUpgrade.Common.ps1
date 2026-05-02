@@ -659,3 +659,77 @@ function Test-NuGetUpgradeResolvedPackages {
 
     return $violations.ToArray()
 }
+
+function Build-NuGetUpgradeFrameworkCondition {
+    param([string[]]$Frameworks)
+    $parts = $Frameworks | ForEach-Object { "'`$(TargetFramework)' == '$_'" }
+    return $parts -join ' Or '
+}
+
+function Remove-NuGetUpgradePackageReferenceLine {
+    param(
+        [string]$FilePath,
+        [string]$ItemName,
+        [string]$PackageId,
+        [string]$Version
+    )
+
+    $content = Get-Content -Path $FilePath -Raw -ErrorAction Stop
+    $packageEscaped = [regex]::Escape($PackageId)
+    $versionEscaped = [regex]::Escape($Version)
+    $pattern = '[^\S\r\n]*<' + [regex]::Escape($ItemName) + '\b(?=[^>]*\b(?:Include|Update)\s*=\s*"' + $packageEscaped + '")[^>]*\bVersion="' + $versionEscaped + '"[^>]*/>\r?\n?'
+    $regex = [regex]::new($pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+
+    if (-not $regex.IsMatch($content)) {
+        throw "Unable to find $ItemName '$PackageId' Version '$Version' in '$FilePath'."
+    }
+
+    $updatedContent = $regex.Replace($content, '', 1)
+    $encoding = Get-NuGetUpgradeFileEncoding -Path $FilePath
+    [System.IO.File]::WriteAllText($FilePath, $updatedContent, $encoding)
+}
+
+function Add-NuGetUpgradePackageReferenceBlock {
+    param(
+        [string]$FilePath,
+        [string]$ItemName,
+        [string]$PackageId,
+        [string]$Version,
+        [string]$Condition
+    )
+
+    $content = Get-Content -Path $FilePath -Raw -ErrorAction Stop
+    $newline = if ($content -match '\r\n') { "`r`n" } else { "`n" }
+    $conditionAttr = if (-not [string]::IsNullOrWhiteSpace($Condition)) { " Condition=`"$Condition`"" } else { '' }
+    $block = "`t<ItemGroup${conditionAttr}>${newline}`t`t<${ItemName} Include=`"${PackageId}`" Version=`"${Version}`" />${newline}`t</ItemGroup>${newline}${newline}"
+
+    $closeTagPattern = [regex]::new('[^\S\r\n]*</Project>', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    $match = $closeTagPattern.Match($content)
+    if (-not $match.Success) {
+        throw "Unable to find </Project> closing tag in '$FilePath'."
+    }
+
+    $updatedContent = $content.Insert($match.Index, $block)
+    $encoding = Get-NuGetUpgradeFileEncoding -Path $FilePath
+    [System.IO.File]::WriteAllText($FilePath, $updatedContent, $encoding)
+}
+
+function Split-NuGetUpgradePackageReference {
+    param(
+        [string]$FilePath,
+        [string]$ItemName,
+        [string]$PackageId,
+        [string]$CurrentVersion,
+        [string]$NewVersion,
+        [string[]]$UpgradeFrameworks,
+        [string[]]$KeepFrameworks
+    )
+
+    Remove-NuGetUpgradePackageReferenceLine -FilePath $FilePath -ItemName $ItemName -PackageId $PackageId -Version $CurrentVersion
+
+    $keepCondition = Build-NuGetUpgradeFrameworkCondition -Frameworks $KeepFrameworks
+    Add-NuGetUpgradePackageReferenceBlock -FilePath $FilePath -ItemName $ItemName -PackageId $PackageId -Version $CurrentVersion -Condition $keepCondition
+
+    $upgradeCondition = Build-NuGetUpgradeFrameworkCondition -Frameworks $UpgradeFrameworks
+    Add-NuGetUpgradePackageReferenceBlock -FilePath $FilePath -ItemName $ItemName -PackageId $PackageId -Version $NewVersion -Condition $upgradeCondition
+}

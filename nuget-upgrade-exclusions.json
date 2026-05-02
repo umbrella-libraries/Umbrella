@@ -1,13 +1,15 @@
 {
   "$schema": "./.ai-shared/nuget-safe-upgrade/nuget-upgrade-exclusions.schema.json",
   "packages": [
-    "AutoMapper"
+    { "id": "AutoMapper", "reason": "Major version upgrade requires migration effort. Starting from version 15, it requires a licence." }
   ],
   "patterns": [],
   "frameworkCoupledFamilies": [
     "Microsoft.Extensions.",
     "Microsoft.AspNetCore.",
-    "Microsoft.EntityFrameworkCore"
+    "Microsoft.EntityFrameworkCore",
+    "System.Text.Json",
+    "System.Net.Http.Json"
   ],
   "options": {
     "allowPrerelease": false

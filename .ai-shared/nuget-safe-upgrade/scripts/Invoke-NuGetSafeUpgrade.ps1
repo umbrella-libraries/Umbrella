@@ -147,45 +147,84 @@ foreach ($definition in $definitions) {
                 continue
             }
 
-            $graphViolations = New-Object System.Collections.Generic.List[object]
+            $allValidationFrameworks = @(
+                $definition.ValidationReferences | ForEach-Object {
+                    foreach ($fw in @($_.TargetFrameworks)) { $fw }
+                } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+            )
+
+            $graphViolationsByFramework = @{}
 
             foreach ($validation in @($definition.ValidationReferences)) {
                 foreach ($framework in @($validation.TargetFrameworks)) {
                     $resolvedPackages = Get-NuGetUpgradeResolvedPackages -ProjectPath $validation.ProjectPath -TargetFramework $framework
-                    foreach ($violation in @(Test-NuGetUpgradeResolvedPackages -ResolvedPackages $resolvedPackages -TargetFramework $framework -FrameworkCoupledFamilies $config.FrameworkCoupledFamilies)) {
-                        $graphViolations.Add([pscustomobject]@{
-                            Project = $validation.RelativeProjectPath
-                            TargetFramework = $framework
-                            PackageId = $violation.PackageId
-                            Version = $violation.Version
-                            Kind = $violation.Kind
-                            MaxAllowedMajor = $violation.MaxAllowedMajor
-                        })
+                    $violations = @(Test-NuGetUpgradeResolvedPackages -ResolvedPackages $resolvedPackages -TargetFramework $framework -FrameworkCoupledFamilies $config.FrameworkCoupledFamilies)
+                    if ($violations.Count -gt 0) {
+                        if (-not $graphViolationsByFramework.ContainsKey($framework)) {
+                            $graphViolationsByFramework[$framework] = New-Object System.Collections.Generic.List[object]
+                        }
+                        foreach ($v in $violations) {
+                            $graphViolationsByFramework[$framework].Add([pscustomobject]@{
+                                Project = $validation.RelativeProjectPath
+                                TargetFramework = $framework
+                                PackageId = $v.PackageId
+                                Version = $v.Version
+                                Kind = $v.Kind
+                                MaxAllowedMajor = $v.MaxAllowedMajor
+                            })
+                        }
                     }
                 }
             }
 
-            if ($graphViolations.Count -gt 0 -and -not $isOverride) {
-                foreach ($violation in $graphViolations) {
-                    $attemptReasons.Add(
-                        "Candidate $candidateVersion resolves $($violation.PackageId) $($violation.Version) ($($violation.Kind)) for $($violation.Project) [$($violation.TargetFramework)], above max major $($violation.MaxAllowedMajor)."
-                    )
+            $graphBlockedFrameworks = @($graphViolationsByFramework.Keys | Sort-Object)
+            $graphAllowedFrameworks = @($allValidationFrameworks | Where-Object { $graphBlockedFrameworks -notcontains $_ })
+
+            if ($graphViolationsByFramework.Count -gt 0 -and -not $isOverride) {
+                $canSplit = $graphAllowedFrameworks.Count -gt 0 -and
+                            [string]::IsNullOrWhiteSpace($definition.Condition) -and
+                            $definition.ItemName -eq 'PackageReference'
+
+                if ($canSplit) {
+                    $splitEncoding = Get-NuGetUpgradeFileEncoding -Path $definition.FilePath
+                    [System.IO.File]::WriteAllText($definition.FilePath, $originalContent, $splitEncoding)
+                    if ($Mode -eq 'Apply') {
+                        Split-NuGetUpgradePackageReference -FilePath $definition.FilePath -ItemName $definition.ItemName -PackageId $definition.PackageId -CurrentVersion $definition.CurrentVersion -NewVersion $candidateVersion -UpgradeFrameworks $graphAllowedFrameworks -KeepFrameworks $graphBlockedFrameworks
+                    }
+                    $selectedCandidate = [pscustomobject]@{
+                        packageId = $definition.PackageId
+                        currentVersion = $definition.CurrentVersion
+                        newVersion = $candidateVersion
+                        file = $definition.RelativePath
+                        upgradeFrameworks = @($graphAllowedFrameworks)
+                        keepFrameworks = @($graphBlockedFrameworks)
+                        validationProjects = @($definition.ValidationReferences | ForEach-Object { $_.RelativeProjectPath })
+                        action = if ($Mode -eq 'Apply') { 'Applied (split by framework)' } else { 'Analyzed (split candidate)' }
+                    }
+                } else {
+                    foreach ($fwEntry in $graphViolationsByFramework.GetEnumerator()) {
+                        foreach ($violation in $fwEntry.Value) {
+                            $attemptReasons.Add(
+                                "Candidate $candidateVersion resolves $($violation.PackageId) $($violation.Version) ($($violation.Kind)) for $($violation.Project) [$($violation.TargetFramework)], above max major $($violation.MaxAllowedMajor)."
+                            )
+                        }
+                    }
+                    continue
                 }
-                continue
-            }
+            } else {
+                $selectedCandidate = [pscustomobject]@{
+                    packageId = $definition.PackageId
+                    currentVersion = $definition.CurrentVersion
+                    newVersion = $candidateVersion
+                    file = $definition.RelativePath
+                    validationProjects = @($definition.ValidationReferences | ForEach-Object { $_.RelativeProjectPath })
+                    action = if ($Mode -eq 'Apply') { 'Applied' } else { 'Analyzed' }
+                }
 
-            $selectedCandidate = [pscustomobject]@{
-                packageId = $definition.PackageId
-                currentVersion = $definition.CurrentVersion
-                newVersion = $candidateVersion
-                file = $definition.RelativePath
-                validationProjects = @($definition.ValidationReferences | ForEach-Object { $_.RelativeProjectPath })
-                action = if ($Mode -eq 'Apply') { 'Applied' } else { 'Analyzed' }
-            }
-
-            if ($Mode -eq 'Analyze') {
-                $encoding = Get-NuGetUpgradeFileEncoding -Path $definition.FilePath
-                [System.IO.File]::WriteAllText($definition.FilePath, $originalContent, $encoding)
+                if ($Mode -eq 'Analyze') {
+                    $encoding = Get-NuGetUpgradeFileEncoding -Path $definition.FilePath
+                    [System.IO.File]::WriteAllText($definition.FilePath, $originalContent, $encoding)
+                }
             }
 
             break
@@ -235,7 +274,12 @@ $reportObject | ConvertTo-Json -Depth 100 | Set-Content -Path $ReportPath -Encod
 Write-Host ("NuGet safe upgrade mode: {0}`nReport written to: {1}`n" -f $Mode, $ReportPath)
 Write-Host ("Successful items: {0}" -f $reportObject.successful.Count)
 foreach ($item in $reportObject.successful) {
-    Write-Host "  - $($item.packageId): $($item.currentVersion) -> $($item.newVersion) [$($item.action)]"
+    $line = "  - $($item.packageId): $($item.currentVersion) -> $($item.newVersion) [$($item.action)]"
+    $hasUpgradeFrameworks = ($item | Get-Member -Name upgradeFrameworks -MemberType NoteProperty) -ne $null
+    if ($hasUpgradeFrameworks) {
+        $line += " (upgrade: $($item.upgradeFrameworks -join ', '); keep: $($item.keepFrameworks -join ', '))"
+    }
+    Write-Host $line
 }
 
 Write-Host ""
