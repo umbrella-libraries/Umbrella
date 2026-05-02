@@ -1,0 +1,23 @@
+{
+  "bundleId": "umbrella.blazor-scaffold-entity",
+  "displayName": "Umbrella Blazor Scaffold Entity",
+  "managedDirectories": [
+    ".claude",
+    ".github\\skills",
+    ".ai-shared"
+  ],
+  "managedBlocks": [
+    {
+      "targetPath": "AGENTS.md",
+      "sourcePath": ".ai-shared\\bundles\\umbrella.blazor-scaffold-entity\\blocks\\AGENTS.block.md"
+    },
+    {
+      "targetPath": "CLAUDE.md",
+      "sourcePath": ".ai-shared\\bundles\\umbrella.blazor-scaffold-entity\\blocks\\CLAUDE.block.md"
+    },
+    {
+      "targetPath": ".github\\copilot-instructions.md",
+      "sourcePath": ".ai-shared\\bundles\\umbrella.blazor-scaffold-entity\\blocks\\copilot-instructions.block.md"
+    }
+  ]
+}
