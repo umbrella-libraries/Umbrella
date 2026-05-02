@@ -7,7 +7,7 @@ description: 'Add an EF Core database migration with auto-detection of the migra
 
 ## Purpose
 
-This skill wraps the shared EF migration script so Claude Code can add migrations consistently without running `dotnet ef migrations add` by hand.
+This skill wraps the shared EF migration script so agents can add migrations consistently without running `dotnet ef migrations add` by hand.
 
 ## Assets
 
@@ -16,19 +16,25 @@ This skill wraps the shared EF migration script so Claude Code can add migration
 
 ## Inputs
 
-- `-MigrationName` (required) — name for the new migration; use semantic versioning to match existing migrations
+- `-MigrationName` (required) — name for the new migration; use semantic versioning to match existing migrations (e.g. `1.0.20`)
 - `-RepoRoot` (optional) — defaults to git repository root
 - `-MigrationsProject` (optional) — relative path to the `.Migrations.csproj`; auto-detected if omitted
 - `-StartupProject` (optional) — relative path to the Web SDK startup `.csproj`; auto-detected if omitted
 - `-Context` (optional) — DbContext class name; auto-detected via `dotnet ef dbcontext list` if omitted
 
+## Migration naming convention
+
+Migration names must use semantic versioning to match the existing migration history (e.g. `1.0.20`). Before running the script, inspect the existing files in the `Migrations` folder to find the current highest version and use the next increment.
+
 ## Workflow
 
-1. Inspect existing migrations to determine the next version number.
-2. Run the wrapper script with `-MigrationName`.
-3. The shared script auto-detects migrations project, startup project, and DbContext.
-4. Report the new and modified files.
-5. Warn the user if the migration is empty.
+1. Inspect the `Migrations` folder to determine the current highest version number.
+2. Confirm the next migration name with the user if it is not already provided.
+3. Run the wrapper script with `-MigrationName`.
+4. The shared script auto-detects the migrations project, startup project, and DbContext.
+5. Report the new and modified files returned by the script.
+6. If the script warns that the migration is empty, stop and ask the user to verify their entity model changes are saved before proceeding.
+7. Remind the user to review the migration content and commit once confirmed.
 
 ## Command examples
 

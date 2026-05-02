@@ -1,16 +1,7 @@
 ## Umbrella dotnet Add EF Migration
 
-### EF migration rules
+When adding an EF Core migration, use the `dotnet-add-ef-migration` skill.
 
-- Never run `dotnet ef migrations add` manually. Use `.github\skills\dotnet-add-ef-migration\scripts\Invoke-AddEfMigration.ps1`.
-- Pass the migration name as `-MigrationName`. Follow the repository naming convention (semantic version, e.g. `1.0.20`).
-- The script auto-detects the migrations project, startup project, and DbContext.
-- After success, show the user the generated and modified files.
-- Remind the user to review the migration file before committing.
+Read `.github\skills\dotnet-add-ef-migration\SKILL.md` for full instructions, then use `.github\skills\dotnet-add-ef-migration\scripts\Invoke-AddEfMigration.ps1` to run the migration.
 
-### Relevant files
-
-- `AGENTS.md`
-- `.github\agents\dotnet-add-ef-migration.agent.md`
-- `.github\skills\dotnet-add-ef-migration\scripts\Invoke-AddEfMigration.ps1`
-- `.ai-shared\dotnet-add-ef-migration\scripts\Invoke-AddEfMigration.ps1`
+Never run `dotnet ef migrations add` directly.
