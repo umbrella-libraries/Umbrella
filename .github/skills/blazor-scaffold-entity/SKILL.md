@@ -91,12 +91,21 @@ _ = builder.SetupNonClusteredPrimaryKey();
 
 ### Audit properties
 
+Call each method that corresponds to an interface the entity implements. Always use discards.
+
 | Entity implements | Configuration call |
 |---|---|
 | `ICreatedDateAuditEntity` | `_ = builder.SetupCreatedDateUtcAuditProperty();` |
 | `IUpdatedDateAuditEntity` | `_ = builder.SetupUpdatedDateUtcAuditProperty();` |
+| `ICreatedUserAuditEntity<int>` | `_ = builder.SetupCreatedByIdAuditProperty<<EntityName>, AppUser, int>();` |
+| `IUpdatedUserAuditEntity<int>` | `_ = builder.SetupUpdatedByIdAuditProperty<<EntityName>, AppUser, int>();` |
 | `IConcurrencyStamp` | `_ = builder.SetupConcurrencyToken();` |
-| `IAuditEntity<int, int>` | `_ = builder.SetupAuditProperties<<EntityName>, AppUser, int>();` (replaces the individual Created/Updated calls) |
+
+When the entity implements all four audit interfaces (i.e. `IAuditEntity<int, int>` or the equivalent combination of `ICreatedDateAuditEntity` + `IUpdatedDateAuditEntity` + `ICreatedUserAuditEntity<int>` + `IUpdatedUserAuditEntity<int>`), replace the four individual date/user calls with the single combined helper:
+
+```csharp
+_ = builder.SetupAuditProperties<<EntityName>, AppUser, int>();
+```
 
 ### Optional DateTime properties
 
@@ -153,12 +162,24 @@ _ = builder.HasIndex(x => x.Name).IsUnique();
 | Interface | Properties required | Use when |
 |---|---|---|
 | `IEntity<int>` | `Id` | All entities — always include this |
-| `ICreatedDateAuditEntity` | `CreatedDateUtc` | Entity is append-only or only creation time matters |
-| `IUpdatedDateAuditEntity` | `UpdatedDateUtc` | Entity is mutable and update time should be tracked |
-| `IConcurrencyStamp` | `ConcurrencyStamp` | Entity is mutable and requires optimistic concurrency |
-| `IAuditEntity<int, int>` | `CreatedDateUtc`, `CreatedById`, `UpdatedDateUtc`, `UpdatedById` | Entity needs full user-level audit trail |
+| `ICreatedDateAuditEntity` | `CreatedDateUtc` | Track when the entity was created |
+| `IUpdatedDateAuditEntity` | `UpdatedDateUtc` | Track when the entity was last updated |
+| `ICreatedUserAuditEntity<int>` | `CreatedById` | Track which user created the entity |
+| `IUpdatedUserAuditEntity<int>` | `UpdatedById` | Track which user last updated the entity |
+| `IAuditEntity<int, int>` | `Id` + all four above | Shorthand combining `IEntity` + all four date and user audit interfaces |
+| `IConcurrencyStamp` | `ConcurrencyStamp` | Entity is mutable and requires optimistic concurrency control |
+| `IAppTenantEntity` | `AppTenantId` | Entity belongs to a specific application tenant (multi-tenant scenarios) |
 
-`IConcurrencyStamp` and `IAuditEntity` are typically combined. `IAuditEntity` already implies created/updated date; do not duplicate with separate `ICreatedDateAuditEntity` / `IUpdatedDateAuditEntity` when using `IAuditEntity`.
+**Common combinations:**
+
+| Pattern | Interfaces |
+|---|---|
+| Append-only log/event | `IEntity<int>` + `ICreatedDateAuditEntity` |
+| Append-only with user | `IEntity<int>` + `ICreatedDateAuditEntity` + `ICreatedUserAuditEntity<int>` |
+| Mutable, date audit only | `IEntity<int>` + `ICreatedDateAuditEntity` + `IUpdatedDateAuditEntity` + `IConcurrencyStamp` |
+| Full audit | `IAuditEntity<int, int>` + `IConcurrencyStamp` |
+
+`IAuditEntity<int, int>` is a composite — do not also add the individual date/user interfaces alongside it, as they are already included.
 
 ---
 
