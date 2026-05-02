@@ -1,9 +1,9 @@
-﻿namespace Umbrella.Analyzers.ModelStandards.Test;
+namespace Umbrella.Analyzers.Test;
 
-public class EdgeCaseTests : AnalyzerTestBase<UmbrellaModelStandardsAnalyzer>
+public class UAModelStandards_EdgeCaseTests : AnalyzerTestBase<UmbrellaModelStandardsAnalyzer>
 {
 	[Fact]
-	public async Task EmptyClass_ShouldNotTriggerDiagnostic()
+	public async Task EmptyClass_ShouldTriggerDiagnostic()
 	{
 		const string source = @"public class EmptyModel {}";
 		var expected = Diagnostic(UmbrellaModelStandardsAnalyzer.ModelMustBeRecordRule, 1, 14, "EmptyModel");

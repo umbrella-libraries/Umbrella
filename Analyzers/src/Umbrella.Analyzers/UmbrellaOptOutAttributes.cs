@@ -1,4 +1,4 @@
-﻿namespace Umbrella.Analyzers.ModelStandards;
+namespace Umbrella.Analyzers;
 
 /// <summary>
 /// Indicates that a type should be excluded from the Umbrella model standards enforcement.
@@ -80,7 +80,6 @@ public sealed class UmbrellaAllowLateInitializationAttribute : UmbrellaAllowOpti
 	/// <param name="justification">The justification for allowing this property to be initialized after object creation.</param>
 	public UmbrellaAllowLateInitializationAttribute(string justification) : base(justification)
 	{
-		// Inherits from UmbrellaAllowOptionalPropertyAttribute to make the relationship explicit
 	}
 }
 

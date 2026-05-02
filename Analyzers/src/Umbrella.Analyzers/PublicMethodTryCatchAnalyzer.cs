@@ -50,8 +50,18 @@ public class PublicMethodTryCatchAnalyzer : DiagnosticAnalyzer
 		if (methodSymbol.DeclaredAccessibility != Accessibility.Public)
 			return;
 
-		// Get the syntax node for the method
-		if (methodSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax(context.CancellationToken) is not MethodDeclarationSyntax methodDeclaration || methodDeclaration.Body is null)
+		if (methodSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax(context.CancellationToken) is not MethodDeclarationSyntax methodDeclaration)
+			return;
+
+		// Expression-bodied methods (=> expr) cannot contain a try-catch — flag them immediately
+		if (methodDeclaration.ExpressionBody is not null)
+		{
+			ReportDiagnostic(context, methodSymbol);
+			return;
+		}
+
+		// Abstract, extern, or partial declaration with no body — skip
+		if (methodDeclaration.Body is null)
 			return;
 
 		// Check if the method body is wrapped in a try...catch block
@@ -114,6 +124,7 @@ public class PublicMethodTryCatchAnalyzer : DiagnosticAnalyzer
 	{
 		foreach (var catchClause in tryStatement.Catches)
 		{
+			// Check logger calls in the catch block body
 			if (catchClause.Block.Statements.Any(statement =>
 				statement is ExpressionStatementSyntax expressionStatement &&
 				expressionStatement.Expression is InvocationExpressionSyntax invocation &&
@@ -123,7 +134,40 @@ public class PublicMethodTryCatchAnalyzer : DiagnosticAnalyzer
 			{
 				return true;
 			}
+
+			// Check logger calls in the when(...) exception filter expression
+			// e.g. catch (Exception exc) when (exc is not X && Logger.WriteError(exc, ...))
+			if (catchClause.Filter is { } filter &&
+				ContainsLoggerInvocationInExpression(filter.FilterExpression, loggerName))
+			{
+				return true;
+			}
 		}
+
+		return false;
+	}
+
+	private static bool ContainsLoggerInvocationInExpression(ExpressionSyntax expression, string loggerName)
+	{
+		// Direct invocation: _logger.WriteError(...) / Logger.WriteError(...)
+		if (expression is InvocationExpressionSyntax invocation &&
+			invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+			memberAccess.Expression is IdentifierNameSyntax identifier &&
+			identifier.Identifier.Text == loggerName)
+		{
+			return true;
+		}
+
+		// Binary expression: left && right / left || right
+		if (expression is BinaryExpressionSyntax binary)
+		{
+			return ContainsLoggerInvocationInExpression(binary.Left, loggerName) ||
+				   ContainsLoggerInvocationInExpression(binary.Right, loggerName);
+		}
+
+		// Parenthesised expression
+		if (expression is ParenthesizedExpressionSyntax parenthesized)
+			return ContainsLoggerInvocationInExpression(parenthesized.Expression, loggerName);
 
 		return false;
 	}

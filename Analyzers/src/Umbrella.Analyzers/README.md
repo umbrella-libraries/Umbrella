@@ -1,6 +1,6 @@
 # Umbrella Analyzers
 
-A collection of Roslyn analyzers enforcing Umbrella coding standards and best practices across .NET solutions.
+A collection of Roslyn analyzers enforcing Umbrella coding standards, async patterns, and model immutability across .NET solutions.
 
 All rules are configured with **Error** severity (compile blocking) to guarantee issues are fixed rather than ignored. Add the package as a PrivateAssets dependency so it does not flow transitively.
 
@@ -24,6 +24,21 @@ All rules are configured with **Error** severity (compile blocking) to guarantee
 | UA008 | Public methods must be wrapped in try...catch                         | Enforces a top-level try/catch (with optional structured logging) in public methods.                          |
 | UA009 | Parameter validation must precede first try and never be inside try   | Guard / Throw helper / direct Argument* throws must appear before the first try and not inside any try block.|
 | UA010 | Primary constructors are not allowed                                  | Forbids primary constructors on non-record classes / structs (`class C(int x)` / `struct S(int x)`).          |
+| UA011 | Model types must be records                                           | Types named `*Model`, `*ViewModel`, `*ModelBase`, `*ViewModelBase`, or `*QueryResult` must be declared as `record`. |
+| UA012 | Model properties must use the required keyword                        | Properties on model/QueryResult types must use the `required` modifier.                                       |
+| UA013 | Model properties must have getter and be init-only                    | Properties on model/QueryResult types must use `{ get; init; }` accessors.                                    |
+| UA014 | Collection properties must use IReadOnlyCollection\<T\>               | Collection properties on model/QueryResult types must be typed as `IReadOnlyCollection<T>`.                   |
+
+### Opt-out attributes (UA011–UA014)
+When a justified exception is needed, apply one of these attributes (all require a `justification` string):
+
+| Attribute | Effect |
+|-----------|--------|
+| `[UmbrellaExcludeFromModelStandards("reason")]` | Excludes the entire type from UA011–UA014 |
+| `[UmbrellaAllowOptionalProperty("reason")]` | Allows a property without `required` (UA012) |
+| `[UmbrellaAllowLateInitialization("reason")]` | Like above, but signals the property is set post-construction |
+| `[UmbrellaAllowMutableProperty("reason")]` | Allows a `set` accessor instead of `init` (UA013) |
+| `[UmbrellaAllowMutableCollection("reason")]` | Allows a mutable collection type instead of `IReadOnlyCollection<T>` (UA014) |
 
 ### Severity
 All analyzers emit diagnostics as `Error` so builds fail until issues are resolved. Adjust severities via ruleset / .editorconfig if you need a softer adoption path.

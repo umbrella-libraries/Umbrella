@@ -6,7 +6,7 @@
 
 	<PropertyGroup>
 		<PackageId>Umbrella.Analyzers</PackageId>
-		<Description>Roslyn analyzer that enforces global coding standards</Description>
+		<Description>Roslyn analyzers that enforce global coding standards and model immutability for the Umbrella framework</Description>
 		<DevelopmentDependency>true</DevelopmentDependency>
 		<NoPackageAnalysis>true</NoPackageAnalysis>
 		<IncludeBuildOutput>false</IncludeBuildOutput>

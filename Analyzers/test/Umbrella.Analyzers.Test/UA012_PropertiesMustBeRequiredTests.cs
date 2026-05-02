@@ -1,6 +1,6 @@
-﻿namespace Umbrella.Analyzers.ModelStandards.Test;
+namespace Umbrella.Analyzers.Test;
 
-public class UMS002_PropertiesMustBeRequiredTests : AnalyzerTestBase<UmbrellaModelStandardsAnalyzer>
+public class UA012_PropertiesMustBeRequiredTests : AnalyzerTestBase<UmbrellaModelStandardsAnalyzer>
 {
 	[Fact]
 	public async Task PropertyWithoutRequired_ShouldTriggerDiagnostic()

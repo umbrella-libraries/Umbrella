@@ -46,6 +46,10 @@ public class EnumerableParameterAnalyzer : DiagnosticAnalyzer
 
 		foreach (var parameter in methodSymbol.Parameters)
 		{
+			// params arrays must stay as arrays — IEnumerable<T> cannot use params
+			if (parameter.IsParams)
+				continue;
+
 			var parameterType = parameter.Type;
 
 			if (!parameterType.IsCollectionType())

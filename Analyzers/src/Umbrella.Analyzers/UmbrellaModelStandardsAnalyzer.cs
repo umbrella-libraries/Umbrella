@@ -1,10 +1,10 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace Umbrella.Analyzers.ModelStandards;
+namespace Umbrella.Analyzers;
 
 /// <summary>
 /// Roslyn analyzer that enforces coding standards for model classes and view models
@@ -21,7 +21,7 @@ namespace Umbrella.Analyzers.ModelStandards;
 /// <item><description>UMS004: Collection properties must use <see cref="IReadOnlyCollection{T}" /> for immutability</description></item>
 /// </list>
 /// <para>
-/// The analyzer targets types with names ending in: Model, ModelBase, ViewModel, or ViewModelBase.
+/// The analyzer targets types with names ending in: Model, ModelBase, ViewModel, ViewModelBase, or QueryResult.
 /// </para>
 /// <para>
 /// Opt-out attributes are available to bypass specific rules when justified.
@@ -38,7 +38,7 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 	/// which are essential for model types in the Umbrella framework.
 	/// </remarks>
 	public static readonly DiagnosticDescriptor ModelMustBeRecordRule = new(
-		id: "UMS001",
+		id: "UA011",
 		title: "Model types must be records",
 		messageFormat: "The model type '{0}' should be defined as a record",
 		category: "UmbrellaModelStandards",
@@ -54,7 +54,7 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 	/// preventing null reference exceptions and improving type safety.
 	/// </remarks>
 	public static readonly DiagnosticDescriptor PropertiesMustBeRequiredRule = new(
-		id: "UMS002",
+		id: "UA012",
 		title: "Model properties must use the required keyword",
 		messageFormat: "Property '{0}' in model type '{1}' should use the 'required' keyword",
 		category: "UmbrellaModelStandards",
@@ -70,7 +70,7 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 	/// to maintain immutability after object creation.
 	/// </remarks>
 	public static readonly DiagnosticDescriptor PropertiesMustBeGetterInitOnlyRule = new(
-		id: "UMS003",
+		id: "UA013",
 		title: "Model properties must have getter and be init-only",
 		messageFormat: "Property '{0}' in model type '{1}' should have a getter and be init-only",
 		category: "UmbrellaModelStandards",
@@ -86,7 +86,7 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 	/// contents, maintaining immutability and preventing unintended side effects.
 	/// </remarks>
 	public static readonly DiagnosticDescriptor CollectionsMustBeReadOnlyRule = new(
-		id: "UMS004",
+		id: "UA014",
 		title: "Collection properties must use IReadOnlyCollection<T>",
 		messageFormat: "Collection property '{0}' in model type '{1}' should be of type IReadOnlyCollection<T>",
 		category: "UmbrellaModelStandards",
@@ -106,26 +106,21 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 		context.EnableConcurrentExecution();
 
-		// Register for syntax node analysis
 		context.RegisterSyntaxNodeAction(AnalyzeTypeDeclaration, SyntaxKind.ClassDeclaration, SyntaxKind.RecordDeclaration);
 		context.RegisterSyntaxNodeAction(AnalyzePropertyDeclaration, SyntaxKind.PropertyDeclaration);
 	}
 
 	private void AnalyzeTypeDeclaration(SyntaxNodeAnalysisContext context)
 	{
-		// Get type declaration (class or record)
 		if (context.Node is not TypeDeclarationSyntax typeDecl)
 			return;
 
-		// Check if it's a model type based on naming convention
 		if (!IsModelType(typeDecl.Identifier.Text))
 			return;
 
-		// Check if the type has an opt-out attribute
 		if (HasOptOutAttribute(typeDecl, context.SemanticModel, "UmbrellaExcludeFromModelStandardsAttribute"))
 			return;
 
-		// Check if the type is a record
 		if (typeDecl is not RecordDeclarationSyntax)
 		{
 			var diagnostic = Diagnostic.Create(ModelMustBeRecordRule, typeDecl.Identifier.GetLocation(), typeDecl.Identifier.Text);
@@ -137,16 +132,13 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 	{
 		var propertyDecl = (PropertyDeclarationSyntax)context.Node;
 
-		// Find the containing type
 		var typeDecl = propertyDecl.FirstAncestorOrSelf<TypeDeclarationSyntax>();
 		if (typeDecl == null || !IsModelType(typeDecl.Identifier.Text))
 			return;
 
-		// Check if the containing type has an opt-out attribute
 		if (HasOptOutAttribute(typeDecl, context.SemanticModel, "UmbrellaExcludeFromModelStandardsAttribute"))
 			return;
 
-		// Check for 'required' keyword (using text-based approach since RequiredKeyword may not be available)
 		if (!HasRequiredModifier(propertyDecl) &&
 			!HasOptOutAttribute(propertyDecl, context.SemanticModel, "UmbrellaAllowOptionalPropertyAttribute"))
 		{
@@ -155,20 +147,22 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			context.ReportDiagnostic(diagnostic);
 		}
 
-		// Check for getter and init-only
-		if ((propertyDecl.AccessorList == null ||
-			!propertyDecl.AccessorList.Accessors.Any(a => a.Kind() == SyntaxKind.GetAccessorDeclaration)) ||
-			(propertyDecl.AccessorList != null &&
-			propertyDecl.AccessorList.Accessors.Any(a => a.Kind() == SyntaxKind.SetAccessorDeclaration &&
-			!HasInitModifier(a))) &&
-			!HasOptOutAttribute(propertyDecl, context.SemanticModel, "UmbrellaAllowMutablePropertyAttribute"))
+		// Check for getter (always required — [UmbrellaAllowMutableProperty] does not suppress this)
+		bool hasMissingGetter = propertyDecl.AccessorList == null ||
+			!propertyDecl.AccessorList.Accessors.Any(a => a.Kind() == SyntaxKind.GetAccessorDeclaration);
+
+		// Check for setter instead of init (suppressed by [UmbrellaAllowMutableProperty])
+		bool hasSetterWithoutInit = propertyDecl.AccessorList != null &&
+			propertyDecl.AccessorList.Accessors.Any(a => a.Kind() == SyntaxKind.SetAccessorDeclaration && !HasInitModifier(a)) &&
+			!HasOptOutAttribute(propertyDecl, context.SemanticModel, "UmbrellaAllowMutablePropertyAttribute");
+
+		if (hasMissingGetter || hasSetterWithoutInit)
 		{
 			var diagnostic = Diagnostic.Create(PropertiesMustBeGetterInitOnlyRule, propertyDecl.Identifier.GetLocation(),
 				propertyDecl.Identifier.Text, typeDecl.Identifier.Text);
 			context.ReportDiagnostic(diagnostic);
 		}
 
-		// Check if the property is a collection type but not IReadOnlyCollection<T>
 		var propertyType = context.SemanticModel.GetTypeInfo(propertyDecl.Type).Type;
 		if (propertyType != null && IsCollectionType(propertyType) && !IsReadOnlyCollectionType(propertyType) &&
 			!HasOptOutAttribute(propertyDecl, context.SemanticModel, "UmbrellaAllowMutableCollectionAttribute"))
@@ -184,20 +178,15 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		return typeName.EndsWith("Model", StringComparison.Ordinal) ||
 			   typeName.EndsWith("ModelBase", StringComparison.Ordinal) ||
 			   typeName.EndsWith("ViewModel", StringComparison.Ordinal) ||
-			   typeName.EndsWith("ViewModelBase", StringComparison.Ordinal);
+			   typeName.EndsWith("ViewModelBase", StringComparison.Ordinal) ||
+			   typeName.EndsWith("QueryResult", StringComparison.Ordinal);
 	}
 
-	private static bool HasRequiredModifier(PropertyDeclarationSyntax property)
-	{
-		// Check for required keyword in modifiers text (more compatible approach)
-		return property.Modifiers.Any(m => m.Text == "required");
-	}
+	private static bool HasRequiredModifier(PropertyDeclarationSyntax property) =>
+		property.Modifiers.Any(m => m.Text == "required");
 
-	private static bool HasInitModifier(AccessorDeclarationSyntax accessor)
-	{
-		// Check for init keyword in modifiers text
-		return accessor.Modifiers.Any(m => m.Text == "init");
-	}
+	private static bool HasInitModifier(AccessorDeclarationSyntax accessor) =>
+		accessor.Modifiers.Any(m => m.Text == "init");
 
 	private static bool HasOptOutAttribute(SyntaxNode node, SemanticModel semanticModel, params string[] attributeNames)
 	{
@@ -223,7 +212,6 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 
 	private static bool IsCollectionType(ITypeSymbol type)
 	{
-		// Check if the type implements IEnumerable<T> but is not string
 		if (type.SpecialType == SpecialType.System_String)
 			return false;
 
@@ -236,5 +224,6 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		return false;
 	}
 
-	private static bool IsReadOnlyCollectionType(ITypeSymbol type) => type.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IReadOnlyCollection<T>";
+	private static bool IsReadOnlyCollectionType(ITypeSymbol type) =>
+		type.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IReadOnlyCollection<T>";
 }

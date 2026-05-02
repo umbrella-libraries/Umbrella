@@ -1,6 +1,6 @@
-﻿namespace Umbrella.Analyzers.ModelStandards.Test;
+namespace Umbrella.Analyzers.Test;
 
-public class UMS001_ModelMustBeRecordTests : AnalyzerTestBase<UmbrellaModelStandardsAnalyzer>
+public class UA011_ModelMustBeRecordTests : AnalyzerTestBase<UmbrellaModelStandardsAnalyzer>
 {
 	[Fact]
 	public async Task ModelClass_ShouldTriggerDiagnostic()
@@ -58,6 +58,36 @@ public class UserModel
 }
 
 public class UmbrellaExcludeFromModelStandardsAttribute : Attribute { }";
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task QueryResultClass_ShouldTriggerDiagnostic()
+	{
+		const string source = @"namespace TestProject;
+
+public class SlimCareerQueryResult
+{
+    public string Name { get; set; }
+}";
+		var expected = new[]
+		{
+			Diagnostic(UmbrellaModelStandardsAnalyzer.ModelMustBeRecordRule, 3, 14, "SlimCareerQueryResult"),
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeRequiredRule, 5, 19, "Name", "SlimCareerQueryResult"),
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeGetterInitOnlyRule, 5, 19, "Name", "SlimCareerQueryResult")
+		};
+		await VerifyAnalyzerAsync(source, expected);
+	}
+
+	[Fact]
+	public async Task QueryResultRecord_ShouldNotTriggerDiagnostic()
+	{
+		const string source = @"namespace TestProject;
+
+public record SlimCareerQueryResult
+{
+    public required string Name { get; init; }
+}";
 		await VerifyNoDiagnosticsAsync(source);
 	}
 }

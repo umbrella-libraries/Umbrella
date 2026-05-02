@@ -31,4 +31,12 @@ public class UA005_EnumerableParameterAnalyzerTests : AnalyzerTestBase<Enumerabl
 		const string source = @"public class TestClass { public void M(int count) { } }";
 		await VerifyNoDiagnosticsAsync(source);
 	}
+
+	[Fact]
+	public async Task ParamsParameter_ShouldNotTriggerDiagnostic()
+	{
+		// params requires an array type — IEnumerable<T> cannot be used with params
+		const string source = @"public class TestClass { public void M(params int[] ids) { } }";
+		await VerifyNoDiagnosticsAsync(source);
+	}
 }
