@@ -1,7 +1,6 @@
 ---
 description: 'Safely analyze and upgrade NuGet packages while respecting exclusions, target frameworks, and transitive dependency graph constraints.'
 name: 'NuGet Safe Upgrade'
-model: GPT-4.1
 tools: ["changes", "codebase", "editFiles", "runCommands", "search", "terminalLastCommand"]
 ---
 

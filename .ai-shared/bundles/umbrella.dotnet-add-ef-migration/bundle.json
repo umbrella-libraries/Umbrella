@@ -1,0 +1,24 @@
+{
+  "bundleId": "umbrella.dotnet-add-ef-migration",
+  "displayName": "Umbrella dotnet Add EF Migration",
+  "managedDirectories": [
+    ".claude",
+    ".github\\agents",
+    ".github\\skills",
+    ".ai-shared"
+  ],
+  "managedBlocks": [
+    {
+      "targetPath": "AGENTS.md",
+      "sourcePath": ".ai-shared\\bundles\\umbrella.dotnet-add-ef-migration\\blocks\\AGENTS.block.md"
+    },
+    {
+      "targetPath": "CLAUDE.md",
+      "sourcePath": ".ai-shared\\bundles\\umbrella.dotnet-add-ef-migration\\blocks\\CLAUDE.block.md"
+    },
+    {
+      "targetPath": ".github\\copilot-instructions.md",
+      "sourcePath": ".ai-shared\\bundles\\umbrella.dotnet-add-ef-migration\\blocks\\copilot-instructions.block.md"
+    }
+  ]
+}
