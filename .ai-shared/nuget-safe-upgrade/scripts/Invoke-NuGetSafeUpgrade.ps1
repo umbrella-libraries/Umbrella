@@ -31,14 +31,14 @@ $inventory = Get-NuGetUpgradeInventory -RepoRoot $RepoRoot
 
 $definitions = @($inventory.VersionDefinitions)
 
-if (@($PackageId).Count -gt 0) {
+if ($null -ne $PackageId -and @($PackageId).Count -gt 0) {
     $definitions = $definitions | Where-Object {
         $requested = $_.PackageId
         $PackageId | Where-Object { $requested.Equals($_, [System.StringComparison]::OrdinalIgnoreCase) }
     }
 }
 
-if (@($Project).Count -gt 0) {
+if ($null -ne $Project -and @($Project).Count -gt 0) {
     $requestedProjects = $Project | ForEach-Object { $_.ToLowerInvariant() }
     $definitions = $definitions | Where-Object {
         foreach ($validation in @($_.ValidationReferences)) {

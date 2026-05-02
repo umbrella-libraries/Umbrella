@@ -29,6 +29,7 @@ This skill wraps the shared NuGet upgrade implementation so GitHub Copilot can u
 3. Let the shared implementation inventory package references, exclusions, target frameworks, and candidate versions.
 4. Keep only changes that pass restore and transitive graph checks.
 5. Return successful, skipped, and blocked packages with override guidance.
+6. If Analyze reports a package as blocked due to NU1605 errors that reference sibling packages from the successful list (lockstep family), proceed to Apply — it resolves the whole family in a single pass because changes are written to disk before each subsequent package is tested.
 
 ## Command examples
 

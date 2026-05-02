@@ -8,6 +8,7 @@
 - Prefer the shared safe-upgrade workflow over ad hoc package edits.
 - Keep only changes that pass restore and resolved-package inspection.
 - If a package is blocked, explain why and offer a safe next step such as `skip` or rerun with `-OverrideBlockedPackageId`.
+- When Analyze shows a package blocked with NU1605 errors referencing sibling packages that are in the successful list, this is a lockstep family — Apply mode resolves it automatically in a single pass. See the agent definition for full guidance.
 
 ### Relevant files
 

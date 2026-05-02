@@ -218,7 +218,7 @@ function Get-NuGetUpgradeApplicableFrameworks {
         [string[]]$ProjectTargetFrameworks
     )
 
-    if ($ProjectTargetFrameworks.Count -eq 0) {
+    if ($null -eq $ProjectTargetFrameworks -or $ProjectTargetFrameworks.Count -eq 0) {
         return @()
     }
 
@@ -452,8 +452,13 @@ function Get-NuGetUpgradeAvailableVersions {
 
     $lowerId = $PackageId.ToLowerInvariant()
     $url = "https://api.nuget.org/v3-flatcontainer/$lowerId/index.json"
-    $response = Invoke-RestMethod -Uri $url -Method Get -ErrorAction Stop
-    return @($response.versions)
+    try {
+        $response = Invoke-RestMethod -Uri $url -Method Get -ErrorAction Stop
+        return @($response.versions)
+    }
+    catch {
+        return @()
+    }
 }
 
 function Get-NuGetUpgradeFrameworkMajor {

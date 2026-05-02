@@ -8,6 +8,7 @@ When upgrading NuGet packages in this repository:
 4. Prefer the shared upgrade workflow over manual package edits.
 5. Keep only changes that pass restore and resolved-package inspection.
 6. If a package is blocked, explain why and offer a safe next step such as `skip` or rerun with `-OverrideBlockedPackageId`.
+7. When Analyze shows a package blocked with NU1605 errors referencing sibling packages that appear in the successful list, this is a lockstep family — Apply mode resolves it automatically in a single pass without manual intervention.
 
 ### Entry points
 
