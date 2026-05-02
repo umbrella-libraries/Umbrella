@@ -1,8 +1,8 @@
-## Umbrella Blazor Scaffold Entity
+## Umbrella dotnet Scaffold Entity
 
-When creating a new EF Core entity in a BlazorWasm project, use the `blazor-scaffold-entity` skill.
+When creating a new EF Core entity, use the `dotnet-scaffold-entity` skill.
 
-Read `.github\skills\blazor-scaffold-entity\SKILL.md` for full instructions.
+Read `.github\skills\dotnet-scaffold-entity\SKILL.md` for full instructions.
 
 Key rules:
 - Entity classes go in `Core\<AppName>.Core.Domain\Entities\`

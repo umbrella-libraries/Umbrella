@@ -1,9 +1,9 @@
----
-name: blazor-scaffold-entity
-description: 'Scaffold a new EF Core entity for a BlazorWasm project: entity class in Core.Domain, configuration method in DbContext. Follows Umbrella/Thrive For Send patterns exactly.'
+﻿---
+name: dotnet-scaffold-entity
+description: 'Scaffold a new EF Core entity: entity class in Core.Domain, configuration method in DbContext. Follows Umbrella patterns and is front-end agnostic.'
 ---
 
-# Scaffold BlazorWasm Entity
+# Scaffold Entity
 
 ## Purpose
 
@@ -12,19 +12,19 @@ Create a new EF Core entity class and register it in the DbContext, following th
 ## Discovery (read these before writing anything)
 
 1. List the files in `Core\<AppName>.Core.Domain\Entities\` to understand the naming and folder conventions.
-2. Read 2–3 existing entity files that are similar in complexity to the one being created.
-3. Read the DbContext file (`Core\<AppName>.Core.Data\<AppName>DbContext.cs`) — specifically `OnModelCreating` and the existing `Add*` private static methods — to understand registration order and configuration patterns.
+2. Read 2â€“3 existing entity files that are similar in complexity to the one being created.
+3. Read the DbContext file (`Core\<AppName>.Core.Data\<AppName>DbContext.cs`) â€” specifically `OnModelCreating` and the existing `Add*` private static methods â€” to understand registration order and configuration patterns.
 4. Read the Domain project `.csproj` to identify available string-length attributes and which Umbrella packages are referenced.
 
 ---
 
-## Step 1 — Create the entity class
+## Step 1 â€” Create the entity class
 
 **File location:** `Core\<AppName>.Core.Domain\Entities\<EntityName>.cs`
 
 **Rules:**
 - Namespace: `namespace <AppName>.Core.Domain.Entities;`
-- Declare as `public partial class` — always `partial`, never omit this
+- Declare as `public partial class` â€” always `partial`, never omit this
 - Always include `public int Id { get; set; }` as the primary key
 - Choose the correct audit interfaces (see Interface Reference below)
 - String properties: always annotate with `[ShortStringLength]`, `[MediumStringLength]`, or `[LongStringLength]` from `<AppName>.Shared.Common.Attributes`
@@ -56,7 +56,7 @@ public partial class <EntityName> : IEntity<int>, ICreatedDateAuditEntity
 
 ---
 
-## Step 2 — Register in the DbContext
+## Step 2 â€” Register in the DbContext
 
 **File:** `Core\<AppName>.Core.Data\<AppName>DbContext.cs`
 
@@ -69,7 +69,7 @@ public partial class <EntityName> : IEntity<int>, ICreatedDateAuditEntity
 private static void Add<EntityName>(ModelBuilder builder)
     => builder.Entity<<EntityName>>(builder =>
     {
-        // configuration here — see Step 3
+        // configuration here â€” see Step 3
     });
 ```
 
@@ -77,7 +77,7 @@ private static void Add<EntityName>(ModelBuilder builder)
 
 ---
 
-## Step 3 — Write the configuration method
+## Step 3 â€” Write the configuration method
 
 Choose the correct setup calls based on which interfaces the entity implements. Always assign discards (`_ =`) for every builder call.
 
@@ -116,13 +116,13 @@ _ = builder.Property(x => x.ReadDateUtc).EnsureUtc();
 ### Relationships
 
 ```csharp
-// Required FK → Cascade
+// Required FK â†’ Cascade
 _ = builder.HasOne(x => x.Career!).WithMany().HasForeignKey(x => x.CareerId).OnDelete(DeleteBehavior.Cascade);
 
-// Required FK → Restrict (use when the parent should not be deleted while children exist)
+// Required FK â†’ Restrict (use when the parent should not be deleted while children exist)
 _ = builder.HasOne(x => x.Sender!).WithMany().HasForeignKey(x => x.SenderId).OnDelete(DeleteBehavior.Restrict);
 
-// Optional FK → SetNull
+// Optional FK â†’ SetNull
 _ = builder.HasOne(x => x.Category!).WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.SetNull);
 ```
 
@@ -134,7 +134,7 @@ _ = builder.OwnsMany(x => x.Sections, x => x.ToJson());
 
 ### Indexes
 
-Always add an index on every FK column. Choose clustered carefully — each table can have only one clustered index.
+Always add an index on every FK column. Choose clustered carefully â€” each table can have only one clustered index.
 
 ```csharp
 // Clustered on a single FK (most common for child entities)
@@ -161,7 +161,7 @@ _ = builder.HasIndex(x => x.Name).IsUnique();
 
 | Interface | Properties required | Use when |
 |---|---|---|
-| `IEntity<int>` | `Id` | All entities — always include this |
+| `IEntity<int>` | `Id` | All entities â€” always include this |
 | `ICreatedDateAuditEntity` | `CreatedDateUtc` | Track when the entity was created |
 | `IUpdatedDateAuditEntity` | `UpdatedDateUtc` | Track when the entity was last updated |
 | `ICreatedUserAuditEntity<int>` | `CreatedById` | Track which user created the entity |
@@ -179,7 +179,7 @@ _ = builder.HasIndex(x => x.Name).IsUnique();
 | Mutable, date audit only | `IEntity<int>` + `ICreatedDateAuditEntity` + `IUpdatedDateAuditEntity` + `IConcurrencyStamp` |
 | Full audit | `IAuditEntity<int, int>` + `IConcurrencyStamp` |
 
-`IAuditEntity<int, int>` is a composite — do not also add the individual date/user interfaces alongside it, as they are already included.
+`IAuditEntity<int, int>` is a composite â€” do not also add the individual date/user interfaces alongside it, as they are already included.
 
 ---
 
@@ -187,8 +187,8 @@ _ = builder.HasIndex(x => x.Name).IsUnique();
 
 After writing the files:
 
-1. Check the entity class compiles — look for missing `using` directives by comparing with a similar existing entity.
-2. Check `OnModelCreating` — confirm the new `Add<EntityName>(builder)` call is present and the private static method exists.
+1. Check the entity class compiles â€” look for missing `using` directives by comparing with a similar existing entity.
+2. Check `OnModelCreating` â€” confirm the new `Add<EntityName>(builder)` call is present and the private static method exists.
 3. Confirm no `DbSet<T>` property was added.
 4. Confirm every string property has a length attribute.
 5. Confirm every navigation property is nullable.
