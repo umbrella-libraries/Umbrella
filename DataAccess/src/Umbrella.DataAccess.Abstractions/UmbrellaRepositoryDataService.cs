@@ -586,7 +586,7 @@ public abstract class UmbrellaRepositoryDataService<TItem, TSlimItem, TPaginated
 				AfterReadSlimEntityAsync,
 				SearchSlimRepoOptions,
 				SearchSlimChildRepoOptions,
-				SlimReadEndpointEnabled).ConfigureAwait(false);
+				AuthorizationSlimReadChecksEnabled).ConfigureAwait(false);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { pageNumber, pageSize, sorters, filters, filterCombinator }))
 		{
