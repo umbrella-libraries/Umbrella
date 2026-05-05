@@ -101,7 +101,7 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 		{
 			IOperationResult<TPaginatedResultModel?> result = await RepositoryDataService.Value.FindAllSlimAsync(pageNumber, pageSize, sorters, filters, filterCombinator ?? FilterExpressionCombinator.And, cancellationToken);
 
-			return OperationResult(result);
+			return OperationResult<TPaginatedResultModel>(result);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { pageNumber, pageSize, sorters, filters, filterCombinator }, returnValue: !IsDevelopment))
 		{
@@ -139,7 +139,7 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 		{
 			var result = await RepositoryDataService.Value.FindByIdAsync(id, cancellationToken);
 
-			return OperationResult(result);
+			return OperationResult<TItem>(result);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { id }, returnValue: !IsDevelopment))
 		{
@@ -179,7 +179,7 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 		{
 			var result = await RepositoryDataService.Value.CreateAsync(model, cancellationToken);
 
-			return OperationResult(result);
+			return OperationResult<TCreateResult>(result);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { model }, returnValue: !IsDevelopment))
 		{
@@ -220,7 +220,7 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 		{
 			var result = await RepositoryDataService.Value.UpdateAsync(model, cancellationToken);
 
-			return OperationResult(result);
+			return OperationResult<TUpdateResult>(result);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { model }, returnValue: !IsDevelopment))
 		{
@@ -286,7 +286,7 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 		{
 			var result = await RepositoryDataService.Value.ExistsByIdAsync(id, cancellationToken);
 
-			return OperationResult(result);
+			return OperationResult<bool>(result);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { id }, returnValue: !IsDevelopment))
 		{
@@ -312,7 +312,7 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 		{
 			var result = await RepositoryDataService.Value.FindTotalCountAsync(cancellationToken);
 
-			return OperationResult(result);
+			return OperationResult<int>(result);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, returnValue: !IsDevelopment))
 		{
