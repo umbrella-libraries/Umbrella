@@ -270,7 +270,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             string targetPath = Path.Combine(targetRoot, NormalizePath(block.TargetPath));
             Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
             SetManagedBlock(targetPath, bundle.BundleId, fragmentContent);
-            newManifest.ManagedBlocks.Add(new PathHashRecord { Path = NormalizePath(block.TargetPath), Hash = HashUtility.ComputeStringHash(fragmentContent) });
+            newManifest.ManagedBlocks.Add(new PathHashRecord { Path = NormalizePath(block.TargetPath), Hash = HashUtility.ComputeStringHash(fragmentContent.TrimEnd()) });
             result.Messages.Add($"Managed doc block {operationName}ed: {NormalizePath(block.TargetPath)}");
         }
 
