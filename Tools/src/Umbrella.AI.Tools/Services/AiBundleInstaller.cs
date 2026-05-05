@@ -6,7 +6,7 @@ namespace Umbrella.AI.Tools.Services;
 
 public sealed class AiBundleInstaller(string assetRoot, string installerPackageId, string installerVersion)
 {
-    private const string BundleDefinitionRelativePath = ".ai-shared\\bundles\\umbrella.nuget-safe-upgrade\\bundle.json";
+    private const string BundleDefinitionRelativePath = ".ai-shared\\bundles\\umbrella\\bundle.json";
     private readonly JsonSerializerOptions _serializerOptions = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
 
     public OperationResult Install(CommandOptions options) => InstallOrUpdate(options, requireExistingManifest: false, operationName: "install");

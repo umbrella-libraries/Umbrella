@@ -2,7 +2,7 @@ namespace Umbrella.AI.Tools.Services;
 
 public static class AiBundleAssetLocator
 {
-    private const string BundleDefinitionRelativePath = ".ai-shared\\bundles\\umbrella.nuget-safe-upgrade\\bundle.json";
+    private const string BundleDefinitionRelativePath = ".ai-shared\\bundles\\umbrella\\bundle.json";
 
     public static string ResolveAssetRoot()
     {

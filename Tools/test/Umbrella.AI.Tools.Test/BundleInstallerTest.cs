@@ -20,10 +20,10 @@ public class BundleInstallerTest
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "agents", "nuget-safe-upgrade.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".mcp.json")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, "nuget-upgrade-exclusions.json")));
-        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".ai-shared", "bundles", "umbrella.nuget-safe-upgrade", "manifest.json")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".ai-shared", "bundles", "umbrella", "manifest.json")));
 
         string agents = File.ReadAllText(Path.Combine(workspace.RootPath, "AGENTS.md"));
-        Assert.Contains("<!-- ai-bundle:umbrella.nuget-safe-upgrade:start -->", agents, StringComparison.Ordinal);
+        Assert.Contains("<!-- ai-bundle:umbrella:start -->", agents, StringComparison.Ordinal);
 
         JsonObject mcpServers = LoadServers(Path.Combine(workspace.RootPath, ".mcp.json"));
         Assert.NotNull(mcpServers["aspire"]);
@@ -49,7 +49,7 @@ public class BundleInstallerTest
         Assert.True(result.Success);
         string agents = File.ReadAllText(agentsPath);
         Assert.Contains("User-owned intro.", agents, StringComparison.Ordinal);
-        Assert.Contains("<!-- ai-bundle:umbrella.nuget-safe-upgrade:start -->", agents, StringComparison.Ordinal);
+        Assert.Contains("<!-- ai-bundle:umbrella:start -->", agents, StringComparison.Ordinal);
         Assert.Equal("{\"packages\":[\"Contoso\"]}", File.ReadAllText(exclusionsPath));
 
         JsonObject mcpServers = LoadServers(mcpPath);
@@ -96,7 +96,7 @@ public class BundleInstallerTest
         Assert.True(result.Success);
         Assert.False(File.Exists(Path.Combine(workspace.RootPath, ".claude", "agents", "nuget-safe-upgrade.md")));
         Assert.Contains("# User heading", File.ReadAllText(agentsPath), StringComparison.Ordinal);
-        Assert.DoesNotContain("ai-bundle:umbrella.nuget-safe-upgrade", File.ReadAllText(agentsPath), StringComparison.Ordinal);
+        Assert.DoesNotContain("ai-bundle:umbrella", File.ReadAllText(agentsPath), StringComparison.Ordinal);
         JsonObject mcpRoot = JsonNode.Parse(File.ReadAllText(mcpPath))!.AsObject();
         Assert.Equal(1, mcpRoot["version"]!.GetValue<int>());
         Assert.NotNull(LoadServers(mcpPath)["existing"]);

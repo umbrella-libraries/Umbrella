@@ -1,0 +1,26 @@
+{
+  "bundleId": "umbrella",
+  "displayName": "Umbrella AI Skills",
+  "managedDirectories": [
+    ".claude",
+    ".github\\agents",
+    ".github\\skills",
+    ".ai-shared"
+  ],
+  "managedBlocks": [
+    {
+      "targetPath": "AGENTS.md",
+      "sourcePath": ".ai-shared\\bundles\\umbrella\\blocks\\AGENTS.block.md"
+    },
+    {
+      "targetPath": "CLAUDE.md",
+      "sourcePath": ".ai-shared\\bundles\\umbrella\\blocks\\CLAUDE.block.md"
+    },
+    {
+      "targetPath": ".github\\copilot-instructions.md",
+      "sourcePath": ".ai-shared\\bundles\\umbrella\\blocks\\copilot-instructions.block.md"
+    }
+  ],
+  "mcpTemplatePath": ".ai-shared\\bundles\\umbrella\\mcp\\mcp.template.json",
+  "exclusionsStarterPath": ".ai-shared\\bundles\\umbrella\\templates\\nuget-upgrade-exclusions.starter.json"
+}
