@@ -6,6 +6,7 @@ using Umbrella.DataAccess.Abstractions;
 using Umbrella.Utilities.Data.Abstractions;
 using Umbrella.Utilities.Data.Filtering;
 using Umbrella.Utilities.Data.Pagination;
+using Umbrella.Utilities.Data.Services.Abstractions;
 using Umbrella.Utilities.Data.Sorting;
 using Umbrella.Utilities.Primitives.Abstractions;
 
@@ -31,28 +32,23 @@ namespace Umbrella.AspNetCore.WebUtilities.Mvc;
 /// <typeparam name="TUpdateItem">The type used to represent the data required to update an existing entity. Must implement <see
 /// cref="IKeyedItem{TEntityKey}"/>.</typeparam>
 /// <typeparam name="TUpdateResult">The type representing the result returned after a successful update operation.</typeparam>
-/// <typeparam name="TRepository">The type of the repository used for data access operations. Must implement <see cref="IGenericDbRepository{TEntity,
-/// TRepositoryOptions, TEntityKey}"/>.</typeparam>
-/// <typeparam name="TEntity">The type of the entity managed by the repository. Must implement <see cref="IEntity{TEntityKey}"/>.</typeparam>
-/// <typeparam name="TRepositoryOptions">The type representing repository options or configuration. Must inherit from <see cref="RepoOptions"/> and have a
-/// parameterless constructor.</typeparam>
 /// <typeparam name="TEntityKey">The type of the key used to uniquely identify entities. Must implement <see cref="IEquatable{TEntityKey}"/>.</typeparam>
 /// <typeparam name="TRepositoryDataService">The type of the repository data service used to perform data operations. Must implement <see
 /// cref="IUmbrellaRepositoryDataService{TItem, TSlimItem, TPaginatedResultModel, TCreateItem, TCreateResult,
 /// TUpdateItem, TUpdateResult, TRepository, TEntity, TRepositoryOptions, TEntityKey}"/>.</typeparam>
-public abstract class UmbrellaGenericRepositoryDataServiceApiController<TItem, TSlimItem, TPaginatedResultModel, TCreateItem, TCreateResult, TUpdateItem, TUpdateResult, TRepository, TEntity, TRepositoryOptions, TEntityKey, TRepositoryDataService> : UmbrellaApiController
-	where TItem : class, IKeyedItem<TEntityKey>
+[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
+[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+[UmbrellaProducesResponseType(StatusCodes.Status500InternalServerError)]
+public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimItem, TPaginatedResultModel, TItem, TCreateItem, TCreateResult, TUpdateItem, TUpdateResult, TEntityKey, TRepositoryDataService> : UmbrellaApiController
 	where TSlimItem : class, IKeyedItem<TEntityKey>
-	where TUpdateItem : class, IKeyedItem<TEntityKey>
 	where TPaginatedResultModel : PaginatedResultModel<TSlimItem>
-	where TRepository : class, IGenericDbRepository<TEntity, TRepositoryOptions, TEntityKey>
-	where TEntity : class, IEntity<TEntityKey>
-	where TRepositoryOptions : RepoOptions, new()
+	where TItem : class, IKeyedItem<TEntityKey>
+	where TUpdateItem : class, IKeyedItem<TEntityKey>
 	where TEntityKey : IEquatable<TEntityKey>
-	where TRepositoryDataService : IUmbrellaRepositoryDataService<TItem, TSlimItem, TPaginatedResultModel, TCreateItem, TCreateResult, TUpdateItem, TUpdateResult, TRepository, TEntity, TRepositoryOptions, TEntityKey>
+	where TRepositoryDataService : IGenericDataService<TItem, TEntityKey, TSlimItem, TPaginatedResultModel, TCreateItem, TCreateResult, TUpdateItem, TUpdateResult>
 {
 	/// <summary>
-	/// Initializes a new instance of the <see cref="UmbrellaGenericRepositoryDataServiceApiController{TItem, TSlimItem, TPaginatedResultModel, TCreateItem, TCreateResult, TUpdateItem, TUpdateResult, TRepository, TEntity, TRepositoryOptions, TEntityKey, TRepositoryDataService}"/> class with the specified
+	/// Initializes a new instance of the <see cref="UmbrellaGenericRepositoryDataServiceApiController{TItem, TSlimItem, TPaginatedResultModel, TCreateItem, TCreateResult, TUpdateItem, TUpdateResult, TEntityKey, TRepositoryDataService}"/> class with the specified
 	/// dependencies required for data service operations and API controller functionality.
 	/// </summary>
 	/// <param name="logger">The logger used to record diagnostic and operational information.</param>
@@ -114,19 +110,19 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TItem, T
 	}
 
 	/// <summary>
-	/// An API endpoint used to load a single <typeparamref name="TEntity"/> in from the repository based on the specified <paramref name="id"/> and return a
-	/// mapped <typeparamref name="TItem"/>.
+	/// An API endpoint used to load a single entity from the repository based on the specified <paramref name="id"/> and
+	/// return a mapped <typeparamref name="TItem"/>.
 	/// </summary>
 	/// <param name="id">The identifier.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>
-	/// The action result containing the endpoint response which either be a <typeparamref name="TItem"/> when successful or
-	/// a <see cref="ProblemDetails"/> response and / or erroneous state code as appropriate.
+	/// The action result containing the endpoint response which either be a <typeparamref name="TItem"/> when successful
+	/// or a <see cref="ProblemDetails"/> response and / or erroneous state code as appropriate.
 	/// </returns>
 	/// <exception cref="NotSupportedException">Unsupported Endpoint</exception>
 	/// <remarks>
-	/// This endpoint calls into the <c>ReadAsync</c> base controller method.
-	/// Please see this for further details regarding behaviour.
+	/// This endpoint calls into the <c> ReadAsync</c> base controller method. Please see this for further details
+	/// regarding behaviour.
 	/// </remarks>
 	[HttpGet]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
@@ -152,7 +148,7 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TItem, T
 	}
 
 	/// <summary>
-	/// An API endpoint used to create a new <typeparamref name="TEntity"/> in the repository based on the provided <typeparamref name="TCreateItem"/> which returns
+	/// An API endpoint used to create a new entity in the repository based on the provided <typeparamref name="TCreateItem"/> which returns
 	/// a <typeparamref name="TCreateResult"/> if successful.
 	/// </summary>
 	/// <param name="model">The model.</param>
@@ -192,7 +188,7 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TItem, T
 	}
 
 	/// <summary>
-	/// An API endpoint used to update an existing <typeparamref name="TEntity"/> in the repository based on the provided <typeparamref name="TUpdateItem"/> which returns
+	/// An API endpoint used to update an existing entity in the repository based on the provided <typeparamref name="TUpdateItem"/> which returns
 	/// a <typeparamref name="TUpdateResult"/> if successful.
 	/// </summary>
 	/// <param name="model">The model.</param>
@@ -233,7 +229,7 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TItem, T
 	}
 
 	/// <summary>
-	/// An API endpoint used to delete a single <typeparamref name="TEntity"/> in from the repository based on the specified <paramref name="id"/>.
+	/// An API endpoint used to delete a single entity in the repository based on the specified <paramref name="id"/>.
 	/// </summary>
 	/// <param name="id">The identifier.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
