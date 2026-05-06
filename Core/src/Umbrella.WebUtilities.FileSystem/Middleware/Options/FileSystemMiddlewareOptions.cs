@@ -13,7 +13,7 @@ namespace Umbrella.WebUtilities.FileSystem.Middleware.Options;
 /// <seealso cref="IValidatableUmbrellaOptions" />
 public class FileSystemMiddlewareOptions : ISanitizableUmbrellaOptions, IValidatableUmbrellaOptions
 {
-	private Dictionary<string, FileSystemMiddlewareMapping>? _flattenedMappings;
+	private List<KeyValuePair<string, FileSystemMiddlewareMapping>>? _flattenedMappings;
 
 	/// <summary>
 	/// Gets or sets the mappings.
@@ -38,7 +38,15 @@ public class FileSystemMiddlewareOptions : ISanitizableUmbrellaOptions, IValidat
 		if (_flattenedMappings is null)
 			return null;
 
-		return _flattenedMappings.SingleOrDefault(x => searchPath.Trim().StartsWith(x.Key, StringComparison.OrdinalIgnoreCase)).Value;
+		string normalizedSearchPath = searchPath.Trim();
+
+		foreach (KeyValuePair<string, FileSystemMiddlewareMapping> mapping in _flattenedMappings)
+		{
+			if (normalizedSearchPath.StartsWith(mapping.Key, StringComparison.OrdinalIgnoreCase))
+				return mapping.Value;
+		}
+
+		return null;
 	}
 
 	/// <inheritdoc />
@@ -47,7 +55,12 @@ public class FileSystemMiddlewareOptions : ISanitizableUmbrellaOptions, IValidat
 		if (Mappings is not null)
 		{
 			Mappings.ForEach(x => x.Sanitize());
-			_flattenedMappings = Mappings.SelectMany(x => x.FileProviderMapping.AppRelativeFolderPaths.ToDictionary(y => y, y => x)).ToDictionary(x => x.Key, x => x.Value);
+			_flattenedMappings =
+			[
+				.. Mappings
+					.SelectMany(x => x.FileProviderMapping.AppRelativeFolderPaths.Select(y => new KeyValuePair<string, FileSystemMiddlewareMapping>(y, x)))
+					.OrderByDescending(x => x.Key.Length)
+			];
 		}
 
 		FileSystemPathPrefix = FileSystemPathPrefix.Trim();
@@ -61,6 +74,15 @@ public class FileSystemMiddlewareOptions : ISanitizableUmbrellaOptions, IValidat
 		Guard.IsNotNullOrWhiteSpace(FileSystemPathPrefix);
 		Guard.IsNotNull(_flattenedMappings);
 		Guard.IsGreaterThan(_flattenedMappings.Count, 0);
+
+		string[] duplicatePaths = _flattenedMappings
+			.GroupBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+			.Where(x => x.Count() > 1)
+			.Select(x => x.Key)
+			.ToArray();
+
+		if (duplicatePaths.Length > 0)
+			throw new ArgumentException($"Duplicate app relative folder paths are not permitted: {string.Join(", ", duplicatePaths)}.", nameof(Mappings));
 
 		Mappings?.ForEach(x => x.Validate());
 	}

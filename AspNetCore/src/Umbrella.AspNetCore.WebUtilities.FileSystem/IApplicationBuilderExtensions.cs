@@ -1,7 +1,9 @@
 ﻿
 using CommunityToolkit.Diagnostics;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Umbrella.AspNetCore.WebUtilities.FileSystem.Middleware;
-using Umbrella.FileSystem.Abstractions;
+using Umbrella.WebUtilities.FileSystem.Middleware.Options;
 
 #pragma warning disable IDE0130
 namespace Microsoft.AspNetCore.Builder;
@@ -15,13 +17,19 @@ public static class IApplicationBuilderExtensions
 	/// Add the <see cref="FileSystemMiddleware"/> to the pipeline.
 	/// </summary>
 	/// <param name="builder">The builder.</param>
-	/// /// <param name="webFolderPath">The path, relative to the website root, that dynamic images are served from. Defaults to <see cref="UmbrellaFileSystemConstants.DefaultWebFilesDirectoryName" /> with a leading forward slash.</param>
 	/// <returns>The application builder.</returns>
-	public static IApplicationBuilder UseUmbrellaFileSystem(this IApplicationBuilder builder, string webFolderPath = "/" + UmbrellaFileSystemConstants.DefaultWebFilesDirectoryName)
+	public static IApplicationBuilder UseUmbrellaFileSystem(this IApplicationBuilder builder)
 	{
 		Guard.IsNotNull(builder);
 
-		_ = builder.MapWhen(context => context.Request.Path.StartsWithSegments(webFolderPath, StringComparison.OrdinalIgnoreCase), app => app.UseMiddleware<FileSystemMiddleware>());
+		FileSystemMiddlewareOptions options = builder.ApplicationServices.GetRequiredService<FileSystemMiddlewareOptions>();
+		string fileSystemPathPrefix = "/" + options.FileSystemPathPrefix.Trim('/');
+
+		_ = builder.MapWhen(
+			context => context.Request.Path.StartsWithSegments(fileSystemPathPrefix, StringComparison.OrdinalIgnoreCase, out PathString remainingPath)
+				&& remainingPath.HasValue
+				&& remainingPath.Value.Length > 1,
+			app => app.UseMiddleware<FileSystemMiddleware>());
 
 		return builder;
 	}

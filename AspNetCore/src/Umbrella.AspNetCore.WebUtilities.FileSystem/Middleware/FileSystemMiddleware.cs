@@ -20,6 +20,7 @@ public class FileSystemMiddleware
 	private readonly ILogger _log;
 	private readonly IHttpHeaderValueUtility _httpHeaderValueUtility;
 	private readonly FileSystemMiddlewareOptions _options;
+	private readonly string _fileSystemPathPrefix;
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="FileSystemMiddleware"/> class.
@@ -34,10 +35,13 @@ public class FileSystemMiddleware
 		IHttpHeaderValueUtility httpHeaderValueUtility,
 		FileSystemMiddlewareOptions options)
 	{
+		Guard.IsNotNull(options);
+
 		_next = next;
 		_log = logger;
 		_httpHeaderValueUtility = httpHeaderValueUtility;
 		_options = options;
+		_fileSystemPathPrefix = "/" + options.FileSystemPathPrefix.Trim('/');
 	}
 
 	/// <summary>
@@ -51,34 +55,27 @@ public class FileSystemMiddleware
 
 		try
 		{
-			string? path = context.Request.Path.Value?.Trim();
-
-			if (string.IsNullOrEmpty(path) || !path.StartsWith($"/{_options.FileSystemPathPrefix}/", StringComparison.OrdinalIgnoreCase))
+			if (!context.Request.Path.StartsWithSegments(_fileSystemPathPrefix, StringComparison.OrdinalIgnoreCase, out PathString remainingPath)
+				|| !remainingPath.HasValue
+				|| remainingPath.Value!.Length <= 1)
 			{
 				await _next.Invoke(context);
 				return;
 			}
 
-			// Strip the prefix
-			// path = path.Substring(_options.FileSystemPathPrefix.Length + 1); // NB: Codefix suggestion by VS below.
-			path = path[(_options.FileSystemPathPrefix.Length + 1)..];
+			string path = remainingPath.Value!;
 
 			FileSystemMiddlewareMapping? mapping = _options.GetMapping(path);
 
 			if (mapping is not null)
 			{
-				using var cts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
-				CancellationToken token = cts.Token;
+				CancellationToken token = context.RequestAborted;
+				bool isHeadRequest = HttpMethods.IsHead(context.Request.Method);
 
 				IUmbrellaFileInfo? fileInfo = await mapping.FileProviderMapping.FileProvider.GetAsync(path, token);
 
 				if (fileInfo is null)
 				{
-#if NET8_0_OR_GREATER
-					await cts.CancelAsync();
-#else
-					cts.Cancel();
-#endif
 					context.Response.SendStatusCode(HttpStatusCode.NotFound);
 
 					return;
@@ -89,13 +86,8 @@ public class FileSystemMiddleware
 				// Check the cache headers
 				if (fileInfo.LastModified.HasValue)
 				{
-					if (context.Request.IfModifiedSinceHeaderMatched(fileInfo.LastModified.Value.UtcDateTime))
+					if (context.Request.IfModifiedSinceHeaderMatched(fileInfo.LastModified.Value))
 					{
-#if NET8_0_OR_GREATER
-						await cts.CancelAsync();
-#else
-						cts.Cancel();
-#endif
 						context.Response.SendStatusCode(HttpStatusCode.NotModified);
 
 						return;
@@ -105,11 +97,6 @@ public class FileSystemMiddleware
 
 					if (context.Request.IfNoneMatchHeaderMatched(eTagValue))
 					{
-#if NET8_0_OR_GREATER
-						await cts.CancelAsync();
-#else
-						cts.Cancel();
-#endif
 						context.Response.SendStatusCode(HttpStatusCode.NotModified);
 
 						return;
@@ -117,6 +104,7 @@ public class FileSystemMiddleware
 				}
 
 				context.Response.ContentType = fileInfo.ContentType ?? "application/octet-stream";
+				context.Response.ContentLength = fileInfo.Length;
 
 				if (mapping.Cacheability == MiddlewareHttpCacheability.NoCache && fileInfo.LastModified.HasValue)
 				{
@@ -142,13 +130,20 @@ public class FileSystemMiddleware
 				// Probably best to copy this middleware into the target project first to do the initial work
 				// before altering the file system.
 
+				if (isHeadRequest)
+					return;
+
 				await fileInfo.WriteToStreamAsync(context.Response.Body, cancellationToken: token);
-				await context.Response.Body.FlushAsync();
+				await context.Response.Body.FlushAsync(token);
 
 				return;
 			}
 
 			await _next.Invoke(context);
+		}
+		catch (OperationCanceledException)
+		{
+			context.Response.SendStatusCode(HttpStatusCode.RequestTimeout);
 		}
 		catch (UmbrellaFileSystemException exc) when (_log.WriteWarning(exc, new { Path = context.Request.Path.Value }))
 		{

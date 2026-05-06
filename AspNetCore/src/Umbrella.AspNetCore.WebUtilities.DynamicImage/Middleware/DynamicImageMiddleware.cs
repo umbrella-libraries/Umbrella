@@ -13,8 +13,8 @@ using Umbrella.WebUtilities.Middleware.Options;
 namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Middleware;
 
 /// <summary>
-/// Middleware that is used to return a dynamically resized version of a source image. The source image and resizing options
-/// are determined by parsing the incoming request URL.
+/// Middleware that is used to return a dynamically resized version of a source image. The source image and resizing
+/// options are determined by parsing the incoming request URL.
 /// </summary>
 public class DynamicImageMiddleware : IDisposable
 {
@@ -221,7 +221,8 @@ public class DynamicImageMiddleware : IDisposable
 	}
 
 	/// <summary>
-	/// Releases the unmanaged resources used by the <see cref="DynamicImageMiddleware" /> and optionally releases the managed resources.
+	/// Releases the unmanaged resources used by the <see cref="DynamicImageMiddleware" /> and optionally releases the
+	/// managed resources.
 	/// </summary>
 	/// <param name="disposing">A value indicating whether the managed resources should be released.</param>
 	protected virtual void Dispose(bool disposing)
