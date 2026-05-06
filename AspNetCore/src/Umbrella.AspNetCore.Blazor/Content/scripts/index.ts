@@ -10,5 +10,6 @@ declare global
 
 (() =>
 {
-	window.UmbrellaBlazorInterop = new UmbrellaBlazorInterop();
+	if (!window.UmbrellaBlazorInterop)
+		window.UmbrellaBlazorInterop = new UmbrellaBlazorInterop();
 })();

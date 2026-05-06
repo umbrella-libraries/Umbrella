@@ -91,11 +91,14 @@ export class UmbrellaBlazorInterop
 
 	/**
 	 * Subscribes to the window scroll event and notifies Blazor when scrolled near the top.
+	 * Safe to call repeatedly — tears down any existing listener before registering.
 	 * @param blazorInteropUtility The Blazor interop utility instance used for callbacks.
 	 * @param threshold The Y-position threshold that triggers the callback.
 	 */
 	public initializeWindowScrolledTopAsync(blazorInteropUtility: any, threshold: number)
 	{
+		this.destroyWindowScrolledTopAsync();
+
 		this.blazorInteropUtility = blazorInteropUtility;
 
 		this.boundScrollTopFunction = this.windowScrolledTopAsync.bind(this, threshold);

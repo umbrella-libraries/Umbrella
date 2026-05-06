@@ -8,6 +8,7 @@ export class BrowserEventAggregator
 
 	/**
 	 * Adds a subscription for a browser event and attaches a shared window event handler when needed.
+	 * If a subscription with the same id already exists for the event it is replaced in-place.
 	 * @param id A unique subscription identifier.
 	 * @param eventName The browser event name to subscribe to.
 	 * @param dotNetObjectReference The .NET object reference that receives event callbacks.
@@ -32,7 +33,12 @@ export class BrowserEventAggregator
 			window.addEventListener(eventName, eventHandler);
 		}
 
-		subscriptions.push(new BrowserEventSubscription(id, eventName, dotNetObjectReference));
+		const existingIndex = subscriptions.findIndex(x => x.id === id);
+
+		if (existingIndex >= 0)
+			subscriptions[existingIndex] = new BrowserEventSubscription(id, eventName, dotNetObjectReference);
+		else
+			subscriptions.push(new BrowserEventSubscription(id, eventName, dotNetObjectReference));
 	}
 
 	/**
