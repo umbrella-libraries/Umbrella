@@ -94,7 +94,10 @@ public class FileSystemMiddleware
 				}
 
 				bool hasValidators = fileInfo.LastModified.HasValue;
-				bool supportsConditionalRequests = hasValidators && mapping.Cacheability is MiddlewareHttpCacheability.NoCache or MiddlewareHttpCacheability.Private;
+				bool supportsConditionalRequests = hasValidators
+					&& mapping.Cacheability is MiddlewareHttpCacheability.NoCache
+						or MiddlewareHttpCacheability.Private
+						or MiddlewareHttpCacheability.Public;
 				string? lastModifiedHeaderValue = hasValidators
 					? _httpHeaderValueUtility.CreateLastModifiedHeaderValue(fileInfo.LastModified!.Value)
 					: null;
@@ -112,7 +115,7 @@ public class FileSystemMiddleware
 						context.Response.Headers.ETag = eTagValue;
 						context.Response.Headers.CacheControl = "no-cache";
 					}
-					else if (mapping.Cacheability == MiddlewareHttpCacheability.Private)
+					else if (mapping.Cacheability is MiddlewareHttpCacheability.Private or MiddlewareHttpCacheability.Public)
 					{
 						if (hasValidators)
 						{
@@ -122,7 +125,7 @@ public class FileSystemMiddleware
 
 						if (mapping.MaxAgeSeconds.HasValue)
 							context.Response.Headers.Expires = DateTimeOffset.UtcNow.AddSeconds(mapping.MaxAgeSeconds.Value).ToString("R");
-						string cacheControl = "private";
+						string cacheControl = mapping.Cacheability.ToCacheControlString();
 
 						if (mapping.MaxAgeSeconds.HasValue)
 							cacheControl += ", max-age=" + mapping.MaxAgeSeconds.Value;
