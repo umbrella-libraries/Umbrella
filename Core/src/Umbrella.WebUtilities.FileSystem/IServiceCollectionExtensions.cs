@@ -19,6 +19,10 @@ public static class IServiceCollectionExtensions
 	/// <param name="optionsBuilder">The optional <see cref="FileSystemMiddlewareOptions"/> builder.</param>
 	/// <returns>The <see cref="IServiceCollection"/> dependency injection container builder.</returns>
 	/// <exception cref="ArgumentNullException">Thrown if the <paramref name="services"/> is null.</exception>
+	/// <remarks>
+	/// Use <c>app.UseUmbrellaFileSystem()</c> to add the ASP.NET Core middleware. The request path prefix is read from
+	/// <see cref="FileSystemMiddlewareOptions.FileSystemPathPrefix"/> rather than being supplied at middleware registration time.
+	/// </remarks>
 	public static IServiceCollection AddUmbrellaWebUtilitiesFileSystem(
 		this IServiceCollection services,
 		Action<IServiceProvider, FileSystemMiddlewareOptions>? optionsBuilder = null)
@@ -35,7 +39,8 @@ public static class IServiceCollectionExtensions
 	/// Adds Umbrella Web Utilities file system middleware and related services to the specified service collection.
 	/// </summary>
 	/// <remarks>This method configures the file system middleware to use the specified path prefix and directory
-	/// mappings. It should be called during application startup as part of service registration.</remarks>
+	/// mappings. It should be called during application startup as part of service registration. After registration,
+	/// call <c>app.UseUmbrellaFileSystem()</c>; the middleware will resolve its request path prefix from the configured options.</remarks>
 	/// <param name="services">The service collection to which the file system middleware and related services will be added. Cannot be null.</param>
 	/// <param name="fileSystemPathPrefix">The path prefix to use for file system middleware routing. This value determines the base URL segment for file
 	/// system requests.</param>

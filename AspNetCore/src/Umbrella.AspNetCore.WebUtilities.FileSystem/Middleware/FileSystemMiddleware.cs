@@ -71,6 +71,12 @@ public class FileSystemMiddleware
 
 			string path = remainingPath.Value!;
 
+			if (IsInvalidFilePath(path))
+			{
+				context.Response.SendStatusCode(HttpStatusCode.NotFound);
+				return;
+			}
+
 			FileSystemMiddlewareMapping? mapping = _options.GetMapping(path);
 
 			if (mapping is not null)
@@ -87,32 +93,51 @@ public class FileSystemMiddleware
 					return;
 				}
 
-				bool responseCacheEnabled = mapping.Cacheability == MiddlewareHttpCacheability.NoCache && fileInfo.LastModified.HasValue;
-				string? lastModifiedHeaderValue = responseCacheEnabled
+				bool hasValidators = fileInfo.LastModified.HasValue;
+				bool supportsConditionalRequests = hasValidators && mapping.Cacheability is MiddlewareHttpCacheability.NoCache or MiddlewareHttpCacheability.Private;
+				string? lastModifiedHeaderValue = hasValidators
 					? _httpHeaderValueUtility.CreateLastModifiedHeaderValue(fileInfo.LastModified!.Value)
 					: null;
-				string? eTagValue = responseCacheEnabled
+				string? eTagValue = hasValidators
 					? _httpHeaderValueUtility.CreateETagHeaderValue(fileInfo.LastModified!.Value, fileInfo.Length)
 					: null;
 
 				void ApplyResponseHeaders()
 				{
-					context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+					context.Response.Headers.XContentTypeOptions = "nosniff";
 
-					if (responseCacheEnabled)
+					if (mapping.Cacheability == MiddlewareHttpCacheability.NoCache && hasValidators)
 					{
-						context.Response.Headers["Last-Modified"] = lastModifiedHeaderValue;
-						context.Response.Headers["ETag"] = eTagValue;
-						context.Response.Headers["Cache-Control"] = "no-cache";
+						context.Response.Headers.LastModified = lastModifiedHeaderValue;
+						context.Response.Headers.ETag = eTagValue;
+						context.Response.Headers.CacheControl = "no-cache";
+					}
+					else if (mapping.Cacheability == MiddlewareHttpCacheability.Private)
+					{
+						if (hasValidators)
+						{
+							context.Response.Headers.LastModified = lastModifiedHeaderValue;
+							context.Response.Headers.ETag = eTagValue;
+						}
+
+						if (mapping.MaxAgeSeconds.HasValue)
+							context.Response.Headers.Expires = DateTimeOffset.UtcNow.AddSeconds(mapping.MaxAgeSeconds.Value).ToString("R");
+						string cacheControl = "private";
+
+						if (mapping.MaxAgeSeconds.HasValue)
+							cacheControl += ", max-age=" + mapping.MaxAgeSeconds.Value;
+
+						cacheControl += ", must-revalidate";
+						context.Response.Headers.CacheControl = cacheControl;
 					}
 					else
 					{
-						context.Response.Headers["Cache-Control"] = "no-store";
+						context.Response.Headers.CacheControl = "no-store";
 					}
 				}
 
 				// Check the cache headers
-				if (responseCacheEnabled)
+				if (supportsConditionalRequests)
 				{
 					if (context.Request.IfNoneMatchHeaderMatched(eTagValue!))
 					{
@@ -157,9 +182,15 @@ public class FileSystemMiddleware
 
 			await _next.Invoke(context);
 		}
+		catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+		{
+			if (!context.Response.HasStarted)
+				_log.WriteDebug(new { Path = context.Request.Path.Value }, "The request was aborted by the client.");
+		}
 		catch (OperationCanceledException)
 		{
-			context.Response.SendStatusCode(HttpStatusCode.RequestTimeout);
+			if (!context.Response.HasStarted)
+				context.Response.SendStatusCode(HttpStatusCode.RequestTimeout);
 		}
 		catch (UmbrellaFileSystemException exc) when (_log.WriteWarning(exc, new { Path = context.Request.Path.Value }))
 		{
@@ -175,5 +206,29 @@ public class FileSystemMiddleware
 		{
 			throw new UmbrellaWebException("An error has occurred whilst executing the request.", exc);
 		}
+	}
+
+	private static bool IsInvalidFilePath(string path)
+	{
+		if (string.IsNullOrWhiteSpace(path)
+			|| path.Length <= 1
+			|| path[^1] == '/'
+			|| path.Contains('\\', StringComparison.Ordinal)
+			|| path.Contains('\0', StringComparison.Ordinal))
+		{
+			return true;
+		}
+
+		string[] segments = path.Split('/');
+
+		for (int i = 1; i < segments.Length; i++)
+		{
+			string segment = segments[i];
+
+			if (string.IsNullOrWhiteSpace(segment) || segment is "." or "..")
+				return true;
+		}
+
+		return false;
 	}
 }

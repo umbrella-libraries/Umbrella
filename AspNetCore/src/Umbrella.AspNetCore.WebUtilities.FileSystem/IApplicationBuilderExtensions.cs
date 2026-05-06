@@ -18,6 +18,11 @@ public static class IApplicationBuilderExtensions
 	/// </summary>
 	/// <param name="builder">The builder.</param>
 	/// <returns>The application builder.</returns>
+	/// <remarks>
+	/// The middleware path prefix is resolved from the registered <see cref="FileSystemMiddlewareOptions"/> instance.
+	/// Configure the prefix during service registration with one of the
+	/// <c>AddUmbrellaWebUtilitiesFileSystem(...)</c> service-registration overloads.
+	/// </remarks>
 	public static IApplicationBuilder UseUmbrellaFileSystem(this IApplicationBuilder builder)
 	{
 		Guard.IsNotNull(builder);
