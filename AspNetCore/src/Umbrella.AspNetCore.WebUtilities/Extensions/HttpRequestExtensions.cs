@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using CommunityToolkit.Diagnostics;
+﻿using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 
@@ -20,16 +19,10 @@ public static class HttpRequestExtensions
 	{
 		Guard.IsNotNull(request);
 
-		string? ifModifiedSince = request.Headers.IfModifiedSince;
+		DateTimeOffset? ifModifiedSince = request.GetTypedHeaders().IfModifiedSince;
 
-		if (!string.IsNullOrWhiteSpace(ifModifiedSince))
-		{
-			DateTime lastModified = DateTime.Parse(ifModifiedSince, CultureInfo.InvariantCulture).ToUniversalTime();
-
-			return lastModified == valueToMatch;
-		}
-
-		return false;
+		return ifModifiedSince.HasValue
+			&& NormalizeHttpDate(valueToMatch) <= NormalizeHttpDate(ifModifiedSince.Value);
 	}
 
 	/// <summary>
@@ -43,10 +36,27 @@ public static class HttpRequestExtensions
 		Guard.IsNotNull(request);
 		Guard.IsNotNullOrWhiteSpace(valueToMatch);
 
-		string? ifNoneMatch = request.Headers.IfNoneMatch;
+		string normalizedValueToMatch = RemoveWeakEtagPrefix(valueToMatch.Trim());
 
-		return !string.IsNullOrWhiteSpace(ifNoneMatch) && string.Equals(ifNoneMatch, valueToMatch, StringComparison.OrdinalIgnoreCase);
+		return request.Headers.TryGetValue("If-None-Match", out StringValues values)
+			&& values
+				.Where(x => !string.IsNullOrWhiteSpace(x))
+				.SelectMany(x => x!.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+				.Select(RemoveWeakEtagPrefix)
+				.Any(x => x == "*" || string.Equals(x, normalizedValueToMatch, StringComparison.Ordinal));
 	}
+
+	private static DateTimeOffset NormalizeHttpDate(DateTimeOffset value)
+	{
+		DateTimeOffset utcValue = value.ToUniversalTime();
+		long ticks = utcValue.Ticks - (utcValue.Ticks % TimeSpan.TicksPerSecond);
+
+		return new DateTimeOffset(ticks, TimeSpan.Zero);
+	}
+
+	private static string RemoveWeakEtagPrefix(string value) => value.StartsWith("W/", StringComparison.OrdinalIgnoreCase)
+		? value[2..].Trim()
+		: value;
 
 	/// <summary>
 	/// Determines if the client will accept webp image types.

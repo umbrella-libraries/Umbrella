@@ -63,6 +63,12 @@ public class FileSystemMiddleware
 				return;
 			}
 
+			if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+			{
+				await _next.Invoke(context);
+				return;
+			}
+
 			string path = remainingPath.Value!;
 
 			FileSystemMiddlewareMapping? mapping = _options.GetMapping(path);
@@ -81,43 +87,53 @@ public class FileSystemMiddleware
 					return;
 				}
 
-				string? eTagValue = null;
+				bool responseCacheEnabled = mapping.Cacheability == MiddlewareHttpCacheability.NoCache && fileInfo.LastModified.HasValue;
+				string? lastModifiedHeaderValue = responseCacheEnabled
+					? _httpHeaderValueUtility.CreateLastModifiedHeaderValue(fileInfo.LastModified!.Value)
+					: null;
+				string? eTagValue = responseCacheEnabled
+					? _httpHeaderValueUtility.CreateETagHeaderValue(fileInfo.LastModified!.Value, fileInfo.Length)
+					: null;
+
+				void ApplyResponseHeaders()
+				{
+					context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+					if (responseCacheEnabled)
+					{
+						context.Response.Headers["Last-Modified"] = lastModifiedHeaderValue;
+						context.Response.Headers["ETag"] = eTagValue;
+						context.Response.Headers["Cache-Control"] = "no-cache";
+					}
+					else
+					{
+						context.Response.Headers["Cache-Control"] = "no-store";
+					}
+				}
 
 				// Check the cache headers
-				if (fileInfo.LastModified.HasValue)
+				if (responseCacheEnabled)
 				{
-					if (context.Request.IfModifiedSinceHeaderMatched(fileInfo.LastModified.Value))
+					if (context.Request.IfNoneMatchHeaderMatched(eTagValue!))
 					{
+						ApplyResponseHeaders();
 						context.Response.SendStatusCode(HttpStatusCode.NotModified);
 
 						return;
 					}
 
-					eTagValue = _httpHeaderValueUtility.CreateETagHeaderValue(fileInfo.LastModified.Value, fileInfo.Length);
-
-					if (context.Request.IfNoneMatchHeaderMatched(eTagValue))
+					if (context.Request.IfModifiedSinceHeaderMatched(fileInfo.LastModified!.Value))
 					{
+						ApplyResponseHeaders();
 						context.Response.SendStatusCode(HttpStatusCode.NotModified);
 
 						return;
 					}
 				}
 
+				ApplyResponseHeaders();
 				context.Response.ContentType = fileInfo.ContentType ?? "application/octet-stream";
 				context.Response.ContentLength = fileInfo.Length;
-
-				if (mapping.Cacheability == MiddlewareHttpCacheability.NoCache && fileInfo.LastModified.HasValue)
-				{
-					eTagValue ??= _httpHeaderValueUtility.CreateETagHeaderValue(fileInfo.LastModified.Value, fileInfo.Length);
-
-					context.Response.Headers["Last-Modified"] = _httpHeaderValueUtility.CreateLastModifiedHeaderValue(fileInfo.LastModified.Value);
-					context.Response.Headers["ETag"] = eTagValue;
-					context.Response.Headers["Cache-Control"] = "no-cache";
-				}
-				else
-				{
-					context.Response.Headers["Cache-Control"] = "no-store";
-				}
 
 				// TODO: Build in support for Range request header and Content-Range response header using a 206 response code.
 				// Need to alter the following:
