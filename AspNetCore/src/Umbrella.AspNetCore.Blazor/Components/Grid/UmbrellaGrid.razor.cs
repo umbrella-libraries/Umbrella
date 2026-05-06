@@ -53,7 +53,7 @@ public enum UmbrellaGridRenderMode
 public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposable
 	where TItem : notnull
 {
-	private class UmbrellaGridSelectableItem
+	private sealed class UmbrellaGridSelectableItem
 	{
 		public UmbrellaGridSelectableItem(bool isSelected, TItem item)
 		{
@@ -74,6 +74,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	private readonly CancellationTokenSource _cts = new();
 #pragma warning restore CA2213 // Disposable fields should be disposed
 	private bool _autoScrollEnabled;
+   private bool _browserFeaturesEnabled;
+   private bool _browserEventSubscriptionInitialized;
 	private string? _initialSortPropertyName;
 	private Expression<Func<TItem, object>>? _initialSortPropertyExpression;
 	private bool _disposedValue;
@@ -424,8 +426,6 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 			string url = new Uri(Navigation.Uri).GetComponents(UriComponents.Path, UriFormat.Unescaped).ToLowerInvariant();
 
 			_sessionStorageSearchStateKey = HashCode.Combine(QueryStringStateDiscriminator, typeof(TItem).FullName, url).ToString(CultureInfo.InvariantCulture);
-
-			await BrowserEventAggregator.Value.SubscribeAsync("popstate", async () => await InvokeAsync(async () => await ApplyQueryStringSortersAndFiltersAsync(false)), _cts.Token);
 		}
 	}
 
@@ -556,6 +556,20 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	/// <inheritdoc />
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
+        if (firstRender)
+		{
+          _browserFeaturesEnabled = true;
+
+			if (IsSearchOptionStateEnabled && !_browserEventSubscriptionInitialized)
+			{
+				await BrowserEventAggregator.Value.SubscribeAsync("popstate", async () => await InvokeAsync(async () => await ApplyQueryStringSortersAndFiltersAsync(false)), _cts.Token);
+				_browserEventSubscriptionInitialized = true;
+
+				if (await TryRestoreSearchStateFromSessionStorageAsync())
+					return;
+			}
+		}
+
 		if (!firstRender)
 		{
 			if (PaginationInstance is not null)
@@ -737,7 +751,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 				return target;
 			}
 
-			if (IsSearchOptionStateEnabled && queryStringStateUpdateMode is QueryStringStateUpdateMode.Reset or QueryStringStateUpdateMode.Update)
+          if (IsSearchOptionStateEnabled && _browserFeaturesEnabled && queryStringStateUpdateMode is QueryStringStateUpdateMode.Reset or QueryStringStateUpdateMode.Update)
 			{
 				string url = Navigation.Uri;
 
@@ -843,7 +857,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 			SelectedRow = default!;
 			CheckboxSelectColumnSelected = false;
 
-			if (AutoScrollTop && _autoScrollEnabled)
+          if (AutoScrollTop && _autoScrollEnabled && _browserFeaturesEnabled)
 				await BlazorInteropUtility.ScrollToAsync(".u-grid", ScrollTopOffset);
 
 			// Only enable auto-scrolling after the initial page load.
@@ -898,7 +912,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 				Logger.WriteDebug(new { sortByResult, sortDirectionResult, filtersResult, pageNumberResult, pageSizeResult }, "Reading QueryString");
 
 			// If we have nothing on the querystring, try and restore the state from Session Storage
-			if (tryRestoreFromSessionStorage
+          if (_browserFeaturesEnabled
+				&& tryRestoreFromSessionStorage
 				&& !sortByResult.success
 				&& !sortDirectionResult.success
 				&& !filtersResult.success
@@ -1030,6 +1045,28 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 		}
 
 		await UpdateGridAsync(QueryStringStateUpdateMode.None, PageNumber, PageSize);
+	}
+
+	private bool HasSearchStateQueryStringParameters()
+		=> Navigation.TryGetQueryStringValue<string>(SortByQueryStringParamKey).success
+			|| Navigation.TryGetQueryStringEnumValue<SortDirection>(SortDirectionQueryStringParamKey).success
+			|| Navigation.TryGetQueryStringValue<string>(FiltersQueryStringParamKey).success
+			|| Navigation.TryGetQueryStringValue<int>(PageNumberQueryStringParamKey).success
+			|| Navigation.TryGetQueryStringValue<int>(PageSizeQueryStringParamKey).success;
+
+	private async ValueTask<bool> TryRestoreSearchStateFromSessionStorageAsync()
+	{
+		if (!_browserFeaturesEnabled || HasSearchStateQueryStringParameters() || string.IsNullOrEmpty(_sessionStorageSearchStateKey))
+			return false;
+
+		string url = await SessionStorageService.GetItemAsStringAsync(_sessionStorageSearchStateKey, _cts.Token);
+
+		if (string.IsNullOrEmpty(url) || url == Navigation.Uri)
+			return false;
+
+		Navigation.NavigateTo(url, replace: true);
+
+		return true;
 	}
 
 	/// <summary>

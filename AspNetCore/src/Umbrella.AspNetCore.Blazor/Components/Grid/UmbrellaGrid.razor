@@ -13,6 +13,7 @@
         {
             <CascadingValue Name="ScanMode" Value="true">
                 @Columns?.Invoke(default!)
+                <DeferredCallback OnReady="@(async () => await SetColumnScanCompletedAsync())" />
             </CascadingValue>
         }
 
