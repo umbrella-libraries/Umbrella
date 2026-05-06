@@ -7,6 +7,7 @@ using Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.Options;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Imaging.Abstractions;
+using Umbrella.WebUtilities.DynamicImage.Middleware.Options;
 using Umbrella.WebUtilities.Hosting;
 
 namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
@@ -46,8 +47,9 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 		ICacheKeyUtility cacheKeyUtility,
 		IResponsiveImageHelper responsiveImageHelper,
 		IDynamicImageUtility dynamicImageUtility,
-		DynamicImageTagHelperOptions dynamicImageTagHelperOptions)
-		: base(logger, umbrellaHostingEnvironment, cache, cacheKeyUtility, responsiveImageHelper, dynamicImageUtility, dynamicImageTagHelperOptions)
+		DynamicImageTagHelperOptions dynamicImageTagHelperOptions,
+		DynamicImageMiddlewareOptions dynamicImageMiddlewareOptions)
+		: base(logger, umbrellaHostingEnvironment, cache, cacheKeyUtility, responsiveImageHelper, dynamicImageUtility, dynamicImageTagHelperOptions, dynamicImageMiddlewareOptions)
 	{
 	}
 
@@ -70,9 +72,9 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 		}
 		else if (SizeWidths is not null)
 		{
-			string src = BuildCoreTag(output);
+			(string sourcePath, string? versionToken) = await BuildCoreTagAsync(output).ConfigureAwait(false);
 
-			string cacheKey = CacheKeyUtility.Create<DynamicImageTagHelper>($"{src}:{ImageMaxPixelDensity}:{SizeWidths}");
+			string cacheKey = CacheKeyUtility.Create<DynamicImageTagHelper>($"{sourcePath}:{versionToken}:{WidthRequest}:{HeightRequest}:{ResizeMode}:{ImageFormat}:{FilterQuality}:{QualityRequest}:{FocalPointX}:{FocalPointY}:{ImageMaxPixelDensity}:{SizeWidths}");
 			string? srcsetValue = Cache.GetOrCreate(
 				cacheKey,
 				entry =>
@@ -81,9 +83,9 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 						.SetAbsoluteExpiration(TimeSpan.FromHours(1))
 						.SetPriority(CacheItemPriority.Low);
 
-					return ResponsiveImageHelper.GetSizeSrcSetValue(src, SizeWidths, ImageMaxPixelDensity, WidthRequest, HeightRequest, x =>
+					return ResponsiveImageHelper.GetSizeSrcSetValue(sourcePath, SizeWidths, ImageMaxPixelDensity, WidthRequest, HeightRequest, x =>
 					{
-						var options = new DynamicImageOptions(src, x.imageWidth, x.imageHeight, ResizeMode, ImageFormat);
+						DynamicImageOptions options = CreateDynamicImageOptions(sourcePath, x.imageWidth, x.imageHeight, versionToken);
 
 						string virtualPath = GenerateVirtualPath(options);
 

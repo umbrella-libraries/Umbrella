@@ -33,6 +33,18 @@ public class DynamicImageMiddlewareOptions : IValidatableUmbrellaOptions, ISanit
 	public bool EnableJpgPngWebPOrAvifOverride { get; set; } = true;
 
 	/// <summary>
+	/// Gets or sets a value indicating whether URL fingerprinting is enabled for generated and canonical dynamic image URLs.
+	/// Defaults to <see langword="true" />.
+	/// </summary>
+	public bool EnableUrlFingerprinting { get; set; } = true;
+
+	/// <summary>
+	/// Gets or sets the status code used when redirecting requests to their canonical dynamic image URL.
+	/// Supported values are 301, 302, 307 and 308. Defaults to <see cref="System.Net.HttpStatusCode.MovedPermanently" />.
+	/// </summary>
+	public System.Net.HttpStatusCode CanonicalRedirectStatusCode { get; set; } = System.Net.HttpStatusCode.MovedPermanently;
+
+	/// <summary>
 	/// Gets or sets the maximum concurrent resizing requests that can be processed at any one time. Defaults to 0 which means unlimited.
 	/// </summary>
 	public int MaxConcurrentResizingRequests { get; set; }
@@ -71,5 +83,16 @@ public class DynamicImageMiddlewareOptions : IValidatableUmbrellaOptions, ISanit
 		Guard.IsNotNull(_flattenedMappings);
 		Guard.IsGreaterThan(_flattenedMappings.Count, 0);
 		Guard.IsGreaterThanOrEqualTo(MaxConcurrentResizingRequests, 0);
+
+		switch ((int)CanonicalRedirectStatusCode)
+		{
+			case 301:
+			case 302:
+			case 307:
+			case 308:
+				break;
+			default:
+				throw new ArgumentException($"{nameof(CanonicalRedirectStatusCode)} must be set to a redirect status code of 301, 302, 307 or 308.", nameof(CanonicalRedirectStatusCode));
+		}
 	}
 }

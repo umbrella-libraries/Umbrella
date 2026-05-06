@@ -65,12 +65,11 @@ public abstract class DynamicImageCache
 	{
 		try
 		{
-			string cacheKey = CacheKeyUtility.Create<DynamicImageOptions>(options.ToString());
+			string rawKey = GenerateRawCacheKey(options);
+			string cacheKey = CacheKeyUtility.Create<DynamicImageOptions>(rawKey);
 
 			return Cache.GetOrCreate(cacheKey, () =>
 			{
-				string rawKey = string.Format(CultureInfo.InvariantCulture, "{0}-W-{1}-H-{2}-M-{3}-F-{4}-FPX-{5}-FPY-{6}-P", options.Width, options.Height, options.ResizeMode, options.Format, options.SourcePath, options.FocalPointX?.ToString("G4", CultureInfo.InvariantCulture) ?? "null", options.FocalPointY?.ToString("G4", CultureInfo.InvariantCulture) ?? "null");
-
 				using var hasher = SHA256.Create();
 				byte[] bytes = hasher.ComputeHash(Encoding.UTF8.GetBytes(rawKey));
 
@@ -87,6 +86,16 @@ public abstract class DynamicImageCache
 		{
 			throw new UmbrellaDynamicImageException("There was a problem generating the cache key.", exc, options);
 		}
+	}
+
+	private static string GenerateRawCacheKey(in DynamicImageOptions options)
+	{
+		string rawKey = string.Format(CultureInfo.InvariantCulture, "{0}-W-{1}-H-{2}-M-{3}-F-{4}-FPX-{5}-FPY-{6}-P", options.Width, options.Height, options.ResizeMode, options.Format, options.SourcePath, options.FocalPointX?.ToString("G4", CultureInfo.InvariantCulture) ?? "null", options.FocalPointY?.ToString("G4", CultureInfo.InvariantCulture) ?? "null");
+
+		if (options.UrlPathShape is DynamicImageUrlPathShape.Versioned && !string.IsNullOrWhiteSpace(options.VersionToken))
+			rawKey += string.Format(CultureInfo.InvariantCulture, "-V-{0}", options.VersionToken);
+
+		return rawKey;
 	}
 
 	/// <summary>

@@ -1,10 +1,13 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 using Umbrella.AspNetCore.Blazor.Components.DynamicImage.Options;
 using Umbrella.AspNetCore.Blazor.Components.ResponsiveImage;
 using Umbrella.AspNetCore.Blazor.Constants;
 using Umbrella.DynamicImage.Abstractions;
+using Umbrella.FileSystem.Abstractions;
 using Umbrella.Utilities.Imaging;
+using Umbrella.WebUtilities.DynamicImage.Middleware.Options;
 
 namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage;
 
@@ -25,6 +28,12 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 	/// </summary>
 	[Inject]
 	protected IDynamicImageUtility DynamicImageUtility { get; [RequiresUnreferencedCode(TrimConstants.DI)] set; } = null!;
+
+	/// <summary>
+	/// Gets or sets the service provider.
+	/// </summary>
+	[Inject]
+	protected IServiceProvider ServiceProvider { get; [RequiresUnreferencedCode(TrimConstants.DI)] set; } = null!;
 
 	/// <summary>
 	/// Gets or sets the width request in pixels. Defaults to 1.
@@ -90,24 +99,29 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 	/// <inheritdoc />
 	protected override void OnParametersSet()
 	{
-		base.OnParametersSet();
-
+		Guard.IsNotNullOrWhiteSpace(Url, nameof(Url));
 		Guard.IsGreaterThanOrEqualTo(WidthRequest, 1);
 		Guard.IsGreaterThanOrEqualTo(HeightRequest, 1);
 	}
 
 	/// <inheritdoc />
-	protected override void InitializeImage()
+	protected override async Task OnParametersSetAsync()
+	{
+		await InitializeImageAsync();
+	}
+
+	private async Task InitializeImageAsync()
 	{
 		if (Url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
 		{
 			SrcValue = Url;
+			SrcSetValue = ResponsiveImageHelper.GetPixelDensitySrcSetValue(SrcValue, MaxPixelDensity);
 			return;
 		}
 
 		string strippedUrl = StripUrlPrefix(Url);
-
-		var options = new DynamicImageOptions(strippedUrl, WidthRequest, HeightRequest, ResizeMode, ImageFormat, focalPointX: FocalPointX, focalPointY: FocalPointY);
+		string? versionToken = await ResolveVersionTokenAsync(strippedUrl);
+		DynamicImageOptions options = CreateDynamicImageOptions(strippedUrl, WidthRequest, HeightRequest, versionToken);
 
 		SrcValue = DynamicImageUtility.GenerateVirtualPath(Options.DynamicImagePathPrefix, options).TrimStart('~').Replace("//", "/", StringComparison.Ordinal);
 
@@ -118,7 +132,7 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 			? ResponsiveImageHelper.GetPixelDensitySrcSetValue(SrcValue, MaxPixelDensity)
 			: ResponsiveImageHelper.GetSizeSrcSetValue(strippedUrl, SizeWidths ?? "", MaxPixelDensity, WidthRequest, HeightRequest, x =>
 			{
-				var options = new DynamicImageOptions(strippedUrl, x.imageWidth, x.imageHeight, ResizeMode, ImageFormat, focalPointX: FocalPointX, focalPointY: FocalPointY);
+				DynamicImageOptions options = CreateDynamicImageOptions(strippedUrl, x.imageWidth, x.imageHeight, versionToken);
 
 				return DynamicImageUtility.GenerateVirtualPath(Options.DynamicImagePathPrefix, options).TrimStart('~').Replace("//", "/", StringComparison.Ordinal);
 			});
@@ -137,5 +151,48 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 		Guard.IsNotNullOrEmpty(url);
 
 		return !string.IsNullOrEmpty(Options.StripPrefix) && url.StartsWith(Options.StripPrefix, StringComparison.OrdinalIgnoreCase) ? url[Options.StripPrefix.Length..] : url;
+	}
+
+	private DynamicImageOptions CreateDynamicImageOptions(string sourcePath, int width, int height, string? versionToken)
+		=> new(
+			sourcePath,
+			width,
+			height,
+			ResizeMode,
+			ImageFormat,
+			focalPointX: FocalPointX,
+			focalPointY: FocalPointY,
+			versionToken: versionToken,
+			urlPathShape: Options.EnableUrlFingerprinting ? DynamicImageUrlPathShape.Versioned : DynamicImageUrlPathShape.Unversioned);
+
+	private async Task<string?> ResolveVersionTokenAsync(string sourcePath)
+	{
+		Guard.IsNotNullOrWhiteSpace(sourcePath);
+
+		if (!Options.EnableUrlFingerprinting)
+			return null;
+
+		DynamicImageMiddlewareOptions dynamicImageMiddlewareOptions = ServiceProvider.GetService<DynamicImageMiddlewareOptions>()
+			?? throw new InvalidOperationException($"Dynamic image URL fingerprinting requires a registered {nameof(DynamicImageMiddlewareOptions)} instance.");
+		string lookupSourcePath = GetLookupSourcePath(sourcePath);
+		DynamicImageMiddlewareMapping mapping = dynamicImageMiddlewareOptions.GetMapping(lookupSourcePath)
+			?? throw new InvalidOperationException($"A dynamic image middleware mapping could not be found for the source path '{lookupSourcePath}'.");
+		IUmbrellaFileInfo? sourceFile = await mapping.FileProviderMapping.FileProvider.GetAsync(lookupSourcePath);
+
+		if (sourceFile?.LastModified is not DateTimeOffset lastModified)
+			throw new InvalidOperationException($"A version token could not be resolved for the source path '{lookupSourcePath}'.");
+
+		long versionHash = lastModified.UtcDateTime.ToFileTimeUtc() ^ sourceFile.Length;
+
+		return Convert.ToString(versionHash, 16);
+	}
+
+	private static string GetLookupSourcePath(string sourcePath)
+	{
+		Guard.IsNotNullOrWhiteSpace(sourcePath);
+
+		int queryStringIndex = sourcePath.IndexOf('?', StringComparison.Ordinal);
+
+		return queryStringIndex >= 0 ? sourcePath[..queryStringIndex] : sourcePath;
 	}
 }

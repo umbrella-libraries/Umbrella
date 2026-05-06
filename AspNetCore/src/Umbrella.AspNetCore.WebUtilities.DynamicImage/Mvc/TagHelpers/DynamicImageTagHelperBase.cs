@@ -5,8 +5,10 @@ using Microsoft.Extensions.Logging;
 using Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.Options;
 using Umbrella.AspNetCore.WebUtilities.Razor.TagHelpers;
 using Umbrella.DynamicImage.Abstractions;
+using Umbrella.FileSystem.Abstractions;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Imaging.Abstractions;
+using Umbrella.WebUtilities.DynamicImage.Middleware.Options;
 using Umbrella.WebUtilities.Exceptions;
 using Umbrella.WebUtilities.Hosting;
 
@@ -42,6 +44,11 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	/// Gets the dynamic image tag helper options.
 	/// </summary>
 	protected DynamicImageTagHelperOptions DynamicImageTagHelperOptions { get; }
+
+	/// <summary>
+	/// Gets the dynamic image middleware options.
+	/// </summary>
+	protected DynamicImageMiddlewareOptions DynamicImageMiddlewareOptions { get; }
 
 	/// <summary>
 	/// Gets the name of the output tag. This is abstract and always overridden.
@@ -114,11 +121,13 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 		ICacheKeyUtility cacheKeyUtility,
 		IResponsiveImageHelper responsiveImageHelper,
 		IDynamicImageUtility dynamicImageUtility,
-		DynamicImageTagHelperOptions dynamicImageTagHelperOptions)
+		DynamicImageTagHelperOptions dynamicImageTagHelperOptions,
+		DynamicImageMiddlewareOptions dynamicImageMiddlewareOptions)
 		: base(logger, umbrellaHostingEnvironment, cache, cacheKeyUtility, responsiveImageHelper)
 	{
 		DynamicImageUtility = dynamicImageUtility;
 		DynamicImageTagHelperOptions = dynamicImageTagHelperOptions;
+		DynamicImageMiddlewareOptions = dynamicImageMiddlewareOptions;
 	}
 
 	/// <summary>
@@ -128,7 +137,7 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	/// <param name="output">A stateful HTML element used to generate an HTML tag.</param>
 	public override async Task ProcessAsync(TagHelperContext context, TagHelperOutput output)
 	{
-		_ = BuildCoreTag(output);
+		_ = await BuildCoreTagAsync(output).ConfigureAwait(false);
 
 		await base.ProcessAsync(context, output).ConfigureAwait(false);
 	}
@@ -138,7 +147,7 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	/// </summary>
 	/// <param name="output">A stateful HTML element used to generate an HTML tag.</param>
 	/// <returns>The <c>src</c> attribute of the tag.</returns>
-	protected string BuildCoreTag(TagHelperOutput output)
+	protected async Task<(string sourcePath, string? versionToken)> BuildCoreTagAsync(TagHelperOutput output)
 	{
 		Guard.IsNotNull(output);
 
@@ -155,8 +164,8 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 			throw new UmbrellaWebException("src cannot be null or empty.");
 
 		string strippedUrl = StripUrlPrefix(src);
-
-		var options = new DynamicImageOptions(strippedUrl, WidthRequest, HeightRequest, ResizeMode, ImageFormat, FilterQuality, QualityRequest, FocalPointX, FocalPointY);
+		string? versionToken = await ResolveVersionTokenAsync(strippedUrl).ConfigureAwait(false);
+		DynamicImageOptions options = CreateDynamicImageOptions(strippedUrl, WidthRequest, HeightRequest, versionToken);
 
 		string x1Url = GenerateVirtualPath(options);
 
@@ -165,7 +174,7 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 
 		output.TagName = OutputTagName;
 
-		return src;
+		return (strippedUrl, versionToken);
 	}
 
 	/// <inheritdoc/>
@@ -192,6 +201,53 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	}
 
 	/// <summary>
+	/// Creates the dynamic image options for the current tag helper configuration.
+	/// </summary>
+	/// <param name="sourcePath">The source path.</param>
+	/// <param name="width">The width.</param>
+	/// <param name="height">The height.</param>
+	/// <param name="versionToken">The version token.</param>
+	/// <returns>The dynamic image options.</returns>
+	protected DynamicImageOptions CreateDynamicImageOptions(string sourcePath, int width, int height, string? versionToken)
+		=> new(
+			sourcePath,
+			width,
+			height,
+			ResizeMode,
+			ImageFormat,
+			FilterQuality,
+			QualityRequest,
+			FocalPointX,
+			FocalPointY,
+			versionToken,
+			DynamicImageTagHelperOptions.EnableUrlFingerprinting ? DynamicImageUrlPathShape.Versioned : DynamicImageUrlPathShape.Unversioned);
+
+	/// <summary>
+	/// Resolves the version token for the specified source path.
+	/// </summary>
+	/// <param name="sourcePath">The source path.</param>
+	/// <returns>The version token.</returns>
+	protected virtual async Task<string?> ResolveVersionTokenAsync(string sourcePath)
+	{
+		Guard.IsNotNullOrWhiteSpace(sourcePath);
+
+		if (!DynamicImageTagHelperOptions.EnableUrlFingerprinting)
+			return null;
+
+		string lookupSourcePath = GetLookupSourcePath(sourcePath);
+		DynamicImageMiddlewareMapping mapping = DynamicImageMiddlewareOptions.GetMapping(lookupSourcePath)
+			?? throw new InvalidOperationException($"A dynamic image middleware mapping could not be found for the source path '{lookupSourcePath}'.");
+		IUmbrellaFileInfo? sourceFile = await mapping.FileProviderMapping.FileProvider.GetAsync(lookupSourcePath).ConfigureAwait(false);
+
+		if (sourceFile?.LastModified is not DateTimeOffset lastModified)
+			throw new InvalidOperationException($"A version token could not be resolved for the source path '{lookupSourcePath}'.");
+
+		long versionHash = lastModified.UtcDateTime.ToFileTimeUtc() ^ sourceFile.Length;
+
+		return Convert.ToString(versionHash, 16);
+	}
+
+	/// <summary>
 	/// Removes the configured prefix from the specified URL if it is present.
 	/// </summary>
 	/// <remarks>The prefix to remove is specified by the <see cref="DynamicImageTagHelperOptions.StripPrefix"/> property. The comparison is
@@ -204,5 +260,14 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 		Guard.IsNotNullOrEmpty(url);
 
 		return !string.IsNullOrEmpty(DynamicImageTagHelperOptions.StripPrefix) && url.StartsWith(DynamicImageTagHelperOptions.StripPrefix, StringComparison.OrdinalIgnoreCase) ? url[DynamicImageTagHelperOptions.StripPrefix.Length..] : url;
+	}
+
+	private static string GetLookupSourcePath(string sourcePath)
+	{
+		Guard.IsNotNullOrWhiteSpace(sourcePath);
+
+		int queryStringIndex = sourcePath.IndexOf('?', StringComparison.Ordinal);
+
+		return queryStringIndex >= 0 ? sourcePath[..queryStringIndex] : sourcePath;
 	}
 }

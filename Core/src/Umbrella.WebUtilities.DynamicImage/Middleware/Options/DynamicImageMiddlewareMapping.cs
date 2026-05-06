@@ -32,6 +32,13 @@ public class DynamicImageMiddlewareMapping : IValidatableUmbrellaOptions, ISanit
 	public MiddlewareHttpCacheability Cacheability { get; set; } = MiddlewareHttpCacheability.NoCache;
 
 	/// <summary>
+	/// Gets or sets the optional max-age value, in seconds, for the Cache-Control header when
+	/// <see cref="Cacheability"/> is <see cref="MiddlewareHttpCacheability.Private"/> or
+	/// <see cref="MiddlewareHttpCacheability.Public"/>.
+	/// </summary>
+	public int? MaxAgeSeconds { get; set; }
+
+	/// <summary>
 	/// Gets or sets the file provider mapping.
 	/// </summary>
 	public UmbrellaFileStorageProviderMapping FileProviderMapping { get; set; } = null!;
@@ -45,12 +52,15 @@ public class DynamicImageMiddlewareMapping : IValidatableUmbrellaOptions, ISanit
 		Guard.IsNotNull(FileProviderMapping);
 		FileProviderMapping.Validate();
 
-		switch (Cacheability)
+		if (Cacheability is not MiddlewareHttpCacheability.Private
+			and not MiddlewareHttpCacheability.Public
+			&& MaxAgeSeconds.HasValue)
 		{
-			case MiddlewareHttpCacheability.Private:
-			case MiddlewareHttpCacheability.Public:
-				throw new ArgumentException("Public and Private values are not permitted.", nameof(Cacheability));
+			throw new ArgumentException($"{nameof(MaxAgeSeconds)} can only be set when {nameof(Cacheability)} is {nameof(MiddlewareHttpCacheability.Private)} or {nameof(MiddlewareHttpCacheability.Public)}.", nameof(MaxAgeSeconds));
 		}
+
+		if (MaxAgeSeconds < 0)
+			throw new ArgumentException($"{nameof(MaxAgeSeconds)} cannot be less than zero.", nameof(MaxAgeSeconds));
 
 		if (EnableValidation)
 		{

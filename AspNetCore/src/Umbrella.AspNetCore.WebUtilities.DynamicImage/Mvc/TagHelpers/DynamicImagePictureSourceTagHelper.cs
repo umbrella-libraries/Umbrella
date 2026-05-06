@@ -6,6 +6,7 @@ using Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.Options;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Imaging.Abstractions;
+using Umbrella.WebUtilities.DynamicImage.Middleware.Options;
 using Umbrella.WebUtilities.Hosting;
 
 namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
@@ -40,8 +41,9 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 		ICacheKeyUtility cacheKeyUtility,
 		IResponsiveImageHelper responsiveImageHelper,
 		IDynamicImageUtility dynamicImageUtility,
-		DynamicImageTagHelperOptions dynamicImageTagHelperOptions)
-		: base(logger, umbrellaHostingEnvironment, cache, cacheKeyUtility, responsiveImageHelper, dynamicImageUtility, dynamicImageTagHelperOptions)
+		DynamicImageTagHelperOptions dynamicImageTagHelperOptions,
+		DynamicImageMiddlewareOptions dynamicImageMiddlewareOptions)
+		: base(logger, umbrellaHostingEnvironment, cache, cacheKeyUtility, responsiveImageHelper, dynamicImageUtility, dynamicImageTagHelperOptions, dynamicImageMiddlewareOptions)
 	{
 	}
 

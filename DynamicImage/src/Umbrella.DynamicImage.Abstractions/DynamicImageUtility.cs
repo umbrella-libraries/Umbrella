@@ -15,6 +15,7 @@ namespace Umbrella.DynamicImage.Abstractions;
 public class DynamicImageUtility : IDynamicImageUtility
 {
 	private const string VirtualPathFormat = "~/{0}/{1}/{2}/{3}/{4}/{5}";
+	private const string VersionedVirtualPathFormat = "~/{0}/{1}/{2}/{3}/{4}/{5}/{6}";
 
 	private static readonly (DynamicImageParseUrlResult, DynamicImageOptions) _invalidParseUrlResult = (DynamicImageParseUrlResult.Invalid, default);
 	private static readonly (DynamicImageParseUrlResult, DynamicImageOptions) _skipParseUrlResult = (DynamicImageParseUrlResult.Skip, default);
@@ -100,21 +101,41 @@ public class DynamicImageUtility : IDynamicImageUtility
 			string[] prefixSegments = pathPrefix.Split(_segmentSeparatorArray, StringSplitOptions.RemoveEmptyEntries);
 			string[] allSegments = url.Split(_segmentSeparatorArray, StringSplitOptions.RemoveEmptyEntries);
 
-			if (allSegments.Length - prefixSegments.Length < 5)
+			int relativeSegmentCount = allSegments.Length - prefixSegments.Length;
+
+			if (relativeSegmentCount < 5)
 				return _invalidParseUrlResult;
 
 			//Ignore the prefix segments
-			_ = int.TryParse(allSegments[prefixSegments.Length], out int width);
-			_ = int.TryParse(allSegments[prefixSegments.Length + 1], out int height);
+			int relativeSegmentIndex = prefixSegments.Length;
+			_ = int.TryParse(allSegments[relativeSegmentIndex], out int width);
+			_ = int.TryParse(allSegments[relativeSegmentIndex + 1], out int height);
 
 			if (width <= 0 || height <= 0)
 				return _invalidParseUrlResult;
 
-			DynamicResizeMode mode = allSegments[prefixSegments.Length + 2].ToEnum<DynamicResizeMode>();
-			string originalExtension = allSegments[prefixSegments.Length + 3];
+			DynamicResizeMode mode = allSegments[relativeSegmentIndex + 2].ToEnum<DynamicResizeMode>();
+			string originalExtension = allSegments[relativeSegmentIndex + 3];
+
+			int pathStartIndex = relativeSegmentIndex + 4;
+			string? versionToken = null;
+			DynamicImageUrlPathShape urlPathShape = DynamicImageUrlPathShape.Unversioned;
+
+			if (relativeSegmentCount > 5 && allSegments[pathStartIndex].StartsWith(DynamicImageConstants.VersionTokenPathSegmentPrefix, StringComparison.Ordinal))
+			{
+				if (!TryParseVersionToken(allSegments[pathStartIndex], out versionToken))
+					return _invalidParseUrlResult;
+
+				urlPathShape = DynamicImageUrlPathShape.Versioned;
+				pathStartIndex++;
+			}
 
 			//The extension of this path is the target format the image will be resized as.
-			string path = "/" + string.Join("/", allSegments.Skip(prefixSegments.Length + 4));
+			string path = "/" + string.Join("/", allSegments.Skip(pathStartIndex));
+
+			if (!Path.HasExtension(path))
+				return _invalidParseUrlResult;
+
 			string targetExtension = Path.GetExtension(path);
 
 			string sourcePath = Path.ChangeExtension(path, "." + originalExtension);
@@ -144,7 +165,16 @@ public class DynamicImageUtility : IDynamicImageUtility
 				}
 			}
 
-			var imageOptions = new DynamicImageOptions(sourcePath, width, height, mode, overrideFormat ?? ParseImageFormat(targetExtension), focalPointX: focalPointX, focalPointY: focalPointY);
+			var imageOptions = new DynamicImageOptions(
+				sourcePath,
+				width,
+				height,
+				mode,
+				overrideFormat ?? ParseImageFormat(targetExtension),
+				focalPointX: focalPointX,
+				focalPointY: focalPointY,
+				versionToken: versionToken,
+				urlPathShape: urlPathShape);
 
 			return (DynamicImageParseUrlResult.Success, imageOptions);
 		}
@@ -201,19 +231,36 @@ public class DynamicImageUtility : IDynamicImageUtility
 			}
 
 			string originalExtension = Path.GetExtension(path).ToLowerInvariant().Remove(0, 1);
+			string targetPath = Path.ChangeExtension(path, options.Format.ToFileExtensionString()).ToLowerInvariant();
 
-			string virtualPath = string.Format(CultureInfo.InvariantCulture,
-				VirtualPathFormat,
-				dynamicImagePathPrefix,
-				options.Width,
-				options.Height,
-				options.ResizeMode,
-				originalExtension,
-#if NET6_0_OR_GREATER
-				path.Replace(originalExtension, options.Format.ToFileExtensionString(), StringComparison.Ordinal).ToLowerInvariant());
-#else
-				path.Replace(originalExtension, options.Format.ToFileExtensionString()).ToLowerInvariant());
-#endif
+			string virtualPath;
+
+			if (options.UrlPathShape is DynamicImageUrlPathShape.Versioned)
+			{
+				if (string.IsNullOrWhiteSpace(options.VersionToken))
+					throw new InvalidOperationException("A version token must be specified when generating a versioned dynamic image path.");
+
+				virtualPath = string.Format(CultureInfo.InvariantCulture,
+					VersionedVirtualPathFormat,
+					dynamicImagePathPrefix,
+					options.Width,
+					options.Height,
+					options.ResizeMode,
+					originalExtension,
+					GenerateVersionTokenPathSegment(options.VersionToken!),
+					targetPath);
+			}
+			else
+			{
+				virtualPath = string.Format(CultureInfo.InvariantCulture,
+					VirtualPathFormat,
+					dynamicImagePathPrefix,
+					options.Width,
+					options.Height,
+					options.ResizeMode,
+					originalExtension,
+					targetPath);
+			}
 
 			if (!string.IsNullOrEmpty(qs))
 				virtualPath += "?" + qs;
@@ -277,5 +324,27 @@ public class DynamicImageUtility : IDynamicImageUtility
 		}
 
 		return (fpx, fpy);
+	}
+
+	private static string GenerateVersionTokenPathSegment(string versionToken)
+	{
+		Guard.IsNotNullOrWhiteSpace(versionToken);
+
+		return DynamicImageConstants.VersionTokenPathSegmentPrefix + versionToken.Trim().ToLowerInvariant();
+	}
+
+	private static bool TryParseVersionToken(string pathSegment, out string? versionToken)
+	{
+		versionToken = null;
+
+		if (!pathSegment.StartsWith(DynamicImageConstants.VersionTokenPathSegmentPrefix, StringComparison.Ordinal))
+			return false;
+
+		if (pathSegment.Length <= DynamicImageConstants.VersionTokenPathSegmentPrefix.Length)
+			return false;
+
+		versionToken = pathSegment[DynamicImageConstants.VersionTokenPathSegmentPrefix.Length..];
+
+		return !string.IsNullOrWhiteSpace(versionToken);
 	}
 }

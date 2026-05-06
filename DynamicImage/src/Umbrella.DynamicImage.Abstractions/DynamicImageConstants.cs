@@ -11,4 +11,9 @@ public static class DynamicImageConstants
 	/// Middleware that parses request URLs and with TagHelpers and HtmlHelpers that create image URLs.
 	/// </summary>
 	public const string DefaultPathPrefix = "dynamicimage";
+
+	/// <summary>
+	/// The reserved path-segment prefix used for versioned Dynamic Image URLs.
+	/// </summary>
+	public const string VersionTokenPathSegmentPrefix = "_v_";
 }

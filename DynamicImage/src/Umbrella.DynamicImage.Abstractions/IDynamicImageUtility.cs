@@ -13,7 +13,8 @@ public interface IDynamicImageUtility
 	DynamicImageFormat ParseImageFormat(string format);
 
 	/// <summary>
-	/// Tries to the parse the relative URL into <see cref="DynamicImageOptions"/>.
+	/// Tries to parse the relative URL into <see cref="DynamicImageOptions"/>.
+	/// Supports both unversioned and versioned Dynamic Image URL shapes.
 	/// </summary>
 	/// <param name="dynamicImagePathPrefix">The dynamic image path prefix, e.g. /dynamic-image</param>
 	/// <param name="relativeUrl">The relative URL.</param>
@@ -35,6 +36,7 @@ public interface IDynamicImageUtility
 
 	/// <summary>
 	/// Generates an application relative virtual path for the specified <paramref name="dynamicImagePathPrefix"/> and <paramref name="options"/>.
+	/// The emitted shape is controlled by <see cref="DynamicImageOptions.UrlPathShape"/>.
 	/// </summary>
 	/// <param name="dynamicImagePathPrefix">The dynamic image path prefix.</param>
 	/// <param name="options">The options.</param>

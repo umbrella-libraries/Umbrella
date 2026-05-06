@@ -93,7 +93,8 @@ public class DynamicImageMiddleware : IDisposable
 				};
 			}
 
-			var (status, imageOptions) = _dynamicImageUtility.TryParseUrl(_options.DynamicImagePathPrefix, path, overrideFormat);
+			string relativeUrl = path + context.Request.QueryString;
+			var (status, requestedImageOptions) = _dynamicImageUtility.TryParseUrl(_options.DynamicImagePathPrefix, relativeUrl);
 
 			if (status is DynamicImageParseUrlResult.Skip)
 			{
@@ -107,6 +108,9 @@ public class DynamicImageMiddleware : IDisposable
 				return;
 			}
 
+			DynamicImageOptions imageOptions = overrideFormat.HasValue
+				? CreateDynamicImageOptions(requestedImageOptions, overrideFormat.Value)
+				: requestedImageOptions;
 			DynamicImageMiddlewareMapping mapping = _options.GetMapping(imageOptions.SourcePath);
 
 			if (mapping is null || (mapping.EnableValidation && !_dynamicImageUtility.ImageOptionsValid(imageOptions, mapping.ValidMappings)))
@@ -123,38 +127,82 @@ public class DynamicImageMiddleware : IDisposable
 				return;
 			}
 
-			// Check the cache headers
-			if (sourceFile.LastModified.HasValue && context.Request.IfModifiedSinceHeaderMatched(sourceFile.LastModified.Value))
-			{
-				context.Response.SendStatusCode(HttpStatusCode.NotModified);
-				return;
-			}
-
-			string? eTagValue = sourceFile.LastModified.HasValue
-				? _headerValueUtility.CreateETagHeaderValue(sourceFile.LastModified.Value, sourceFile.Length)
+			bool hasValidators = sourceFile.LastModified.HasValue;
+			bool supportsConditionalRequests = hasValidators
+				&& mapping.Cacheability is MiddlewareHttpCacheability.NoCache
+					or MiddlewareHttpCacheability.Private
+					or MiddlewareHttpCacheability.Public;
+			string? lastModifiedHeaderValue = hasValidators
+				? _headerValueUtility.CreateLastModifiedHeaderValue(sourceFile.LastModified!.Value)
 				: null;
+			string? eTagValue = hasValidators
+				? _headerValueUtility.CreateETagHeaderValue(sourceFile.LastModified!.Value, sourceFile.Length)
+				: null;
+			string? currentVersionToken = eTagValue?.Trim('"');
 
-			if (eTagValue is not null && context.Request.IfNoneMatchHeaderMatched(eTagValue))
+			if (TryRedirectToCanonicalUrl(context, requestedImageOptions, currentVersionToken))
 			{
-				context.Response.SendStatusCode(HttpStatusCode.NotModified);
 				return;
 			}
 
-			async Task ApplyCacheHeadersAndFlushAsync(DynamicImageItem image)
+			void ApplyResponseHeaders()
 			{
-				context.Response.ContentType = _mimeTypeUtility.GetMimeType(image.ImageOptions.Format.ToFileExtensionString());
-				context.Response.ContentLength = image.Length;
+				context.Response.Headers.XContentTypeOptions = "nosniff";
 
-				if (mapping.Cacheability is MiddlewareHttpCacheability.NoCache && image.LastModified.HasValue)
+				if (mapping.Cacheability is MiddlewareHttpCacheability.NoCache && hasValidators)
 				{
-					context.Response.Headers.LastModified = _headerValueUtility.CreateLastModifiedHeaderValue(image.LastModified.Value);
+					context.Response.Headers.LastModified = lastModifiedHeaderValue;
 					context.Response.Headers.ETag = eTagValue;
 					context.Response.Headers.CacheControl = "no-cache";
+				}
+				else if (mapping.Cacheability is MiddlewareHttpCacheability.Private or MiddlewareHttpCacheability.Public)
+				{
+					if (hasValidators)
+					{
+						context.Response.Headers.LastModified = lastModifiedHeaderValue;
+						context.Response.Headers.ETag = eTagValue;
+					}
+
+					if (mapping.MaxAgeSeconds.HasValue)
+						context.Response.Headers.Expires = DateTimeOffset.UtcNow.AddSeconds(mapping.MaxAgeSeconds.Value).ToString("R");
+
+					string cacheControl = mapping.Cacheability.ToCacheControlString();
+
+					if (mapping.MaxAgeSeconds.HasValue)
+						cacheControl += ", max-age=" + mapping.MaxAgeSeconds.Value;
+
+					cacheControl += ", must-revalidate";
+					context.Response.Headers.CacheControl = cacheControl;
 				}
 				else
 				{
 					context.Response.Headers.CacheControl = "no-store";
 				}
+			}
+
+			// Check the cache headers
+			if (supportsConditionalRequests)
+			{
+				if (context.Request.IfNoneMatchHeaderMatched(eTagValue!))
+				{
+					ApplyResponseHeaders();
+					context.Response.SendStatusCode(HttpStatusCode.NotModified);
+					return;
+				}
+
+				if (context.Request.IfModifiedSinceHeaderMatched(sourceFile.LastModified!.Value))
+				{
+					ApplyResponseHeaders();
+					context.Response.SendStatusCode(HttpStatusCode.NotModified);
+					return;
+				}
+			}
+
+			async Task ApplyCacheHeadersAndFlushAsync(DynamicImageItem image)
+			{
+				ApplyResponseHeaders();
+				context.Response.ContentType = _mimeTypeUtility.GetMimeType(image.ImageOptions.Format.ToFileExtensionString());
+				context.Response.ContentLength = image.Length;
 
 				await image.WriteContentToStreamAsync(context.Response.Body, context.RequestAborted);
 
@@ -218,6 +266,63 @@ public class DynamicImageMiddleware : IDisposable
 		{
 			throw new UmbrellaWebException("An error has occurred whilst executing the request.", exc);
 		}
+	}
+
+	private static DynamicImageOptions CreateDynamicImageOptions(in DynamicImageOptions options, DynamicImageFormat format)
+		=> new(
+			options.SourcePath,
+			options.Width,
+			options.Height,
+			options.ResizeMode,
+			format,
+			options.FilterQuality,
+			options.QualityRequest,
+			options.FocalPointX,
+			options.FocalPointY,
+			options.VersionToken,
+			options.UrlPathShape);
+
+	private static DynamicImageOptions CreateCanonicalImageOptions(in DynamicImageOptions options, bool enableUrlFingerprinting, string? versionToken)
+		=> new(
+			options.SourcePath,
+			options.Width,
+			options.Height,
+			options.ResizeMode,
+			options.Format,
+			options.FilterQuality,
+			options.QualityRequest,
+			options.FocalPointX,
+			options.FocalPointY,
+			enableUrlFingerprinting ? versionToken : null,
+			enableUrlFingerprinting ? DynamicImageUrlPathShape.Versioned : DynamicImageUrlPathShape.Unversioned);
+
+	private bool TryRedirectToCanonicalUrl(HttpContext context, in DynamicImageOptions requestedImageOptions, string? versionToken)
+	{
+		Guard.IsNotNull(context);
+
+		if (_options.EnableUrlFingerprinting)
+		{
+			if (string.Equals(requestedImageOptions.VersionToken, versionToken, StringComparison.OrdinalIgnoreCase)
+				&& requestedImageOptions.UrlPathShape is DynamicImageUrlPathShape.Versioned)
+			{
+				return false;
+			}
+		}
+		else if (requestedImageOptions.UrlPathShape is DynamicImageUrlPathShape.Unversioned)
+		{
+			return false;
+		}
+
+		DynamicImageOptions canonicalImageOptions = CreateCanonicalImageOptions(requestedImageOptions, _options.EnableUrlFingerprinting, versionToken);
+		string location = _dynamicImageUtility.GenerateVirtualPath(_options.DynamicImagePathPrefix, canonicalImageOptions).TrimStart('~');
+
+		if (context.Request.PathBase.HasValue)
+			location = context.Request.PathBase + location;
+
+		context.Response.Headers.Location = location;
+		context.Response.StatusCode = (int)_options.CanonicalRedirectStatusCode;
+
+		return true;
 	}
 
 	/// <summary>

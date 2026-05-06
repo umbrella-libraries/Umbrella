@@ -22,6 +22,12 @@ public class DynamicImageTagHelperOptions : ISanitizableUmbrellaOptions, IValida
 	/// </summary>
 	public string StripPrefix { get; set; } = "/" + UmbrellaFileSystemConstants.DefaultWebFilesDirectoryName;
 
+	/// <summary>
+	/// Gets or sets a value indicating whether generated dynamic image URLs should include a fingerprint/version token.
+	/// Defaults to <see langword="true" />.
+	/// </summary>
+	public bool EnableUrlFingerprinting { get; set; } = true;
+
 	/// <inheritdoc />
 	public void Sanitize()
 	{
