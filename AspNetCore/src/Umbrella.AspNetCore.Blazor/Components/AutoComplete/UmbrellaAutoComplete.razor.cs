@@ -11,8 +11,8 @@ public partial class UmbrellaAutoComplete : IDisposable
 {
 	private readonly string _id = Guid.NewGuid().ToString("N").ToLowerInvariant();
 	private readonly CancellationTokenSource _cancellationTokenSource = new();
+	private CancellationTokenSource? _debounceCts;
 	private bool _disposedValue;
-	private bool _valueHasChanged;
 	private readonly HashSet<string> _options = [];
 
 	/// <summary>
@@ -73,42 +73,45 @@ public partial class UmbrellaAutoComplete : IDisposable
 		Guard.IsLessThan(1, MaximumSuggestions);
 	}
 
-	/// <inheritdoc/>
-	protected override async Task OnInitializedAsync()
-	{
-		using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(Debounce));
-
-		do
-		{
-			if (_valueHasChanged)
-			{
-				if (Value is not null && Value.Length >= MinimumLength)
-				{
-					IEnumerable<string> lstResult = await SearchMethod!.Invoke(Value);
-
-					_options.Clear();
-					_options.AddRange(lstResult.OrderBy(x => x).Take(MaximumSuggestions));
-
-					StateHasChanged();
-				}
-			}
-
-			_valueHasChanged = false;
-		}
-		while (await timer.WaitForNextTickAsync(_cancellationTokenSource.Token));
-	}
-
 	private void OnInput(ChangeEventArgs args)
 	{
-		_valueHasChanged = true;
 		_options.Clear();
-
 		Value = args.Value?.ToString();
+		_ = DebounceSearchAsync();
+	}
+
+	private async Task DebounceSearchAsync()
+	{
+		await (_debounceCts?.CancelAsync() ?? Task.CompletedTask);
+		_debounceCts?.Dispose();
+		_debounceCts = CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenSource.Token);
+		var token = _debounceCts.Token;
+
+		try
+		{
+			await Task.Delay(Debounce, token);
+
+			if (Value is not null && Value.Length >= MinimumLength)
+			{
+				IEnumerable<string> lstResult = await SearchMethod!.Invoke(Value);
+
+				if (!token.IsCancellationRequested)
+				{
+					_options.Clear();
+					_options.AddRange(lstResult.OrderBy(x => x).Take(MaximumSuggestions));
+					await InvokeAsync(StateHasChanged);
+				}
+			}
+		}
+		catch (OperationCanceledException)
+		{
+			// Debounce cancelled by new input or component disposal — no action needed.
+		}
 	}
 
 	private async Task OnChangeAsync(ChangeEventArgs args)
 	{
-		_valueHasChanged = false;
+		await (_debounceCts?.CancelAsync() ?? Task.CompletedTask);
 
 		await ValueChanged.InvokeAsync(Value);
 	}
@@ -123,6 +126,8 @@ public partial class UmbrellaAutoComplete : IDisposable
 		{
 			if (disposing)
 			{
+				_debounceCts?.Cancel();
+				_debounceCts?.Dispose();
 				_cancellationTokenSource.Cancel();
 				_cancellationTokenSource.Dispose();
 			}

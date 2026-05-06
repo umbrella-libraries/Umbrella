@@ -32,6 +32,29 @@ public static class IServiceCollectionExtensions
 	/// <param name="umbrellaDynamicImageOptionsBuilder">Optional action used to configure the <see cref="UmbrellaDynamicImageOptions"/>.</param>
 	/// <param name="umbrellaBreadcrumbOptionsBuilder">Optional action used to configure the <see cref="UmbrellaBreadcrumbOptions"/>.</param>
 	/// <returns>The services builder.</returns>
+	/// <remarks>
+	/// <para>
+	/// The following services require an <b>interactive render mode</b> (Interactive Server or WebAssembly).
+	/// They will gracefully no-op during static rendering / prerendering but become fully functional once
+	/// the interactive circuit or WASM runtime is active:
+	/// <list type="bullet">
+	///   <item><description><see cref="IAppLocalStorageService"/> (<see cref="BlazorLocalStorageService"/>)</description></item>
+	///   <item><description><see cref="IAppSessionStorageService"/> (<see cref="BlazorSessionStorageService"/>)</description></item>
+	///   <item><description><see cref="IUmbrellaBlazorInteropService"/> (<see cref="UmbrellaBlazorInteropService"/>)</description></item>
+	///   <item><description><see cref="IBrowserEventAggregator"/> (<see cref="BrowserEventAggregator"/>)</description></item>
+	/// </list>
+	/// </para>
+	/// <para>
+	/// <see cref="IUriNavigatorService"/> (<see cref="UriNavigatorService"/>) supports same-window navigation in all render modes.
+	/// Opening a URI in a new window (<c>openInNewWindow = true</c>) requires interactive rendering.
+	/// </para>
+	/// <para>
+	/// <see cref="IHttpContextService"/> is registered as a no-op (<see cref="NoopHttpContextService"/>) because
+	/// there is no HTTP context available in Blazor WebAssembly or in the interactive Blazor Server circuit.
+	/// Applications that need the HTTP context during static rendering should resolve it directly from
+	/// <c>IHttpContextAccessor</c> in a non-Blazor layer.
+	/// </para>
+	/// </remarks>
 	public static IServiceCollection AddUmbrellaBlazor(
 		this IServiceCollection services,
 		Action<IServiceProvider, UmbrellaGridOptions>? umbrellaGridOptionsBuilder = null,

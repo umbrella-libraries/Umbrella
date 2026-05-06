@@ -74,8 +74,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	private readonly CancellationTokenSource _cts = new();
 #pragma warning restore CA2213 // Disposable fields should be disposed
 	private bool _autoScrollEnabled;
-   private bool _browserFeaturesEnabled;
-   private bool _browserEventSubscriptionInitialized;
+	private bool _interactiveFeaturesEnabled;
+	private bool _browserEventSubscriptionInitialized;
 	private string? _initialSortPropertyName;
 	private Expression<Func<TItem, object>>? _initialSortPropertyExpression;
 	private bool _disposedValue;
@@ -556,16 +556,18 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	/// <inheritdoc />
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
-        if (firstRender)
+		if (firstRender)
 		{
-          _browserFeaturesEnabled = true;
+			_interactiveFeaturesEnabled = true;
 
 			if (IsSearchOptionStateEnabled && !_browserEventSubscriptionInitialized)
 			{
 				await BrowserEventAggregator.Value.SubscribeAsync("popstate", async () => await InvokeAsync(async () => await ApplyQueryStringSortersAndFiltersAsync(false)), _cts.Token);
 				_browserEventSubscriptionInitialized = true;
 
-				if (await TryRestoreSearchStateFromSessionStorageAsync())
+				// In table mode, the deferred callback has already completed the initial scan before the component becomes interactive.
+				// CollectionView mode relies on this method for the initial scan, so we must not exit early before that work has run.
+				if (await TryRestoreSearchStateFromSessionStorageAsync() && ColumnScanComplete)
 					return;
 			}
 		}
@@ -577,7 +579,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 		}
 		else
 		{
-			await SetColumnScanCompletedAsync();
+			if (!ColumnScanComplete)
+				await SetColumnScanCompletedAsync();
 		}
 	}
 
@@ -751,7 +754,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 				return target;
 			}
 
-          if (IsSearchOptionStateEnabled && _browserFeaturesEnabled && queryStringStateUpdateMode is QueryStringStateUpdateMode.Reset or QueryStringStateUpdateMode.Update)
+			if (IsSearchOptionStateEnabled && _interactiveFeaturesEnabled && queryStringStateUpdateMode is QueryStringStateUpdateMode.Reset or QueryStringStateUpdateMode.Update)
 			{
 				string url = Navigation.Uri;
 
@@ -857,7 +860,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 			SelectedRow = default!;
 			CheckboxSelectColumnSelected = false;
 
-          if (AutoScrollTop && _autoScrollEnabled && _browserFeaturesEnabled)
+			if (AutoScrollTop && _autoScrollEnabled && _interactiveFeaturesEnabled)
 				await BlazorInteropUtility.ScrollToAsync(".u-grid", ScrollTopOffset);
 
 			// Only enable auto-scrolling after the initial page load.
@@ -912,7 +915,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 				Logger.WriteDebug(new { sortByResult, sortDirectionResult, filtersResult, pageNumberResult, pageSizeResult }, "Reading QueryString");
 
 			// If we have nothing on the querystring, try and restore the state from Session Storage
-          if (_browserFeaturesEnabled
+			if (_interactiveFeaturesEnabled
 				&& tryRestoreFromSessionStorage
 				&& !sortByResult.success
 				&& !sortDirectionResult.success
@@ -1056,7 +1059,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 
 	private async ValueTask<bool> TryRestoreSearchStateFromSessionStorageAsync()
 	{
-		if (!_browserFeaturesEnabled || HasSearchStateQueryStringParameters() || string.IsNullOrEmpty(_sessionStorageSearchStateKey))
+		if (!_interactiveFeaturesEnabled || HasSearchStateQueryStringParameters() || string.IsNullOrEmpty(_sessionStorageSearchStateKey))
 			return false;
 
 		string url = await SessionStorageService.GetItemAsStringAsync(_sessionStorageSearchStateKey, _cts.Token);

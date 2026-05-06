@@ -56,20 +56,14 @@ public partial class UmbrellaResponsiveImage : ComponentBase
 	protected string? SrcSetValue { get; set; }
 
 	/// <inheritdoc />
-	protected override void OnParametersSet() => Guard.IsNotNullOrWhiteSpace(Url, nameof(Url));
-
-	/// <inheritdoc />
-	protected override void OnInitialized() => InitializeImage();
+	protected override void OnParametersSet()
+	{
+		Guard.IsNotNullOrWhiteSpace(Url, nameof(Url));
+		InitializeImage();
+	}
 
 	/// <summary>
 	/// Initializes the image.
 	/// </summary>
 	protected virtual void InitializeImage() => SrcSetValue = ResponsiveImageHelper.GetPixelDensitySrcSetValue(Url, MaxPixelDensity);
-
-	/// <inheritdoc />
-	protected override void OnAfterRender(bool firstRender)
-	{
-		if (!firstRender)
-			InitializeImage();
-	}
 }

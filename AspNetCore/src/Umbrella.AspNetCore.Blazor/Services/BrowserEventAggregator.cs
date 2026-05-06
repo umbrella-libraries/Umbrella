@@ -9,6 +9,8 @@ namespace Umbrella.AspNetCore.Blazor.Services;
 /// </summary>
 /// <remarks>
 /// This type is registered as a transient service and when disposed it will remove all subscriptions.
+/// It requires an interactive render mode (Interactive Server or WebAssembly). Subscriptions silently
+/// no-op during static rendering / prerendering and can safely be retried once interactive rendering activates.
 /// </remarks>
 /// <seealso cref="IAsyncDisposable" />
 /// <seealso cref="IBrowserEventAggregator" />
@@ -39,20 +41,30 @@ internal sealed class BrowserEventAggregator : IAsyncDisposable, IBrowserEventAg
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
+		// Guard duplicate subscriptions before the try block so the prerender catch below
+		// does not accidentally swallow this programming error.
+		if (_callbackDictionary.ContainsKey(eventName))
+			throw new InvalidOperationException("An event subscription with the same name has already been added.");
+
 		try
 		{
 			if (_logger.IsEnabled(LogLevel.Debug))
 				_logger.LogDebug("Subscribing event \"{EventName}\" with id: {Id}", eventName, _id);
 
-			if (_callbackDictionary.TryGetValue(eventName, out Func<ValueTask>? result))
-				throw new InvalidOperationException("An event subscription with the same name has already been added.");
-
 			_callbackDictionary.Add(eventName, callback);
 
 			await _jsruntime.InvokeVoidAsync("UmbrellaBlazorInterop.browserEventAggregator.addEventListener", cancellationToken, _id, eventName, _dotNetObjectReference);
 		}
+		catch (InvalidOperationException)
+		{
+			// JS interop is unavailable during static rendering / prerendering; remove the callback so the dictionary
+			// stays consistent and the subscription can be retried once interactive rendering activates.
+			_callbackDictionary.Remove(eventName);
+			_logger.WriteDebug(message: "Browser event subscription skipped: JavaScript interop is not available during prerendering.");
+		}
 		catch (Exception exc) when (_logger.WriteError(exc, new { eventName }))
 		{
+			_callbackDictionary.Remove(eventName);
 			throw new UmbrellaBlazorException("There has been a problem subscribing to the event.", exc);
 		}
 	}
@@ -88,6 +100,13 @@ internal sealed class BrowserEventAggregator : IAsyncDisposable, IBrowserEventAg
 				await _jsruntime.InvokeVoidAsync("UmbrellaBlazorInterop.browserEventAggregator.removeEventListener", _id, eventName, _dotNetObjectReference);
 			}
 
+			_dotNetObjectReference.Dispose();
+		}
+		catch (InvalidOperationException)
+		{
+			// JS interop is unavailable (e.g. the circuit was torn down before disposal, or this ran during prerendering).
+			// No JS listeners were ever registered so there is nothing to remove on the browser side.
+			_logger.WriteDebug(message: "Browser event listener cleanup skipped: JavaScript interop is not available.");
 			_dotNetObjectReference.Dispose();
 		}
 		catch (Exception exc) when (_logger.WriteError(exc))

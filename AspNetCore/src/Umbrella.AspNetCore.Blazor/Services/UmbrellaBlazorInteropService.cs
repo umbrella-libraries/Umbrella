@@ -8,6 +8,11 @@ namespace Umbrella.AspNetCore.Blazor.Services;
 /// A service containing core interop functionality between Blazor and JavaScript for features not yet supported
 /// natively by Blazor.
 /// </summary>
+/// <remarks>
+/// All methods require an interactive render mode (Interactive Server or WebAssembly).
+/// Scroll and click methods are best-effort and swallow errors so they are safe to call without guarding.
+/// <see cref="OpenUrlAsync"/> and event subscription methods will throw if invoked during static rendering / prerendering.
+/// </remarks>
 /// <seealso cref="IUmbrellaBlazorInteropService"/>
 public class UmbrellaBlazorInteropService : IUmbrellaBlazorInteropService
 {
@@ -118,9 +123,39 @@ public class UmbrellaBlazorInteropService : IUmbrellaBlazorInteropService
 	[JSInvokable]
 	public async ValueTask OnWindowScrolledTopAsync() => await Task.WhenAll(_windowScrolledTopEventHandlerList.Select(x => x.Invoke()));
 
-	private async Task InitializeWindowScrolledTopAsync() => await _jsRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.initializeWindowScrolledTopAsync", _interopReference, 10);
+	private async Task InitializeWindowScrolledTopAsync()
+	{
+		try
+		{
+			await _jsRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.initializeWindowScrolledTopAsync", _interopReference, 10);
+		}
+		catch (InvalidOperationException)
+		{
+			// JS interop is unavailable during static rendering / prerendering; the subscription will be re-attempted when interactive rendering activates.
+			_logger.WriteDebug(message: "Window scroll-top listener not registered: JavaScript interop is not available during prerendering.");
+		}
+		catch (Exception exc) when (_logger.WriteError(exc))
+		{
+			// Swallow – this is a background initialization triggered from an event accessor.
+		}
+	}
 
-	private async Task DestroyWindowScrolledTopAsync() => await _jsRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.destroyWindowScrolledTopAsync");
+	private async Task DestroyWindowScrolledTopAsync()
+	{
+		try
+		{
+			await _jsRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.destroyWindowScrolledTopAsync");
+		}
+		catch (InvalidOperationException)
+		{
+			// JS interop is unavailable during static rendering / prerendering; nothing to clean up.
+			_logger.WriteDebug(message: "Window scroll-top listener not removed: JavaScript interop is not available during prerendering.");
+		}
+		catch (Exception exc) when (_logger.WriteError(exc))
+		{
+			// Swallow – this is background cleanup triggered from an event accessor.
+		}
+	}
 
 	/// <inheritdoc />
 	public async ValueTask OpenUrlAsync(string url, string target, CancellationToken cancellationToken = default)
