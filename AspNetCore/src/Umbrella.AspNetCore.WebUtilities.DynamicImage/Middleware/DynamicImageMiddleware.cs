@@ -1,4 +1,5 @@
-﻿using CommunityToolkit.Diagnostics;
+using System.Threading.RateLimiting;
+using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Umbrella.AspNetCore.WebUtilities.Extensions;
@@ -25,7 +26,7 @@ public class DynamicImageMiddleware : IDisposable
 	private readonly IHttpHeaderValueUtility _headerValueUtility;
 	private readonly IMimeTypeUtility _mimeTypeUtility;
 	private readonly DynamicImageMiddlewareOptions _options;
-	private readonly SemaphoreSlim? _requestConcurrencySemaphore;
+	private readonly ConcurrencyLimiter? _requestConcurrencyLimiter;
 	private bool _disposedValue;
 
 	/// <summary>
@@ -58,7 +59,14 @@ public class DynamicImageMiddleware : IDisposable
 		_options = options;
 
 		if (_options.MaxConcurrentResizingRequests > 0)
-			_requestConcurrencySemaphore = new SemaphoreSlim(_options.MaxConcurrentResizingRequests, _options.MaxConcurrentResizingRequests);
+		{
+			_requestConcurrencyLimiter = new(new ConcurrencyLimiterOptions
+			{
+				PermitLimit = _options.MaxConcurrentResizingRequests,
+				QueueLimit = int.MaxValue,
+				QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+			});
+		}
 	}
 
 	/// <summary>
@@ -221,17 +229,18 @@ public class DynamicImageMiddleware : IDisposable
 				return;
 			}
 
-			if (_requestConcurrencySemaphore is not null)
-				await _requestConcurrencySemaphore.WaitAsync(context.RequestAborted);
-
 			// No image in cache, need to create
-			try
+			using (RateLimitLease? lease = _requestConcurrencyLimiter is null
+				? null
+				: await _requestConcurrencyLimiter.AcquireAsync(1, context.RequestAborted))
 			{
+				if (lease is not null && !lease.IsAcquired)
+				{
+					context.Response.SendStatusCode(HttpStatusCode.ServiceUnavailable);
+					return;
+				}
+
 				image = await _dynamicImageResizer.GenerateImageAsync(mapping.FileProviderMapping.FileProvider, imageOptions, context.RequestAborted);
-			}
-			finally
-			{
-				_ = _requestConcurrencySemaphore?.Release();
 			}
 
 			if (image is { Length: > 0 })
@@ -339,7 +348,7 @@ public class DynamicImageMiddleware : IDisposable
 		{
 			if (disposing)
 			{
-				_requestConcurrencySemaphore?.Dispose();
+				_requestConcurrencyLimiter?.Dispose();
 			}
 
 			_disposedValue = true;
