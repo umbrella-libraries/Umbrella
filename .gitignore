@@ -16,3 +16,4 @@ coverage.json
 node_modules
 **/wwwroot/dist/**
 **/Umbrella.AspNetCore.Blazor/**/*.css
+/.claude/settings.local.json
