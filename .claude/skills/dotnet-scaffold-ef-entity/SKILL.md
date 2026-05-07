@@ -1,5 +1,5 @@
 ---
-name: dotnet-scaffold-entity
+name: dotnet-scaffold-ef-entity
 description: 'Scaffold a new EF Core entity: entity class in Core.Domain, configuration method in DbContext. Follows Umbrella patterns and is front-end agnostic.'
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: dotnet-scaffold-repository
+name: dotnet-scaffold-ef-repository
 description: 'Scaffold a repository interface, implementation, IncludeMap, and DI registration for an existing EF Core entity, following Umbrella GenericDbRepository patterns.'
 ---
 

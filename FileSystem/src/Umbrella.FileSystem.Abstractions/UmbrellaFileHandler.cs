@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Security.Cryptography;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -400,11 +400,11 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 #if NET8_0_OR_GREATER
 		await hashStream.FlushFinalBlockAsync(cancellationToken).ConfigureAwait(false);
 
-		return Convert.ToHexStringLower(hasher.Hash!);
+		return Convert.ToHexString(hasher.Hash!).ToLowerInvariant();
 #else
 		hashStream.FlushFinalBlock();
 
-		return BitConverter.ToString(hasher.Hash!).Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
+		return BitConverter.ToString(hasher.Hash!).Replace("-", string.Empty).ToLowerInvariant();
 #endif
 	}
 }

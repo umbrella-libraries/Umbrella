@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -50,7 +50,8 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		description: "DynamicImage URL assignments in Umbrella model construction and mapping flows must also assign the matching VersionToken property when middleware URL fingerprinting is explicitly enabled.");
 
 	/// <summary>
-	/// Diagnostic rule that requires UmbrellaDynamicImage and DynamicImage tag helper usages to assign the VersionToken input.
+	/// Diagnostic rule that requires UmbrellaDynamicImage and DynamicImage tag helper usages to assign the VersionToken
+	/// input.
 	/// </summary>
 	public static readonly DiagnosticDescriptor MissingVersionTokenUsageRule = new(
 		id: "UA017",
@@ -322,7 +323,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 			if (string.Equals(propertyName, "VersionToken", StringComparison.Ordinal))
 			{
-				versionTokenAssignments.Add(receiverText);
+				_ = versionTokenAssignments.Add(receiverText);
 				continue;
 			}
 
@@ -487,7 +488,6 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		[NotNullWhen(true)] out IPropertySymbol? propertySymbol,
 		out string versionTokenPropertyName)
 	{
-		propertySymbol = null;
 		versionTokenPropertyName = string.Empty;
 
 		ExpressionSyntax unwrappedExpression = UnwrapExpression(expression, semanticModel, cancellationToken);
@@ -693,7 +693,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 		public void AddDiagnostic(Diagnostic diagnostic) => _diagnostics.Add(diagnostic);
 
-		public void MarkExplicitlyEnabled() => _ = System.Threading.Interlocked.Exchange(ref _isExplicitlyEnabled, 1);
+		public void MarkExplicitlyEnabled() => _ = Interlocked.Exchange(ref _isExplicitlyEnabled, 1);
 	}
 
 	private static bool IsDynamicImageRegistrationMethod(IMethodSymbol methodSymbol)
