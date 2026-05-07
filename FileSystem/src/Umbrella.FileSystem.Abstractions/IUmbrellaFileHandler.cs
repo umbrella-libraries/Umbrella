@@ -1,5 +1,4 @@
-﻿
-using System.Security.Claims;
+﻿using System.Security.Claims;
 
 namespace Umbrella.FileSystem.Abstractions;
 
@@ -86,6 +85,16 @@ public interface IUmbrellaFileHandler<TGroupId> : IUmbrellaFileAuthorizationHand
 	Task<string?> GetUrlByGroupIdAndProviderFileNameAsync(TGroupId groupId, string providerFileName, CancellationToken cancellationToken = default);
 
 	/// <summary>
+	/// Gets the URL and version token for the file with the specified <paramref name="providerFileName"/> contained within
+	/// the sub-folder specified by <paramref name="groupId"/> inside the top-level folder associated with this handler.
+	/// </summary>
+	/// <param name="groupId">The group identifier.</param>
+	/// <param name="providerFileName">Name of the provider file.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The URL and version token for the file if it exists; otherwise <see langword="null"/>.</returns>
+	Task<UmbrellaVersionedUrl?> GetVersionedWebFilePathAsync(TGroupId groupId, string providerFileName, CancellationToken cancellationToken = default);
+
+	/// <summary>
 	/// Gets the name of the directory based on the current directory including the optional <paramref name="groupId"/>.
 	/// </summary>
 	/// <param name="groupId">The optional group identifier.</param>
@@ -155,4 +164,20 @@ public interface IUmbrellaFileHandler<TGroupId> : IUmbrellaFileAuthorizationHand
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The file, if it exists; otherwise <see langword="null"/>.</returns>
 	Task<IUmbrellaFileInfo?> GetAsync(TGroupId groupId, string fileName, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Gets a version token for the file at the specified <paramref name="subpath"/>.
+	/// </summary>
+	/// <param name="subpath">The subpath relative to the storage provider root.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The version token if the file exists; otherwise <see langword="null"/>.</returns>
+	Task<string?> GetVersionTokenAsync(string subpath, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Gets a version token for the specified <paramref name="fileInfo"/>.
+	/// </summary>
+	/// <param name="fileInfo">The file information.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The version token if the file exists; otherwise <see langword="null"/>.</returns>
+	Task<string?> GetVersionTokenAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken = default);
 }

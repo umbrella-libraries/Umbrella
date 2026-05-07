@@ -40,9 +40,9 @@ public class DynamicImageMiddlewareOptions : IValidatableUmbrellaOptions, ISanit
 
 	/// <summary>
 	/// Gets or sets the status code used when redirecting requests to their canonical dynamic image URL.
-	/// Supported values are 301, 302, 307 and 308. Defaults to <see cref="System.Net.HttpStatusCode.MovedPermanently" />.
+	/// Supported values are 301, 302, 307 and 308. Defaults to <see cref="HttpStatusCode.MovedPermanently" />.
 	/// </summary>
-	public System.Net.HttpStatusCode CanonicalRedirectStatusCode { get; set; } = System.Net.HttpStatusCode.MovedPermanently;
+	public HttpStatusCode CanonicalRedirectStatusCode { get; set; } = HttpStatusCode.MovedPermanently;
 
 	/// <summary>
 	/// Gets or sets the maximum concurrent resizing requests that can be processed at any one time. Defaults to 0 which means unlimited.

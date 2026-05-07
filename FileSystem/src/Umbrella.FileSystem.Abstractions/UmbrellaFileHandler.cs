@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Caching.Abstractions;
@@ -113,6 +114,25 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 		catch (Exception exc) when (Logger.WriteError(exc, new { groupId, providerFileName }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem getting specified file.", exc);
+		}
+	}
+
+	/// <inheritdoc />
+	public async Task<UmbrellaVersionedUrl?> GetVersionedWebFilePathAsync(TGroupId groupId, string providerFileName, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		Guard.IsNotNullOrWhiteSpace(providerFileName);
+
+		try
+		{
+			string filePath = GetFilePath(providerFileName, groupId);
+			IUmbrellaFileInfo? fileInfo = await FileProvider.GetAsync(filePath, cancellationToken).ConfigureAwait(false);
+
+			return fileInfo is null ? null : await CreateVersionedUrlAsync(fileInfo, groupId, cancellationToken).ConfigureAwait(false);
+		}
+		catch (Exception exc) when (Logger.WriteError(exc, new { groupId, providerFileName }))
+		{
+			throw new UmbrellaFileSystemException("There has been a problem getting the URL and version token for the specified file.", exc);
 		}
 	}
 
@@ -255,6 +275,61 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 		}
 	}
 
+	/// <inheritdoc />
+	public async Task<string?> GetVersionTokenAsync(string subpath, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		Guard.IsNotNullOrWhiteSpace(subpath);
+
+		try
+		{
+			IUmbrellaFileInfo? fileInfo = await FileProvider.GetAsync(subpath, cancellationToken).ConfigureAwait(false);
+
+			return fileInfo is null ? null : await GetVersionTokenAsync(fileInfo, cancellationToken).ConfigureAwait(false);
+		}
+		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		{
+			throw new UmbrellaFileSystemException("There has been a problem getting the version token for the specified file.", exc);
+		}
+	}
+
+	/// <inheritdoc />
+	public virtual async Task<string?> GetVersionTokenAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		Guard.IsNotNull(fileInfo);
+
+		try
+		{
+			if (fileInfo.IsNew)
+				return null;
+
+			if (fileInfo.LastModified.HasValue)
+				return CreateMetadataVersionToken(fileInfo.LastModified.Value, fileInfo.Length);
+
+			bool exists = await fileInfo.ExistsAsync(cancellationToken).ConfigureAwait(false);
+
+			if (!exists)
+				return null;
+
+			return await CreateContentHashVersionTokenAsync(fileInfo, cancellationToken).ConfigureAwait(false);
+		}
+		catch (Exception exc) when (Logger.WriteError(exc, new { fileInfo.SubPath }))
+		{
+			throw new UmbrellaFileSystemException("There has been a problem getting the version token for the specified file.", exc);
+		}
+	}
+
+	private async Task<UmbrellaVersionedUrl> CreateVersionedUrlAsync(IUmbrellaFileInfo fileInfo, TGroupId groupId, CancellationToken cancellationToken)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		string url = GetWebFilePath(fileInfo.Name, groupId);
+		string? versionToken = await GetVersionTokenAsync(fileInfo, cancellationToken).ConfigureAwait(false);
+
+		return new UmbrellaVersionedUrl(url, versionToken);
+	}
+
 	/// <summary>
 	/// Called after the file has been saved. This method is called after the file write operation has been completed when the following methods are called:
 	/// <list type="bullet">
@@ -305,6 +380,33 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 
 	/// <inheritdoc/>
 	public string GetWebFilePath(string fileName, TGroupId groupId) => $"/{Options.WebFilesDirectoryName}{GetFilePath(fileName, groupId)}".ToLowerInvariant();
+
+	private static string CreateMetadataVersionToken(DateTimeOffset lastModified, long contentLength)
+	{
+		long versionHash = lastModified.UtcDateTime.ToFileTimeUtc() ^ contentLength;
+
+		return Convert.ToString(versionHash, 16);
+	}
+
+	private static async Task<string> CreateContentHashVersionTokenAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		using var hasher = SHA256.Create();
+		using Stream sourceStream = await fileInfo.ReadAsStreamAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+		using var hashStream = new CryptoStream(Stream.Null, hasher, CryptoStreamMode.Write);
+
+		await sourceStream.CopyToAsync(hashStream, 81920, cancellationToken).ConfigureAwait(false);
+#if NET8_0_OR_GREATER
+		await hashStream.FlushFinalBlockAsync(cancellationToken).ConfigureAwait(false);
+
+		return Convert.ToHexStringLower(hasher.Hash!);
+#else
+		hashStream.FlushFinalBlock();
+
+		return BitConverter.ToString(hasher.Hash!).Replace("-", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
+#endif
+	}
 }
 
 /// <summary>

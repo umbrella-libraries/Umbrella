@@ -119,14 +119,12 @@ public class DynamicImageUtility : IDynamicImageUtility
 
 			int pathStartIndex = relativeSegmentIndex + 4;
 			string? versionToken = null;
-			DynamicImageUrlPathShape urlPathShape = DynamicImageUrlPathShape.Unversioned;
 
 			if (relativeSegmentCount > 5 && allSegments[pathStartIndex].StartsWith(DynamicImageConstants.VersionTokenPathSegmentPrefix, StringComparison.Ordinal))
 			{
 				if (!TryParseVersionToken(allSegments[pathStartIndex], out versionToken))
 					return _invalidParseUrlResult;
 
-				urlPathShape = DynamicImageUrlPathShape.Versioned;
 				pathStartIndex++;
 			}
 
@@ -173,8 +171,7 @@ public class DynamicImageUtility : IDynamicImageUtility
 				overrideFormat ?? ParseImageFormat(targetExtension),
 				focalPointX: focalPointX,
 				focalPointY: focalPointY,
-				versionToken: versionToken,
-				urlPathShape: urlPathShape);
+				versionToken: versionToken);
 
 			return (DynamicImageParseUrlResult.Success, imageOptions);
 		}
@@ -235,11 +232,8 @@ public class DynamicImageUtility : IDynamicImageUtility
 
 			string virtualPath;
 
-			if (options.UrlPathShape is DynamicImageUrlPathShape.Versioned)
+			if (!string.IsNullOrWhiteSpace(options.VersionToken))
 			{
-				if (string.IsNullOrWhiteSpace(options.VersionToken))
-					throw new InvalidOperationException("A version token must be specified when generating a versioned dynamic image path.");
-
 				virtualPath = string.Format(CultureInfo.InvariantCulture,
 					VersionedVirtualPathFormat,
 					dynamicImagePathPrefix,

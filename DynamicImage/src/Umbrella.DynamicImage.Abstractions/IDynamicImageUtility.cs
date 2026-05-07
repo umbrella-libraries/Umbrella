@@ -36,7 +36,7 @@ public interface IDynamicImageUtility
 
 	/// <summary>
 	/// Generates an application relative virtual path for the specified <paramref name="dynamicImagePathPrefix"/> and <paramref name="options"/>.
-	/// The emitted shape is controlled by <see cref="DynamicImageOptions.UrlPathShape"/>.
+	/// The emitted shape is versioned only when <see cref="DynamicImageOptions.VersionToken"/> is populated.
 	/// </summary>
 	/// <param name="dynamicImagePathPrefix">The dynamic image path prefix.</param>
 	/// <param name="options">The options.</param>

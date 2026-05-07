@@ -92,7 +92,7 @@ public abstract class DynamicImageCache
 	{
 		string rawKey = string.Format(CultureInfo.InvariantCulture, "{0}-W-{1}-H-{2}-M-{3}-F-{4}-FPX-{5}-FPY-{6}-P", options.Width, options.Height, options.ResizeMode, options.Format, options.SourcePath, options.FocalPointX?.ToString("G4", CultureInfo.InvariantCulture) ?? "null", options.FocalPointY?.ToString("G4", CultureInfo.InvariantCulture) ?? "null");
 
-		if (options.UrlPathShape is DynamicImageUrlPathShape.Versioned && !string.IsNullOrWhiteSpace(options.VersionToken))
+		if (!string.IsNullOrWhiteSpace(options.VersionToken))
 			rawKey += string.Format(CultureInfo.InvariantCulture, "-V-{0}", options.VersionToken);
 
 		return rawKey;

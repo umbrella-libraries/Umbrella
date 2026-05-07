@@ -45,11 +45,6 @@ public readonly record struct DynamicImageOptions
 	public string? VersionToken { get; }
 
 	/// <summary>
-	/// Gets the Dynamic Image URL path shape.
-	/// </summary>
-	public DynamicImageUrlPathShape UrlPathShape { get; }
-
-	/// <summary>
 	/// Get the quality request.
 	/// </summary>
 	/// <remarks>
@@ -80,7 +75,6 @@ public readonly record struct DynamicImageOptions
 	/// <param name="focalPointX"></param>
 	/// <param name="focalPointY"></param>
 	/// <param name="versionToken">The optional version token used by versioned Dynamic Image URLs.</param>
-	/// <param name="urlPathShape">The Dynamic Image URL path shape.</param>
 	public DynamicImageOptions(
 		string path,
 		int width,
@@ -91,8 +85,7 @@ public readonly record struct DynamicImageOptions
 		int qualityRequest = 100,
 		double? focalPointX = null,
 		double? focalPointY = null,
-		string? versionToken = null,
-		DynamicImageUrlPathShape urlPathShape = DynamicImageUrlPathShape.Unversioned)
+		string? versionToken = null)
 	{
 		Guard.IsBetweenOrEqualTo(qualityRequest, 1, 100);
 
@@ -112,7 +105,6 @@ public readonly record struct DynamicImageOptions
 		Format = format;
 		FilterQuality = filterQuality;
 		VersionToken = string.IsNullOrWhiteSpace(versionToken) ? null : versionToken!.Trim().ToLowerInvariant();
-		UrlPathShape = urlPathShape;
 		QualityRequest = qualityRequest;
 		FocalPointX = focalPointX;
 		FocalPointY = focalPointY;

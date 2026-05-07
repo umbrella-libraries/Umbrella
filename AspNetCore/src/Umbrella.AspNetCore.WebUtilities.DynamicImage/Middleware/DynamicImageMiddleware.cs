@@ -279,11 +279,13 @@ public class DynamicImageMiddleware : IDisposable
 			options.QualityRequest,
 			options.FocalPointX,
 			options.FocalPointY,
-			options.VersionToken,
-			options.UrlPathShape);
+			options.VersionToken);
 
 	private static DynamicImageOptions CreateCanonicalImageOptions(in DynamicImageOptions options, bool enableUrlFingerprinting, string? versionToken)
-		=> new(
+	{
+		bool useVersionedPath = enableUrlFingerprinting && !string.IsNullOrWhiteSpace(versionToken);
+
+		return new(
 			options.SourcePath,
 			options.Width,
 			options.Height,
@@ -293,22 +295,23 @@ public class DynamicImageMiddleware : IDisposable
 			options.QualityRequest,
 			options.FocalPointX,
 			options.FocalPointY,
-			enableUrlFingerprinting ? versionToken : null,
-			enableUrlFingerprinting ? DynamicImageUrlPathShape.Versioned : DynamicImageUrlPathShape.Unversioned);
+			useVersionedPath ? versionToken : null);
+	}
 
 	private bool TryRedirectToCanonicalUrl(HttpContext context, in DynamicImageOptions requestedImageOptions, string? versionToken)
 	{
 		Guard.IsNotNull(context);
 
-		if (_options.EnableUrlFingerprinting)
+		bool canGenerateVersionedCanonicalUrl = _options.EnableUrlFingerprinting && !string.IsNullOrWhiteSpace(versionToken);
+
+		if (canGenerateVersionedCanonicalUrl)
 		{
-			if (string.Equals(requestedImageOptions.VersionToken, versionToken, StringComparison.OrdinalIgnoreCase)
-				&& requestedImageOptions.UrlPathShape is DynamicImageUrlPathShape.Versioned)
+			if (string.Equals(requestedImageOptions.VersionToken, versionToken, StringComparison.OrdinalIgnoreCase))
 			{
 				return false;
 			}
 		}
-		else if (requestedImageOptions.UrlPathShape is DynamicImageUrlPathShape.Unversioned)
+		else if (string.IsNullOrWhiteSpace(requestedImageOptions.VersionToken))
 		{
 			return false;
 		}

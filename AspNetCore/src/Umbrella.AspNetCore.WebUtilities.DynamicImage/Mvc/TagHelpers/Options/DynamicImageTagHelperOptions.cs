@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Diagnostics;
+using CommunityToolkit.Diagnostics;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.Utilities.Options.Abstractions;
@@ -21,12 +21,6 @@ public class DynamicImageTagHelperOptions : ISanitizableUmbrellaOptions, IValida
 	/// Gets or sets the prefix to strip from the path before serving the image. Defaults to <see cref="UmbrellaFileSystemConstants.DefaultWebFilesDirectoryName"/>.
 	/// </summary>
 	public string StripPrefix { get; set; } = "/" + UmbrellaFileSystemConstants.DefaultWebFilesDirectoryName;
-
-	/// <summary>
-	/// Gets or sets a value indicating whether generated dynamic image URLs should include a fingerprint/version token.
-	/// Defaults to <see langword="true" />.
-	/// </summary>
-	public bool EnableUrlFingerprinting { get; set; } = true;
 
 	/// <inheritdoc />
 	public void Sanitize()

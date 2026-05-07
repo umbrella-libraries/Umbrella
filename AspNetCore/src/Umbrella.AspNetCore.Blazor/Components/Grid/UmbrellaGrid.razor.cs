@@ -568,7 +568,10 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 				// In table mode, the deferred callback has already completed the initial scan before the component becomes interactive.
 				// CollectionView mode relies on this method for the initial scan, so we must not exit early before that work has run.
 				if (await TryRestoreSearchStateFromSessionStorageAsync() && ColumnScanComplete)
+				{
+					await ApplyQueryStringSortersAndFiltersAsync(false);
 					return;
+				}
 			}
 		}
 

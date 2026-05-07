@@ -53,13 +53,12 @@
 		<None Include="Content\**" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\..\..\Core\src\Umbrella.AppFramework\Umbrella.AppFramework.csproj" />
-		<ProjectReference Include="..\..\..\Core\src\Umbrella.DataAnnotations\Umbrella.DataAnnotations.csproj" />
-		<ProjectReference Include="..\..\..\Core\src\Umbrella.WebUtilities.DynamicImage\Umbrella.WebUtilities.DynamicImage.csproj" />
-		<ProjectReference Include="..\..\..\DynamicImage\src\Umbrella.DynamicImage.Abstractions\Umbrella.DynamicImage.Abstractions.csproj" />
-		<ProjectReference Include="..\Umbrella.AspNetCore.Shared\Umbrella.AspNetCore.Shared.csproj" />
-	</ItemGroup>
+ 	<ItemGroup>
+ 		<ProjectReference Include="..\..\..\Core\src\Umbrella.AppFramework\Umbrella.AppFramework.csproj" />
+ 		<ProjectReference Include="..\..\..\Core\src\Umbrella.DataAnnotations\Umbrella.DataAnnotations.csproj" />
+ 		<ProjectReference Include="..\..\..\DynamicImage\src\Umbrella.DynamicImage.Abstractions\Umbrella.DynamicImage.Abstractions.csproj" />
+ 		<ProjectReference Include="..\Umbrella.AspNetCore.Shared\Umbrella.AspNetCore.Shared.csproj" />
+ 	</ItemGroup>
 
 	<ItemGroup>
 		<Folder Include="wwwroot\" />
