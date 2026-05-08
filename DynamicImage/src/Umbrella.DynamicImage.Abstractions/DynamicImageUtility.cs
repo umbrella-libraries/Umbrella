@@ -293,7 +293,7 @@ public class DynamicImageUtility : IDynamicImageUtility
 		{
 			int ampIdx = remaining.IndexOf('&');
 			ReadOnlySpan<char> pair = ampIdx >= 0 ? remaining[..ampIdx] : remaining;
-			remaining = ampIdx >= 0 ? remaining[(ampIdx + 1)..] : ReadOnlySpan<char>.Empty;
+			remaining = ampIdx >= 0 ? remaining[(ampIdx + 1)..] : [];
 
 			int eqIdx = pair.IndexOf('=');
 			if (eqIdx < 0)
