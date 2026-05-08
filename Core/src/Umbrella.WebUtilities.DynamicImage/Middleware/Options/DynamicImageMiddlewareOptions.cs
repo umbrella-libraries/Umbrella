@@ -39,6 +39,18 @@ public class DynamicImageMiddlewareOptions : IValidatableUmbrellaOptions, ISanit
 	public bool EnableUrlFingerprinting { get; set; } = true;
 
 	/// <summary>
+	/// Gets or sets a value indicating whether validation of the dynamic images being generated is performed.
+	/// This is to ensure that only specific pre-determined variants can be provided as part of incoming URLs
+	/// to prevent overloading the server. Defaults to <see langword="false" />.
+	/// </summary>
+	public bool EnableValidation { get; set; }
+
+	/// <summary>
+	/// Gets or sets the globally allowed dynamic image variants used when <see cref="EnableValidation"/> is enabled.
+	/// </summary>
+	public HashSet<DynamicImageVariant> AllowedVariants { get; set; } = [];
+
+	/// <summary>
 	/// Gets or sets the status code used when redirecting requests to their canonical dynamic image URL.
 	/// Supported values are 301, 302, 307 and 308. Defaults to <see cref="HttpStatusCode.MovedPermanently" />.
 	/// </summary>
@@ -135,6 +147,12 @@ public class DynamicImageMiddlewareOptions : IValidatableUmbrellaOptions, ISanit
 
 		if (MaxPixelCount.HasValue)
 			Guard.IsGreaterThan(MaxPixelCount.Value, 0L, nameof(MaxPixelCount));
+
+		if (EnableValidation)
+		{
+			Guard.IsNotNull(AllowedVariants);
+			Guard.IsGreaterThan(AllowedVariants.Count, 0);
+		}
 
 		switch ((int)CanonicalRedirectStatusCode)
 		{

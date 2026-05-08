@@ -3,11 +3,11 @@
 namespace Umbrella.DynamicImage.Abstractions;
 
 /// <summary>
-/// Used to specify the details of a valid Dynamic Image mapping. One or more of these mapping are used to restrict what Dynamic Images can be generated.
+/// Used to specify the details of an allowed Dynamic Image variant. One or more of these variants are used to restrict what Dynamic Images can be generated.
 /// This is primarily a mechanism to prevent user tampering when parsing image URLs to ensure only image sizes the target application needs are generated.
 /// </summary>
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct DynamicImageMapping
+public readonly record struct DynamicImageVariant
 {
 	#region Public Properties		
 	/// <summary>
@@ -42,7 +42,7 @@ public readonly record struct DynamicImageMapping
 	#endregion
 
 	/// <summary>
-	/// Initializes a new instance of the <see cref="DynamicImageMapping"/> struct.
+	/// Initializes a new instance of the <see cref="DynamicImageVariant"/> struct.
 	/// </summary>
 	/// <param name="width">The width.</param>
 	/// <param name="height">The height.</param>
@@ -50,7 +50,7 @@ public readonly record struct DynamicImageMapping
 	/// <param name="format">The format.</param>
 	/// <param name="focalPointX">The optional normalised X coordinate of the focal point.</param>
 	/// <param name="focalPointY">The optional normalised Y coordinate of the focal point.</param>
-	public DynamicImageMapping(
+	public DynamicImageVariant(
 		int width,
 		int height,
 		DynamicResizeMode resizeMode,

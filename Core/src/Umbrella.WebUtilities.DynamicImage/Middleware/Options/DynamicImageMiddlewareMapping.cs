@@ -1,6 +1,5 @@
 ﻿
 using CommunityToolkit.Diagnostics;
-using Umbrella.DynamicImage.Abstractions;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.Utilities.Options.Abstractions;
 using Umbrella.WebUtilities.Middleware.Options;
@@ -14,18 +13,6 @@ namespace Umbrella.WebUtilities.DynamicImage.Middleware.Options;
 /// <seealso cref="ISanitizableUmbrellaOptions" />
 public class DynamicImageMiddlewareMapping : IValidatableUmbrellaOptions, ISanitizableUmbrellaOptions
 {
-	/// <summary>
-	/// Gets or sets a value indicating whether validation of the dynamic images being generated is performed.
-	/// This is to ensure that only specific pre-determined options can be provided as part of the incoming URLs for the images
-	/// to prevent overloading the server. Defaults to <see langword="false" />.
-	/// </summary>
-	public bool EnableValidation { get; set; }
-
-	/// <summary>
-	/// Gets or sets the valid mappings.
-	/// </summary>
-	public HashSet<DynamicImageMapping> ValidMappings { get; set; } = [];
-
 	/// <summary>
 	/// Gets or sets the cacheability. Defaults to <see cref="MiddlewareHttpCacheability.NoCache" />.
 	/// </summary>
@@ -61,11 +48,5 @@ public class DynamicImageMiddlewareMapping : IValidatableUmbrellaOptions, ISanit
 
 		if (MaxAgeSeconds < 0)
 			throw new ArgumentException($"{nameof(MaxAgeSeconds)} cannot be less than zero.", nameof(MaxAgeSeconds));
-
-		if (EnableValidation)
-		{
-			Guard.IsNotNull(ValidMappings);
-			Guard.IsGreaterThan(ValidMappings.Count, 0);
-		}
 	}
 }

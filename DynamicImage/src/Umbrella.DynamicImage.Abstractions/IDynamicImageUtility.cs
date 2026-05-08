@@ -30,9 +30,9 @@ public interface IDynamicImageUtility
 	/// Checks if the specified <paramref name="imageOptions"/> are valid based on the specified <paramref name="validMappings"/>.
 	/// </summary>
 	/// <param name="imageOptions">The image options.</param>
-	/// <param name="validMappings">The valid mappings.</param>
+	/// <param name="validVariants">The valid variants.</param>
 	/// <returns><see langword="true"/> if the <paramref name="imageOptions"/> are valid; otherwise <see langword="false"/>.</returns>
-	bool ImageOptionsValid(DynamicImageOptions imageOptions, IEnumerable<DynamicImageMapping> validMappings);
+	bool ImageOptionsValid(DynamicImageOptions imageOptions, IEnumerable<DynamicImageVariant> validVariants);
 
 	/// <summary>
 	/// Generates an application relative virtual path for the specified <paramref name="dynamicImagePathPrefix"/> and <paramref name="options"/>.

@@ -128,7 +128,7 @@ public class DynamicImageMiddleware : IDisposable
 
 			DynamicImageMiddlewareMapping mapping = _options.GetMapping(imageOptions.SourcePath);
 
-			if (mapping is null || (mapping.EnableValidation && !_dynamicImageUtility.ImageOptionsValid(imageOptions, mapping.ValidMappings)))
+			if (mapping is null || (_options.EnableValidation && !_dynamicImageUtility.ImageOptionsValid(imageOptions, _options.AllowedVariants)))
 			{
 				context.Response.SendStatusCode(HttpStatusCode.NotFound);
 				return;

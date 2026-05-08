@@ -41,6 +41,25 @@ public class DynamicImageMiddlewareTest
 		fileProvider.Verify(x => x.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
 	}
 
+	[Fact]
+	public async Task InvokeAsync_ReturnsNotFound_WhenGlobalVariantValidationFails()
+	{
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
+		options.EnableValidation = true;
+		options.AllowedVariants =
+		[
+			new DynamicImageVariant(90, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
+		];
+		DynamicImageMiddleware middleware = CreateMiddleware(options);
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg");
+
+		await middleware.InvokeAsync(context);
+
+		Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+		fileProvider.Verify(x => x.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+	}
+
 	private static DynamicImageMiddleware CreateMiddleware(DynamicImageMiddlewareOptions options)
 	{
 		RequestDelegate next = _ => Task.CompletedTask;

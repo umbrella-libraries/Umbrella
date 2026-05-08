@@ -111,11 +111,11 @@ public readonly record struct DynamicImageOptions
 	}
 
 	/// <summary>
-	/// Performs an explicit conversion from <see cref="DynamicImageOptions"/> to <see cref="DynamicImageMapping"/>.
+	/// Performs an explicit conversion from <see cref="DynamicImageOptions"/> to <see cref="DynamicImageVariant"/>.
 	/// </summary>
 	/// <param name="options">The options.</param>
-	/// <returns>The <see cref="DynamicImageMapping"/> instance.</returns>
-	public static explicit operator DynamicImageMapping(in DynamicImageOptions options)
+	/// <returns>The <see cref="DynamicImageVariant"/> instance.</returns>
+	public static explicit operator DynamicImageVariant(in DynamicImageOptions options)
 		=> new(options.Width, options.Height, options.ResizeMode, options.Format, options.FocalPointX, options.FocalPointY);
 
 	/// <summary>
@@ -128,9 +128,9 @@ public readonly record struct DynamicImageOptions
 	public static bool IsEmpty(in DynamicImageOptions options) => options == default;
 
 	/// <summary>
-	/// Converts the specified options to a <see cref="DynamicImageMapping"/> instance.
+	/// Converts the specified options to a <see cref="DynamicImageVariant"/> instance.
 	/// </summary>
 	/// <param name="options">The options.</param>
-	/// <returns>The <see cref="DynamicImageMapping"/> instance.</returns>
-	public static DynamicImageMapping ToDynamicImageMapping(in DynamicImageOptions options) => (DynamicImageMapping)options;
+	/// <returns>The <see cref="DynamicImageVariant"/> instance.</returns>
+	public static DynamicImageVariant ToDynamicImageVariant(in DynamicImageOptions options) => (DynamicImageVariant)options;
 }

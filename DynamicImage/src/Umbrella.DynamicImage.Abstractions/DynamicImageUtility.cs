@@ -182,15 +182,15 @@ public class DynamicImageUtility : IDynamicImageUtility
 	}
 
 	/// <inheritdoc />
-	public virtual bool ImageOptionsValid(DynamicImageOptions imageOptions, IEnumerable<DynamicImageMapping> validMappings)
+	public virtual bool ImageOptionsValid(DynamicImageOptions imageOptions, IEnumerable<DynamicImageVariant> validVariants)
 	{
 		try
 		{
-			var mapping = (DynamicImageMapping)imageOptions;
+			var variant = (DynamicImageVariant)imageOptions;
 
-			return validMappings.Contains(mapping);
+			return validVariants.Contains(variant);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { imageOptions, validMappings }))
+		catch (Exception exc) when (Logger.WriteError(exc, new { imageOptions, validVariants }))
 		{
 			throw new UmbrellaDynamicImageException("An error has occurred whilst validating the image options.", exc);
 		}
