@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+		<NoWarn>CS1591</NoWarn>
+		<PreserveCompilationContext>true</PreserveCompilationContext>
+		<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+		<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+		<WarningsAsErrors>xUnit1051</WarningsAsErrors>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="coverlet.collector" Version="10.0.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+		<PackageReference Include="xunit.v3" Version="3.2.2" />
+		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\DynamicImage\src\Umbrella.DynamicImage.Abstractions\Umbrella.DynamicImage.Abstractions.csproj" />
+		<ProjectReference Include="..\..\src\Umbrella.Generators.DynamicImage\Umbrella.Generators.DynamicImage.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Xunit" />
+	</ItemGroup>
+
+</Project>
