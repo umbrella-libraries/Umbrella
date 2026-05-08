@@ -312,6 +312,9 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			case "ImageFormat":
 				parameters.ImageFormat = GetStaticEnumValueOrDefault(valueExpr, semanticModel, validImageFormats, DefaultImageFormat, cancellationToken);
 				break;
+			case "ImageMaxPixelDensity":
+				parameters.MaxPixelDensity = GetStaticPositiveIntOrDefault(valueExpr, semanticModel, DefaultMaxPixelDensity, cancellationToken);
+				break;
 			case "SizeWidths" when supportsSizeWidths:
 				parameters.SizeWidths = TryGetStaticString(valueExpr, semanticModel, cancellationToken, out string? sw)
 					? ParseSizeWidths(sw)
@@ -324,9 +327,9 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 	/// Emits variants for a tag-helper usage, mirroring the runtime behaviour of
 	/// <c>DynamicImageTagHelper</c> and <c>DynamicImagePictureSourceTagHelper</c>:
 	/// <list type="bullet">
-	///   <item>Without <c>SizeWidths</c>: one variant at the requested dimensions.</item>
+	///   <item>Without <c>SizeWidths</c>: one variant per pixel density from 1 up to <c>ImageMaxPixelDensity</c>.</item>
 	///   <item>With <c>SizeWidths</c>: base variant plus one variant per (sizeWidth × pixelDensity)
-	///   combination, up to <see cref="DefaultMaxPixelDensity"/>.</item>
+	///   combination, up to <c>ImageMaxPixelDensity</c>.</item>
 	/// </list>
 	/// Skips emission when both <c>WidthRequest</c> and <c>HeightRequest</c> are not statically
 	/// known (i.e. both are 0).
@@ -337,6 +340,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		int heightRequest = parameters.HeightRequest;
 		int resizeMode = parameters.ResizeMode;
 		int imageFormat = parameters.ImageFormat;
+		int maxPixelDensity = parameters.MaxPixelDensity;
 
 		if (widthRequest <= 0 && heightRequest <= 0)
 			return;
@@ -351,7 +355,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 
 			foreach (int sizeWidth in sizeWidths.OrderBy(x => x))
 			{
-				foreach (int density in Enumerable.Range(1, DefaultMaxPixelDensity))
+				foreach (int density in Enumerable.Range(1, maxPixelDensity))
 				{
 					int width = sizeWidth * density;
 					int height = (int)Math.Ceiling(width / aspectRatio);
@@ -361,10 +365,11 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		}
 		else
 		{
-			// No SizeWidths: tag helper generates only a single base image.
 			int w = widthRequest > 0 ? widthRequest : heightRequest;
 			int h = heightRequest > 0 ? heightRequest : widthRequest;
-			_ = variants.Add(new VariantEntry(w, h, resizeMode, imageFormat));
+
+			foreach (int density in Enumerable.Range(1, maxPixelDensity))
+				_ = variants.Add(new VariantEntry(w * density, h * density, resizeMode, imageFormat));
 		}
 	}
 
@@ -648,6 +653,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		public int HeightRequest { get; set; }
 		public int ResizeMode { get; set; } = DefaultResizeMode;
 		public int ImageFormat { get; set; } = DefaultImageFormat;
+		public int MaxPixelDensity { get; set; } = DefaultMaxPixelDensity;
 		public HashSet<int>? SizeWidths { get; set; }
 	}
 

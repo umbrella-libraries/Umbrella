@@ -338,7 +338,7 @@ public static class RenderFragmentFactory
 	// ─── Tag-helper discovery tests ───────────────────────────────────────────
 
 	[Fact]
-	public void TagHelperBasicPropertiesEmitSingleVariant()
+	public void TagHelperBasicPropertiesEmitPixelDensityVariants()
 	{
 		const string source = """
 using Umbrella.DynamicImage.Abstractions;
@@ -364,6 +364,9 @@ public class MyView : RazorPageBase
 		Assert.Equal(
 		[
 			new DynamicImageVariant(200, 100, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP)
+			,
+			new DynamicImageVariant(400, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP),
+			new DynamicImageVariant(600, 300, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP)
 		], variants);
 	}
 
@@ -404,6 +407,35 @@ public class MyView : RazorPageBase
 	}
 
 	[Fact]
+	public void TagHelperCustomPixelDensityLimitsExpansion()
+	{
+		const string source = """
+using Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
+
+public class MyView : RazorPageBase
+{
+	private DynamicImageTagHelper __DynamicImageTagHelper = default!;
+
+	public void Execute()
+	{
+		__DynamicImageTagHelper = CreateTagHelper<DynamicImageTagHelper>();
+		__DynamicImageTagHelper.WidthRequest = 320;
+		__DynamicImageTagHelper.HeightRequest = 240;
+		__DynamicImageTagHelper.ImageMaxPixelDensity = 2;
+	}
+}
+""" + SharedTagHelperInfrastructureSource;
+
+		DynamicImageVariant[] variants = GenerateVariants(source);
+
+		Assert.Equal(
+		[
+			new DynamicImageVariant(320, 240, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
+			new DynamicImageVariant(640, 480, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
+		], variants);
+	}
+
+	[Fact]
 	public void TagHelperDefaultResizeModeAndFormatApplied()
 	{
 		const string source = """
@@ -427,7 +459,9 @@ public class MyView : RazorPageBase
 		// Defaults: ResizeMode=Crop (4), ImageFormat=Jpeg (2)
 		Assert.Equal(
 		[
-			new DynamicImageVariant(320, 240, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
+			new DynamicImageVariant(320, 240, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
+			new DynamicImageVariant(640, 480, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
+			new DynamicImageVariant(960, 720, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
 		], variants);
 	}
 
@@ -457,7 +491,7 @@ public class MyView : RazorPageBase
 	}
 
 	[Fact]
-	public void TagHelperPictureSourceEmitsSingleVariantWithoutSizeWidths()
+	public void TagHelperPictureSourceEmitsPixelDensityVariantsWithoutSizeWidths()
 	{
 		const string source = """
 using Umbrella.DynamicImage.Abstractions;
@@ -481,7 +515,9 @@ public class MyView : RazorPageBase
 
 		Assert.Equal(
 		[
-			new DynamicImageVariant(800, 400, DynamicResizeMode.Crop, DynamicImageFormat.WebP)
+			new DynamicImageVariant(800, 400, DynamicResizeMode.Crop, DynamicImageFormat.WebP),
+			new DynamicImageVariant(1600, 800, DynamicResizeMode.Crop, DynamicImageFormat.WebP),
+			new DynamicImageVariant(2400, 1200, DynamicResizeMode.Crop, DynamicImageFormat.WebP)
 		], variants);
 	}
 
@@ -510,7 +546,9 @@ public class MyView : RazorPageBase
 
 		Assert.Equal(
 		[
-			new DynamicImageVariant(640, 480, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
+			new DynamicImageVariant(640, 480, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
+			new DynamicImageVariant(1280, 960, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
+			new DynamicImageVariant(1920, 1440, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
 		], variants);
 	}
 
@@ -545,7 +583,11 @@ public class MyView : RazorPageBase
 		Assert.Equal(
 		[
 			new DynamicImageVariant(300, 200, DynamicResizeMode.Crop, DynamicImageFormat.Png),
-			new DynamicImageVariant(600, 400, DynamicResizeMode.Crop, DynamicImageFormat.WebP)
+			new DynamicImageVariant(600, 400, DynamicResizeMode.Crop, DynamicImageFormat.Png),
+			new DynamicImageVariant(600, 400, DynamicResizeMode.Crop, DynamicImageFormat.WebP),
+			new DynamicImageVariant(900, 600, DynamicResizeMode.Crop, DynamicImageFormat.Png),
+			new DynamicImageVariant(1200, 800, DynamicResizeMode.Crop, DynamicImageFormat.WebP),
+			new DynamicImageVariant(1800, 1200, DynamicResizeMode.Crop, DynamicImageFormat.WebP)
 		], variants);
 	}
 
@@ -576,7 +618,9 @@ public class MyView : RazorPageBase
 
 		Assert.Equal(
 		[
-			new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
+			new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
+			new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
+			new DynamicImageVariant(300, 150, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
 		], variants);
 	}
 
@@ -620,7 +664,10 @@ public static class RenderFragmentFactory
 		Assert.Equal(
 		[
 			new DynamicImageVariant(400, 300, DynamicResizeMode.Crop, DynamicImageFormat.Png),
+			new DynamicImageVariant(800, 600, DynamicResizeMode.Crop, DynamicImageFormat.Png),
 			new DynamicImageVariant(800, 600, DynamicResizeMode.Crop, DynamicImageFormat.WebP)
+			,
+			new DynamicImageVariant(1200, 900, DynamicResizeMode.Crop, DynamicImageFormat.Png)
 		], variants);
 	}
 
@@ -663,6 +710,7 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
 	{
 		public int WidthRequest { get; set; }
 		public int HeightRequest { get; set; }
+		public int ImageMaxPixelDensity { get; set; } = 3;
 		public Umbrella.DynamicImage.Abstractions.DynamicResizeMode ResizeMode { get; set; }
 		public Umbrella.DynamicImage.Abstractions.DynamicImageFormat ImageFormat { get; set; }
 		public string? SizeWidths { get; set; }
@@ -672,6 +720,7 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
 	{
 		public int WidthRequest { get; set; }
 		public int HeightRequest { get; set; }
+		public int ImageMaxPixelDensity { get; set; } = 3;
 		public Umbrella.DynamicImage.Abstractions.DynamicResizeMode ResizeMode { get; set; }
 		public Umbrella.DynamicImage.Abstractions.DynamicImageFormat ImageFormat { get; set; }
 	}

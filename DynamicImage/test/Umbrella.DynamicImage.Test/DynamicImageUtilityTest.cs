@@ -215,11 +215,11 @@ public class DynamicImageUtilityTest
 	}
 
 	[Fact]
-	public void ImageOptionsValid_MatchingFocalPointVariant_ReturnsTrue()
+	public void ImageOptionsValid_FocalPointVariant_IgnoresRuntimeFocalPoint()
 	{
 		DynamicImageUtility utility = CreateDynamicImageUtility();
 		DynamicImageOptions imageOptions = new("/images/test.png", 100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75);
-		DynamicImageVariant[] validVariants = [new(100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75)];
+		DynamicImageVariant[] validVariants = [new(100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg)];
 
 		bool result = utility.ImageOptionsValid(imageOptions, validVariants);
 
@@ -227,11 +227,11 @@ public class DynamicImageUtilityTest
 	}
 
 	[Fact]
-	public void ImageOptionsValid_MismatchedFocalPointVariant_ReturnsFalse()
+	public void ImageOptionsValid_NonMatchingVariant_ReturnsFalse()
 	{
 		DynamicImageUtility utility = CreateDynamicImageUtility();
 		DynamicImageOptions imageOptions = new("/images/test.png", 100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75);
-		DynamicImageVariant[] validVariants = [new(100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.5)];
+		DynamicImageVariant[] validVariants = [new(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)];
 
 		bool result = utility.ImageOptionsValid(imageOptions, validVariants);
 

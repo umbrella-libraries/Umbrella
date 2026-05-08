@@ -62,8 +62,21 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		isEnabledByDefault: true,
 		description: "UmbrellaDynamicImage and DynamicImage tag helper usages bound to DynamicImage URL model properties must also assign the matching VersionToken input when middleware URL fingerprinting is explicitly enabled.");
 
+	/// <summary>
+	/// Diagnostic rule that warns when DynamicImage variant-shaping inputs are too dynamic for reliable source-generated
+	/// catalog discovery.
+	/// </summary>
+	public static readonly DiagnosticDescriptor NonStaticVariantShapingInputRule = new(
+		id: "UA018",
+		title: "DynamicImage variant discovery coverage is reduced by non-static inputs",
+		messageFormat: "DynamicImage usage assigns non-static variant-shaping input(s) '{0}', so source-generated variant discovery and validation coverage may be incomplete; this does not affect runtime rendering",
+		category: "DynamicImageGeneration",
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true,
+		description: "DynamicImage usages should keep variant-shaping inputs static when possible so source-generated catalogs can discover and validate the expected variants.");
+
 	/// <inheritdoc />
-	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [MissingVersionTokenPropertyRule, MissingVersionTokenAssignmentRule, MissingVersionTokenUsageRule];
+	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [MissingVersionTokenPropertyRule, MissingVersionTokenAssignmentRule, MissingVersionTokenUsageRule, NonStaticVariantShapingInputRule];
 
 	/// <inheritdoc />
 	public override void Initialize(AnalysisContext context)
@@ -214,6 +227,8 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 		AnalyzeBlazorComponentUsages(context, state, block);
 		AnalyzeTagHelperUsages(context, state, block);
+		AnalyzeBlazorComponentVariantDiscoveryCoverage(context, block);
+		AnalyzeTagHelperVariantDiscoveryCoverage(context, block);
 	}
 
 	private static void ReportDiagnostics(CompilationAnalysisContext context, DynamicImageVersioningState state)
@@ -351,6 +366,123 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		}
 	}
 
+	private static void AnalyzeBlazorComponentVariantDiscoveryCoverage(SyntaxNodeAnalysisContext context, BlockSyntax block)
+	{
+		var statements = block.Statements;
+
+		for (int i = 0; i < statements.Count; i++)
+		{
+			if (!TryGetInvocationStatement(statements[i], out InvocationExpressionSyntax? invocation) || invocation is null)
+				continue;
+
+			if (!TryGetInvocationReceiverText(invocation, out string? receiverText) ||
+				!IsOpenComponentInvocation(context.SemanticModel, invocation, context.CancellationToken, out bool isDynamicImageComponent) ||
+				!isDynamicImageComponent)
+			{
+				continue;
+			}
+
+			int nestingDepth = 1;
+			bool hasUrlAssignment = false;
+			bool isStaticHttpUrl = false;
+			var nonStaticInputs = new List<string>();
+			Location? diagnosticLocation = null;
+
+			for (int j = i + 1; j < statements.Count; j++)
+			{
+				if (!TryGetInvocationStatement(statements[j], out InvocationExpressionSyntax? nextInvocation) || nextInvocation is null)
+					continue;
+
+				if (!TryGetInvocationReceiverText(nextInvocation, out string? nextReceiverText) ||
+					!string.Equals(receiverText, nextReceiverText, StringComparison.Ordinal))
+				{
+					continue;
+				}
+
+				if (IsOpenComponentInvocation(context.SemanticModel, nextInvocation, context.CancellationToken, out _))
+				{
+					nestingDepth++;
+					continue;
+				}
+
+				if (IsCloseComponentInvocation(context.SemanticModel, nextInvocation))
+				{
+					nestingDepth--;
+
+					if (nestingDepth is 0)
+					{
+						ReportVariantDiscoveryCoverageDiagnostic(context, hasUrlAssignment, isStaticHttpUrl, nonStaticInputs, diagnosticLocation);
+						i = j;
+						break;
+					}
+
+					continue;
+				}
+
+				if (nestingDepth is not 1 ||
+					!TryGetRenderTreeAttribute(nextInvocation, context.SemanticModel, context.CancellationToken, out string attributeName, out ExpressionSyntax? valueExpression))
+				{
+					continue;
+				}
+
+				if (string.Equals(attributeName, "Url", StringComparison.Ordinal))
+				{
+					hasUrlAssignment = true;
+					isStaticHttpUrl = TryGetStaticString(valueExpression, context.SemanticModel, context.CancellationToken, out string? urlValue) && IsStaticHttpUrl(urlValue);
+					continue;
+				}
+
+				if (!TryGetVariantShapingInputName(attributeName, isTagHelper: false, out string displayName) ||
+					IsStaticVariantShapingValue(attributeName, valueExpression, context.SemanticModel, isTagHelper: false, context.CancellationToken))
+				{
+					continue;
+				}
+
+				AddNonStaticVariantInput(nonStaticInputs, displayName);
+				diagnosticLocation ??= GetInvocationLocation(nextInvocation);
+			}
+		}
+	}
+
+	private static void AnalyzeTagHelperVariantDiscoveryCoverage(SyntaxNodeAnalysisContext context, BlockSyntax block)
+	{
+		var statesByReceiver = new Dictionary<string, VariantDiscoveryUsageState>(StringComparer.Ordinal);
+
+		foreach (StatementSyntax statement in block.Statements)
+		{
+			if (statement is not ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assignment })
+				continue;
+
+			if (!TryGetAssignedDynamicImageTagHelperProperty(context.SemanticModel, assignment.Left, context.CancellationToken, out string receiverText, out string propertyName))
+				continue;
+
+			if (!statesByReceiver.TryGetValue(receiverText, out VariantDiscoveryUsageState? usageState))
+			{
+				usageState = new VariantDiscoveryUsageState();
+				statesByReceiver.Add(receiverText, usageState);
+			}
+
+			if (string.Equals(propertyName, "Src", StringComparison.Ordinal))
+			{
+				usageState.HasUrlAssignment = true;
+				usageState.IsStaticHttpUrl = TryGetStaticString(assignment.Right, context.SemanticModel, context.CancellationToken, out string? urlValue) && IsStaticHttpUrl(urlValue);
+				continue;
+			}
+
+			if (!TryGetVariantShapingInputName(propertyName, isTagHelper: true, out string displayName) ||
+				IsStaticVariantShapingValue(propertyName, assignment.Right, context.SemanticModel, isTagHelper: true, context.CancellationToken))
+			{
+				continue;
+			}
+
+			AddNonStaticVariantInput(usageState.NonStaticInputs, displayName);
+			usageState.DiagnosticLocation ??= GetAssignmentLocation(assignment.Left);
+		}
+
+		foreach (VariantDiscoveryUsageState usageState in statesByReceiver.Values)
+			ReportVariantDiscoveryCoverageDiagnostic(context, usageState.HasUrlAssignment, usageState.IsStaticHttpUrl, usageState.NonStaticInputs, usageState.DiagnosticLocation);
+	}
+
 	private static bool IsMatchingVersionTokenAssignment(
 		SemanticModel semanticModel,
 		AssignmentExpressionSyntax assignment,
@@ -413,6 +545,28 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		if (expression is not MemberAccessExpressionSyntax memberAccess ||
 			semanticModel.GetSymbolInfo(memberAccess, cancellationToken).Symbol is not IPropertySymbol propertySymbol ||
 			!IsDynamicImageTagHelperProperty(propertySymbol))
+		{
+			return false;
+		}
+
+		receiverText = memberAccess.Expression.ToString();
+		propertyName = propertySymbol.Name;
+		return true;
+	}
+
+	private static bool TryGetAssignedDynamicImageTagHelperProperty(
+		SemanticModel semanticModel,
+		ExpressionSyntax expression,
+		CancellationToken cancellationToken,
+		out string receiverText,
+		out string propertyName)
+	{
+		receiverText = string.Empty;
+		propertyName = string.Empty;
+
+		if (expression is not MemberAccessExpressionSyntax memberAccess ||
+			semanticModel.GetSymbolInfo(memberAccess, cancellationToken).Symbol is not IPropertySymbol propertySymbol ||
+			!IsDynamicImageTagHelperType(propertySymbol.ContainingType))
 		{
 			return false;
 		}
@@ -518,6 +672,15 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	private static IPropertySymbol? TryGetMatchingProperty(ImmutableArray<IPropertySymbol> properties, string propertyName)
 		=> properties.FirstOrDefault(x => string.Equals(x.Name, propertyName, StringComparison.Ordinal));
 
+	private static bool TryGetVariantShapingInputName(string name, bool isTagHelper, out string displayName)
+	{
+		displayName = name;
+
+		return isTagHelper
+			? name is "WidthRequest" or "HeightRequest" or "ResizeMode" or "ImageFormat" or "ImageMaxPixelDensity" or "SizeWidths"
+			: name is "WidthRequest" or "HeightRequest" or "ResizeMode" or "ImageFormat" or "MaxPixelDensity" or "SizeWidths";
+	}
+
 	private static bool TryGetInvocationStatement(StatementSyntax statement, [NotNullWhen(true)] out InvocationExpressionSyntax? invocation)
 	{
 		if (statement is ExpressionStatementSyntax { Expression: InvocationExpressionSyntax expression })
@@ -599,6 +762,28 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		return invocation.GetLocation();
 	}
 
+	private static bool IsStaticVariantShapingValue(
+		string propertyName,
+		ExpressionSyntax? expression,
+		SemanticModel semanticModel,
+		bool isTagHelper,
+		CancellationToken cancellationToken)
+	{
+		if (propertyName is "SizeWidths")
+			return TryGetStaticString(expression, semanticModel, cancellationToken, out _);
+
+		if (propertyName is "ResizeMode" or "ImageFormat")
+			return TryGetStaticInt32(expression, semanticModel, cancellationToken, out _);
+
+		if ((isTagHelper && propertyName is "ImageMaxPixelDensity") ||
+			propertyName is "WidthRequest" or "HeightRequest" or "MaxPixelDensity")
+		{
+			return TryGetStaticInt32(expression, semanticModel, cancellationToken, out _);
+		}
+
+		return false;
+	}
+
 	private static ExpressionSyntax UnwrapExpression(ExpressionSyntax expression, SemanticModel semanticModel, CancellationToken cancellationToken)
 	{
 		ExpressionSyntax currentExpression = expression;
@@ -673,7 +858,12 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		if (propertySymbol.Name is not ("Src" or "VersionToken"))
 			return false;
 
-		for (INamedTypeSymbol? type = propertySymbol.ContainingType; type is not null; type = type.BaseType)
+		return IsDynamicImageTagHelperType(propertySymbol.ContainingType);
+	}
+
+	private static bool IsDynamicImageTagHelperType(INamedTypeSymbol? typeSymbol)
+	{
+		for (INamedTypeSymbol? type = typeSymbol; type is not null; type = type.BaseType)
 		{
 			if (string.Equals(type.ToDisplayString(), "Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.DynamicImageTagHelperBase", StringComparison.Ordinal))
 				return true;
@@ -681,6 +871,92 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 		return false;
 	}
+
+	private static void AddNonStaticVariantInput(List<string> nonStaticInputs, string displayName)
+	{
+		if (!nonStaticInputs.Contains(displayName, StringComparer.Ordinal))
+			nonStaticInputs.Add(displayName);
+	}
+
+	private static void ReportVariantDiscoveryCoverageDiagnostic(
+		SyntaxNodeAnalysisContext context,
+		bool hasUrlAssignment,
+		bool isStaticHttpUrl,
+		List<string> nonStaticInputs,
+		Location? diagnosticLocation)
+	{
+		if (!hasUrlAssignment || isStaticHttpUrl || nonStaticInputs.Count is 0)
+			return;
+
+		context.ReportDiagnostic(Diagnostic.Create(
+			NonStaticVariantShapingInputRule,
+			diagnosticLocation ?? context.Node.GetLocation(),
+			string.Join(", ", nonStaticInputs)));
+	}
+
+	private static bool TryGetStaticInt32(ExpressionSyntax? expression, SemanticModel semanticModel, CancellationToken cancellationToken, out int value)
+	{
+		value = default;
+
+		if (expression is null)
+			return false;
+
+		Optional<object?> constantValue = semanticModel.GetConstantValue(UnwrapExpression(expression, semanticModel, cancellationToken), cancellationToken);
+
+		if (!constantValue.HasValue || constantValue.Value is null)
+			return false;
+
+		switch (constantValue.Value)
+		{
+			case int intValue:
+				value = intValue;
+				return true;
+			case byte byteValue:
+				value = byteValue;
+				return true;
+			case sbyte sbyteValue:
+				value = sbyteValue;
+				return true;
+			case short shortValue:
+				value = shortValue;
+				return true;
+			case ushort ushortValue:
+				value = ushortValue;
+				return true;
+			case uint uintValue when uintValue <= int.MaxValue:
+				value = (int)uintValue;
+				return true;
+			case long longValue when longValue is >= int.MinValue and <= int.MaxValue:
+				value = (int)longValue;
+				return true;
+			case ulong ulongValue when ulongValue <= int.MaxValue:
+				value = (int)ulongValue;
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	private static bool TryGetStaticString(ExpressionSyntax? expression, SemanticModel semanticModel, CancellationToken cancellationToken, out string? value)
+	{
+		value = null;
+
+		if (expression is null)
+			return false;
+
+		Optional<object?> constantValue = semanticModel.GetConstantValue(UnwrapExpression(expression, semanticModel, cancellationToken), cancellationToken);
+
+		if (!constantValue.HasValue)
+			return false;
+
+		value = constantValue.Value as string;
+		return constantValue.Value is null || constantValue.Value is string;
+	}
+
+	private static bool IsStaticHttpUrl(string? url)
+		=> url is not null &&
+		   (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+			url.StartsWith("https://", StringComparison.OrdinalIgnoreCase));
 
 	private sealed class DynamicImageVersioningState
 	{
@@ -694,6 +970,17 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		public void AddDiagnostic(Diagnostic diagnostic) => _diagnostics.Add(diagnostic);
 
 		public void MarkExplicitlyEnabled() => _ = Interlocked.Exchange(ref _isExplicitlyEnabled, 1);
+	}
+
+	private sealed class VariantDiscoveryUsageState
+	{
+		public Location? DiagnosticLocation { get; set; }
+
+		public bool HasUrlAssignment { get; set; }
+
+		public bool IsStaticHttpUrl { get; set; }
+
+		public List<string> NonStaticInputs { get; } = [];
 	}
 
 	private static bool IsDynamicImageRegistrationMethod(IMethodSymbol methodSymbol)

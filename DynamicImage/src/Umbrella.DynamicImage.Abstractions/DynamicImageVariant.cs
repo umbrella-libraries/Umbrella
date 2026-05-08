@@ -5,6 +5,7 @@ namespace Umbrella.DynamicImage.Abstractions;
 /// <summary>
 /// Used to specify the details of an allowed Dynamic Image variant. One or more of these variants are used to restrict what Dynamic Images can be generated.
 /// This is primarily a mechanism to prevent user tampering when parsing image URLs to ensure only image sizes the target application needs are generated.
+/// Focal points are intentionally excluded because they are typically supplied at runtime and should not participate in whitelist validation.
 /// </summary>
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DynamicImageVariant
@@ -29,16 +30,6 @@ public readonly record struct DynamicImageVariant
 	/// Gets the format.
 	/// </summary>
 	public DynamicImageFormat Format { get; }
-
-	/// <summary>
-	/// Gets the optional normalised X coordinate of the focal point for the image, between 0 and 1 starting from the left of the image.
-	/// </summary>
-	public double? FocalPointX { get; }
-
-	/// <summary>
-	/// Gets the optional normalised Y coordinate of the focal point for the image, between 0 and 1 starting from the top of the image.
-	/// </summary>
-	public double? FocalPointY { get; }
 	#endregion
 
 	/// <summary>
@@ -48,21 +39,15 @@ public readonly record struct DynamicImageVariant
 	/// <param name="height">The height.</param>
 	/// <param name="resizeMode">The resize mode.</param>
 	/// <param name="format">The format.</param>
-	/// <param name="focalPointX">The optional normalised X coordinate of the focal point.</param>
-	/// <param name="focalPointY">The optional normalised Y coordinate of the focal point.</param>
 	public DynamicImageVariant(
 		int width,
 		int height,
 		DynamicResizeMode resizeMode,
-		DynamicImageFormat format,
-		double? focalPointX = null,
-		double? focalPointY = null)
+		DynamicImageFormat format)
 	{
 		Width = width;
 		Height = height;
 		ResizeMode = resizeMode;
 		Format = format;
-		FocalPointX = focalPointX;
-		FocalPointY = focalPointY;
 	}
 }

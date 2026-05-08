@@ -275,6 +275,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.WebUtilities.Dynam
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.WebUtilities.DynamicImage.Analyzers.Test", "Analyzers\test\Umbrella.WebUtilities.DynamicImage.Analyzers.Test\Umbrella.WebUtilities.DynamicImage.Analyzers.Test.csproj", "{B5D8C799-0583-4E48-8826-D8538E9889DE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.Generators.DynamicImage", "Generators\src\Umbrella.Generators.DynamicImage\Umbrella.Generators.DynamicImage.csproj", "{14DE78BF-6381-4A30-BA13-D1FAC56CF582}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.Generators.DynamicImage.Test", "Generators\test\Umbrella.Generators.DynamicImage.Test\Umbrella.Generators.DynamicImage.Test.csproj", "{B1DDD620-8F09-4B60-8924-50247C434301}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		AzureDevOps|Any CPU = AzureDevOps|Any CPU
@@ -1656,6 +1660,42 @@ Global
 		{B5D8C799-0583-4E48-8826-D8538E9889DE}.Release|x64.Build.0 = Release|Any CPU
 		{B5D8C799-0583-4E48-8826-D8538E9889DE}.Release|x86.ActiveCfg = Release|Any CPU
 		{B5D8C799-0583-4E48-8826-D8538E9889DE}.Release|x86.Build.0 = Release|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.AzureDevOps|Any CPU.ActiveCfg = AzureDevOps|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.AzureDevOps|Any CPU.Build.0 = AzureDevOps|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.AzureDevOps|x64.ActiveCfg = AzureDevOps|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.AzureDevOps|x64.Build.0 = AzureDevOps|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.AzureDevOps|x86.ActiveCfg = AzureDevOps|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.AzureDevOps|x86.Build.0 = AzureDevOps|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.Debug|x64.Build.0 = Debug|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.Debug|x86.Build.0 = Debug|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.Release|Any CPU.Build.0 = Release|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.Release|x64.ActiveCfg = Release|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.Release|x64.Build.0 = Release|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.Release|x86.ActiveCfg = Release|Any CPU
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582}.Release|x86.Build.0 = Release|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.AzureDevOps|Any CPU.ActiveCfg = AzureDevOps|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.AzureDevOps|Any CPU.Build.0 = AzureDevOps|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.AzureDevOps|x64.ActiveCfg = AzureDevOps|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.AzureDevOps|x64.Build.0 = AzureDevOps|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.AzureDevOps|x86.ActiveCfg = AzureDevOps|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.AzureDevOps|x86.Build.0 = AzureDevOps|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.Debug|x64.Build.0 = Debug|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.Debug|x86.Build.0 = Debug|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.Release|x64.ActiveCfg = Release|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.Release|x64.Build.0 = Release|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.Release|x86.ActiveCfg = Release|Any CPU
+		{B1DDD620-8F09-4B60-8924-50247C434301}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1774,6 +1814,8 @@ Global
 		{777B2590-504B-4038-8FD3-80EE97592CBC} = {1695D124-726F-446B-988E-61B9B440D345}
 		{8FBB0389-30D1-4ACB-9BDB-F24754408AED} = {D8FC59AF-00A0-4187-8622-15AF5457E48F}
 		{B5D8C799-0583-4E48-8826-D8538E9889DE} = {82CC3E9D-232F-41E1-A627-64BFB2E5F16E}
+		{14DE78BF-6381-4A30-BA13-D1FAC56CF582} = {AC7FFB6C-9356-464C-8149-C093C4D03BFC}
+		{B1DDD620-8F09-4B60-8924-50247C434301} = {0EB779C2-E21F-4F79-AF5B-9F363B6D7B0C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {44122B62-15B4-40B8-86EA-4E3A743B0C7C}

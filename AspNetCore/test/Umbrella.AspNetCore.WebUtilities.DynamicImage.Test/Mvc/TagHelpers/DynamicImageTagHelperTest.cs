@@ -35,6 +35,19 @@ public class DynamicImageTagHelperTest
 	}
 
 	[Fact]
+	public async Task ProcessAsync_GeneratesPixelDensitySrcSet_WhenSizeWidthsNotProvided()
+	{
+		var tagHelper = CreateTagHelper();
+		tagHelper.ImageMaxPixelDensity = 3;
+		var (ctx, output) = CreateContextAndOutput();
+
+		await tagHelper.ProcessAsync(ctx, output);
+
+		Assert.Equal("/dynamicimage/100/50/Crop/jpg/images/test.jpg", output.Attributes["src"].Value);
+		Assert.Equal("/dynamicimage/100/50/Crop/jpg/images/test.jpg 1x, /dynamicimage/100/50/Crop/jpg/images/test@2x.jpg 2x, /dynamicimage/100/50/Crop/jpg/images/test@3x.jpg 3x", output.Attributes["srcset"].Value);
+	}
+
+	[Fact]
 	public async Task ProcessAsync_GeneratesUnversionedSrcSet()
 	{
 		var tagHelper = CreateTagHelper();

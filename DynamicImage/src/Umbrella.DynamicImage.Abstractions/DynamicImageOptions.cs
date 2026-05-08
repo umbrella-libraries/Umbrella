@@ -116,7 +116,7 @@ public readonly record struct DynamicImageOptions
 	/// <param name="options">The options.</param>
 	/// <returns>The <see cref="DynamicImageVariant"/> instance.</returns>
 	public static explicit operator DynamicImageVariant(in DynamicImageOptions options)
-		=> new(options.Width, options.Height, options.ResizeMode, options.Format, options.FocalPointX, options.FocalPointY);
+		=> new(options.Width, options.Height, options.ResizeMode, options.Format);
 
 	/// <summary>
 	/// Determines whether the specified options is empty.
