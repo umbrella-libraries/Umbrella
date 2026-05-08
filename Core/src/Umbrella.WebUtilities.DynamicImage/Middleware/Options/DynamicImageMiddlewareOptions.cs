@@ -50,6 +50,24 @@ public class DynamicImageMiddlewareOptions : IValidatableUmbrellaOptions, ISanit
 	public int MaxConcurrentResizingRequests { get; set; }
 
 	/// <summary>
+	/// Gets or sets the optional maximum requested output width, in pixels, after any pixel-density suffix has been applied.
+	/// When not set, no global width limit is enforced.
+	/// </summary>
+	public int? MaxWidthRequest { get; set; }
+
+	/// <summary>
+	/// Gets or sets the optional maximum requested output height, in pixels, after any pixel-density suffix has been applied.
+	/// When not set, no global height limit is enforced.
+	/// </summary>
+	public int? MaxHeightRequest { get; set; }
+
+	/// <summary>
+	/// Gets or sets the optional maximum requested output pixel count, calculated as width multiplied by height after any pixel-density suffix has been applied.
+	/// When not set, no global pixel-count limit is enforced.
+	/// </summary>
+	public long? MaxPixelCount { get; set; }
+
+	/// <summary>
 	/// Gets the file provider for the specified <paramref name="searchPath"/>.
 	/// </summary>
 	/// <param name="searchPath">The search path.</param>
@@ -60,6 +78,31 @@ public class DynamicImageMiddlewareOptions : IValidatableUmbrellaOptions, ISanit
 		Guard.IsNotNullOrWhiteSpace(searchPath, nameof(searchPath));
 
 		return _flattenedMappings.SingleOrDefault(x => searchPath.Trim().StartsWith(x.Key, StringComparison.OrdinalIgnoreCase)).Value;
+	}
+
+	/// <summary>
+	/// Determines whether the specified <paramref name="imageOptions" /> are allowed by the global middleware validation rules.
+	/// </summary>
+	/// <param name="imageOptions">The image options.</param>
+	/// <returns><see langword="true" /> if the options are allowed; otherwise <see langword="false" />.</returns>
+	public bool ImageOptionsAllowed(in DynamicImageOptions imageOptions)
+	{
+		if ((imageOptions.FocalPointX.HasValue || imageOptions.FocalPointY.HasValue)
+			&& imageOptions.ResizeMode is not DynamicResizeMode.CropFocalPoint)
+		{
+			return false;
+		}
+
+		if (MaxWidthRequest.HasValue && imageOptions.Width > MaxWidthRequest.Value)
+			return false;
+
+		if (MaxHeightRequest.HasValue && imageOptions.Height > MaxHeightRequest.Value)
+			return false;
+
+		if (MaxPixelCount.HasValue && ((long)imageOptions.Width * imageOptions.Height) > MaxPixelCount.Value)
+			return false;
+
+		return true;
 	}
 
 	/// <inheritdoc />
@@ -83,6 +126,15 @@ public class DynamicImageMiddlewareOptions : IValidatableUmbrellaOptions, ISanit
 		Guard.IsNotNull(_flattenedMappings);
 		Guard.IsGreaterThan(_flattenedMappings.Count, 0);
 		Guard.IsGreaterThanOrEqualTo(MaxConcurrentResizingRequests, 0);
+
+		if (MaxWidthRequest.HasValue)
+			Guard.IsGreaterThan(MaxWidthRequest.Value, 0, nameof(MaxWidthRequest));
+
+		if (MaxHeightRequest.HasValue)
+			Guard.IsGreaterThan(MaxHeightRequest.Value, 0, nameof(MaxHeightRequest));
+
+		if (MaxPixelCount.HasValue)
+			Guard.IsGreaterThan(MaxPixelCount.Value, 0L, nameof(MaxPixelCount));
 
 		switch ((int)CanonicalRedirectStatusCode)
 		{

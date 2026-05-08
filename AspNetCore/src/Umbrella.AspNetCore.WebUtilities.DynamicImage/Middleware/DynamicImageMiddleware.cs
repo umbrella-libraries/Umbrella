@@ -119,6 +119,13 @@ public class DynamicImageMiddleware : IDisposable
 			DynamicImageOptions imageOptions = overrideFormat.HasValue
 				? CreateDynamicImageOptions(requestedImageOptions, overrideFormat.Value)
 				: requestedImageOptions;
+
+			if (!_options.ImageOptionsAllowed(imageOptions))
+			{
+				context.Response.SendStatusCode(HttpStatusCode.NotFound);
+				return;
+			}
+
 			DynamicImageMiddlewareMapping mapping = _options.GetMapping(imageOptions.SourcePath);
 
 			if (mapping is null || (mapping.EnableValidation && !_dynamicImageUtility.ImageOptionsValid(imageOptions, mapping.ValidMappings)))

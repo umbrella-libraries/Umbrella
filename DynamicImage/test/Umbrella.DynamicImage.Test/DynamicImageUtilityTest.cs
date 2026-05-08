@@ -202,6 +202,42 @@ public class DynamicImageUtilityTest
 		Assert.Equal(expected, imageOptions);
 	}
 
+	[Fact]
+	public void ImageOptionsValid_ValidMapping_ReturnsTrue()
+	{
+		DynamicImageUtility utility = CreateDynamicImageUtility();
+		DynamicImageOptions imageOptions = new("/images/test.png", 100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg);
+		DynamicImageMapping[] validMappings = [new(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)];
+
+		bool result = utility.ImageOptionsValid(imageOptions, validMappings);
+
+		Assert.True(result);
+	}
+
+	[Fact]
+	public void ImageOptionsValid_MatchingFocalPointMapping_ReturnsTrue()
+	{
+		DynamicImageUtility utility = CreateDynamicImageUtility();
+		DynamicImageOptions imageOptions = new("/images/test.png", 100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75);
+		DynamicImageMapping[] validMappings = [new(100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75)];
+
+		bool result = utility.ImageOptionsValid(imageOptions, validMappings);
+
+		Assert.True(result);
+	}
+
+	[Fact]
+	public void ImageOptionsValid_MismatchedFocalPointMapping_ReturnsFalse()
+	{
+		DynamicImageUtility utility = CreateDynamicImageUtility();
+		DynamicImageOptions imageOptions = new("/images/test.png", 100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75);
+		DynamicImageMapping[] validMappings = [new(100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.5)];
+
+		bool result = utility.ImageOptionsValid(imageOptions, validMappings);
+
+		Assert.False(result);
+	}
+
 	private static DynamicImageUtility CreateDynamicImageUtility()
 	{
 		var logger = new Mock<ILogger<DynamicImageUtility>>();

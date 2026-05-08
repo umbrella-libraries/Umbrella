@@ -103,6 +103,13 @@ public class DynamicImageMiddleware : OwinMiddleware
 				return;
 			}
 
+			if (!_options.ImageOptionsAllowed(imageOptions))
+			{
+				cts.Cancel();
+				context.Response.SendStatusCode(HttpStatusCode.NotFound);
+				return;
+			}
+
 			DynamicImageMiddlewareMapping mapping = _options.GetMapping(imageOptions.SourcePath);
 
 			if (mapping is null || (mapping.EnableValidation && !_dynamicImageUtility.ImageOptionsValid(imageOptions, mapping.ValidMappings)))
