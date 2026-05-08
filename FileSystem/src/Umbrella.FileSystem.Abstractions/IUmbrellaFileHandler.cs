@@ -6,7 +6,7 @@ namespace Umbrella.FileSystem.Abstractions;
 /// A handler used to access files stored using an implementation of the <see cref="UmbrellaFileStorageProvider{TFileInfo, TOptions}"/>.
 /// </summary>
 /// <typeparam name="TGroupId">The type of the group identifier.</typeparam>
-public interface IUmbrellaFileHandler<TGroupId> : IUmbrellaFileAuthorizationHandler
+public interface IUmbrellaFileHandler<TGroupId>
 	where TGroupId : IEquatable<TGroupId>
 {
 	/// <summary>

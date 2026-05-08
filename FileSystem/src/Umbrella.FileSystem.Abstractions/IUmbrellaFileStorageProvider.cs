@@ -15,6 +15,10 @@ public interface IUmbrellaFileStorageProvider
 	/// <summary>
 	/// Creates a new file at the specified <paramref name="subpath"/>.
 	/// </summary>
+	/// <remarks>
+	/// Implementations materialize a new file instance first and then apply authorization using
+	/// <see cref="UmbrellaFileOperationType.Create"/> rather than the standard read path used for existing files.
+	/// </remarks>
 	/// <param name="subpath">The subpath.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The created file.</returns>
@@ -23,6 +27,9 @@ public interface IUmbrellaFileStorageProvider
 	/// <summary>
 	/// Gets the file at the specified <paramref name="subpath"/>.
 	/// </summary>
+	/// <remarks>
+	/// This resolves an existing file and applies authorization using <see cref="UmbrellaFileOperationType.Read"/>.
+	/// </remarks>
 	/// <param name="subpath">The subpath.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The file.</returns>

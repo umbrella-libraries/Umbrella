@@ -1,10 +1,10 @@
 ﻿
 using CommunityToolkit.Diagnostics;
-using Microsoft.Extensions.DependencyInjection;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.DynamicImage.Abstractions.Caching;
 using Umbrella.DynamicImage.Caching.AzureStorage;
 using Umbrella.DynamicImage.Caching.Disk;
+using Umbrella.FileSystem.Abstractions;
 using Umbrella.FileSystem.AzureStorage;
 using Umbrella.FileSystem.Disk;
 using Umbrella.Internal.Mocks;
@@ -183,12 +183,11 @@ public class DynamicImageCacheTest
 			AllowUnhandledFileAuthorizationChecks = true
 		};
 
-		options.Initialize(new ServiceCollection(), new ServiceCollection().BuildServiceProvider());
-
 		var provider = new UmbrellaDiskFileStorageProvider(
 			CoreUtilitiesMocks.CreateLoggerFactory<UmbrellaDiskFileStorageProvider>(),
 			CoreUtilitiesMocks.CreateMimeTypeUtility(("png", "image/png"), ("jpg,", "image/jpg")),
-			CoreUtilitiesMocks.CreateGenericTypeConverter());
+			CoreUtilitiesMocks.CreateGenericTypeConverter(),
+			CreateAuthorizationHandlerRegistry());
 
 		provider.InitializeOptions(options);
 
@@ -216,12 +215,11 @@ public class DynamicImageCacheTest
 			AllowUnhandledFileAuthorizationChecks = true
 		};
 
-		options.Initialize(new ServiceCollection(), new ServiceCollection().BuildServiceProvider());
-
 		var provider = new UmbrellaAzureBlobStorageFileProvider(
 			CoreUtilitiesMocks.CreateLoggerFactory<UmbrellaAzureBlobStorageFileProvider>(),
 			CoreUtilitiesMocks.CreateMimeTypeUtility(("png", "image/png"), ("jpg,", "image/jpg")),
-			CoreUtilitiesMocks.CreateGenericTypeConverter());
+			CoreUtilitiesMocks.CreateGenericTypeConverter(),
+			CreateAuthorizationHandlerRegistry());
 
 		provider.InitializeOptions(options);
 
@@ -235,4 +233,7 @@ public class DynamicImageCacheTest
 			provider,
 			blobStorageCacheOptions);
 	}
+
+	private static UmbrellaFileAuthorizationHandlerRegistry CreateAuthorizationHandlerRegistry()
+		=> new UmbrellaFileAuthorizationHandlerRegistry([]);
 }

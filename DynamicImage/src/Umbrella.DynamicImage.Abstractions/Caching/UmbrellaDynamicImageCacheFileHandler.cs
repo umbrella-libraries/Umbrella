@@ -36,7 +36,4 @@ public class UmbrellaDynamicImageCacheFileHandler : UmbrellaFileHandler<int>, IU
 
 	/// <inheritdoc/>
 	public override string DirectoryName => _cacheCoreOptions.DirectoryName;
-
-	/// <inheritdoc/>
-	public override Task<bool> AuthorizeAsync(IUmbrellaFileInfo fileInfo, UmbrellaFileOperationType operationType, CancellationToken cancellationToken = default) => Task.FromResult(true);
 }

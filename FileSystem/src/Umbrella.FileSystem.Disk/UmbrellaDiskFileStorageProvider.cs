@@ -20,11 +20,13 @@ public class UmbrellaDiskFileStorageProvider : UmbrellaDiskFileStorageProvider<U
 	/// <param name="loggerFactory">The logger factory.</param>
 	/// <param name="mimeTypeUtility">The MIME type utility.</param>
 	/// <param name="genericTypeConverter">The generic type converter.</param>
+	/// <param name="authorizationHandlerRegistry">The authorization handler registry.</param>
 	public UmbrellaDiskFileStorageProvider(
 		ILoggerFactory loggerFactory,
 		IMimeTypeUtility mimeTypeUtility,
-		IGenericTypeConverter genericTypeConverter)
-		: base(loggerFactory, mimeTypeUtility, genericTypeConverter)
+		IGenericTypeConverter genericTypeConverter,
+		IUmbrellaFileAuthorizationHandlerRegistry authorizationHandlerRegistry)
+		: base(loggerFactory, mimeTypeUtility, genericTypeConverter, authorizationHandlerRegistry)
 	{
 	}
 }
@@ -34,7 +36,7 @@ public class UmbrellaDiskFileStorageProvider : UmbrellaDiskFileStorageProvider<U
 /// </summary>
 /// <typeparam name="TOptions">The type of the options.</typeparam>
 /// <seealso cref="UmbrellaDiskFileStorageProvider{UmbrellaDiskFileProviderOptions}" />
-public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProvider<UmbrellaDiskFileInfo, UmbrellaDiskFileStorageProviderOptions>, IUmbrellaDiskFileStorageProvider
+public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProvider<UmbrellaDiskFileInfo, TOptions>, IUmbrellaDiskFileStorageProvider
 	where TOptions : UmbrellaDiskFileStorageProviderOptions
 {
 	#region Constructors		
@@ -44,11 +46,13 @@ public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProv
 	/// <param name="loggerFactory">The logger factory.</param>
 	/// <param name="mimeTypeUtility">The MIME type utility.</param>
 	/// <param name="genericTypeConverter">The generic type converter.</param>
+	/// <param name="authorizationHandlerRegistry">The authorization handler registry.</param>
 	public UmbrellaDiskFileStorageProvider(
 		ILoggerFactory loggerFactory,
 		IMimeTypeUtility mimeTypeUtility,
-		IGenericTypeConverter genericTypeConverter)
-		: base(loggerFactory.CreateLogger<UmbrellaDiskFileStorageProvider>(), loggerFactory, mimeTypeUtility, genericTypeConverter)
+		IGenericTypeConverter genericTypeConverter,
+		IUmbrellaFileAuthorizationHandlerRegistry authorizationHandlerRegistry)
+		: base(loggerFactory.CreateLogger<UmbrellaDiskFileStorageProvider>(), loggerFactory, mimeTypeUtility, genericTypeConverter, authorizationHandlerRegistry)
 	{
 	}
 	#endregion
@@ -148,9 +152,7 @@ public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProv
 
 		var fileInfo = new UmbrellaDiskFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, cleanedSubPath, this, AuthorizeAsync, physicalFileInfo, isNew);
 
-		return !await AuthorizeAsync(fileInfo, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false)
-			? throw new UmbrellaFileAccessDeniedException(subpath)
-			: (IUmbrellaFileInfo)fileInfo;
+		return await FinalizeResolvedFileAsync(fileInfo, subpath, cancellationToken).ConfigureAwait(false);
 	}
 	#endregion
 

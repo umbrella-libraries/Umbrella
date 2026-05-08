@@ -1,5 +1,6 @@
 ﻿
 using CommunityToolkit.Diagnostics;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Umbrella.FileSystem.Abstractions;
 
 #pragma warning disable IDE0130
@@ -21,8 +22,10 @@ public static class IServiceCollectionExtensions
 	{
 		Guard.IsNotNull(services);
 
-		_ = services.AddSingleton<IUmbrellaFileStorageProviderFactory, UmbrellaFileStorageProviderFactory>();
-		_ = services.AddSingleton<IUmbrellaTempFileHandler, UmbrellaTempFileHandler>();
+		services.TryAddSingleton<IUmbrellaFileStorageProviderFactory, UmbrellaFileStorageProviderFactory>();
+		services.TryAddSingleton<IUmbrellaFileAuthorizationHandlerRegistry, UmbrellaFileAuthorizationHandlerRegistry>();
+		services.TryAddSingleton<IUmbrellaTempFileHandler, UmbrellaTempFileHandler>();
+		services.TryAddEnumerable(ServiceDescriptor.Singleton<IUmbrellaFileAuthorizationHandler, UmbrellaTempFileAuthorizationHandler>());
 
 		return services;
 	}

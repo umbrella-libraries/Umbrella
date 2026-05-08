@@ -45,6 +45,11 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 	protected IGenericTypeConverter GenericTypeConverter { get; }
 
 	/// <summary>
+	/// Gets the authorization handler registry.
+	/// </summary>
+	protected IUmbrellaFileAuthorizationHandlerRegistry AuthorizationHandlerRegistry { get; }
+
+	/// <summary>
 	/// Gets the file information logger instance.
 	/// </summary>
 	protected ILogger<TFileInfo> FileInfoLoggerInstance { get; }
@@ -63,16 +68,25 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 	/// <param name="loggerFactory">The logger factory.</param>
 	/// <param name="mimeTypeUtility">The MIME type utility.</param>
 	/// <param name="genericTypeConverter">The generic type converter.</param>
+	/// <param name="authorizationHandlerRegistry">The authorization handler registry.</param>
 	protected UmbrellaFileStorageProvider(
 		ILogger logger,
 		ILoggerFactory loggerFactory,
 		IMimeTypeUtility mimeTypeUtility,
-		IGenericTypeConverter genericTypeConverter)
+		IGenericTypeConverter genericTypeConverter,
+		IUmbrellaFileAuthorizationHandlerRegistry authorizationHandlerRegistry)
 	{
+		Guard.IsNotNull(logger);
+		Guard.IsNotNull(loggerFactory);
+		Guard.IsNotNull(mimeTypeUtility);
+		Guard.IsNotNull(genericTypeConverter);
+		Guard.IsNotNull(authorizationHandlerRegistry);
+
 		Logger = logger;
 		LoggerFactory = loggerFactory;
 		MimeTypeUtility = mimeTypeUtility;
 		GenericTypeConverter = genericTypeConverter;
+		AuthorizationHandlerRegistry = authorizationHandlerRegistry;
 		FileInfoLoggerInstance = LoggerFactory.CreateLogger<TFileInfo>();
 	}
 	#endregion
@@ -98,7 +112,12 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 		{
 			IUmbrellaFileInfo? fileInfo = await GetFileAsync(subpath, true, cancellationToken).ConfigureAwait(false);
 
-			return fileInfo is null ? throw new UmbrellaFileNotFoundException(subpath) : fileInfo;
+			if (fileInfo is null)
+				throw new UmbrellaFileNotFoundException(subpath);
+
+			return !await AuthorizeAsync(fileInfo, UmbrellaFileOperationType.Create, cancellationToken).ConfigureAwait(false)
+				? throw new UmbrellaFileAccessDeniedException(subpath)
+				: fileInfo;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
 		{
@@ -360,6 +379,36 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 	}
 
 	/// <summary>
+	/// Finalizes a resolved file by applying the standard read authorization check for existing files while allowing new
+	/// files to flow back to the caller for create authorization.
+	/// </summary>
+	/// <remarks>
+	/// Provider-specific <c>GetFileAsync(..., isNew: true)</c> implementations should return a new file instance without
+	/// applying a read authorization check. This helper preserves that behavior in one place so <see cref="CreateAsync(string, CancellationToken)"/>
+	/// can subsequently authorize with <see cref="UmbrellaFileOperationType.Create"/>.
+	/// </remarks>
+	/// <typeparam name="TResolvedFileInfo">The resolved file info type.</typeparam>
+	/// <param name="fileInfo">The resolved file information.</param>
+	/// <param name="subpath">The original requested subpath.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The resolved file information when access is permitted.</returns>
+	protected async Task<TResolvedFileInfo> FinalizeResolvedFileAsync<TResolvedFileInfo>(TResolvedFileInfo fileInfo, string subpath, CancellationToken cancellationToken)
+		where TResolvedFileInfo : IUmbrellaFileInfo
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		Guard.IsNotNull(fileInfo);
+		Guard.IsNotNullOrWhiteSpace(subpath);
+
+		// New files must skip the provider-level read check here so CreateAsync/Write* can authorize them as Create instead.
+		if (fileInfo.IsNew)
+			return fileInfo;
+
+		return !await AuthorizeAsync(fileInfo, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false)
+			? throw new UmbrellaFileAccessDeniedException(subpath)
+			: fileInfo;
+	}
+
+	/// <summary>
 	/// Performs an access check on the file to ensure it can be accessed in the current context.
 	/// </summary>
 	/// <param name="fileInfo">The file information.</param>
@@ -374,10 +423,7 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 		cancellationToken.ThrowIfCancellationRequested();
 		Guard.IsNotNull(fileInfo);
 
-		if (fileInfo.IsNew)
-			return true;
-
-		IUmbrellaFileAuthorizationHandler? authorizationHandler = Options.GetAuthorizationHandler(fileInfo);
+		IUmbrellaFileAuthorizationHandler? authorizationHandler = AuthorizationHandlerRegistry.GetByFileInfo(fileInfo);
 
 		return authorizationHandler is not null
 			? await authorizationHandler.AuthorizeAsync(fileInfo, policy, cancellationToken).ConfigureAwait(false)
@@ -390,7 +436,10 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 	/// Gets the file at the specified <paramref name="subpath"/>.
 	/// </summary>
 	/// <param name="subpath">The subpath.</param>
-	/// <param name="isNew">Specifies if the file is new.</param>
+	/// <param name="isNew">
+	/// Specifies if the caller is resolving a new file instance for creation. When <see langword="true"/>, implementations
+	/// should resolve the file information without applying a read authorization check.
+	/// </param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>An awaitable Task that returns the file.</returns>
 	protected abstract Task<IUmbrellaFileInfo?> GetFileAsync(string subpath, bool isNew, CancellationToken cancellationToken);

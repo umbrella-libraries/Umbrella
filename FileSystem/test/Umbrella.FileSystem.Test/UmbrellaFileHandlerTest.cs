@@ -162,18 +162,25 @@ public class UmbrellaFileHandlerTest
 		Assert.Null(result);
 	}
 
-	private static TestFileHandler CreateHandler(IUmbrellaFileStorageProvider? fileProvider = null)
+	private static UmbrellaFileHandler CreateHandler(IUmbrellaFileStorageProvider? fileProvider = null)
 	{
 		var optionsMock = new Mock<IUmbrellaFileStorageProviderOptions>();
 		_ = optionsMock.SetupGet(x => x.TempFilesDirectoryName).Returns("temp-files");
 		_ = optionsMock.SetupGet(x => x.WebFilesDirectoryName).Returns("files");
 
-		return new TestFileHandler(
+		var handlerMock = new Mock<UmbrellaFileHandler>(
 			new Mock<ILogger>().Object,
 			CoreUtilitiesMocks.CreateHybridCache(),
 			CoreUtilitiesMocks.CreateCacheKeyUtility(),
 			fileProvider ?? new Mock<IUmbrellaFileStorageProvider>().Object,
-			optionsMock.Object);
+			optionsMock.Object)
+		{
+			CallBase = true
+		};
+
+		_ = handlerMock.SetupGet(x => x.DirectoryName).Returns("documents");
+
+		return handlerMock.Object;
 	}
 
 	private static Mock<IUmbrellaFileInfo> CreateFileInfoMock(string subpath, DateTimeOffset? lastModified, long length, string? fileName = null)
@@ -193,22 +200,4 @@ public class UmbrellaFileHandlerTest
 
 	private static string CreateHashVersionToken(byte[] bytes)
 		=> Convert.ToHexStringLower(SHA256.HashData(bytes));
-
-	private sealed class TestFileHandler : UmbrellaFileHandler
-	{
-		public TestFileHandler(
-			ILogger logger,
-			Umbrella.Utilities.Caching.Abstractions.IHybridCache cache,
-			Umbrella.Utilities.Caching.Abstractions.ICacheKeyUtility cacheKeyUtility,
-			IUmbrellaFileStorageProvider fileProvider,
-			IUmbrellaFileStorageProviderOptions options)
-			: base(logger, cache, cacheKeyUtility, fileProvider, options)
-		{
-		}
-
-		public override string DirectoryName => "documents";
-
-		public override Task<bool> AuthorizeAsync(IUmbrellaFileInfo fileInfo, UmbrellaFileOperationType operationType, CancellationToken cancellationToken = default)
-			=> Task.FromResult(true);
-	}
 }

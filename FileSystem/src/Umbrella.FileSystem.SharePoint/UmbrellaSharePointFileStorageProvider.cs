@@ -1,4 +1,4 @@
-using CommunityToolkit.Diagnostics;
+﻿using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
@@ -21,11 +21,13 @@ public class UmbrellaSharePointFileStorageProvider : UmbrellaSharePointFileStora
 	/// <param name="loggerFactory">The logger factory.</param>
 	/// <param name="mimeTypeUtility">The MIME type utility.</param>
 	/// <param name="genericTypeConverter">The generic type converter.</param>
+	/// <param name="authorizationHandlerRegistry">The authorization handler registry.</param>
 	public UmbrellaSharePointFileStorageProvider(
 		ILoggerFactory loggerFactory,
 		IMimeTypeUtility mimeTypeUtility,
-		IGenericTypeConverter genericTypeConverter)
-		: base(loggerFactory, mimeTypeUtility, genericTypeConverter)
+		IGenericTypeConverter genericTypeConverter,
+		IUmbrellaFileAuthorizationHandlerRegistry authorizationHandlerRegistry)
+		: base(loggerFactory, mimeTypeUtility, genericTypeConverter, authorizationHandlerRegistry)
 	{
 	}
 }
@@ -34,7 +36,7 @@ public class UmbrellaSharePointFileStorageProvider : UmbrellaSharePointFileStora
 /// An implementation of <see cref="UmbrellaFileStorageProvider{TFileInfo, TOptions}"/> which uses SharePoint via Microsoft Graph as the underlying storage mechanism.
 /// </summary>
 /// <typeparam name="TOptions">The type of the provider options.</typeparam>
-public class UmbrellaSharePointFileStorageProvider<TOptions> : UmbrellaFileStorageProvider<UmbrellaSharePointFileInfo, UmbrellaSharePointFileStorageProviderOptions>, IUmbrellaSharePointFileStorageProvider, IDisposable
+public class UmbrellaSharePointFileStorageProvider<TOptions> : UmbrellaFileStorageProvider<UmbrellaSharePointFileInfo, TOptions>, IUmbrellaSharePointFileStorageProvider, IDisposable
 	where TOptions : UmbrellaSharePointFileStorageProviderOptions
 {
 	#region Private Members
@@ -49,11 +51,13 @@ public class UmbrellaSharePointFileStorageProvider<TOptions> : UmbrellaFileStora
 	/// <param name="loggerFactory">The logger factory.</param>
 	/// <param name="mimeTypeUtility">The MIME type utility.</param>
 	/// <param name="genericTypeConverter">The generic type converter.</param>
+	/// <param name="authorizationHandlerRegistry">The authorization handler registry.</param>
 	public UmbrellaSharePointFileStorageProvider(
 		ILoggerFactory loggerFactory,
 		IMimeTypeUtility mimeTypeUtility,
-		IGenericTypeConverter genericTypeConverter)
-		: base(loggerFactory.CreateLogger<UmbrellaSharePointFileStorageProvider>(), loggerFactory, mimeTypeUtility, genericTypeConverter)
+		IGenericTypeConverter genericTypeConverter,
+		IUmbrellaFileAuthorizationHandlerRegistry authorizationHandlerRegistry)
+		: base(loggerFactory.CreateLogger<UmbrellaSharePointFileStorageProvider>(), loggerFactory, mimeTypeUtility, genericTypeConverter, authorizationHandlerRegistry)
 	{
 	}
 	#endregion
@@ -198,9 +202,7 @@ public class UmbrellaSharePointFileStorageProvider<TOptions> : UmbrellaFileStora
 
 		await fileInfo.InitializeAsync(cancellationToken, preLoadedItem).ConfigureAwait(false);
 
-		return !await AuthorizeAsync(fileInfo, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false)
-			? throw new UmbrellaFileAccessDeniedException(subpath)
-			: (IUmbrellaFileInfo)fileInfo;
+		return await FinalizeResolvedFileAsync(fileInfo, subpath, cancellationToken).ConfigureAwait(false);
 	}
 	#endregion
 

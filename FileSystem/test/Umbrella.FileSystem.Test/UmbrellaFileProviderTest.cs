@@ -3,7 +3,6 @@ using System.Collections.ObjectModel;
 using Azure.Identity;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Graph;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.FileSystem.AzureStorage;
@@ -1359,13 +1358,12 @@ public class UmbrellaFileProviderTest
 			AllowUnhandledFileAuthorizationChecks = true
 		};
 
-		options.Initialize(new ServiceCollection(), new ServiceCollection().BuildServiceProvider());
-
 #pragma warning disable CA2000 // Dispose objects before losing scope
 		var provider = new UmbrellaAzureBlobStorageFileProvider(
 			CoreUtilitiesMocks.CreateLoggerFactory<UmbrellaAzureBlobStorageFileProvider>(),
 			CoreUtilitiesMocks.CreateMimeTypeUtility(("png", "image/png"), ("jpg,", "image/jpg")),
-			CoreUtilitiesMocks.CreateGenericTypeConverter());
+			CoreUtilitiesMocks.CreateGenericTypeConverter(),
+			CreateAuthorizationHandlerRegistry());
 #pragma warning restore CA2000 // Dispose objects before losing scope
 
 		provider.InitializeOptions(options);
@@ -1381,13 +1379,12 @@ public class UmbrellaFileProviderTest
 			AllowUnhandledFileAuthorizationChecks = true
 		};
 
-		options.Initialize(new ServiceCollection(), new ServiceCollection().BuildServiceProvider());
-
 #pragma warning disable CA2000 // Dispose objects before losing scope
 		var provider = new UmbrellaDiskFileStorageProvider(
 			CoreUtilitiesMocks.CreateLoggerFactory<UmbrellaDiskFileStorageProvider>(),
 			CoreUtilitiesMocks.CreateMimeTypeUtility(("png", "image/png"), ("jpg", "image/jpg")),
-			CoreUtilitiesMocks.CreateGenericTypeConverter());
+			CoreUtilitiesMocks.CreateGenericTypeConverter(),
+			CreateAuthorizationHandlerRegistry());
 #pragma warning restore CA2000 // Dispose objects before losing scope
 
 		provider.InitializeOptions(options);
@@ -1405,6 +1402,9 @@ public class UmbrellaFileProviderTest
 		Assert.Equal("image/png", file.ContentType);
 	}
 
+	private static UmbrellaFileAuthorizationHandlerRegistry CreateAuthorizationHandlerRegistry()
+		=> new UmbrellaFileAuthorizationHandlerRegistry([]);
+
 	private static UmbrellaSharePointFileStorageProvider CreateSharePointFileProvider()
 	{
 		var options = new UmbrellaSharePointFileStorageProviderOptions
@@ -1415,13 +1415,12 @@ public class UmbrellaFileProviderTest
 			AllowUnhandledFileAuthorizationChecks = true
 		};
 
-		options.Initialize(new ServiceCollection(), new ServiceCollection().BuildServiceProvider());
-
 #pragma warning disable CA2000
 		var provider = new UmbrellaSharePointFileStorageProvider(
 			CoreUtilitiesMocks.CreateLoggerFactory<UmbrellaSharePointFileStorageProvider>(),
 			CoreUtilitiesMocks.CreateMimeTypeUtility(("png", "image/png"), ("jpg", "image/jpg")),
-			CoreUtilitiesMocks.CreateGenericTypeConverter());
+			CoreUtilitiesMocks.CreateGenericTypeConverter(),
+			CreateAuthorizationHandlerRegistry());
 #pragma warning restore CA2000
 
 		provider.InitializeOptions(options);

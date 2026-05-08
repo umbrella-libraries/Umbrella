@@ -1,7 +1,9 @@
 ﻿
 using CommunityToolkit.Diagnostics;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.DynamicImage.Abstractions.Caching;
+using Umbrella.FileSystem.Abstractions;
 
 #pragma warning disable IDE0130
 namespace Microsoft.Extensions.DependencyInjection;
@@ -45,10 +47,11 @@ public static class IServiceCollectionExtensions
 	{
 		Guard.IsNotNull(services);
 
-		_ = services.AddSingleton<IDynamicImageUtility, DynamicImageUtility>();
-		_ = services.AddSingleton<IDynamicImageCache, DynamicImageNoCache>();
-		_ = services.AddSingleton<IUmbrellaDynamicImageCacheFileHandler, UmbrellaDynamicImageCacheFileHandler>();
-		_ = services.AddSingleton<DynamicImageCacheCoreOptions>();
+		services.TryAddSingleton<IDynamicImageUtility, DynamicImageUtility>();
+		services.TryAddSingleton<IDynamicImageCache, DynamicImageNoCache>();
+		services.TryAddSingleton<IUmbrellaDynamicImageCacheFileHandler>(static x => ActivatorUtilities.CreateInstance<UmbrellaDynamicImageCacheFileHandler>(x));
+		services.TryAddEnumerable(ServiceDescriptor.Singleton<IUmbrellaFileAuthorizationHandler, UmbrellaDynamicImageCacheFileAuthorizationHandler>());
+		services.TryAddSingleton<DynamicImageCacheCoreOptions>();
 
 		return services;
 	}

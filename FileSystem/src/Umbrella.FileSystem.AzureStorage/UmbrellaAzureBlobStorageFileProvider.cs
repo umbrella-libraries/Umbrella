@@ -24,11 +24,13 @@ public class UmbrellaAzureBlobStorageFileProvider : UmbrellaAzureBlobStorageFile
 	/// <param name="loggerFactory">The logger factory.</param>
 	/// <param name="mimeTypeUtility">The MIME type utility.</param>
 	/// <param name="genericTypeConverter">The generic type converter.</param>
+	/// <param name="authorizationHandlerRegistry">The authorization handler registry.</param>
 	public UmbrellaAzureBlobStorageFileProvider(
 		ILoggerFactory loggerFactory,
 		IMimeTypeUtility mimeTypeUtility,
-		IGenericTypeConverter genericTypeConverter)
-		: base(loggerFactory, mimeTypeUtility, genericTypeConverter)
+		IGenericTypeConverter genericTypeConverter,
+		IUmbrellaFileAuthorizationHandlerRegistry authorizationHandlerRegistry)
+		: base(loggerFactory, mimeTypeUtility, genericTypeConverter, authorizationHandlerRegistry)
 	{
 	}
 }
@@ -38,7 +40,7 @@ public class UmbrellaAzureBlobStorageFileProvider : UmbrellaAzureBlobStorageFile
 /// </summary>
 /// <typeparam name="TOptions">The type of the provider options.</typeparam>
 /// <seealso cref="UmbrellaAzureBlobStorageFileProvider{UmbrellaAzureBlobStorageFileProviderOptions}" />
-public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorageProvider<UmbrellaAzureBlobFileInfo, UmbrellaAzureBlobStorageFileProviderOptions>, IUmbrellaAzureBlobFileStorageProvider, IDisposable
+public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorageProvider<UmbrellaAzureBlobFileInfo, TOptions>, IUmbrellaAzureBlobFileStorageProvider, IDisposable
 	where TOptions : UmbrellaAzureBlobStorageFileProviderOptions
 {
 	#region Constants
@@ -72,11 +74,13 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 	/// <param name="loggerFactory">The logger factory.</param>
 	/// <param name="mimeTypeUtility">The MIME type utility.</param>
 	/// <param name="genericTypeConverter">The generic type converter.</param>
+	/// <param name="authorizationHandlerRegistry">The authorization handler registry.</param>
 	public UmbrellaAzureBlobStorageFileProvider(
 		ILoggerFactory loggerFactory,
 		IMimeTypeUtility mimeTypeUtility,
-		IGenericTypeConverter genericTypeConverter)
-		: base(loggerFactory.CreateLogger<UmbrellaAzureBlobStorageFileProvider>(), loggerFactory, mimeTypeUtility, genericTypeConverter)
+		IGenericTypeConverter genericTypeConverter,
+		IUmbrellaFileAuthorizationHandlerRegistry authorizationHandlerRegistry)
+		: base(loggerFactory.CreateLogger<UmbrellaAzureBlobStorageFileProvider>(), loggerFactory, mimeTypeUtility, genericTypeConverter, authorizationHandlerRegistry)
 	{
 	}
 	#endregion
@@ -253,9 +257,7 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 		var fileInfo = new UmbrellaAzureBlobFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, cleanedPath, this, AuthorizeAsync, blob, isNew);
 		await fileInfo.InitializeAsync(cancellationToken).ConfigureAwait(false);
 
-		return !await AuthorizeAsync(fileInfo, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false)
-			? throw new UmbrellaFileAccessDeniedException(subpath)
-			: (IUmbrellaFileInfo)fileInfo;
+		return await FinalizeResolvedFileAsync(fileInfo, subpath, cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <inheritdoc />
