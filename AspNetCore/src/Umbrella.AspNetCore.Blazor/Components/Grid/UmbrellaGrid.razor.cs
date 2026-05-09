@@ -826,7 +826,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 
 						url = Navigation.GetUriWithQueryParameters(url, new Dictionary<string, object?>
 						{
-#if NET9_0_OR_GREATER
+#if NET8_0_OR_GREATER
 							[FiltersQueryStringParamKey] = JsonSerializer.Serialize(dicFilters, UmbrellaKeyValuePairJsonSerializerContext.Default.IEnumerableUmbrellaKeyValuePairStringString)
 #else
 							[FiltersQueryStringParamKey] = JsonSerializer.Serialize(dicFilters, _jsonSerializerOptions)
@@ -1002,7 +1002,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 
 			if (filtersResult.success)
 			{
-#if NET9_0_OR_GREATER
+#if NET8_0_OR_GREATER
 				List<UmbrellaKeyValuePair<string, string>>? dicFilters = JsonSerializer.Deserialize(filtersResult.value, UmbrellaKeyValuePairJsonSerializerContext.Default.ListUmbrellaKeyValuePairStringString);
 #else
 				List<UmbrellaKeyValuePair<string, string>>? dicFilters = JsonSerializer.Deserialize<List<UmbrellaKeyValuePair<string, string>>>(filtersResult.value, _jsonSerializerOptions);
@@ -1171,7 +1171,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 				if (_navigationLocationChangedSubscriptionInitialized)
 					Navigation.LocationChanged -= OnNavigationLocationChanged;
 
-#if NET9_0_OR_GREATER
+#if NET8_0_OR_GREATER
 				await _cts.CancelAsync();
 #else
 				_cts.Cancel();
