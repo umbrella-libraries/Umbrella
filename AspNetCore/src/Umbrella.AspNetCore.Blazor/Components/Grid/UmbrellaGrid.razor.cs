@@ -39,7 +39,8 @@ public enum UmbrellaGridRenderMode
 	Table,
 
 	/// <summary>
-	/// Slim rendering mode the grid and its columns are rendered using divs in order to allow non-tabular layouts to be used.
+	/// Slim rendering mode the grid and its columns are rendered using divs in order to allow non-tabular layouts to be
+	/// used.
 	/// </summary>
 	CollectionView
 }
@@ -117,7 +118,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	private UmbrellaPagination PaginationInstance { get; set; } = null!;
 
 	/// <summary>
-	/// Gets or sets a value indicating whether the scanning process that occurs when the grid is first initialized, which looks for columns, has been completed.
+	/// Gets or sets a value indicating whether the scanning process that occurs when the grid is first initialized, which
+	/// looks for columns, has been completed.
 	/// </summary>
 	private bool ColumnScanComplete { get; set; }
 
@@ -149,8 +151,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	private LayoutState CurrentState { get; set; } = LayoutState.Loading;
 
 	/// <summary>
-	/// Gets or sets the total count of all items that are available to be loaded into the grid.
-	/// This will be larger than the number of items currently displayed where pagination has been applied.
+	/// Gets or sets the total count of all items that are available to be loaded into the grid. This will be larger than
+	/// the number of items currently displayed where pagination has been applied.
 	/// </summary>
 	private int TotalCount { get; set; }
 
@@ -171,20 +173,21 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	protected BlazoredModalInstance? ModalInstance { get; set; }
 
 	/// <summary>
-	/// Gets or sets the additional content to be displayed between the filter fields
-	/// and the action buttons that apply the filters to the grid.
+	/// Gets or sets the additional content to be displayed between the filter fields and the action buttons that apply the
+	/// filters to the grid.
 	/// </summary>
 	[Parameter]
 	public RenderFragment? AdditionalFilterContent { get; set; }
 
 	/// <summary>
-	/// Gets or sets the additional content to be displayed inside the <![CDATA[<tfoot>]]> element of the grid.
+	/// Gets or sets the additional content to be displayed inside the <![CDATA[<tfoot> ]]> element of the grid.
 	/// </summary>
 	[Parameter]
 	public RenderFragment? FooterContent { get; set; }
 
 	/// <summary>
-	/// Gets or sets the columns to be displayed inside this grid component. This should be a collection of columns components.
+	/// Gets or sets the columns to be displayed inside this grid component. This should be a collection of columns
+	/// components.
 	/// </summary>
 	[Parameter]
 	public RenderFragment<TItem>? Columns { get; set; }
@@ -201,17 +204,16 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	public IReadOnlyCollection<TItem> Items { get; private set; } = Array.Empty<TItem>();
 
 	/// <summary>
-	/// Gets or sets the message displayed when the grid is loading.
-	/// This is ususally only shown when the grid is first initialized.
+	/// Gets or sets the message displayed when the grid is loading. This is ususally only shown when the grid is first
+	/// initialized.
 	/// </summary>
 	/// <remarks>Defaults to <c>Loading... Please wait.</c></remarks>
 	[Parameter]
 	public string LoadingMessage { get; set; } = "Loading... Please wait.";
 
 	/// <summary>
-	/// Gets or sets the content displayed when the grid is loading.
-	/// This is ususally only shown when the grid is first initialized.
-	/// This overrides the value of the <see cref="LoadingMessage"/> when specified.
+	/// Gets or sets the content displayed when the grid is loading. This is ususally only shown when the grid is first
+	/// initialized. This overrides the value of the <see cref="LoadingMessage"/> when specified.
 	/// </summary>
 	[Parameter]
 	public RenderFragment? LoadingMessageContent { get; set; }
@@ -224,8 +226,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	public string EmptyMessage { get; set; } = "There is either no data to display or your search options have no results.";
 
 	/// <summary>
-	/// Gets or sets the content displayed when there are no results.
-	/// This overrides the value of the <see cref="EmptyMessage"/> when specified.
+	/// Gets or sets the content displayed when there are no results. This overrides the value of the
+	/// <see cref="EmptyMessage"/> when specified.
 	/// </summary>
 	/// <remarks>Defaults to <c>There has been a problem. Please try again.</c></remarks>
 	[Parameter]
@@ -238,14 +240,15 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	public string ErrorMessage { get; set; } = "There has been a problem. Please try again.";
 
 	/// <summary>
-	/// Gets or sets the content displayed when the grid fails to load correctly.
-	/// This overrides the value of the <see cref="ErrorMessage"/> when specified.
+	/// Gets or sets the content displayed when the grid fails to load correctly. This overrides the value of the
+	/// <see cref="ErrorMessage"/> when specified.
 	/// </summary>
 	[Parameter]
 	public RenderFragment? ErrorMessageContent { get; set; }
 
 	/// <summary>
-	/// Gets or sets a value indicating whether the reload button should be shown when the grid has failed to load correctly. Defaults to <see langword="true"/>.
+	/// Gets or sets a value indicating whether the reload button should be shown when the grid has failed to load
+	/// correctly. Defaults to <see langword="true"/>.
 	/// </summary>
 	[Parameter]
 	public bool ShowReloadButton { get; set; } = true;
@@ -257,8 +260,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	public string FilterOptionsHeading { get; set; } = "Search Options";
 
 	/// <summary>
-	/// Gets or sets a value indicating whether the filter options, if there are any and <see cref="ShowFilters"/> is <see langword="true" />,
-	/// are expanded when the grid is first loaded.
+	/// Gets or sets a value indicating whether the filter options, if there are any and <see cref="ShowFilters"/> is
+	/// <see langword="true" />, are expanded when the grid is first loaded.
 	/// </summary>
 	/// <remarks>
 	/// Defaults to <see langword="true" />
@@ -359,8 +362,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	public bool AutoScrollTop { get; set; } = true;
 
 	/// <summary>
-	/// Gets or sets the scroll offset from the top of the screen when the grid is auto-scrolled to the top if enabled using
-	/// the <see cref="AutoScrollTop"/> property.
+	/// Gets or sets the scroll offset from the top of the screen when the grid is auto-scrolled to the top if enabled
+	/// using the <see cref="AutoScrollTop"/> property.
 	/// </summary>
 	/// <remarks>
 	/// This exists to allow for things liked fixed navigation bars to be taken into account.
@@ -372,7 +375,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	/// Gets or sets a value indicating whether checkboxes should be shown at the start of each row.
 	/// </summary>
 	/// <remarks>
-	/// Checkboxes on each row are used to select multiple items which can be used in conjunction with items rendered using the <see cref="BulkActions" /> property.
+	/// Checkboxes on each row are used to select multiple items which can be used in conjunction with items rendered using
+	/// the <see cref="BulkActions" /> property.
 	/// </remarks>
 	[Parameter]
 	public bool ShowCheckboxSelectColumn { get; set; }
@@ -381,8 +385,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	/// Gets or sets a value indicating whether radio buttons should be shown at the start of each row.
 	/// </summary>
 	/// <remarks>
-	/// This is primarily designed to allow a single row to be selected and highlighted by a user when the grid requires horizontal scrolling.
-	/// This will help a user to track a single selected row.
+	/// This is primarily designed to allow a single row to be selected and highlighted by a user when the grid requires
+	/// horizontal scrolling. This will help a user to track a single selected row.
 	/// </remarks>
 	[Parameter]
 	public bool ShowRadioSelectColumn { get; set; }
@@ -394,18 +398,19 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	public EventCallback OnResetFiltersAndSorters { get; set; }
 
 	/// <summary>
-	/// Gets or sets the query string state discriminator used to distinguish between querystring state values
-	/// for sorters and filters so that are applied to the correct grid component where more than one
-	/// is in use on a single component or page.
+	/// Gets or sets the query string state discriminator used to distinguish between querystring state values for sorters
+	/// and filters so that are applied to the correct grid component where more than one is in use on a single component
+	/// or page.
 	/// </summary>
 	[Parameter]
 	public string? QueryStringStateDiscriminator { get; set; }
 
 	/// <summary>
-	/// Gets or sets a value indicating whether the search options state should be enabled. By default, this is <see langword="null" />
-	/// and the value of <see cref="UmbrellaGridOptions.IsSearchOptionStateEnabled"/> is used. If this property has a value, it will override the
-	/// value of <see cref="UmbrellaGridOptions.IsSearchOptionStateEnabled"/>.
-	/// If this is set to <see langword="true" />, the grid will attempt to maintain its state across navigation events.
+	/// Gets or sets a value indicating whether the search options state should be enabled. By default, this is
+	/// <see langword="null" /> and the value of <see cref="UmbrellaGridOptions.IsSearchOptionStateEnabled"/> is used. If
+	/// this property has a value, it will override the value of
+	/// <see cref="UmbrellaGridOptions.IsSearchOptionStateEnabled"/>. If this is set to <see langword="true" />, the grid
+	/// will attempt to maintain its state across navigation events.
 	/// </summary>
 	[Parameter]
 	public bool? IsSearchOptionStateEnabledOverride { get; set; }
@@ -519,7 +524,14 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 			if (Logger.IsEnabled(LogLevel.Debug))
 				Logger.WriteDebug(new { FilterableColumnsCount = FilterableColumns.Count });
 
+#if NET8_0_OR_GREATER
+			if (!RendererInfo.IsInteractive)
+			{
+				await ApplyQueryStringSortersAndFiltersAsync(true);
+			}
+#else
 			await ApplyQueryStringSortersAndFiltersAsync(true);
+#endif
 
 			StateHasChanged();
 		}
@@ -547,8 +559,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	}
 
 	/// <summary>
-	/// Gets a collection of the items that have been selected determined by the checked status of the checkboxes rendered on each
-	/// row of the grid when <see cref="ShowCheckboxSelectColumn"/> is set to <see langword="true"/>.
+	/// Gets a collection of the items that have been selected determined by the checked status of the checkboxes rendered
+	/// on each row of the grid when <see cref="ShowCheckboxSelectColumn"/> is set to <see langword="true"/>.
 	/// </summary>
 	/// <returns>A collection of the selected items.</returns>
 	public IReadOnlyCollection<TItem> GetSelectedItems() => SelectableItems.Where(x => x.IsSelected).Select(x => x.Item).ToArray();
@@ -582,7 +594,10 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 				// In table mode, the deferred callback has already completed the initial scan before the component becomes interactive.
 				// CollectionView mode relies on this method for the initial scan, so we must not exit early before that work has run.
 				if (await TryRestoreSearchStateFromSessionStorageAsync() && ColumnScanComplete)
+				{
+					await ApplyQueryStringSortersAndFiltersAsync(false);
 					return;
+				}
 
 				await PersistSearchStateToSessionStorageAsync(Navigation.Uri);
 			}
@@ -597,6 +612,11 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 		{
 			if (!ColumnScanComplete)
 				await SetColumnScanCompletedAsync();
+
+#if NET8_0_OR_GREATER
+			if (RendererInfo.IsInteractive && ColumnScanComplete)
+				await ApplyQueryStringSortersAndFiltersAsync(false);
+#endif
 		}
 	}
 
@@ -657,7 +677,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	}
 
 	/// <summary>
-	/// The event handler invoked by the <see cref="UmbrellaPagination"/> component when its state has changed as result of user interaction.
+	/// The event handler invoked by the <see cref="UmbrellaPagination"/> component when its state has changed as result of
+	/// user interaction.
 	/// </summary>
 	/// <param name="args">The event arguments containing the updated state of the pagination component.</param>
 	/// <returns>An awaitable Task that completed when this operation has completed.</returns>
@@ -1083,14 +1104,22 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 		if (string.IsNullOrEmpty(url) || url == Navigation.Uri)
 			return false;
 
-		Navigation.NavigateTo(url, replace: true);
+		_applyingLocationState = true;
+		try
+		{
+			Navigation.NavigateTo(url, replace: true);
+		}
+		finally
+		{
+			_applyingLocationState = false;
+		}
 
 		return true;
 	}
 
 	private void OnNavigationLocationChanged(object? sender, LocationChangedEventArgs e)
 	{
-		if (!_interactiveFeaturesEnabled || !ColumnScanComplete || !IsSearchOptionStateEnabled || _disposedValue || string.IsNullOrEmpty(_searchStatePath))
+		if (_applyingLocationState || !_interactiveFeaturesEnabled || !ColumnScanComplete || !IsSearchOptionStateEnabled || _disposedValue || string.IsNullOrEmpty(_searchStatePath))
 			return;
 
 		string path = GetNormalizedPath(e.Location);
