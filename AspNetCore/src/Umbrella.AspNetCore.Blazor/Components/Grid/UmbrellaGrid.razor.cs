@@ -5,6 +5,7 @@ using System.Text.Json;
 using Blazored.Modal;
 using Blazored.SessionStorage;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.Extensions.Logging;
 using Umbrella.AspNetCore.Blazor.Components.Dialog.Abstractions;
 using Umbrella.AspNetCore.Blazor.Components.Grid.Dialogs;
@@ -74,11 +75,14 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	private readonly CancellationTokenSource _cts = new();
 #pragma warning restore CA2213 // Disposable fields should be disposed
 	private bool _autoScrollEnabled;
+	private bool _applyingLocationState;
 	private bool _interactiveFeaturesEnabled;
 	private bool _browserEventSubscriptionInitialized;
+	private bool _navigationLocationChangedSubscriptionInitialized;
 	private string? _initialSortPropertyName;
 	private Expression<Func<TItem, object>>? _initialSortPropertyExpression;
 	private bool _disposedValue;
+	private string? _searchStatePath;
 	private string? _sessionStorageSearchStateKey;
 
 	private EditContext EditContext { get; } = new(new object());
@@ -423,7 +427,8 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 
 		if (IsSearchOptionStateEnabled)
 		{
-			string url = new Uri(Navigation.Uri).GetComponents(UriComponents.Path, UriFormat.Unescaped).ToLowerInvariant();
+			string url = GetNormalizedPath(Navigation.Uri);
+			_searchStatePath = url;
 
 			_sessionStorageSearchStateKey = HashCode.Combine(QueryStringStateDiscriminator, typeof(TItem).FullName, url).ToString(CultureInfo.InvariantCulture);
 		}
@@ -560,18 +565,26 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 		{
 			_interactiveFeaturesEnabled = true;
 
-			if (IsSearchOptionStateEnabled && !_browserEventSubscriptionInitialized)
+			if (IsSearchOptionStateEnabled)
 			{
-				await BrowserEventAggregator.Value.SubscribeAsync("popstate", async () => await InvokeAsync(async () => await ApplyQueryStringSortersAndFiltersAsync(false)), _cts.Token);
-				_browserEventSubscriptionInitialized = true;
+				if (!_navigationLocationChangedSubscriptionInitialized)
+				{
+					Navigation.LocationChanged += OnNavigationLocationChanged;
+					_navigationLocationChangedSubscriptionInitialized = true;
+				}
+
+				if (!_browserEventSubscriptionInitialized)
+				{
+					await BrowserEventAggregator.Value.SubscribeAsync("popstate", async () => await InvokeAsync(() => ApplyQueryStringStateFromCurrentLocationAsync().AsTask()), _cts.Token);
+					_browserEventSubscriptionInitialized = true;
+				}
 
 				// In table mode, the deferred callback has already completed the initial scan before the component becomes interactive.
 				// CollectionView mode relies on this method for the initial scan, so we must not exit early before that work has run.
 				if (await TryRestoreSearchStateFromSessionStorageAsync() && ColumnScanComplete)
-				{
-					await ApplyQueryStringSortersAndFiltersAsync(false);
 					return;
-				}
+
+				await PersistSearchStateToSessionStorageAsync(Navigation.Uri);
 			}
 		}
 
@@ -650,7 +663,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	/// <returns>An awaitable Task that completed when this operation has completed.</returns>
 	private Task OnPaginationOptionsChangedAsync(UmbrellaPaginationEventArgs args) => UpdateGridAsync(QueryStringStateUpdateMode.Update, args.PageNumber, args.PageSize);
 
-	private async Task ResetFiltersAndSortersAsync()
+	private async Task ResetFiltersAndSortersAsync(bool fireCallback = true)
 	{
 		PageNumber = 1;
 
@@ -666,7 +679,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 			}
 		}
 
-		if (OnResetFiltersAndSorters.HasDelegate)
+		if (fireCallback && OnResetFiltersAndSorters.HasDelegate)
 			await OnResetFiltersAndSorters.InvokeAsync();
 	}
 
@@ -838,10 +851,10 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 				{
 					// Before navigating, store the url in SessionStorage, the intention being that if the user has navigated
 					// away from the screen containing the grid, we can restore state by loading it from there.
-					if (!string.IsNullOrEmpty(_sessionStorageSearchStateKey))
-						await SessionStorageService.SetItemAsStringAsync(_sessionStorageSearchStateKey, url, _cts.Token);
+					await PersistSearchStateToSessionStorageAsync(url);
 
 					Navigation.NavigateTo(url);
+					return;
 				}
 			}
 
@@ -904,7 +917,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 
 	private async ValueTask ApplyQueryStringSortersAndFiltersAsync(bool tryRestoreFromSessionStorage)
 	{
-		await ResetFiltersAndSortersAsync();
+		await ResetFiltersAndSortersAsync(fireCallback: false);
 
 		if (IsSearchOptionStateEnabled)
 		{
@@ -1075,6 +1088,46 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 		return true;
 	}
 
+	private void OnNavigationLocationChanged(object? sender, LocationChangedEventArgs e)
+	{
+		if (!_interactiveFeaturesEnabled || !ColumnScanComplete || !IsSearchOptionStateEnabled || _disposedValue || string.IsNullOrEmpty(_searchStatePath))
+			return;
+
+		string path = GetNormalizedPath(e.Location);
+
+		if (!string.Equals(path, _searchStatePath, StringComparison.Ordinal))
+			return;
+
+		_ = InvokeAsync(() => ApplyQueryStringStateFromCurrentLocationAsync().AsTask());
+	}
+
+	private async ValueTask ApplyQueryStringStateFromCurrentLocationAsync()
+	{
+		if (_applyingLocationState || !ColumnScanComplete || !IsSearchOptionStateEnabled || _disposedValue)
+			return;
+
+		try
+		{
+			_applyingLocationState = true;
+			await ApplyQueryStringSortersAndFiltersAsync(false);
+		}
+		finally
+		{
+			_applyingLocationState = false;
+		}
+	}
+
+	private async ValueTask PersistSearchStateToSessionStorageAsync(string url)
+	{
+		if (!_interactiveFeaturesEnabled || string.IsNullOrEmpty(_sessionStorageSearchStateKey))
+			return;
+
+		await SessionStorageService.SetItemAsStringAsync(_sessionStorageSearchStateKey, url, _cts.Token);
+	}
+
+	private static string GetNormalizedPath(string absoluteUri)
+		=> new Uri(absoluteUri).GetComponents(UriComponents.Path, UriFormat.Unescaped).ToLowerInvariant();
+
 	/// <summary>
 	/// Disposes this object.
 	/// </summary>
@@ -1086,6 +1139,9 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 		{
 			if (disposing)
 			{
+				if (_navigationLocationChangedSubscriptionInitialized)
+					Navigation.LocationChanged -= OnNavigationLocationChanged;
+
 #if NET8_0_OR_GREATER
 				await _cts.CancelAsync();
 #else
