@@ -524,7 +524,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 			if (Logger.IsEnabled(LogLevel.Debug))
 				Logger.WriteDebug(new { FilterableColumnsCount = FilterableColumns.Count });
 
-#if NET8_0_OR_GREATER
+#if NET9_0_OR_GREATER
 			if (!RendererInfo.IsInteractive)
 			{
 				await ApplyQueryStringSortersAndFiltersAsync(true);
@@ -613,7 +613,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 			if (!ColumnScanComplete)
 				await SetColumnScanCompletedAsync();
 
-#if NET8_0_OR_GREATER
+#if NET9_0_OR_GREATER
 			if (RendererInfo.IsInteractive && ColumnScanComplete)
 				await ApplyQueryStringSortersAndFiltersAsync(false);
 #endif
@@ -826,7 +826,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 
 						url = Navigation.GetUriWithQueryParameters(url, new Dictionary<string, object?>
 						{
-#if NET8_0_OR_GREATER
+#if NET9_0_OR_GREATER
 							[FiltersQueryStringParamKey] = JsonSerializer.Serialize(dicFilters, UmbrellaKeyValuePairJsonSerializerContext.Default.IEnumerableUmbrellaKeyValuePairStringString)
 #else
 							[FiltersQueryStringParamKey] = JsonSerializer.Serialize(dicFilters, _jsonSerializerOptions)
@@ -1002,7 +1002,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 
 			if (filtersResult.success)
 			{
-#if NET8_0_OR_GREATER
+#if NET9_0_OR_GREATER
 				List<UmbrellaKeyValuePair<string, string>>? dicFilters = JsonSerializer.Deserialize(filtersResult.value, UmbrellaKeyValuePairJsonSerializerContext.Default.ListUmbrellaKeyValuePairStringString);
 #else
 				List<UmbrellaKeyValuePair<string, string>>? dicFilters = JsonSerializer.Deserialize<List<UmbrellaKeyValuePair<string, string>>>(filtersResult.value, _jsonSerializerOptions);
@@ -1171,7 +1171,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 				if (_navigationLocationChangedSubscriptionInitialized)
 					Navigation.LocationChanged -= OnNavigationLocationChanged;
 
-#if NET8_0_OR_GREATER
+#if NET9_0_OR_GREATER
 				await _cts.CancelAsync();
 #else
 				_cts.Cancel();
