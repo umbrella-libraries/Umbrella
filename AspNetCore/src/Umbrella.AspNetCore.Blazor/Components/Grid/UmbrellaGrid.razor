@@ -13,7 +13,10 @@
         {
             <CascadingValue Name="ScanMode" Value="true">
                 @Columns?.Invoke(default!)
-                <DeferredCallback OnReady="@(async () => await SetColumnScanCompletedAsync())" />
+                @if (!RendererInfo.IsInteractive)
+                {
+                    <DeferredCallback OnReady="@(async () => await InitializeNonInteractiveAsync())" />
+                }
             </CascadingValue>
         }
 
