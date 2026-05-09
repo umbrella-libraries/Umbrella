@@ -567,6 +567,9 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 		else
 		{
 			await SetColumnScanCompletedAsync();
+
+			if (!string.IsNullOrEmpty(_sessionStorageSearchStateKey))
+				await SessionStorageService.SetItemAsStringAsync(_sessionStorageSearchStateKey, Navigation.Uri, _cts.Token);
 		}
 	}
 
