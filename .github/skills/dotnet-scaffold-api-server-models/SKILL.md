@@ -33,6 +33,23 @@ Choose only the types the feature needs. Skip types that do not apply.
 | `Update<Name>ResultModel` | `IUpdateResultModel` | Update operation result — returns the new `ConcurrencyStamp` |
 | `<Name>PaginatedResultModel` | extends `PaginatedResultModel<Slim<Name>Model>` | Paginated list response |
 
+**Choosing which model types to scaffold**
+
+Match the models you create to the endpoints you intend to enable. Models for disabled endpoints (those using `object` or `NoOp*` in the controller) do not need to exist.
+
+| Endpoints enabled | Model types to scaffold |
+|---|---|
+| Full CRUD | All 7 types |
+| Read list only | `Slim<Name>Model`, `<Name>PaginatedResultModel` |
+| Read list + detail | `Slim<Name>Model`, `<Name>PaginatedResultModel`, `<Name>Model` |
+| Create only (e.g. analytics, session recording) | `Create<Name>Model`, `Create<Name>ResultModel` |
+| Read list + create (no update, no detail) | `Slim<Name>Model`, `<Name>PaginatedResultModel`, `Create<Name>Model`, `Create<Name>ResultModel` |
+| Read list + detail + create (no update) | `Slim<Name>Model`, `<Name>PaginatedResultModel`, `<Name>Model`, `Create<Name>Model`, `Create<Name>ResultModel` |
+
+`<Name>PaginatedResultModel` is always paired with `Slim<Name>Model`. If there is no list endpoint, neither is needed.
+
+---
+
 **Interface property requirements — accessor rules:**
 
 - `IKeyedItem<int>` → `int Id { get; }` — `init` is fine here
@@ -40,6 +57,30 @@ Choose only the types the feature needs. Skip types that do not apply.
 - `ICreateResultModel<int>` → `int Id { get; set; }` — mutable `set` required
 - `IUpdateModel<int>` inherits `IKeyedItem<int>` + `IConcurrencyStamp` → needs `int Id { get; }` and `string ConcurrencyStamp { get; set; }`
 - `IUpdateResultModel` inherits `IConcurrencyStamp` → needs `string ConcurrencyStamp { get; set; }`
+
+---
+
+## Record declaration style (Blazor vs. standalone API)
+
+The declaration style depends on the project type. Determine this during discovery.
+
+**Blazor app project:**
+All model types use `public partial record`. The `partial` keyword is required so the `IUmbrellaTrimmable` source generator can emit the trim implementation in a separate file. Input models (`Create*Model`, `Update*Model`) that contain or inherit string properties also implement `IUmbrellaTrimmable`. Add `using Umbrella.Utilities.Text;` to those files.
+
+| Model type | Declaration |
+|---|---|
+| `<Name>ModelBase` (abstract base) | `public abstract partial record` |
+| `<Name>Model` (GET detail) | `public partial record` |
+| `Slim<Name>Model` (GET list item) | `public partial record` |
+| `Create<Name>Model` | `public partial record : IUmbrellaTrimmable` (when has/inherits strings) |
+| `Update<Name>Model` | `public partial record : IUmbrellaTrimmable` (when has/inherits strings) |
+| `Create<Name>ResultModel` | `public partial record` |
+| `Update<Name>ResultModel` | `public partial record` |
+
+**Standalone API project (no Blazor):**
+All models use plain `record` — no `partial`, no `IUmbrellaTrimmable`. String trimming is handled at the transport/middleware level.
+
+The code examples in Step 1 use the Blazor convention. For standalone API projects, remove `partial` and omit `IUmbrellaTrimmable`.
 
 ---
 
@@ -84,7 +125,7 @@ Notes:
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public abstract record <Name>ModelBase
+public abstract partial record <Name>ModelBase
 {
     [Required(ErrorMessage = "<Name>Constants.NameRequiredErrorMessage")]
     [MaxLength(200)]
@@ -100,7 +141,7 @@ Place validation attributes here so they are not repeated on each request model.
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record <Name>Model : <Name>ModelBase, IKeyedItem<int>, IConcurrencyStamp
+public partial record <Name>Model : <Name>ModelBase, IKeyedItem<int>, IConcurrencyStamp
 {
     public required int Id { get; init; }
     public required string ConcurrencyStamp { get; set; }
@@ -113,7 +154,7 @@ public record <Name>Model : <Name>ModelBase, IKeyedItem<int>, IConcurrencyStamp
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record Slim<Name>Model : IKeyedItem<int>
+public partial record Slim<Name>Model : IKeyedItem<int>
 {
     public required int Id { get; init; }
     // only the fields shown in list views
@@ -123,9 +164,11 @@ public record Slim<Name>Model : IKeyedItem<int>
 **Create model:**
 
 ```csharp
+using Umbrella.Utilities.Text;
+
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record Create<Name>Model : <Name>ModelBase
+public partial record Create<Name>Model : <Name>ModelBase, IUmbrellaTrimmable
 {
     // add properties specific to creation only; leave empty if everything is on the base
 }
@@ -134,9 +177,11 @@ public record Create<Name>Model : <Name>ModelBase
 **Update model:**
 
 ```csharp
+using Umbrella.Utilities.Text;
+
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record Update<Name>Model : <Name>ModelBase, IUpdateModel<int>
+public partial record Update<Name>Model : <Name>ModelBase, IUpdateModel<int>, IUmbrellaTrimmable
 {
     public required int Id { get; init; }
     [Required]
@@ -152,7 +197,7 @@ Note: `ConcurrencyStamp` must use `set` (not `init`) to satisfy `IConcurrencySta
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record Create<Name>ResultModel : ICreateResultModel<int>
+public partial record Create<Name>ResultModel : ICreateResultModel<int>
 {
     public int Id { get; set; }
     public string ConcurrencyStamp { get; set; } = null!;
@@ -167,7 +212,7 @@ Note: `Id` must use `set` (not `init`) to satisfy `ICreateResultModel<int>`.
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record Update<Name>ResultModel : IUpdateResultModel
+public partial record Update<Name>ResultModel : IUpdateResultModel
 {
     public string ConcurrencyStamp { get; set; } = null!;
     // any other values the server recomputes on update
@@ -201,3 +246,5 @@ Use `required` on properties that the caller must always supply — typically `I
 5. Validation attributes are placed on the base model (not duplicated on each request model).
 6. `Slim<Name>Model` does not inherit from any base — it is independent.
 7. If base classes were introduced: no base class is empty (an empty base adds no value and should be removed).
+8. **Blazor project:** All record types are `public partial record`; input models with strings implement `IUmbrellaTrimmable` with `using Umbrella.Utilities.Text;`.
+9. **Standalone API:** All record types are plain `record` — no `partial`, no `IUmbrellaTrimmable`.

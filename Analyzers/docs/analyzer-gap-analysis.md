@@ -106,3 +106,24 @@ These are Thrive For Send / Umbrella consumer conventions that are too project-s
 | Layer-specific exception types (`ThriveForSend[Layer]Exception`) | All scaffolding skills |
 | `IncludeMap<T>` pattern for EF eager loading | `blazor-scaffold-repository` |
 | Mapperly `[Entity]Mapper` per entity crossing the API boundary | `blazor-scaffold-server-models` |
+
+---
+
+## Proposed New Analyzer Rules
+
+Identified during skill audit (May 2026). These are candidates for `Umbrella.Analyzers` — not yet implemented.
+
+| Proposed ID | Rule | Severity | Category | Trigger |
+|---|---|---|---|---|
+| UA015 | API model records must be `public partial record` | Warning | UmbrellaModelStandards | Non-partial record found in `Web.Shared\Models\Api\` |
+| UA016 | Input model records with string properties must implement `IUmbrellaTrimmable` (Blazor projects only) | Warning | UmbrellaModelStandards | String property on a `Create*` or `Update*` record that does not implement `IUmbrellaTrimmable` |
+| UA017 | Controllers inheriting `UmbrellaApiController` must use `[UmbrellaProducesResponseType]`, not `[ProducesResponseType]` | Warning | UmbrellaApiStandards | `[ProducesResponseType]` attribute found on a class or method within the `UmbrellaApiController` inheritance chain |
+| UA018 | `IAuthorizationHandler` implementations must not call `context.Fail()` | Error | UmbrellaSecurity | `context.Fail()` call found inside `HandleRequirementAsync` — explicit failure blocks all other handlers, violating ASP.NET Core convention |
+| UA019 | Mapperly mapper classes must be `public partial class` | Warning | UmbrellaMapperStandards | Mapper class in a ModelFactories assembly that is not `public` or not `partial` — prevents `UmbrellaMapper` assembly scan from discovering it |
+
+**Implementation notes:**
+- UA015 complements UA011 (which enforces `record`, not `partial record`). Consider extending UA011 rather than adding a separate rule.
+- UA016 is Blazor-project-scoped — gate on project type (presence of `Blazor.WebAssembly` or `Blazor.Server` package reference) to avoid false positives in standalone API projects.
+- UA017 should suppress on any method/class already decorated with `[UmbrellaProducesResponseType]`.
+- UA018 — check whether any existing rule (e.g. a security-focused custom rule) already covers `context.Fail()` before implementing.
+- UA019 — scope to assemblies named `*.ModelFactories` or containing Mapperly-annotated classes.

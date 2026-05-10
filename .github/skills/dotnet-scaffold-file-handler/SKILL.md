@@ -1,19 +1,21 @@
 ---
 name: dotnet-scaffold-file-handler
-description: 'Scaffold a file handler (interface, implementation, DirectoryNames constant, DI registration) in the Core.Logic project, following the Umbrella UmbrellaFileHandler pattern.'
+description: 'Scaffold a file handler (interface, implementation, DirectoryNames constant, DI registration) in the Core.Logic project, following the Umbrella UmbrellaFileHandler pattern. Authorization is separate — see dotnet-scaffold-file-authorization-handler.'
 ---
 
 # Scaffold File Handler
 
 ## Purpose
 
-Add a new file handler to the `Core.<AppName>.Core.Logic` project. File handlers plug into the Umbrella file storage infrastructure: when a file is accessed via `IUmbrellaFileStorageProvider`, the provider extracts the directory name from the file's path and delegates authorization to the matching registered handler. Handlers are also used directly to save, retrieve, and delete files by group ID.
+Add a new file handler to the `Core.<AppName>.Core.Logic` project. File handlers plug into the Umbrella file storage infrastructure and are responsible for **storage operations only**: saving, retrieving, deleting files, generating web-relative URLs, caching file lookups, and optional post-save processing (e.g. image resizing).
 
-A file handler can represent any logical grouping of files -- files attached to a database record, files in a SharePoint-style folder, user uploads, generated reports, or anything else. The group ID (`int`) is whatever identifier separates one group of files from another for this particular handler.
+Authorization is decoupled and lives in a separate `UmbrellaFileAuthorizationHandler` — see the `dotnet-scaffold-file-authorization-handler` skill. A file handler can exist without a matching authorization handler if access control is handled elsewhere, but be aware that the default storage provider behaviour is to deny access for directories with no registered auth handler.
 
-## How the provider finds the handler
+A file handler can represent any logical grouping of files — files attached to a database record, files in a SharePoint-style folder, user uploads, generated reports, or anything else. The group ID (`int`) is whatever identifier separates one group of files from another for this particular handler.
 
-The provider extracts the first path segment of a file's `SubPath` as the directory name (e.g., `/user-document/42/cv.pdf` -> `user-document`), then looks up the registered `IUmbrellaFileAuthorizationHandler` whose `DirectoryName` matches (case-insensitive). The `AuthorizeAsync` method on that handler is called to permit or deny the operation. If no handler is found and `AllowUnhandledFileAuthorizationChecks` is false (the default), access is denied. This means the `DirectoryName` property on the handler **must exactly match** the constant registered in `DirectoryNames`.
+## How the provider uses the handler
+
+The provider uses the handler's `DirectoryName` to construct the file path (`/<directoryName>/<groupId>/<fileName>`). The `DirectoryName` property on the handler **must exactly match** the constant registered in `DirectoryNames`, as authorization lookup (in the separate auth handler) uses the same value.
 
 ## Discovery (read these before writing anything)
 
@@ -28,7 +30,7 @@ The provider extracts the first path segment of a file's `SubPath` as the direct
 
 **File:** `Core\<AppName>.Core.Common\FileSystem\Constants\DirectoryNames.cs`
 
-Add a new `public const string` entry using lowercase, hyphenated naming (kebab-case). The name should describe what the directory stores, not how it is implemented:
+Add a new `public const string` entry using lowercase, hyphenated naming (kebab-case):
 
 ```csharp
 public const string <Name> = "<name-in-kebab-case>";
@@ -42,8 +44,6 @@ public static readonly IReadOnlyCollection<string> All = [
     <Name>
 ];
 ```
-
-The string value becomes the first path segment under the file storage root for all files belonging to this handler (e.g., `"user-document"` -> files stored at `/user-document/<groupId>/<fileName>`). The group ID segment identifies the specific container within that directory -- it could be a database record ID, a user ID, a folder reference, or any other discriminator that makes sense for this use case.
 
 ---
 
@@ -60,9 +60,9 @@ public interface I<Name>FileHandler : IUmbrellaFileHandler<int>;
 ```
 
 **Rules:**
-- Empty marker interface -- all behavior is on the base interface and implementation
-- Always extends `IUmbrellaFileHandler<int>` where `int` is the group ID type used in this project
-- Needs the explicit `using Umbrella.FileSystem.Abstractions;` -- this namespace is not in global usings for this project
+- Empty marker interface — all behaviour comes from the base interface and implementation
+- Always extends `IUmbrellaFileHandler<int>`
+- Needs the explicit `using Umbrella.FileSystem.Abstractions;` — not in global usings for this project
 
 ---
 
@@ -73,9 +73,7 @@ public interface I<Name>FileHandler : IUmbrellaFileHandler<int>;
 **Minimal pattern (no post-save processing):**
 
 ```csharp
-using System.Security.Claims;
 using <AppName>.Core.Common.FileSystem.Constants;
-using <AppName>.Core.Logic.Exceptions;
 using <AppName>.Core.Logic.FileSystem.Abstractions;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.Utilities.Caching.Abstractions;
@@ -95,32 +93,13 @@ internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileH
     }
 
     public override string DirectoryName => DirectoryNames.<Name>;
-
-    public override Task<bool> AuthorizeAsync(IUmbrellaFileInfo fileInfo, UmbrellaFileOperationType operationType, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        Guard.IsNotNull(fileInfo);
-
-        try
-        {
-            bool canAccess = ClaimsPrincipal.Current?.Identity?.IsAuthenticated is true;
-
-            return Task.FromResult(canAccess);
-        }
-        catch (Exception exc) when (Logger.WriteError(exc, new { fileInfo.Name }))
-        {
-            throw new <AppName>CoreLogicException("There has been a problem accessing the file.", exc);
-        }
-    }
 }
 ```
 
 **With post-save image resizing:**
 
 ```csharp
-using System.Security.Claims;
 using <AppName>.Core.Common.FileSystem.Constants;
-using <AppName>.Core.Logic.Exceptions;
 using <AppName>.Core.Logic.FileSystem.Abstractions;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.FileSystem.Abstractions;
@@ -149,23 +128,6 @@ internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileH
 
     public override string DirectoryName => DirectoryNames.<Name>;
 
-    public override Task<bool> AuthorizeAsync(IUmbrellaFileInfo fileInfo, UmbrellaFileOperationType operationType, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        Guard.IsNotNull(fileInfo);
-
-        try
-        {
-            bool canAccess = ClaimsPrincipal.Current?.Identity?.IsAuthenticated is true;
-
-            return Task.FromResult(canAccess);
-        }
-        catch (Exception exc) when (Logger.WriteError(exc, new { fileInfo.Name }))
-        {
-            throw new <AppName>CoreLogicException("There has been a problem accessing the file.", exc);
-        }
-    }
-
     protected override async Task AfterSavingAsync(IUmbrellaFileInfo fileInfo, int groupId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -180,27 +142,12 @@ internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileH
 
 **Rules:**
 - Always `internal sealed class` inheriting `UmbrellaFileHandler<int>` and the marker interface
-- Base 5 constructor params in this exact order: `ILogger<T>`, `IHybridCache`, `ICacheKeyUtility`, `IUmbrellaFileStorageProvider`, `IUmbrellaFileStorageProviderOptions` -- all passed to `: base(...)`
+- Base 5 constructor params in this exact order: `ILogger<T>`, `IHybridCache`, `ICacheKeyUtility`, `IUmbrellaFileStorageProvider`, `IUmbrellaFileStorageProviderOptions` — all passed to `: base(...)`
 - Extra dependencies go AFTER the 5 base params and are stored as `private readonly` fields
-- `DirectoryName` must return `DirectoryNames.<Name>` -- the same constant added in Step 1
-- `AuthorizeAsync` must always call `cancellationToken.ThrowIfCancellationRequested()` and `Guard.IsNotNull(fileInfo)` first, then use the try/catch pattern
-- The default authorization check is `ClaimsPrincipal.Current?.Identity?.IsAuthenticated is true` -- tighten this if the use case requires finer-grained access control (e.g., ownership checks for write operations)
-- Override `AfterSavingAsync` only if post-save processing is needed (e.g., image resizing); always call `cancellationToken.ThrowIfCancellationRequested()` at the start
-- `using Umbrella.DynamicImage.Abstractions;` is only needed when `AfterSavingAsync` is overridden for image work -- check the project `.csproj` to confirm the package is referenced before using it
-
-### Authorization per operation type
-
-When authorization needs to vary by operation, switch on `operationType`:
-
-```csharp
-bool canAccess = operationType switch
-{
-    UmbrellaFileOperationType.Read => ClaimsPrincipal.Current?.Identity?.IsAuthenticated is true,
-    UmbrellaFileOperationType.Create or UmbrellaFileOperationType.Update or UmbrellaFileOperationType.Delete
-        => ClaimsPrincipal.Current?.IsInRole("Admin") is true,
-    _ => false
-};
-```
+- `DirectoryName` must return `DirectoryNames.<Name>` — the same constant added in Step 1
+- Do NOT add `AuthorizeAsync` here — authorization belongs in a separate `UmbrellaFileAuthorizationHandler` (see `dotnet-scaffold-file-authorization-handler`)
+- Override `AfterSavingAsync` only when post-save processing is needed; always call `cancellationToken.ThrowIfCancellationRequested()` first
+- `using Umbrella.DynamicImage.Abstractions;` is only needed when overriding `AfterSavingAsync` for image work — confirm the package is referenced in the `.csproj`
 
 ---
 
@@ -214,14 +161,15 @@ Add one line in the `// File Handlers` section, in alphabetical order:
 _ = services.AddSingleton<I<Name>FileHandler, <Name>FileHandler>();
 ```
 
-File handlers are always `AddSingleton` -- they are stateless and safe to share across requests. This is different from services (`AddScoped`).
+File handlers are always `AddSingleton` — they are stateless and safe to share across requests.
 
 ---
 
 ## Verification
 
-1. Confirm `DirectoryNames.<Name>` constant exists in `Core.Common` and is added to the `All` collection.
-2. Confirm the interface is an empty marker extending `IUmbrellaFileHandler<int>` with the `using Umbrella.FileSystem.Abstractions;` directive.
-3. Confirm the implementation is `internal sealed`, the constructor passes exactly the 5 base params to `: base(...)`, and `DirectoryName` returns the correct `DirectoryNames` constant.
-4. Confirm `AuthorizeAsync` calls `ThrowIfCancellationRequested`, `Guard.IsNotNull(fileInfo)`, and wraps the access check in try/catch with `Logger.WriteError`.
-5. Confirm `AddSingleton<I<Name>FileHandler, <Name>FileHandler>()` is present in `IServiceCollectionExtensions.cs`.
+1. `DirectoryNames.<Name>` constant exists and is added to the `All` collection.
+2. The interface is an empty marker extending `IUmbrellaFileHandler<int>` with the `using Umbrella.FileSystem.Abstractions;` directive.
+3. The implementation is `internal sealed`, the constructor passes exactly the 5 base params to `: base(...)`, and `DirectoryName` returns the correct constant.
+4. There is no `AuthorizeAsync` on the file handler — authorization is in a separate handler.
+5. `AddSingleton<I<Name>FileHandler, <Name>FileHandler>()` is present in `IServiceCollectionExtensions.cs`.
+6. If authorization is needed, the `dotnet-scaffold-file-authorization-handler` skill has been used to create a matching `<Name>FileAuthorizationHandler` with the same `DirectoryName`.

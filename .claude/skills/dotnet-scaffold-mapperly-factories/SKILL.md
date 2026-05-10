@@ -38,6 +38,21 @@ Mappers are the server-side complement to API models. The models skill (`dotnet-
 
 A class can implement any combination of these on the same source/destination pair. It cannot implement the same interface twice with different type arguments — use a separate class in that case.
 
+**Choosing which mapper interfaces to implement**
+
+Only create mappings for the model types you scaffolded. Skip any direction for which no corresponding model exists.
+
+| Endpoint / model | Mapper interface to implement |
+|---|---|
+| GET single (`<Name>Model`) | `IUmbrellaMapperlyNewInstanceMapper<Entity, <Name>Model>` |
+| GET list (`Slim<Name>Model`) | `IUmbrellaMapperlyNewCollectionMapper<Entity, Slim<Name>Model>` |
+| POST request (`Create<Name>Model → Entity`) | `IUmbrellaMapperlyNewInstanceMapper<Create<Name>Model, Entity>` |
+| POST result (`Entity → Create<Name>ResultModel`) | `IUmbrellaMapperlyNewInstanceMapper<Entity, Create<Name>ResultModel>` (separate class) |
+| PUT request (`Update<Name>Model → Entity`) | `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>Model, Entity>` |
+| PUT result (`Entity → Update<Name>ResultModel`) | `IUmbrellaMapperlyNewInstanceMapper<Entity, Update<Name>ResultModel>` (separate class) |
+
+For example, a create-only analytics controller only needs the POST request row (and POST result if the result model has auto-mappable properties). A read-list-only controller only needs the GET list row.
+
 ---
 
 ## Step 1 -- Create the mapper file

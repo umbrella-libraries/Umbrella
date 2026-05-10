@@ -24,7 +24,7 @@ Create a new EF Core entity class and register it in the DbContext, following th
 
 **Rules:**
 - Namespace: `namespace <AppName>.Core.Domain.Entities;`
-- Declare as `public partial class` -- always `partial`, never omit this
+- Declare as `public partial class` -- always `partial`, never omit this (required for Umbrella source generation: EF Core interceptors and audit infrastructure)
 - Always include `public int Id { get; set; }` as the primary key
 - Choose the correct audit interfaces (see Interface Reference below)
 - String properties: always annotate with `[ShortStringLength]`, `[MediumStringLength]`, or `[LongStringLength]` from `<AppName>.Shared.Common.Attributes`
