@@ -334,9 +334,6 @@ public abstract class GenericDbRepository<TEntity, TDbContext, TRepoOptions, TEn
 
 			_ = Context.Value.Set<TEntity>().Remove(entity);
 
-			// TODO: Is this line redundant?
-			Context.Value.Entry(entity).State = EntityState.Deleted;
-
 			if (repoOptions.UpdateOriginalConcurrencyStamp)
 				UpdateOriginalConcurrencyStamp(entity);
 

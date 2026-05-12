@@ -211,7 +211,7 @@ public abstract class ReadOnlyGenericDbRepository<TEntity, TDbContext, TRepoOpti
 				.Where(x => entityKeys.Contains(x.Id))
 				.IncludeMap(map)
 				.TrackChanges(trackChanges)
-				.ToArrayAsync(cancellationToken)
+				.ToListAsync(cancellationToken)
 				.ConfigureAwait(false);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { entityKeys, trackChanges, map, repoOptions, childOptions }))
@@ -260,17 +260,14 @@ public abstract class ReadOnlyGenericDbRepository<TEntity, TDbContext, TRepoOpti
 
 		filteredQuery = filteredQuery.ApplyFilterExpressions(filterExpressions, filterExpressionCombinator, additionalFilterExpressions);
 
-		var results = await filteredQuery
+		int totalCount = await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+		var entities = await filteredQuery
 			.ApplySortExpressions(sortExpressions, new SortExpression<TEntity>(x => x.Id, SortDirection.Ascending))
 			.IncludeMap(map)
-			.Select(x => new { Entity = x, TotalCount = filteredQuery.Count() })
 			.ApplyPagination(pageNumber, pageSize)
 			.TrackChanges(trackChanges)
-			.ToArrayAsync(cancellationToken)
+			.ToListAsync(cancellationToken)
 			.ConfigureAwait(false);
-
-		int totalCount = results.FirstOrDefault()?.TotalCount ?? await filteredQuery.CountAsync(cancellationToken).ConfigureAwait(false);
-		var entities = results.Select(x => x.Entity).ToList();
 
 		await AfterAllItemsLoadedAsync(entities, repoOptions, childOptions, cancellationToken).ConfigureAwait(false);
 
@@ -372,15 +369,12 @@ public abstract class ReadOnlyGenericDbRepository<TEntity, TDbContext, TRepoOpti
 
 		shapedQuery = shapedQuery.ApplyFilterExpressions(shapedFilterExpressions, filterExpressionCombinator, additionalShapedFilterExpressions);
 
-		var results = await shapedQuery
+		int totalCount = await shapedQuery.CountAsync(cancellationToken).ConfigureAwait(false);
+		var entities = await shapedQuery
 			.ApplySortExpressions(sortExpressions, initialSortExpression)
-			.Select(x => new { Entity = x, TotalCount = shapedQuery.Count() })
 			.ApplyPagination(pageNumber, pageSize)
-			.ToArrayAsync(cancellationToken)
+			.ToListAsync(cancellationToken)
 			.ConfigureAwait(false);
-
-		int totalCount = results.FirstOrDefault()?.TotalCount ?? await shapedQuery.CountAsync(cancellationToken).ConfigureAwait(false);
-		var entities = results.Select(x => x.Entity).ToArray();
 
 		return new PaginatedResultModel<TShapedEntity>(entities, pageNumber, pageSize, totalCount);
 	}
