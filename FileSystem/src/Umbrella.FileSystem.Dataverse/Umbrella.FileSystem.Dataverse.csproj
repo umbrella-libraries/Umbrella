@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+	</PropertyGroup>
+	<PropertyGroup>
+		<PackageId>Umbrella.FileSystem.Dataverse</PackageId>
+		<Description>This package contains implementations of the Umbrella.FileSystem.Abstractions types using Microsoft Dataverse as the storage mechanism, storing file content as base64 in a Text Area column.</Description>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.10" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Umbrella.FileSystem.Abstractions\Umbrella.FileSystem.Abstractions.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Include="..\..\..\icon.png" Pack="true" PackagePath="\" />
+	</ItemGroup>
+</Project>

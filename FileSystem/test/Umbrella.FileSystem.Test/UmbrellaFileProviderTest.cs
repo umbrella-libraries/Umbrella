@@ -4,8 +4,11 @@ using Azure.Identity;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Graph;
+using Microsoft.PowerPlatform.Dataverse.Client;
+using Microsoft.PowerPlatform.Dataverse.Client.Model;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.FileSystem.AzureStorage;
+using Umbrella.FileSystem.Dataverse;
 using Umbrella.FileSystem.Disk;
 using Umbrella.FileSystem.SharePoint;
 using Umbrella.Internal.Mocks;
@@ -40,6 +43,10 @@ public class UmbrellaFileProviderTest
 	private static string SharePointClientId => _sharePointConfig["SharePoint:ClientId"]!;
 	private static string SharePointClientSecret => _sharePointConfig["SharePoint:ClientSecret"]!;
 
+	private static string DataverseClientId => _sharePointConfig["Dataverse:ClientId"]!;
+	private static string DataverseClientSecret => _sharePointConfig["Dataverse:ClientSecret"]!;
+	private static string DataverseUrl => _sharePointConfig["Dataverse:Url"]!;
+
 	private const string TestFileName = "aspnet-mvc-logo.png";
 	private static string? _baseDirectory;
 
@@ -62,21 +69,39 @@ public class UmbrellaFileProviderTest
 	[
 		CreateAzureBlobFileProvider,
 		CreateDiskFileProvider,
-		CreateSharePointFileProvider
+		CreateSharePointFileProvider,
+		CreateDataverseFileProvider
 	];
 
 	// SharePoint restricts % in path segments; exclude from path-variation tests to avoid false failures
+	// Dataverse uses a GUID-per-directory model so arbitrary path variations are handled by the adapter
 	private static readonly List<Func<IUmbrellaFileStorageProvider>> _pathVariationProviders =
 	[
 		CreateAzureBlobFileProvider,
 		CreateDiskFileProvider
 	];
 
-	// SharePoint throws NotSupportedException for metadata operations
+	// SharePoint and Dataverse throw NotSupportedException for metadata operations
 	private static readonly List<Func<IUmbrellaFileStorageProvider>> _metadataCapableProviders =
 	[
 		CreateAzureBlobFileProvider,
 		CreateDiskFileProvider
+	];
+
+	// Dataverse throws NotSupportedException for Copy/Move; only these providers support it
+	private static readonly List<Func<IUmbrellaFileStorageProvider>> _copyMoveCapableProviders =
+	[
+		CreateAzureBlobFileProvider,
+		CreateDiskFileProvider,
+		CreateSharePointFileProvider
+	];
+
+	// Dataverse records are flat (one file per record) so downlevel directory tests can't work cross-GUID
+	private static readonly List<Func<IUmbrellaFileStorageProvider>> _hierarchyProviders =
+	[
+		CreateAzureBlobFileProvider,
+		CreateDiskFileProvider,
+		CreateSharePointFileProvider
 	];
 
 	public static List<string> PathsToTest =
@@ -94,6 +119,8 @@ public class UmbrellaFileProviderTest
 
 	public static List<object[]> ProvidersMemberData = Providers.Select(x => new object[] { x }).ToList();
 	public static List<object[]> MetadataCapableProvidersMemberData = _metadataCapableProviders.Select(x => new object[] { x }).ToList();
+	public static List<object[]> CopyMoveCapableProvidersMemberData = _copyMoveCapableProviders.Select(x => new object[] { x }).ToList();
+	public static List<object[]> HierarchyProvidersMemberData = _hierarchyProviders.Select(x => new object[] { x }).ToList();
 	public static List<object[]> PathsToTestMemberData = PathsToTest.Select(x => new object[] { x }).ToList();
 
 	public static Collection<object[]> ProvidersAndPathsMemberData = [];
@@ -133,6 +160,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
 
@@ -186,6 +214,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
 
@@ -220,6 +249,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
 
@@ -287,6 +317,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
 
@@ -328,6 +359,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		IUmbrellaFileInfo? retrievedFile = await provider.GetAsync($"/images/doesnotexist.jpg", TestContext.Current.CancellationToken).ConfigureAwait(true);
 
@@ -341,6 +373,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		string path = "/images/createbutnowrite.jpg";
 		var file = await provider.CreateAsync(path, TestContext.Current.CancellationToken).ConfigureAwait(true);
@@ -360,6 +393,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		string path = "/images/createbutnowrite.jpg";
 		var file = await provider.CreateAsync(path, TestContext.Current.CancellationToken).ConfigureAwait(true);
@@ -379,6 +413,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
 
@@ -411,6 +446,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
 
@@ -428,7 +464,7 @@ public class UmbrellaFileProviderTest
 
 		CheckWrittenFileAssertions(provider, reloadedFileInfo!, bytes.Length, TestFileName);
 
-		//Cleanup
+		// Cleanup
 		bool deleted = await provider.DeleteAsync(subpath, TestContext.Current.CancellationToken).ConfigureAwait(true);
 
 		Assert.True(deleted);
@@ -441,6 +477,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
 
@@ -472,6 +509,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
 
@@ -500,6 +538,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
 
@@ -524,7 +563,7 @@ public class UmbrellaFileProviderTest
 
 	#region Copy
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task CopyAsync_FromPath_NotExistsAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 		=> await Assert.ThrowsAsync<UmbrellaFileNotFoundException>(async () =>
 		{
@@ -534,7 +573,7 @@ public class UmbrellaFileProviderTest
 		}).ConfigureAwait(true);
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task CopyAsync_FromFileBytes_NotExistsAsync(Func<IUmbrellaFileStorageProvider> providerFunc) =>
 		//Should be a file system exception with a file not found exception inside
 		await Assert.ThrowsAsync<UmbrellaFileNotFoundException>(async () =>
@@ -556,7 +595,7 @@ public class UmbrellaFileProviderTest
 		}).ConfigureAwait(true);
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task CopyAsync_FromFileStream_NotExistsAsync(Func<IUmbrellaFileStorageProvider> providerFunc) =>
 		//Should be a file system exception with a file not found exception inside
 		await Assert.ThrowsAsync<UmbrellaFileNotFoundException>(async () =>
@@ -579,7 +618,7 @@ public class UmbrellaFileProviderTest
 		}).ConfigureAwait(true);
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task CreateAsync_Write_CopyAsync_FromPath_ToPathAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -615,7 +654,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task CreateAsync_Write_CopyAsync_FromFile_ToPathAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -651,7 +690,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task CreateAsync_Write_CopyAsync_FromFile_ToFileAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -822,7 +861,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task CreateAsync_CopyAsync_NotExistsAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 		=> await Assert.ThrowsAsync<UmbrellaFileNotFoundException>(async () =>
 		{
@@ -837,7 +876,7 @@ public class UmbrellaFileProviderTest
 
 	#region Move
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task MoveAsync_FromPath_NotExistsAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 		=> await Assert.ThrowsAsync<UmbrellaFileNotFoundException>(async () =>
 		{
@@ -847,7 +886,7 @@ public class UmbrellaFileProviderTest
 		}).ConfigureAwait(true);
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task MoveAsync_FromFileBytes_NotExistsAsync(Func<IUmbrellaFileStorageProvider> providerFunc) =>
 		//Should be a file system exception with a file not found exception inside
 		await Assert.ThrowsAsync<UmbrellaFileNotFoundException>(async () =>
@@ -869,7 +908,7 @@ public class UmbrellaFileProviderTest
 		}).ConfigureAwait(true);
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task MoveAsync_FromFileStream_NotExistsAsync(Func<IUmbrellaFileStorageProvider> providerFunc) =>
 		//Should be a file system exception with a file not found exception inside
 		await Assert.ThrowsAsync<UmbrellaFileNotFoundException>(async () =>
@@ -892,7 +931,7 @@ public class UmbrellaFileProviderTest
 		}).ConfigureAwait(true);
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task CreateAsync_Write_MoveAsync_FromPath_ToPathAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -928,7 +967,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task CreateAsync_Write_MoveAsync_FromFile_ToPathAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -964,7 +1003,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task CreateAsync_Write_MoveAsync_FromFile_ToFileAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -1135,7 +1174,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(CopyMoveCapableProvidersMemberData))]
 	public async Task CreateAsync_MoveAsync_NotExistsAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 		=> await Assert.ThrowsAsync<UmbrellaFileNotFoundException>(async () =>
 		{
@@ -1155,6 +1194,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		//Should fail silently
 		bool deleted = await provider.DeleteAsync("/images/notexists.jpg", TestContext.Current.CancellationToken).ConfigureAwait(true);
@@ -1209,6 +1249,7 @@ public class UmbrellaFileProviderTest
 		Guard.IsNotNull(providerFunc);
 
 		var provider = providerFunc();
+		await using var cleanup = provider as IAsyncDisposable;
 
 		// Create a top level file at the root of the directory.
 		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
@@ -1225,7 +1266,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(HierarchyProvidersMemberData))]
 	public async Task Create_DeleteDirectory_DownLevelAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -1269,7 +1310,7 @@ public class UmbrellaFileProviderTest
 	}
 
 	[Theory]
-	[MemberData(nameof(ProvidersMemberData))]
+	[MemberData(nameof(HierarchyProvidersMemberData))]
 	public async Task Create_EnumerateDirectoryAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
 	{
 		Guard.IsNotNull(providerFunc);
@@ -1392,6 +1433,44 @@ public class UmbrellaFileProviderTest
 		return provider;
 	}
 
+	private static DataversePathAdapterProvider CreateDataverseFileProvider()
+	{
+		var connectionOptions = new ConnectionOptions
+		{
+			ClientId = DataverseClientId,
+			ClientSecret = DataverseClientSecret,
+			ServiceUri = new Uri(DataverseUrl),
+			AuthenticationType = AuthenticationType.ClientSecret
+		};
+
+#pragma warning disable CA2000
+		var serviceClient = new ServiceClient(connectionOptions,
+			serviceClientConfiguration: new ConfigurationOptions { UseWebApi = true });
+
+		var options = new UmbrellaDataverseAnnotationFileStorageProviderOptions
+		{
+			DataverseClient = serviceClient,
+			AllowUnhandledFileAuthorizationChecks = true,
+			MetadataColumnMappings = new Dictionary<string, DataverseMetadataColumnMapping>(StringComparer.OrdinalIgnoreCase)
+			{
+				["Subject"] = new DataverseMetadataColumnMapping { ColumnName = "subject", ColumnType = DataverseMetadataColumnType.Text },
+				["IsDocument"] = new DataverseMetadataColumnMapping { ColumnName = "isdocument", ColumnType = DataverseMetadataColumnType.Boolean },
+				["NoteText"] = new DataverseMetadataColumnMapping { ColumnName = "notetext", ColumnType = DataverseMetadataColumnType.Text }
+			}
+		};
+
+		var innerProvider = new UmbrellaDataverseFileStorageProvider(
+			CoreUtilitiesMocks.CreateLoggerFactory<UmbrellaDataverseFileStorageProvider>(),
+			CoreUtilitiesMocks.CreateMimeTypeUtility(("png", "image/png"), ("jpg", "image/jpg")),
+			CoreUtilitiesMocks.CreateGenericTypeConverter(),
+			CreateAuthorizationHandlerRegistry());
+#pragma warning restore CA2000
+
+		innerProvider.InitializeOptions(options);
+
+		return new DataversePathAdapterProvider(innerProvider, options.DataverseClient, options.TableName);
+	}
+
 	private static void CheckWrittenFileAssertions(IUmbrellaFileStorageProvider provider, IUmbrellaFileInfo file, int length, string fileName)
 	{
 		CheckPOCOFileType(provider, file);
@@ -1402,8 +1481,7 @@ public class UmbrellaFileProviderTest
 		Assert.Equal("image/png", file.ContentType);
 	}
 
-	private static UmbrellaFileAuthorizationHandlerRegistry CreateAuthorizationHandlerRegistry()
-		=> new UmbrellaFileAuthorizationHandlerRegistry([]);
+	private static UmbrellaFileAuthorizationHandlerRegistry CreateAuthorizationHandlerRegistry() => new([]);
 
 	private static UmbrellaSharePointFileStorageProvider CreateSharePointFileProvider()
 	{
@@ -1435,7 +1513,107 @@ public class UmbrellaFileProviderTest
 			UmbrellaAzureBlobStorageFileProvider => Assert.IsType<UmbrellaAzureBlobFileInfo>(file),
 			UmbrellaDiskFileStorageProvider => Assert.IsType<UmbrellaDiskFileInfo>(file),
 			UmbrellaSharePointFileStorageProvider => Assert.IsType<UmbrellaSharePointFileInfo>(file),
+			DataversePathAdapterProvider => Assert.IsType<UmbrellaDataverseFileInfo>(file),
 			_ => throw new InvalidOperationException("Unsupported provider."),
 		};
+	}
+
+	private sealed class DataversePathAdapterProvider(
+		IUmbrellaFileStorageProvider inner,
+		IOrganizationServiceAsync2 dataverseClient,
+		string tableName) : IUmbrellaFileStorageProvider, IAsyncDisposable
+	{
+		private readonly Dictionary<string, string> _dirGuidCache = new(StringComparer.OrdinalIgnoreCase);
+
+		public async ValueTask DisposeAsync()
+		{
+			foreach (string guid in _dirGuidCache.Values)
+			{
+				try
+				{
+					await dataverseClient.DeleteAsync(tableName, Guid.Parse(guid), CancellationToken.None).ConfigureAwait(false);
+				}
+				catch { /* best-effort */ }
+			}
+		}
+
+		private static string NormalizeKey(string path)
+		{
+			path = path.TrimStart('~').Replace('\\', '/');
+			return string.Join("/", path.Split('/', StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
+		}
+
+		private string GetDirGuid(string normalizedDirKey)
+		{
+			if (!_dirGuidCache.TryGetValue(normalizedDirKey, out string? guid))
+			{
+				guid = Guid.NewGuid().ToString();
+				_dirGuidCache[normalizedDirKey] = guid;
+			}
+
+			return guid;
+		}
+
+		private string AdaptFilePath(string path)
+		{
+			string normalized = NormalizeKey(path);
+			string[] parts = normalized.Split('/');
+			string fileName = parts[^1];
+			string dirKey = parts.Length > 1 ? string.Join("/", parts[..^1]) : "root";
+			return $"/{tableName}/{GetDirGuid(dirKey)}/{fileName}";
+		}
+
+		private string AdaptDirPath(string path)
+		{
+			string normalized = NormalizeKey(path);
+			return $"/{tableName}/{GetDirGuid(normalized)}";
+		}
+
+		public void InitializeOptions(UmbrellaFileStorageProviderOptionsBase options) { }
+
+		public Task<IUmbrellaFileInfo> CreateAsync(string subpath, CancellationToken cancellationToken = default)
+			=> inner.CreateAsync(AdaptFilePath(subpath), cancellationToken);
+
+		public Task<IUmbrellaFileInfo?> GetAsync(string subpath, CancellationToken cancellationToken = default)
+			=> inner.GetAsync(AdaptFilePath(subpath), cancellationToken);
+
+		public Task<bool> DeleteAsync(string subpath, CancellationToken cancellationToken = default)
+			=> inner.DeleteAsync(AdaptFilePath(subpath), cancellationToken);
+
+		public Task<bool> DeleteAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken = default)
+			=> inner.DeleteAsync(fileInfo, cancellationToken);
+
+		public Task<IUmbrellaFileInfo> CopyAsync(string sourceSubpath, string destinationSubpath, CancellationToken cancellationToken = default)
+			=> inner.CopyAsync(AdaptFilePath(sourceSubpath), AdaptFilePath(destinationSubpath), cancellationToken);
+
+		public Task<IUmbrellaFileInfo> CopyAsync(IUmbrellaFileInfo sourceFile, string destinationSubpath, CancellationToken cancellationToken = default)
+			=> inner.CopyAsync(sourceFile, AdaptFilePath(destinationSubpath), cancellationToken);
+
+		public Task<IUmbrellaFileInfo> CopyAsync(IUmbrellaFileInfo sourceFile, IUmbrellaFileInfo destinationFile, CancellationToken cancellationToken = default)
+			=> inner.CopyAsync(sourceFile, destinationFile, cancellationToken);
+
+		public Task<IUmbrellaFileInfo> SaveAsync(string subpath, byte[] bytes, int? bufferSizeOverride = null, CancellationToken cancellationToken = default)
+			=> inner.SaveAsync(AdaptFilePath(subpath), bytes, bufferSizeOverride, cancellationToken);
+
+		public Task<IUmbrellaFileInfo> SaveAsync(string subpath, Stream stream, int? bufferSizeOverride = null, CancellationToken cancellationToken = default)
+			=> inner.SaveAsync(AdaptFilePath(subpath), stream, bufferSizeOverride, cancellationToken);
+
+		public Task<bool> ExistsAsync(string subpath, CancellationToken cancellationToken = default)
+			=> inner.ExistsAsync(AdaptFilePath(subpath), cancellationToken);
+
+		public Task DeleteDirectoryAsync(string subpath, CancellationToken cancellationToken = default)
+			=> inner.DeleteDirectoryAsync(AdaptDirPath(subpath), cancellationToken);
+
+		public Task<IUmbrellaFileInfo> MoveAsync(string sourceSubpath, string destinationSubpath, CancellationToken cancellationToken = default)
+			=> inner.MoveAsync(AdaptFilePath(sourceSubpath), AdaptFilePath(destinationSubpath), cancellationToken);
+
+		public Task<IUmbrellaFileInfo> MoveAsync(IUmbrellaFileInfo sourceFile, string destinationSubpath, CancellationToken cancellationToken = default)
+			=> inner.MoveAsync(sourceFile, AdaptFilePath(destinationSubpath), cancellationToken);
+
+		public Task<IUmbrellaFileInfo> MoveAsync(IUmbrellaFileInfo sourceFile, IUmbrellaFileInfo destinationFile, CancellationToken cancellationToken = default)
+			=> inner.MoveAsync(sourceFile, destinationFile, cancellationToken);
+
+		public Task<IReadOnlyCollection<IUmbrellaFileInfo>> EnumerateDirectoryAsync(string subpath, CancellationToken cancellationToken = default)
+			=> inner.EnumerateDirectoryAsync(AdaptDirPath(subpath), cancellationToken);
 	}
 }

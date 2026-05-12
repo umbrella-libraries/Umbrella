@@ -18,3 +18,4 @@ node_modules
 **/Umbrella.AspNetCore.Blazor/**/*.css
 /.claude/settings.local.json
 /bash.exe.stackdump
+/FileSystem/bash.exe.stackdump

@@ -9,7 +9,7 @@
 		<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
 		<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
 		<WarningsAsErrors>xUnit1051</WarningsAsErrors>
-		<UserSecretsId>a3f1d9e2-7b4c-4f8a-b6e3-c2d5f0a1e8b4</UserSecretsId>
+		<UserSecretsId>b7c3f2a1-4d8e-4f9b-a5c6-e2d1f0b8c3a4</UserSecretsId>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -19,7 +19,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Azure.Identity" Version="1.21.0" />
 		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.10" />
 		<PackageReference Include="coverlet.collector" Version="10.0.0">
 			<PrivateAssets>all</PrivateAssets>
@@ -42,10 +41,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\Internal\src\Umbrella.Internal.Mocks\Umbrella.Internal.Mocks.csproj" />
-		<ProjectReference Include="..\..\src\Umbrella.FileSystem.AzureStorage\Umbrella.FileSystem.AzureStorage.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.FileSystem.Dataverse\Umbrella.FileSystem.Dataverse.csproj" />
-		<ProjectReference Include="..\..\src\Umbrella.FileSystem.Disk\Umbrella.FileSystem.Disk.csproj" />
-		<ProjectReference Include="..\..\src\Umbrella.FileSystem.SharePoint\Umbrella.FileSystem.SharePoint.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

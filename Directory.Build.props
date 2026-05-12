@@ -4,7 +4,7 @@
 
 		<Nullable>enable</Nullable>
 		<WarningsAsErrors>nullable</WarningsAsErrors>
-		<LangVersion>preview</LangVersion>
+		<LangVersion>latest</LangVersion>
 		<Configurations>Debug;Release;AzureDevOps</Configurations>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 
