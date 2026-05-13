@@ -71,6 +71,9 @@ public class FrontEndCompressionMiddleware : OwinMiddleware
 		_mimeTypeUtility = mimeTypeUtility;
 		_options = options;
 
+		if (hostingEnvironment is null)
+			throw new ArgumentNullException(nameof(hostingEnvironment));
+
 		// File Provider
 		FileProvider = new PhysicalFileProvider(hostingEnvironment.MapPath("~/"));
 	}
@@ -83,6 +86,9 @@ public class FrontEndCompressionMiddleware : OwinMiddleware
 	/// <param name="context">The current <see cref="IOwinContext"/>.</param>
 	public override async Task Invoke(IOwinContext context)
 	{
+		if(context is null)
+			throw new ArgumentNullException(nameof(context));
+
 		context.Request.CallCancelled.ThrowIfCancellationRequested();
 
 		try
@@ -206,7 +212,7 @@ public class FrontEndCompressionMiddleware : OwinMiddleware
 
 						string cacheKey = _cacheKeyUtility.Create<FrontEndCompressionMiddleware>(cacheKeyParts, 2);
 
-						(string contentEncoding, byte[] bytes) result = await _cache.GetOrCreateAsync(cacheKey, async () =>
+						(string? contentEncoding, byte[] bytes) result = await _cache.GetOrCreateAsync(cacheKey, async () =>
 						{
 							string? contentEncoding = null;
 
