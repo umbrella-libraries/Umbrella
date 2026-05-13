@@ -19,3 +19,4 @@ node_modules
 /.claude/settings.local.json
 /bash.exe.stackdump
 /FileSystem/bash.exe.stackdump
+/update_todo.py

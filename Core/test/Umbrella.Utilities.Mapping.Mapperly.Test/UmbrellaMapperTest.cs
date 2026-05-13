@@ -1,9 +1,9 @@
-﻿using System.Reflection;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Umbrella.Internal.Mocks;
-using Umbrella.Utilities.Mapping.Mapperly.Enumerations;
-using Umbrella.Utilities.Mapping.Mapperly.Options;
+using Umbrella.Utilities.Mapping.Abstractions;
+using Umbrella.Utilities.Mapping.Mapperly.Abstractions;
 using Xunit;
 
 namespace Umbrella.Utilities.Mapping.Mapperly.Test;
@@ -12,25 +12,22 @@ public class UmbrellaMapperTest
 {
 	public static object[][] MapAsync_Source_Data { get; } =
 	[
-		[CreateMapper(MapperlyEnvironmentType.Client), CreateSource(1), CreateDestination(1)],
-		[CreateMapper(MapperlyEnvironmentType.Server), CreateSource(1), CreateDestination(1)],
+		[CreateMapper(), CreateSource(1), CreateDestination(1)],
 	];
 
 	public static object[][] MapAsync_SourceDestination_Data { get; } =
 	[
-		[CreateMapper(MapperlyEnvironmentType.Client), CreateSource(1), CreateDestination(100), CreateDestination(1)],
-		[CreateMapper(MapperlyEnvironmentType.Server), CreateSource(1), CreateDestination(100), CreateDestination(1)]
+		[CreateMapper(), CreateSource(1), CreateDestination(100), CreateDestination(1)]
 	];
 
 	public static object[][] MapAsync_SourceCollection_Data { get; } =
 	[
-		[CreateMapper(MapperlyEnvironmentType.Client), Enumerable.Range(0, 100).Select(x => CreateSource(x)), Enumerable.Range(0, 100).Select(x => CreateDestination(x))],
-		[CreateMapper(MapperlyEnvironmentType.Server), Enumerable.Range(0, 100).Select(x => CreateSource(x)), Enumerable.Range(0, 100).Select(x => CreateDestination(x))]
+		[CreateMapper(), Enumerable.Range(0, 100).Select(x => CreateSource(x)), Enumerable.Range(0, 100).Select(x => CreateDestination(x))]
 	];
 
 	[Theory]
 	[MemberData(nameof(MapAsync_Source_Data))]
-	public async Task MapAsync_ObjectSource_ValidAsync(UmbrellaMapper mapper, Source source, Destination expectedDestination)
+	public async Task MapAsync_ObjectSource_ValidAsync(IUmbrellaMapper mapper, Source source, Destination expectedDestination)
 	{
 		Guard.IsNotNull(mapper);
 		Guard.IsNotNull(source);
@@ -43,7 +40,7 @@ public class UmbrellaMapperTest
 
 	[Theory]
 	[MemberData(nameof(MapAsync_Source_Data))]
-	public async Task MapAsync_GenericSource_ValidAsync(UmbrellaMapper mapper, Source source, Destination expectedDestination)
+	public async Task MapAsync_GenericSource_ValidAsync(IUmbrellaMapper mapper, Source source, Destination expectedDestination)
 	{
 		Guard.IsNotNull(mapper);
 		Guard.IsNotNull(source);
@@ -56,7 +53,7 @@ public class UmbrellaMapperTest
 
 	[Theory]
 	[MemberData(nameof(MapAsync_SourceDestination_Data))]
-	public async Task MapAsync_GenericSource_ExistingDestination_ValidAsync(UmbrellaMapper mapper, Source source, Destination existingDestination, Destination expectedDestination)
+	public async Task MapAsync_GenericSource_ExistingDestination_ValidAsync(IUmbrellaMapper mapper, Source source, Destination existingDestination, Destination expectedDestination)
 	{
 		Guard.IsNotNull(mapper);
 		Guard.IsNotNull(source);
@@ -72,7 +69,7 @@ public class UmbrellaMapperTest
 
 	[Theory]
 	[MemberData(nameof(MapAsync_SourceCollection_Data))]
-	public async Task MapAllAsync_ObjectSource_ValidAsync(UmbrellaMapper mapper, IEnumerable<Source> lstSource, IEnumerable<Destination> lstExpectedDestination)
+	public async Task MapAllAsync_ObjectSource_ValidAsync(IUmbrellaMapper mapper, IEnumerable<Source> lstSource, IEnumerable<Destination> lstExpectedDestination)
 	{
 		Guard.IsNotNull(mapper);
 
@@ -88,7 +85,7 @@ public class UmbrellaMapperTest
 
 	[Theory]
 	[MemberData(nameof(MapAsync_SourceCollection_Data))]
-	public async Task MapAllAsync_GenericSourceDestination_ValidAsync(UmbrellaMapper mapper, IEnumerable<Source> lstSource, IEnumerable<Destination> lstExpectedDestination)
+	public async Task MapAllAsync_GenericSourceDestination_ValidAsync(IUmbrellaMapper mapper, IEnumerable<Source> lstSource, IEnumerable<Destination> lstExpectedDestination)
 	{
 		Guard.IsNotNull(mapper);
 
@@ -115,20 +112,14 @@ public class UmbrellaMapperTest
 		}
 	}
 
-	private static UmbrellaMapper CreateMapper(MapperlyEnvironmentType environmentType)
+	private static IUmbrellaMapper CreateMapper()
 	{
-		UmbrellaMapperOptions options = new()
-		{
-			Environment = environmentType,
-			TargetAssemblies = new[] { Assembly.GetExecutingAssembly() }
-		};
-
-		var logger = CoreUtilitiesMocks.CreateLogger<UmbrellaMapper>();
-
 		ServiceCollection services = new();
-		var provider = services.BuildServiceProvider();
+		_ = services.AddSingleton<ILogger<UmbrellaMapper>>(CoreUtilitiesMocks.CreateLogger<UmbrellaMapper>());
+		_ = services.AddUmbrellaUtilitiesMappingMapperly(MapperCatalog.Instance);
 
-		return new UmbrellaMapper(logger, options, provider);
+		var provider = services.BuildServiceProvider();
+		return provider.GetRequiredService<IUmbrellaMapper>();
 	}
 
 	private static Source CreateSource(int seed, bool createChildren = true)
@@ -199,5 +190,20 @@ public class UmbrellaMapperTest
 			Child = child,
 			Children = children
 		};
+	}
+
+	private sealed class MapperCatalog : IUmbrellaMapperlyCatalog
+	{
+		public static IUmbrellaMapperlyCatalog Instance { get; } = new MapperCatalog();
+
+		public void AddServices(IServiceCollection services)
+			=> services.AddSingleton<Mapper>();
+
+		public void AddMappings(UmbrellaMapperRegistryBuilder builder)
+		{
+			_ = builder.AddNewInstance<Mapper, Source, Destination>();
+			_ = builder.AddNewCollection<Mapper, Source, Destination>();
+			_ = builder.AddExistingInstance<Mapper, Source, Destination>();
+		}
 	}
 }

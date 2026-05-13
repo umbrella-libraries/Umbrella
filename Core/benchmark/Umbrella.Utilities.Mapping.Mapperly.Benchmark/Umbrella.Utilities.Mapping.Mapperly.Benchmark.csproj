@@ -21,6 +21,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\Internal\src\Umbrella.Internal.Mocks\Umbrella.Internal.Mocks.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.Utilities.Mapping.Mapperly\Umbrella.Utilities.Mapping.Mapperly.csproj" />
+		<ProjectReference Include="..\..\..\Generators\src\Umbrella.Generators.Mapperly\Umbrella.Generators.Mapperly.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
 </Project>

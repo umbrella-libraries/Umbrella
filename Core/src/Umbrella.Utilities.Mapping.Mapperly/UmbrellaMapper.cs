@@ -1,12 +1,7 @@
-﻿using System.Reflection;
 using CommunityToolkit.Diagnostics;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Exceptions;
-using Umbrella.Utilities.Extensions;
 using Umbrella.Utilities.Mapping.Abstractions;
-using Umbrella.Utilities.Mapping.Mapperly.Abstractions;
-using Umbrella.Utilities.Mapping.Mapperly.Options;
 
 namespace Umbrella.Utilities.Mapping.Mapperly;
 
@@ -16,82 +11,26 @@ namespace Umbrella.Utilities.Mapping.Mapperly;
 /// <seealso cref="IUmbrellaMapper" />
 public class UmbrellaMapper : IUmbrellaMapper
 {
-	[AttributeUsage(AttributeTargets.Method)]
-	private sealed class PrimaryMappingMethodAttribute : Attribute
-	{
-	}
-
 	private readonly ILogger _logger;
 	private readonly IServiceProvider _serviceProvider;
-
-	// Sync Mappers
-	private readonly Dictionary<(Type, Type), object> _newInstanceMapperDictionary = [];
-	private readonly Dictionary<(Type, Type), object> _newCollectionMapperDictionary = [];
-	private readonly Dictionary<(Type, Type), object> _existingInstanceMapperDictionary = [];
-
-	// Async Mappers
-	private readonly Dictionary<(Type, Type), object> _newInstanceAsyncMapperDictionary = [];
-	private readonly Dictionary<(Type, Type), object> _newCollectionAsyncMapperDictionary = [];
-	private readonly Dictionary<(Type, Type), object> _existingInstanceAsyncMapperDictionary = [];
+	private readonly UmbrellaMapperRegistry _registry;
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="UmbrellaMapper"/> class.
 	/// </summary>
 	/// <param name="logger">The logger.</param>
-	/// <param name="options">The options.</param>
 	/// <param name="serviceProvider">The service provider.</param>
-	public UmbrellaMapper(
+	/// <param name="registry">The generated mapping registry.</param>
+	internal UmbrellaMapper(
 		ILogger<UmbrellaMapper> logger,
-		UmbrellaMapperOptions options,
-		IServiceProvider serviceProvider)
+		IServiceProvider serviceProvider,
+		UmbrellaMapperRegistry registry)
 	{
-		Guard.IsNotNull(options);
+		Guard.IsNotNull(logger);
 		Guard.IsNotNull(serviceProvider);
-
 		_logger = logger;
 		_serviceProvider = serviceProvider;
-
-		IReadOnlyCollection<Assembly> assembliesToScan = options.TargetAssemblies is { Count: > 0 }
-			? options.TargetAssemblies
-			: AppDomain.CurrentDomain.GetAssemblies().Where(x => x.FullName?.StartsWith(options.TargetAssemblyNamePrefix ?? string.Empty, StringComparison.OrdinalIgnoreCase) ?? false).ToArray();
-
-		foreach (Type type in assembliesToScan.SelectMany(x => x.GetExportedTypes()))
-		{
-			void PopulateMapperCache(Type type, Type interfaceType, Dictionary<(Type, Type), object> cache)
-			{
-				Type[] mapperlyInterfaces = type.GetInterfaces().Where(x => x.IsGenericType && x.GetGenericTypeDefinition() == interfaceType).ToArray();
-
-				if (mapperlyInterfaces.Length is 0)
-					return;
-
-				foreach (Type mapperlyType in mapperlyInterfaces)
-				{
-					Type param1 = mapperlyType.GenericTypeArguments[0];
-					Type param2 = mapperlyType.GenericTypeArguments[1];
-
-					var key = (param1, param2);
-
-					if (cache.TryGetValue(key, out object? value))
-					{
-						Type existingType = value.GetType().GenericTypeArguments[0];
-
-						throw new InvalidOperationException($"A registration already exists for the source and destination types. The type being registered is {existingType.FullName} but the type named {type.FullName} has already been registered.");
-					}
-
-					cache.Add(key, ActivatorUtilities.CreateInstance(_serviceProvider, type));
-				}
-			}
-
-			// Sync Mappers
-			PopulateMapperCache(type, typeof(IUmbrellaMapperlyNewInstanceMapper<,>), _newInstanceMapperDictionary);
-			PopulateMapperCache(type, typeof(IUmbrellaMapperlyNewCollectionMapper<,>), _newCollectionMapperDictionary);
-			PopulateMapperCache(type, typeof(IUmbrellaMapperlyExistingInstanceMapper<,>), _existingInstanceMapperDictionary);
-
-			// Async Mappers
-			PopulateMapperCache(type, typeof(IUmbrellaMapperlyNewInstanceAsyncMapper<,>), _newInstanceAsyncMapperDictionary);
-			PopulateMapperCache(type, typeof(IUmbrellaMapperlyNewCollectionAsyncMapper<,>), _newCollectionAsyncMapperDictionary);
-			PopulateMapperCache(type, typeof(IUmbrellaMapperlyExistingInstanceAsyncMapper<,>), _existingInstanceAsyncMapperDictionary);
-		}
+		_registry = registry;
 	}
 
 	/// <inheritdoc />
@@ -102,20 +41,16 @@ public class UmbrellaMapper : IUmbrellaMapper
 
 		try
 		{
-			var param1 = source.GetType().GetOriginalType();
-			Guard.IsNotNull(param1);
-
-			var param2 = typeof(TDestination);
-
-			MethodInfo miOriginal = GetType().GetMethods().SingleOrDefault(x => x.Name is nameof(MapAsync) && x.GetCustomAttribute<PrimaryMappingMethodAttribute>() is not null)!;
-			MethodInfo miGeneric = miOriginal.MakeGenericMethod(param1, param2);
-
 			if (_logger.IsEnabled(LogLevel.Debug))
-				_logger.WriteDebug(new { SourceType = param1.FullName, DestinationType = param2.FullName });
+				_logger.WriteDebug(new { SourceType = source.GetType().FullName, DestinationType = typeof(TDestination).FullName });
 
-			// TODO: We need to cache the generic method we have created above and then use cached compiled expressions
-			// to invoke this method instead of using the raw reflection APIs which are slow in comparison.
-			return (ValueTask<TDestination>)miGeneric.Invoke(this, [source, cancellationToken])!;
+			if (_registry.TryMapNewInstanceObject(_serviceProvider, source, cancellationToken, out ValueTask<TDestination> result))
+				return result;
+
+			if (source is System.Collections.IEnumerable and not string)
+				throw new InvalidOperationException($"The source type is {source.GetType().FullName} which is a collection. Please call the {nameof(MapAllAsync)} methods to map collections.");
+
+			throw new InvalidOperationException($"A mapper implementation for the specified source type {source.GetType().FullName} and destination type {typeof(TDestination).FullName} cannot be found when trying to map to a new instance.");
 		}
 		catch (Exception exc) when (_logger.WriteError(exc, new { SourceTypeName = source.GetType().FullName }))
 		{
@@ -124,7 +59,6 @@ public class UmbrellaMapper : IUmbrellaMapper
 	}
 
 	/// <inheritdoc />
-	[PrimaryMappingMethod]
 	public async ValueTask<TDestination> MapAsync<TSource, TDestination>(TSource source, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -132,36 +66,22 @@ public class UmbrellaMapper : IUmbrellaMapper
 
 		try
 		{
-			var param1 = source.GetType().GetOriginalType();
-			Guard.IsNotNull(param1);
+			if (_registry.TryMapNewInstanceExact(_serviceProvider, source, cancellationToken, out ValueTask<TDestination> exactResult))
+				return await exactResult.ConfigureAwait(false);
 
-			var param2 = typeof(TDestination);
+			if (_registry.TryMapNewInstanceObject(_serviceProvider, source!, cancellationToken, out ValueTask<TDestination> objectResult))
+				return await objectResult.ConfigureAwait(false);
 
-			var key = (param1, param2);
-
-			if (!_newInstanceAsyncMapperDictionary.TryGetValue(key, out object? value) && !_newInstanceMapperDictionary.TryGetValue(key, out value))
+			if (source is System.Collections.IEnumerable and not string)
 			{
-				var (isEnumerable, _) = param1.GetIEnumerableTypeData();
-
-				if (isEnumerable)
-					throw new InvalidOperationException($"The source type is {param1.FullName} which is a collection. Please call the {nameof(MapAllAsync)} methods to map collections.");
-
-				(isEnumerable, _) = param2.GetIEnumerableTypeData();
-
-				if (isEnumerable)
-					throw new InvalidOperationException($"The destination type is {param2.FullName} which is a collection. Please call the {nameof(MapAllAsync)} methods to map collections.");
-
-				throw new InvalidOperationException($"A mapper implementation for the specified source type {param1.FullName} and destination type {param2.FullName} cannot be found when trying to map to a new instance.");
+				throw new InvalidOperationException(
+					$"The source type is {source.GetType().FullName} which is a collection. Please call the {nameof(MapAllAsync)} methods to map collections.");
 			}
 
-			return value switch
-			{
-				IUmbrellaMapperlyNewInstanceAsyncMapper<TSource, TDestination> asyncMapper => await asyncMapper.MapAsync(source, cancellationToken).ConfigureAwait(false),
-				IUmbrellaMapperlyNewInstanceMapper<TSource, TDestination> mapper => mapper.Map(source),
-				_ => throw new InvalidOperationException("A mapper for the specified source and destination types could not be found.")
-			};
+			throw new InvalidOperationException(
+				$"A mapper implementation for the specified source type {typeof(TSource).FullName} and destination type {typeof(TDestination).FullName} cannot be found when trying to map to a new instance.");
 		}
-		catch (Exception exc) when (_logger.WriteError(exc, new { SourceTypeName = typeof(TSource).FullName }))
+		catch (Exception exc) when (_logger.WriteError(exc, new { SourceTypeName = source.GetType().FullName }))
 		{
 			throw new UmbrellaMappingException("There has been a problem mapping the object.", exc);
 		}
@@ -176,33 +96,16 @@ public class UmbrellaMapper : IUmbrellaMapper
 
 		try
 		{
-			var param1 = source.GetType().GetOriginalType();
-			Guard.IsNotNull(param1);
+			if (_registry.TryMapExistingInstanceExact(_serviceProvider, source, destination, cancellationToken, out ValueTask<TDestination> exactResult))
+				return await exactResult.ConfigureAwait(false);
 
-			var param2 = typeof(TDestination);
+			if (_registry.TryMapExistingInstanceObject(_serviceProvider, source!, destination, cancellationToken, out ValueTask<TDestination> objectResult))
+				return await objectResult.ConfigureAwait(false);
 
-			var key = (param1, param2);
-
-			if (!_existingInstanceAsyncMapperDictionary.TryGetValue(key, out object? value) && !_existingInstanceMapperDictionary.TryGetValue(key, out value))
-				throw new InvalidOperationException($"A mapper implementation for the specified source type {param1.FullName} and destination type {param2.FullName} cannot be found when trying to map to an existing instance.");
-
-			if (value is IUmbrellaMapperlyExistingInstanceAsyncMapper<TSource, TDestination> asyncMapper)
-			{
-				await asyncMapper.MapAsync(source, destination, cancellationToken).ConfigureAwait(false);
-
-				return destination;
-			}
-
-			if (value is IUmbrellaMapperlyExistingInstanceMapper<TSource, TDestination> mapper)
-			{
-				mapper.Map(source, destination);
-
-				return destination;
-			}
-
-			throw new InvalidOperationException("A mapper for the specified source and destination types could not be found.");
+			throw new InvalidOperationException(
+				$"A mapper implementation for the specified source type {typeof(TSource).FullName} and destination type {typeof(TDestination).FullName} cannot be found when trying to map to an existing instance.");
 		}
-		catch (Exception exc) when (_logger.WriteError(exc, new { SourceTypeName = typeof(TSource).FullName, DestinationTypeName = typeof(TDestination).FullName }))
+		catch (Exception exc) when (_logger.WriteError(exc, new { SourceTypeName = source.GetType().FullName, DestinationTypeName = typeof(TDestination).FullName }))
 		{
 			throw new UmbrellaMappingException("There has been a problem mapping the object.", exc);
 		}
@@ -211,46 +114,19 @@ public class UmbrellaMapper : IUmbrellaMapper
 	/// <inheritdoc/>
 	public ValueTask<IReadOnlyCollection<TDestination>> MapAllAsync<TDestination>(IEnumerable<object> source, CancellationToken cancellationToken = default)
 	{
+		cancellationToken.ThrowIfCancellationRequested();
 		Guard.IsNotNull(source);
 
 		try
 		{
-			var (isEnumerable, elementType) = source.GetType().GetIEnumerableTypeData();
-
-			if (!isEnumerable)
-				throw new InvalidOperationException("The source parameter does not implement IEnumerable.");
-
-			if (elementType is null)
-				throw new InvalidOperationException("The elementType of the source collection could not be determined.");
-
-			elementType = elementType.GetOriginalType();
-
-			if (elementType is null)
-				throw new InvalidOperationException("The elementType of the source collection could not be determined.");
-
-			var type2 = typeof(TDestination);
-
-			MethodInfo miOriginal = GetType().GetMethods().SingleOrDefault(x => x.Name is nameof(MapAllAsync) && x.GetCustomAttribute<PrimaryMappingMethodAttribute>() is not null)!;
-			MethodInfo miGeneric = miOriginal?.MakeGenericMethod(elementType, type2)!;
-
 			if (_logger.IsEnabled(LogLevel.Debug))
-				_logger.WriteDebug(new { SourceCollectionType = source.GetType().FullName, SourceType = elementType.FullName, DestinationType = type2.FullName });
+				_logger.WriteDebug(new { SourceCollectionType = source.GetType().FullName, DestinationType = typeof(TDestination).FullName });
 
-			//var param1 = Expression.Parameter(source.GetType());
-			//var param2 = Expression.Parameter(typeof(CancellationToken));
-			//var mce = Expression.Call(Expression.Constant(this), miGeneric, param1, param2);
+			if (_registry.TryMapNewCollectionObject(_serviceProvider, source, cancellationToken, out ValueTask<IReadOnlyCollection<TDestination>> result))
+				return result;
 
-			//var func = Expression.Lambda<Func<IEnumerable<object>, CancellationToken, ValueTask<IReadOnlyCollection<TDestination>>>>(mce, param1, param2).Compile();
-
-			//return func(source, cancellationToken);
-
-			// TODO: Also need to determine if the cost of creating and caching the delegate outweighs just calling Invoke as per the below.
-			// On the server, the benefits are obvious but possibly not so much on the client. Might be a waste of time.
-			// Check the fast expression compiler Nuget package too. Might help here.
-
-			// TODO: We need to cache the generic method we have created above and then use cached compiled expressions
-			// to invoke this method instead of using the raw reflection APIs which are slow in comparison.
-			return (ValueTask<IReadOnlyCollection<TDestination>>)miGeneric.Invoke(this, [source, cancellationToken])!;
+			throw new InvalidOperationException(
+				$"A mapper implementation for the specified source collection type {source.GetType().FullName} and destination type {typeof(TDestination).FullName} cannot be found when trying to map to a new collection.");
 		}
 		catch (Exception exc) when (_logger.WriteError(exc, new { SourceTypeName = source.GetType().FullName }))
 		{
@@ -259,7 +135,6 @@ public class UmbrellaMapper : IUmbrellaMapper
 	}
 
 	/// <inheritdoc/>
-	[PrimaryMappingMethod]
 	public async ValueTask<IReadOnlyCollection<TDestination>> MapAllAsync<TSource, TDestination>(IEnumerable<TSource> source, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -267,32 +142,14 @@ public class UmbrellaMapper : IUmbrellaMapper
 
 		try
 		{
-			var (isEnumerable, elementType) = source.GetType().GetIEnumerableTypeData();
+			if (_registry.TryMapNewCollectionExact(_serviceProvider, source, cancellationToken, out ValueTask<IReadOnlyCollection<TDestination>> exactResult))
+				return await exactResult.ConfigureAwait(false);
 
-			if (!isEnumerable)
-				throw new InvalidOperationException("The source parameter does not implement IEnumerable.");
+			if (_registry.TryMapNewCollectionObject(_serviceProvider, source!, cancellationToken, out ValueTask<IReadOnlyCollection<TDestination>> objectResult))
+				return await objectResult.ConfigureAwait(false);
 
-			if (elementType is null)
-				throw new InvalidOperationException("The elementType of the source collection could not be determined.");
-
-			elementType = elementType.GetOriginalType();
-
-			if (elementType is null)
-				throw new InvalidOperationException("The elementType of the source collection could not be determined.");
-
-			var param2 = typeof(TDestination);
-
-			var key = (elementType, param2);
-
-			if (!_newCollectionAsyncMapperDictionary.TryGetValue(key, out object? value) && !_newCollectionMapperDictionary.TryGetValue(key, out value))
-				throw new InvalidOperationException($"A mapper implementation for the specified source type {elementType.FullName} and destination type {param2.FullName} cannot be found when trying to map to a new collection.");
-
-			return value switch
-			{
-				IUmbrellaMapperlyNewCollectionAsyncMapper<TSource, TDestination> asyncMapper => await asyncMapper.MapAllAsync(source, cancellationToken).ConfigureAwait(false),
-				IUmbrellaMapperlyNewCollectionMapper<TSource, TDestination> mapper => mapper.MapAll(source),
-				_ => throw new InvalidOperationException("A mapper for the specified source and destination types could not be found.")
-			};
+			throw new InvalidOperationException(
+				$"A mapper implementation for the specified source type {typeof(TSource).FullName} and destination type {typeof(TDestination).FullName} cannot be found when trying to map to a new collection.");
 		}
 		catch (Exception exc) when (_logger.WriteError(exc, new { SourceTypeName = typeof(TSource).FullName }))
 		{

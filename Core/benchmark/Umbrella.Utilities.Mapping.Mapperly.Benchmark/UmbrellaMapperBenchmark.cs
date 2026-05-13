@@ -1,10 +1,10 @@
-﻿using System.Reflection;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Umbrella.Generated.Mapping.Mapperly;
 using Umbrella.Internal.Mocks;
-using Umbrella.Utilities.Mapping.Mapperly.Enumerations;
-using Umbrella.Utilities.Mapping.Mapperly.Options;
+using Umbrella.Utilities.Mapping.Abstractions;
 
 namespace Umbrella.Utilities.Mapping.Mapperly.Benchmark;
 
@@ -18,59 +18,36 @@ public class UmbrellaMapperBenchmark
 		CreateSource(1), CreateSource(2), CreateSource(3), CreateSource(4), CreateSource(5)
 	};
 
-	private readonly UmbrellaMapper _clientMapper;
-	private readonly UmbrellaMapper _serverMapper;
+	private readonly IUmbrellaMapper _mapper;
 
 	public UmbrellaMapperBenchmark()
 	{
-		_clientMapper = CreateMapper(MapperlyEnvironmentType.Client);
-		_serverMapper = CreateMapper(MapperlyEnvironmentType.Server);
+		_mapper = CreateMapper();
 	}
 
 	[Benchmark]
-	public async Task<Destination> MapAsync_ObjectSource_Client_Async() => await _clientMapper.MapAsync<Destination>(_source);
+	public async Task<Destination> MapAsync_ObjectSource_Async() => await _mapper.MapAsync<Destination>(_source);
 
 	[Benchmark]
-	public async Task<Destination> MapAsync_ObjectSource_Server_Async() => await _serverMapper.MapAsync<Destination>(_source);
+	public async Task<Destination> MapAsync_GenericSource_Async() => await _mapper.MapAsync<Source, Destination>(_source);
 
 	[Benchmark]
-	public async Task<Destination> MapAsync_GenericSource_Client_Async() => await _clientMapper.MapAsync<Source, Destination>(_source);
+	public async Task<Destination> MapAsync_GenericSource_ExistingDestination_Async() => await _mapper.MapAsync(_source, CreateDestination(100));
 
 	[Benchmark]
-	public async Task<Destination> MapAsync_GenericSource_Server_Async() => await _serverMapper.MapAsync<Source, Destination>(_source);
+	public async Task<IReadOnlyCollection<Destination>> MapAllAsync_ObjectSource_Async() => await _mapper.MapAllAsync<Destination>(_sourceList);
 
 	[Benchmark]
-	public async Task<Destination> MapAsync_GenericSource_ExistingDestination_Client_Async() => await _clientMapper.MapAsync(_source, CreateDestination(100));
+	public async Task<IReadOnlyCollection<Destination>> MapAllAsync_GenericSourceDestination_Async() => await _mapper.MapAllAsync<Source, Destination>(_sourceList);
 
-	[Benchmark]
-	public async Task<Destination> MapAsync_GenericSource_ExistingDestination_Server_Async() => await _serverMapper.MapAsync(_source, CreateDestination(100));
-
-	[Benchmark]
-	public async Task<IReadOnlyCollection<Destination>> MapAllAsync_ObjectSource_Client_Async() => await _clientMapper.MapAllAsync<Destination>(_sourceList);
-
-	[Benchmark]
-	public async Task<IReadOnlyCollection<Destination>> MapAllAsync_ObjectSource_Server_Async() => await _serverMapper.MapAllAsync<Destination>(_sourceList);
-
-	[Benchmark]
-	public async Task<IReadOnlyCollection<Destination>> MapAllAsync_GenericSourceDestination_Client_Async() => await _clientMapper.MapAllAsync<Source, Destination>(_sourceList);
-
-	[Benchmark]
-	public async Task<IReadOnlyCollection<Destination>> MapAllAsync_GenericSourceDestination_Server_Async() => await _serverMapper.MapAllAsync<Source, Destination>(_sourceList);
-
-	private static UmbrellaMapper CreateMapper(MapperlyEnvironmentType environmentType)
+	private static IUmbrellaMapper CreateMapper()
 	{
-		UmbrellaMapperOptions options = new()
-		{
-			Environment = environmentType,
-			TargetAssemblies = new[] { Assembly.GetExecutingAssembly() }
-		};
-
-		var logger = CoreUtilitiesMocks.CreateLogger<UmbrellaMapper>();
-
 		ServiceCollection services = new();
+		_ = services.AddSingleton<ILogger<UmbrellaMapper>>(CoreUtilitiesMocks.CreateLogger<UmbrellaMapper>());
+		_ = services.AddUmbrellaUtilitiesMappingMapperly(Umbrella_Utilities_Mapping_Mapperly_BenchmarkUmbrellaMapperlyCatalog.Instance);
 		var provider = services.BuildServiceProvider();
 
-		return new UmbrellaMapper(logger, options, provider);
+		return provider.GetRequiredService<IUmbrellaMapper>();
 	}
 
 	private static Source CreateSource(int seed, bool createChildren = true)

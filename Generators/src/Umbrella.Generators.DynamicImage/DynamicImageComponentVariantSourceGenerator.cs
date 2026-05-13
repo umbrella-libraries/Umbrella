@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -37,10 +38,19 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 	/// <inheritdoc />
 	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
-		context.RegisterSourceOutput(context.CompilationProvider, static (spc, compilation) => Execute(spc, compilation));
+		// Cheap syntax-only filter: only block nodes can contain component/tag-helper invocations.
+		IncrementalValuesProvider<BlockSyntax> candidateBlocks = context.SyntaxProvider
+			.CreateSyntaxProvider(
+				predicate: static (node, _) => node is BlockSyntax,
+				transform: static (ctx, _) => (BlockSyntax)ctx.Node);
+
+		IncrementalValueProvider<(Compilation Compilation, ImmutableArray<BlockSyntax> CandidateBlocks)> combined =
+			context.CompilationProvider.Combine(candidateBlocks.Collect());
+
+		context.RegisterSourceOutput(combined, static (spc, state) => Execute(spc, state.Compilation, state.CandidateBlocks));
 	}
 
-	private static void Execute(SourceProductionContext context, Compilation compilation)
+	private static void Execute(SourceProductionContext context, Compilation compilation, ImmutableArray<BlockSyntax> candidateBlocks)
 	{
 		if (compilation.GetTypeByMetadataName(DynamicImageVariantTypeName) is null ||
 			compilation.GetTypeByMetadataName(DynamicResizeModeTypeName) is not INamedTypeSymbol resizeModeType ||
@@ -60,19 +70,17 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		HashSet<int> validImageFormats = GetEnumValues(imageFormatType);
 		HashSet<VariantEntry> variants = [];
 
-		foreach (SyntaxTree syntaxTree in compilation.SyntaxTrees)
+		foreach (BlockSyntax block in candidateBlocks)
 		{
-			SemanticModel semanticModel = compilation.GetSemanticModel(syntaxTree);
-			SyntaxNode root = syntaxTree.GetRoot(context.CancellationToken);
+			context.CancellationToken.ThrowIfCancellationRequested();
 
-			foreach (BlockSyntax block in root.DescendantNodes().OfType<BlockSyntax>())
-			{
-				if (hasComponentType)
-					CollectBlockVariants(block, semanticModel, validResizeModes, validImageFormats, variants, context.CancellationToken);
+			SemanticModel semanticModel = compilation.GetSemanticModel(block.SyntaxTree);
 
-				if (hasTagHelperType)
-					CollectTagHelperBlockVariants(block, semanticModel, validResizeModes, validImageFormats, variants, context.CancellationToken);
-			}
+			if (hasComponentType)
+				CollectBlockVariants(block, semanticModel, validResizeModes, validImageFormats, variants, context.CancellationToken);
+
+			if (hasTagHelperType)
+				CollectTagHelperBlockVariants(block, semanticModel, validResizeModes, validImageFormats, variants, context.CancellationToken);
 		}
 
 		string source = GenerateSource(variants);
