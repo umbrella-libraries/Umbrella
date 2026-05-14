@@ -26,16 +26,10 @@ public class UmbrellaMapperBenchmark
 	}
 
 	[Benchmark]
-	public async Task<Destination> MapAsync_ObjectSource_Async() => await _mapper.MapAsync<Destination>(_source);
-
-	[Benchmark]
 	public async Task<Destination> MapAsync_GenericSource_Async() => await _mapper.MapAsync<Source, Destination>(_source);
 
 	[Benchmark]
 	public async Task<Destination> MapAsync_GenericSource_ExistingDestination_Async() => await _mapper.MapAsync(_source, CreateDestination(100));
-
-	[Benchmark]
-	public async Task<IReadOnlyCollection<Destination>> MapAllAsync_ObjectSource_Async() => await _mapper.MapAllAsync<Destination>(_sourceList);
 
 	[Benchmark]
 	public async Task<IReadOnlyCollection<Destination>> MapAllAsync_GenericSourceDestination_Async() => await _mapper.MapAllAsync<Source, Destination>(_sourceList);

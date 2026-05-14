@@ -27,19 +27,6 @@ public class UmbrellaMapperTest
 
 	[Theory]
 	[MemberData(nameof(MapAsync_Source_Data))]
-	public async Task MapAsync_ObjectSource_ValidAsync(IUmbrellaMapper mapper, Source source, Destination expectedDestination)
-	{
-		Guard.IsNotNull(mapper);
-		Guard.IsNotNull(source);
-		Guard.IsNotNull(expectedDestination);
-
-		Destination destination = await mapper.MapAsync<Destination>(source, TestContext.Current.CancellationToken);
-
-		AssertExpectedDestinationEquality(expectedDestination, destination);
-	}
-
-	[Theory]
-	[MemberData(nameof(MapAsync_Source_Data))]
 	public async Task MapAsync_GenericSource_ValidAsync(IUmbrellaMapper mapper, Source source, Destination expectedDestination)
 	{
 		Guard.IsNotNull(mapper);
@@ -65,22 +52,6 @@ public class UmbrellaMapperTest
 		Assert.Same(destination, existingDestination);
 		AssertExpectedDestinationEquality(expectedDestination, existingDestination);
 		AssertExpectedDestinationEquality(expectedDestination, destination);
-	}
-
-	[Theory]
-	[MemberData(nameof(MapAsync_SourceCollection_Data))]
-	public async Task MapAllAsync_ObjectSource_ValidAsync(IUmbrellaMapper mapper, IEnumerable<Source> lstSource, IEnumerable<Destination> lstExpectedDestination)
-	{
-		Guard.IsNotNull(mapper);
-
-		IReadOnlyCollection<Destination> lstDestination = await mapper.MapAllAsync<Destination>(lstSource, TestContext.Current.CancellationToken);
-
-		Assert.Equal(lstExpectedDestination.Count(), lstDestination.Count);
-
-		foreach (var (expectedDestination, destination) in lstDestination.Zip(lstExpectedDestination))
-		{
-			AssertExpectedDestinationEquality(expectedDestination, destination);
-		}
 	}
 
 	[Theory]

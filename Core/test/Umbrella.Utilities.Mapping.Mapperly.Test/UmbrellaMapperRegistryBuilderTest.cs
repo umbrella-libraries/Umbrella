@@ -49,7 +49,7 @@ public class UmbrellaMapperRegistryBuilderTest
 	}
 
 	[Fact]
-	public async Task Build_MultipleMappingsForTheSameDestination_ComposesAllDispatcherKindsAsync()
+	public async Task Build_MultipleExactMappingsForTheSameDestination_ComposesAllMappingKindsAsync()
 	{
 		UmbrellaMapperRegistryBuilder builder = new();
 		_ = builder
@@ -66,14 +66,14 @@ public class UmbrellaMapperRegistryBuilderTest
 			.AddSingleton<SyncBetaMapper>()
 			.BuildServiceProvider();
 
-		Assert.True(registry.TryMapNewInstanceObject(serviceProvider, new AlphaSource { Value = "one" }, TestContext.Current.CancellationToken, out ValueTask<SharedDestination> alphaNewTask));
-		Assert.True(registry.TryMapNewInstanceObject(serviceProvider, new BetaSource { Value = "two" }, TestContext.Current.CancellationToken, out ValueTask<SharedDestination> betaNewTask));
+		Assert.True(registry.TryMapNewInstanceExact(serviceProvider, new AlphaSource { Value = "one" }, TestContext.Current.CancellationToken, out ValueTask<SharedDestination> alphaNewTask));
+		Assert.True(registry.TryMapNewInstanceExact(serviceProvider, new BetaSource { Value = "two" }, TestContext.Current.CancellationToken, out ValueTask<SharedDestination> betaNewTask));
 
 		Assert.Equal("alpha:one", (await alphaNewTask).Value);
 		Assert.Equal("beta:two", (await betaNewTask).Value);
 
-		Assert.True(registry.TryMapNewCollectionObject(serviceProvider, new AlphaSource[] { new() { Value = "one" }, new() { Value = "three" } }, TestContext.Current.CancellationToken, out ValueTask<IReadOnlyCollection<SharedDestination>> alphaCollectionTask));
-		Assert.True(registry.TryMapNewCollectionObject(serviceProvider, new BetaSource[] { new() { Value = "two" } }, TestContext.Current.CancellationToken, out ValueTask<IReadOnlyCollection<SharedDestination>> betaCollectionTask));
+		Assert.True(registry.TryMapNewCollectionExact(serviceProvider, new AlphaSource[] { new() { Value = "one" }, new() { Value = "three" } }, TestContext.Current.CancellationToken, out ValueTask<IReadOnlyCollection<SharedDestination>> alphaCollectionTask));
+		Assert.True(registry.TryMapNewCollectionExact(serviceProvider, new BetaSource[] { new() { Value = "two" } }, TestContext.Current.CancellationToken, out ValueTask<IReadOnlyCollection<SharedDestination>> betaCollectionTask));
 
 		Assert.Collection(
 			await alphaCollectionTask,
@@ -86,8 +86,8 @@ public class UmbrellaMapperRegistryBuilderTest
 		SharedDestination alphaExistingDestination = new() { Value = "initial-alpha" };
 		SharedDestination betaExistingDestination = new() { Value = "initial-beta" };
 
-		Assert.True(registry.TryMapExistingInstanceObject(serviceProvider, new AlphaSource { Value = "updated-alpha" }, alphaExistingDestination, TestContext.Current.CancellationToken, out ValueTask<SharedDestination> alphaExistingTask));
-		Assert.True(registry.TryMapExistingInstanceObject(serviceProvider, new BetaSource { Value = "updated-beta" }, betaExistingDestination, TestContext.Current.CancellationToken, out ValueTask<SharedDestination> betaExistingTask));
+		Assert.True(registry.TryMapExistingInstanceExact(serviceProvider, new AlphaSource { Value = "updated-alpha" }, alphaExistingDestination, TestContext.Current.CancellationToken, out ValueTask<SharedDestination> alphaExistingTask));
+		Assert.True(registry.TryMapExistingInstanceExact(serviceProvider, new BetaSource { Value = "updated-beta" }, betaExistingDestination, TestContext.Current.CancellationToken, out ValueTask<SharedDestination> betaExistingTask));
 
 		Assert.Same(alphaExistingDestination, await alphaExistingTask);
 		Assert.Same(betaExistingDestination, await betaExistingTask);
@@ -113,8 +113,8 @@ public class UmbrellaMapperRegistryBuilderTest
 		Assert.IsType<UmbrellaMapper>(mapper);
 		Assert.NotSame(existingMapper, mapper);
 
-		SharedDestination alphaDestination = await mapper.MapAsync<SharedDestination>(new AlphaSource { Value = "one" }, TestContext.Current.CancellationToken);
-		SharedDestination betaDestination = await mapper.MapAsync<SharedDestination>(new BetaSource { Value = "two" }, TestContext.Current.CancellationToken);
+		SharedDestination alphaDestination = await mapper.MapAsync<AlphaSource, SharedDestination>(new AlphaSource { Value = "one" }, TestContext.Current.CancellationToken);
+		SharedDestination betaDestination = await mapper.MapAsync<BetaSource, SharedDestination>(new BetaSource { Value = "two" }, TestContext.Current.CancellationToken);
 		IReadOnlyCollection<SharedDestination> betaCollection = await mapper.MapAllAsync<BetaSource, SharedDestination>([new BetaSource { Value = "three" }], TestContext.Current.CancellationToken);
 
 		SharedDestination existingDestination = new() { Value = "initial" };
@@ -251,10 +251,8 @@ public class UmbrellaMapperRegistryBuilderTest
 
 	private sealed class StubUmbrellaMapper : IUmbrellaMapper
 	{
-		public ValueTask<TDestination> MapAsync<TDestination>(object source, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 		public ValueTask<TDestination> MapAsync<TSource, TDestination>(TSource source, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 		public ValueTask<TDestination> MapAsync<TSource, TDestination>(TSource source, TDestination destination, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-		public ValueTask<IReadOnlyCollection<TDestination>> MapAllAsync<TDestination>(IEnumerable<object> source, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 		public ValueTask<IReadOnlyCollection<TDestination>> MapAllAsync<TSource, TDestination>(IEnumerable<TSource> source, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 	}
 }

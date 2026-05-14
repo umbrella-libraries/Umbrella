@@ -12,25 +12,6 @@ namespace Umbrella.Utilities.Mapping.Mapperly.Test;
 public class UmbrellaMapperBehaviorTest
 {
 	[Fact]
-	public async Task MapAsync_ObjectSource_MissingMapper_ThrowsExpectedErrorAsync()
-	{
-		IUmbrellaMapper mapper = CreateBehaviorMapper();
-		UnmappedSource source = new("missing");
-		string sourceTypeName = typeof(UnmappedSource).FullName!;
-		string destinationTypeName = typeof(BehaviorDestination).FullName!;
-
-		UmbrellaMappingException exception = await Assert.ThrowsAsync<UmbrellaMappingException>(
-			() => mapper.MapAsync<BehaviorDestination>(source, TestContext.Current.CancellationToken).AsTask());
-
-		Assert.Equal("There has been a problem mapping the object.", exception.Message);
-
-		InvalidOperationException innerException = Assert.IsType<InvalidOperationException>(exception.InnerException);
-		Assert.Contains(sourceTypeName, innerException.Message, StringComparison.Ordinal);
-		Assert.Contains(destinationTypeName, innerException.Message, StringComparison.Ordinal);
-		Assert.Contains("trying to map to a new instance", innerException.Message, StringComparison.Ordinal);
-	}
-
-	[Fact]
 	public async Task MapAsync_GenericSource_MissingMapper_ThrowsExpectedErrorAsync()
 	{
 		IUmbrellaMapper mapper = CreateBehaviorMapper();
@@ -50,22 +31,6 @@ public class UmbrellaMapperBehaviorTest
 	}
 
 	[Fact]
-	public async Task MapAsync_ObjectSource_Collection_ThrowsGuidanceErrorAsync()
-	{
-		IUmbrellaMapper mapper = CreateBehaviorMapper();
-		IEnumerable<object> source = new List<DerivedBehaviorSource> { new("first") };
-		string sourceCollectionTypeName = source.GetType().FullName!;
-
-		UmbrellaMappingException exception = await Assert.ThrowsAsync<UmbrellaMappingException>(
-			() => mapper.MapAsync<BehaviorDestination>(source, TestContext.Current.CancellationToken).AsTask());
-
-		InvalidOperationException innerException = Assert.IsType<InvalidOperationException>(exception.InnerException);
-		Assert.Contains(sourceCollectionTypeName, innerException.Message, StringComparison.Ordinal);
-		Assert.Contains(nameof(IUmbrellaMapper.MapAllAsync), innerException.Message, StringComparison.Ordinal);
-		Assert.Contains("which is a collection", innerException.Message, StringComparison.Ordinal);
-	}
-
-	[Fact]
 	public async Task MapAsync_GenericSource_Collection_ThrowsGuidanceErrorAsync()
 	{
 		IUmbrellaMapper mapper = CreateBehaviorMapper();
@@ -79,25 +44,6 @@ public class UmbrellaMapperBehaviorTest
 		Assert.Contains(sourceCollectionTypeName, innerException.Message, StringComparison.Ordinal);
 		Assert.Contains(nameof(IUmbrellaMapper.MapAllAsync), innerException.Message, StringComparison.Ordinal);
 		Assert.Contains("which is a collection", innerException.Message, StringComparison.Ordinal);
-	}
-
-	[Fact]
-	public async Task MapAllAsync_ObjectSource_MissingMapper_ThrowsExpectedErrorAsync()
-	{
-		IUmbrellaMapper mapper = CreateBehaviorMapper();
-		IEnumerable<object> source = new List<UnmappedSource> { new("missing") };
-		string sourceCollectionTypeName = source.GetType().FullName!;
-		string destinationTypeName = typeof(BehaviorDestination).FullName!;
-
-		UmbrellaMappingException exception = await Assert.ThrowsAsync<UmbrellaMappingException>(
-			() => mapper.MapAllAsync<BehaviorDestination>(source, TestContext.Current.CancellationToken).AsTask());
-
-		Assert.Equal("There has been a problem mapping the object.", exception.Message);
-
-		InvalidOperationException innerException = Assert.IsType<InvalidOperationException>(exception.InnerException);
-		Assert.Contains(sourceCollectionTypeName, innerException.Message, StringComparison.Ordinal);
-		Assert.Contains(destinationTypeName, innerException.Message, StringComparison.Ordinal);
-		Assert.Contains("trying to map to a new collection", innerException.Message, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -140,31 +86,24 @@ public class UmbrellaMapperBehaviorTest
 	}
 
 	[Fact]
-	public async Task MapAsync_ObjectSource_PrefersAsyncMapperWhenBothInterfacesExistAsync()
-	{
-		IUmbrellaMapper mapper = CreateBehaviorMapper();
-		DerivedBehaviorSource source = new("async-new");
-
-		BehaviorDestination destination = await mapper.MapAsync<BehaviorDestination>(source, TestContext.Current.CancellationToken);
-
-		Assert.Equal("async-new", destination.Value);
-		Assert.Equal("async-new-instance", destination.Mode);
-	}
-
-	[Fact]
-	public async Task MapAsync_GenericBaseSource_FallsBackToObjectDispatchAndPrefersAsyncMapperAsync()
+	public async Task MapAsync_GenericBaseSource_ThrowsWhenExactMapperIsMissingAsync()
 	{
 		IUmbrellaMapper mapper = CreateBehaviorMapper();
 		BaseBehaviorSource source = new DerivedBehaviorSource("async-new-dispatch");
+		string sourceTypeName = typeof(BaseBehaviorSource).FullName!;
+		string destinationTypeName = typeof(BehaviorDestination).FullName!;
 
-		BehaviorDestination destination = await mapper.MapAsync<BaseBehaviorSource, BehaviorDestination>(source, TestContext.Current.CancellationToken);
+		UmbrellaMappingException exception = await Assert.ThrowsAsync<UmbrellaMappingException>(
+			() => mapper.MapAsync<BaseBehaviorSource, BehaviorDestination>(source, TestContext.Current.CancellationToken).AsTask());
 
-		Assert.Equal("async-new-dispatch", destination.Value);
-		Assert.Equal("async-new-instance", destination.Mode);
+		InvalidOperationException innerException = Assert.IsType<InvalidOperationException>(exception.InnerException);
+		Assert.Contains(sourceTypeName, innerException.Message, StringComparison.Ordinal);
+		Assert.Contains(destinationTypeName, innerException.Message, StringComparison.Ordinal);
+		Assert.Contains("trying to map to a new instance", innerException.Message, StringComparison.Ordinal);
 	}
 
 	[Fact]
-	public async Task MapAllAsync_GenericBaseSource_FallsBackToObjectDispatchAndPrefersAsyncMapperAsync()
+	public async Task MapAllAsync_GenericBaseSource_ThrowsWhenExactMapperIsMissingAsync()
 	{
 		IUmbrellaMapper mapper = CreateBehaviorMapper();
 		IEnumerable<BaseBehaviorSource> source = new List<DerivedBehaviorSource>
@@ -172,35 +111,34 @@ public class UmbrellaMapperBehaviorTest
 			new("first"),
 			new("second")
 		};
+		string sourceTypeName = typeof(BaseBehaviorSource).FullName!;
+		string destinationTypeName = typeof(BehaviorDestination).FullName!;
 
-		IReadOnlyCollection<BehaviorDestination> destination = await mapper.MapAllAsync<BaseBehaviorSource, BehaviorDestination>(source, TestContext.Current.CancellationToken);
+		UmbrellaMappingException exception = await Assert.ThrowsAsync<UmbrellaMappingException>(
+			() => mapper.MapAllAsync<BaseBehaviorSource, BehaviorDestination>(source, TestContext.Current.CancellationToken).AsTask());
 
-		Assert.Collection(
-			destination,
-			item =>
-			{
-				Assert.Equal("first", item.Value);
-				Assert.Equal("async-new-collection", item.Mode);
-			},
-			item =>
-			{
-				Assert.Equal("second", item.Value);
-				Assert.Equal("async-new-collection", item.Mode);
-			});
+		InvalidOperationException innerException = Assert.IsType<InvalidOperationException>(exception.InnerException);
+		Assert.Contains(sourceTypeName, innerException.Message, StringComparison.Ordinal);
+		Assert.Contains(destinationTypeName, innerException.Message, StringComparison.Ordinal);
+		Assert.Contains("trying to map to a new collection", innerException.Message, StringComparison.Ordinal);
 	}
 
 	[Fact]
-	public async Task MapAsync_GenericBaseSource_ExistingDestination_FallsBackToObjectDispatchAndPrefersAsyncMapperAsync()
+	public async Task MapAsync_GenericBaseSource_ExistingDestination_ThrowsWhenExactMapperIsMissingAsync()
 	{
 		IUmbrellaMapper mapper = CreateBehaviorMapper();
 		BaseBehaviorSource source = new DerivedBehaviorSource("async-existing-dispatch");
 		BehaviorDestination existingDestination = new();
+		string sourceTypeName = typeof(BaseBehaviorSource).FullName!;
+		string destinationTypeName = typeof(BehaviorDestination).FullName!;
 
-		BehaviorDestination destination = await mapper.MapAsync(source, existingDestination, TestContext.Current.CancellationToken);
+		UmbrellaMappingException exception = await Assert.ThrowsAsync<UmbrellaMappingException>(
+			() => mapper.MapAsync(source, existingDestination, TestContext.Current.CancellationToken).AsTask());
 
-		Assert.Same(existingDestination, destination);
-		Assert.Equal("async-existing-dispatch", destination.Value);
-		Assert.Equal("async-existing-instance", destination.Mode);
+		InvalidOperationException innerException = Assert.IsType<InvalidOperationException>(exception.InnerException);
+		Assert.Contains(sourceTypeName, innerException.Message, StringComparison.Ordinal);
+		Assert.Contains(destinationTypeName, innerException.Message, StringComparison.Ordinal);
+		Assert.Contains("trying to map to an existing instance", innerException.Message, StringComparison.Ordinal);
 	}
 
 	[Fact]

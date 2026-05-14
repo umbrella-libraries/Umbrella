@@ -12,27 +12,9 @@ namespace Umbrella.Utilities.Mapping.Abstractions;
 public interface IUmbrellaMapper
 {
 	/// <summary>
-	/// Execute a mapping from the source object to a new destination object. The source type is inferred from the source object.
-	/// </summary>
-	/// <typeparam name="TDestination">The type of the destination.</typeparam>
-	/// <param name="source">The source object to map from.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>Mapped destination object.</returns>
-	ValueTask<TDestination> MapAsync<TDestination>(object source, CancellationToken cancellationToken = default);
-
-	/// <summary>
-	/// Execute a mapping from the source object collection to a new destination object collection. The source type is inferred from the source object.
-	/// </summary>
-	/// <typeparam name="TDestination">The type of the destination.</typeparam>
-	/// <param name="source">The source.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>Mapped destination object collection.</returns>
-	ValueTask<IReadOnlyCollection<TDestination>> MapAllAsync<TDestination>(IEnumerable<object> source, CancellationToken cancellationToken = default);
-
-	/// <summary>
 	/// Execute a mapping from the source object to a new destination object.
 	/// </summary>
-	/// <typeparam name="TSource">Source type to use, regardless of the runtime type.</typeparam>
+	/// <typeparam name="TSource">The type of the source.</typeparam>
 	/// <typeparam name="TDestination">The type of the destination.</typeparam>
 	/// <param name="source">The source object to map from.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
@@ -42,7 +24,7 @@ public interface IUmbrellaMapper
 	/// <summary>
 	/// Execute a mapping from the source object collection to a new destination object collection.
 	/// </summary>
-	/// <typeparam name="TSource">Source type to use, regardless of the runtime type.</typeparam>
+	/// <typeparam name="TSource">The type of the source.</typeparam>
 	/// <typeparam name="TDestination">The type of the destination.</typeparam>
 	/// <param name="source">The source object to map from.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>

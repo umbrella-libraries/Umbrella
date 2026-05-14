@@ -67,7 +67,7 @@ public class EntityMappingUtility : IEntityMappingUtility
 				// No existing item with this id, so add a new one
 				if (entity is null)
 				{
-					entity = await _mapper.Value.MapAsync<TEntity>(item, cancellationToken).ConfigureAwait(false);
+					entity = await _mapper.Value.MapAsync<TModel, TEntity>(item, cancellationToken).ConfigureAwait(false);
 
 					// Make sure the mapped entity has an default id value to avoid errors with having mapped an existing item that belongs
 					// to something like a different foreign key relationship

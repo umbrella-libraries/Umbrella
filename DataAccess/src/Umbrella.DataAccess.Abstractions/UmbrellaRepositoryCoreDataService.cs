@@ -130,7 +130,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 
 			var model = new TPaginatedResultModel
 			{
-				Items = mapReadAllEntitiesDelegate is null ? await Mapper.MapAllAsync<TItemModel>(result.Items, cancellationToken).ConfigureAwait(false) : mapReadAllEntitiesDelegate(result.Items),
+				Items = mapReadAllEntitiesDelegate is null ? await Mapper.MapAllAsync<TEntityResult, TItemModel>(result.Items, cancellationToken).ConfigureAwait(false) : mapReadAllEntitiesDelegate(result.Items),
 				PageNumber = pageNumber,
 				PageSize = pageSize,
 				TotalCount = result.TotalCount,
@@ -214,7 +214,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 			}
 
 			TModel model = mapperCallback is null
-				? await Mapper.MapAsync<TModel>(item, cancellationToken).ConfigureAwait(false)
+				? await Mapper.MapAsync<TEntity, TModel>(item, cancellationToken).ConfigureAwait(false)
 				: mapperCallback(item);
 
 			if (afterReadEntityCallback is not null)
@@ -296,7 +296,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 			}
 
 			var entity = mapperInputCallback is null
-				? await Mapper.MapAsync<TEntity>(model, cancellationToken).ConfigureAwait(false)
+				? await Mapper.MapAsync<TModel, TEntity>(model, cancellationToken).ConfigureAwait(false)
 				: mapperInputCallback(model);
 
 			if (beforeCreateEntityCallback is not null)
@@ -328,7 +328,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 				if (enableOutputMapping)
 				{
 					result = mapperOutputCallback is null
-						? await Mapper.MapAsync<TResultModel>(entity, cancellationToken).ConfigureAwait(false)
+						? await Mapper.MapAsync<TEntity, TResultModel>(entity, cancellationToken).ConfigureAwait(false)
 						: mapperOutputCallback(entity);
 				}
 				else
@@ -457,7 +457,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 				if (enableOutputMapping)
 				{
 					result = mapperOutputCallback is null
-						? await Mapper.MapAsync<TResultModel>(entity, cancellationToken).ConfigureAwait(false)
+						? await Mapper.MapAsync<TEntity, TResultModel>(entity, cancellationToken).ConfigureAwait(false)
 						: mapperOutputCallback(entity);
 				}
 				else

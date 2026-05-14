@@ -33,32 +33,6 @@ public class UmbrellaMapper : IUmbrellaMapper
 		_registry = registry;
 	}
 
-	/// <inheritdoc />
-	public ValueTask<TDestination> MapAsync<TDestination>(object source, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		Guard.IsNotNull(source);
-
-		try
-		{
-			if (_logger.IsEnabled(LogLevel.Debug))
-				_logger.WriteDebug(new { SourceType = source.GetType().FullName, DestinationType = typeof(TDestination).FullName });
-
-			if (_registry.TryMapNewInstanceObject(_serviceProvider, source, cancellationToken, out ValueTask<TDestination> result))
-				return result;
-
-			if (source is System.Collections.IEnumerable and not string)
-				throw new InvalidOperationException($"The source type is {source.GetType().FullName} which is a collection. Please call the {nameof(MapAllAsync)} methods to map collections.");
-
-			throw new InvalidOperationException($"A mapper implementation for the specified source type {source.GetType().FullName} and destination type {typeof(TDestination).FullName} cannot be found when trying to map to a new instance.");
-		}
-		catch (Exception exc) when (_logger.WriteError(exc, new { SourceTypeName = source.GetType().FullName }))
-		{
-			throw new UmbrellaMappingException("There has been a problem mapping the object.", exc);
-		}
-	}
-
-	/// <inheritdoc />
 	public async ValueTask<TDestination> MapAsync<TSource, TDestination>(TSource source, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -68,9 +42,6 @@ public class UmbrellaMapper : IUmbrellaMapper
 		{
 			if (_registry.TryMapNewInstanceExact(_serviceProvider, source, cancellationToken, out ValueTask<TDestination> exactResult))
 				return await exactResult.ConfigureAwait(false);
-
-			if (_registry.TryMapNewInstanceObject(_serviceProvider, source!, cancellationToken, out ValueTask<TDestination> objectResult))
-				return await objectResult.ConfigureAwait(false);
 
 			if (source is System.Collections.IEnumerable and not string)
 			{
@@ -99,9 +70,6 @@ public class UmbrellaMapper : IUmbrellaMapper
 			if (_registry.TryMapExistingInstanceExact(_serviceProvider, source, destination, cancellationToken, out ValueTask<TDestination> exactResult))
 				return await exactResult.ConfigureAwait(false);
 
-			if (_registry.TryMapExistingInstanceObject(_serviceProvider, source!, destination, cancellationToken, out ValueTask<TDestination> objectResult))
-				return await objectResult.ConfigureAwait(false);
-
 			throw new InvalidOperationException(
 				$"A mapper implementation for the specified source type {typeof(TSource).FullName} and destination type {typeof(TDestination).FullName} cannot be found when trying to map to an existing instance.");
 		}
@@ -111,30 +79,7 @@ public class UmbrellaMapper : IUmbrellaMapper
 		}
 	}
 
-	/// <inheritdoc/>
-	public ValueTask<IReadOnlyCollection<TDestination>> MapAllAsync<TDestination>(IEnumerable<object> source, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		Guard.IsNotNull(source);
-
-		try
-		{
-			if (_logger.IsEnabled(LogLevel.Debug))
-				_logger.WriteDebug(new { SourceCollectionType = source.GetType().FullName, DestinationType = typeof(TDestination).FullName });
-
-			if (_registry.TryMapNewCollectionObject(_serviceProvider, source, cancellationToken, out ValueTask<IReadOnlyCollection<TDestination>> result))
-				return result;
-
-			throw new InvalidOperationException(
-				$"A mapper implementation for the specified source collection type {source.GetType().FullName} and destination type {typeof(TDestination).FullName} cannot be found when trying to map to a new collection.");
-		}
-		catch (Exception exc) when (_logger.WriteError(exc, new { SourceTypeName = source.GetType().FullName }))
-		{
-			throw new UmbrellaMappingException("There has been a problem mapping the object.", exc);
-		}
-	}
-
-	/// <inheritdoc/>
+	/// <inheritdoc />
 	public async ValueTask<IReadOnlyCollection<TDestination>> MapAllAsync<TSource, TDestination>(IEnumerable<TSource> source, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -144,9 +89,6 @@ public class UmbrellaMapper : IUmbrellaMapper
 		{
 			if (_registry.TryMapNewCollectionExact(_serviceProvider, source, cancellationToken, out ValueTask<IReadOnlyCollection<TDestination>> exactResult))
 				return await exactResult.ConfigureAwait(false);
-
-			if (_registry.TryMapNewCollectionObject(_serviceProvider, source!, cancellationToken, out ValueTask<IReadOnlyCollection<TDestination>> objectResult))
-				return await objectResult.ConfigureAwait(false);
 
 			throw new InvalidOperationException(
 				$"A mapper implementation for the specified source type {typeof(TSource).FullName} and destination type {typeof(TDestination).FullName} cannot be found when trying to map to a new collection.");

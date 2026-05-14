@@ -20,8 +20,9 @@ public sealed class UmbrellaMapperRegistryBuilder
 		where TMapper : class, IUmbrellaMapperlyNewInstanceMapper<TSource, TDestination>
 		=> AddNewInstanceCore(
 			typeof(TMapper),
-			static (serviceProvider, source, ct) => NewInstanceDispatcher<TMapper, TSource, TDestination>.MapWithPreferenceAsync(serviceProvider, (TSource)source, ct),
-			new NewInstanceDispatcher<TMapper, TSource, TDestination>());
+			typeof(TSource),
+			typeof(TDestination),
+			static (serviceProvider, source, ct) => NewInstanceDispatcher<TMapper, TSource, TDestination>.MapWithPreferenceAsync(serviceProvider, (TSource)source, ct));
 
 	/// <summary>
 	/// Registers an asynchronous mapper that creates a new destination instance.
@@ -30,8 +31,9 @@ public sealed class UmbrellaMapperRegistryBuilder
 		where TMapper : class, IUmbrellaMapperlyNewInstanceAsyncMapper<TSource, TDestination>
 		=> AddNewInstanceCore(
 			typeof(TMapper),
-			static async (serviceProvider, source, cancellationToken) => await serviceProvider.GetRequiredService<TMapper>().MapAsync((TSource)source, cancellationToken).ConfigureAwait(false),
-			new NewInstanceDispatcher<TMapper, TSource, TDestination>());
+			typeof(TSource),
+			typeof(TDestination),
+			static async (serviceProvider, source, cancellationToken) => await serviceProvider.GetRequiredService<TMapper>().MapAsync((TSource)source, cancellationToken).ConfigureAwait(false));
 
 	/// <summary>
 	/// Registers a synchronous mapper that creates a new destination collection.
@@ -40,8 +42,9 @@ public sealed class UmbrellaMapperRegistryBuilder
 		where TMapper : class, IUmbrellaMapperlyNewCollectionMapper<TSource, TDestination>
 		=> AddNewCollectionCore(
 			typeof(TMapper),
-			static (serviceProvider, source, ct) => NewCollectionDispatcher<TMapper, TSource, TDestination>.MapWithPreferenceAsync(serviceProvider, (IEnumerable<TSource>)source, ct),
-			new NewCollectionDispatcher<TMapper, TSource, TDestination>());
+			typeof(TSource),
+			typeof(TDestination),
+			static (serviceProvider, source, ct) => NewCollectionDispatcher<TMapper, TSource, TDestination>.MapWithPreferenceAsync(serviceProvider, (IEnumerable<TSource>)source, ct));
 
 	/// <summary>
 	/// Registers an asynchronous mapper that creates a new destination collection.
@@ -50,8 +53,9 @@ public sealed class UmbrellaMapperRegistryBuilder
 		where TMapper : class, IUmbrellaMapperlyNewCollectionAsyncMapper<TSource, TDestination>
 		=> AddNewCollectionCore(
 			typeof(TMapper),
-			static async (serviceProvider, source, cancellationToken) => await serviceProvider.GetRequiredService<TMapper>().MapAllAsync((IEnumerable<TSource>)source, cancellationToken).ConfigureAwait(false),
-			new NewCollectionDispatcher<TMapper, TSource, TDestination>());
+			typeof(TSource),
+			typeof(TDestination),
+			static async (serviceProvider, source, cancellationToken) => await serviceProvider.GetRequiredService<TMapper>().MapAllAsync((IEnumerable<TSource>)source, cancellationToken).ConfigureAwait(false));
 
 	/// <summary>
 	/// Registers a synchronous mapper that maps onto an existing destination instance.
@@ -60,8 +64,9 @@ public sealed class UmbrellaMapperRegistryBuilder
 		where TMapper : class, IUmbrellaMapperlyExistingInstanceMapper<TSource, TDestination>
 		=> AddExistingInstanceCore(
 			typeof(TMapper),
-			static (serviceProvider, source, destination, ct) => ExistingInstanceDispatcher<TMapper, TSource, TDestination>.MapWithPreferenceAsync(serviceProvider, (TSource)source, (TDestination)destination, ct),
-			new ExistingInstanceDispatcher<TMapper, TSource, TDestination>());
+			typeof(TSource),
+			typeof(TDestination),
+			static (serviceProvider, source, destination, ct) => ExistingInstanceDispatcher<TMapper, TSource, TDestination>.MapWithPreferenceAsync(serviceProvider, (TSource)source, (TDestination)destination, ct));
 
 	/// <summary>
 	/// Registers an asynchronous mapper that maps onto an existing destination instance.
@@ -70,46 +75,47 @@ public sealed class UmbrellaMapperRegistryBuilder
 		where TMapper : class, IUmbrellaMapperlyExistingInstanceAsyncMapper<TSource, TDestination>
 		=> AddExistingInstanceCore(
 			typeof(TMapper),
+			typeof(TSource),
+			typeof(TDestination),
 			static async (serviceProvider, source, destination, cancellationToken) =>
 			{
 				await serviceProvider.GetRequiredService<TMapper>().MapAsync((TSource)source, (TDestination)destination, cancellationToken).ConfigureAwait(false);
 				return destination;
-			},
-			new ExistingInstanceDispatcher<TMapper, TSource, TDestination>());
+			});
 
 	internal UmbrellaMapperRegistry Build()
 		=> new(
 			_newInstanceRegistrations.ToDictionary(x => x.Key, x => x.Value.MapAsync),
-			GroupDispatchers(_newInstanceRegistrations.Values.Select(x => x.Dispatcher)),
 			_newCollectionRegistrations.ToDictionary(x => x.Key, x => x.Value.MapAsync),
-			GroupDispatchers(_newCollectionRegistrations.Values.Select(x => x.Dispatcher)),
-			_existingInstanceRegistrations.ToDictionary(x => x.Key, x => x.Value.MapAsync),
-			GroupDispatchers(_existingInstanceRegistrations.Values.Select(x => x.Dispatcher)));
+			_existingInstanceRegistrations.ToDictionary(x => x.Key, x => x.Value.MapAsync));
 
 	private UmbrellaMapperRegistryBuilder AddNewInstanceCore(
 		Type mapperType,
-		Func<IServiceProvider, object, CancellationToken, ValueTask<object?>> mapAsync,
-		IObjectNewInstanceDispatcher dispatcher)
+		Type sourceType,
+		Type destinationType,
+		Func<IServiceProvider, object, CancellationToken, ValueTask<object?>> mapAsync)
 	{
-		AddRegistration(_newInstanceRegistrations, mapperType, dispatcher.SourceType, dispatcher.DestinationType, new(mapperType, mapAsync, dispatcher));
+		AddRegistration(_newInstanceRegistrations, mapperType, sourceType, destinationType, new(mapperType, mapAsync));
 		return this;
 	}
 
 	private UmbrellaMapperRegistryBuilder AddNewCollectionCore(
 		Type mapperType,
-		Func<IServiceProvider, object, CancellationToken, ValueTask<object>> mapAsync,
-		IObjectNewCollectionDispatcher dispatcher)
+		Type sourceType,
+		Type destinationType,
+		Func<IServiceProvider, object, CancellationToken, ValueTask<object>> mapAsync)
 	{
-		AddRegistration(_newCollectionRegistrations, mapperType, dispatcher.SourceType, dispatcher.DestinationType, new(mapperType, mapAsync, dispatcher));
+		AddRegistration(_newCollectionRegistrations, mapperType, sourceType, destinationType, new(mapperType, mapAsync));
 		return this;
 	}
 
 	private UmbrellaMapperRegistryBuilder AddExistingInstanceCore(
 		Type mapperType,
-		Func<IServiceProvider, object, object, CancellationToken, ValueTask<object>> mapAsync,
-		IObjectExistingInstanceDispatcher dispatcher)
+		Type sourceType,
+		Type destinationType,
+		Func<IServiceProvider, object, object, CancellationToken, ValueTask<object>> mapAsync)
 	{
-		AddRegistration(_existingInstanceRegistrations, mapperType, dispatcher.SourceType, dispatcher.DestinationType, new(mapperType, mapAsync, dispatcher));
+		AddRegistration(_existingInstanceRegistrations, mapperType, sourceType, destinationType, new(mapperType, mapAsync));
 		return this;
 	}
 
@@ -121,7 +127,6 @@ public sealed class UmbrellaMapperRegistryBuilder
 		TRegistration registration)
 		where TRegistration : MapperRegistration
 	{
-		Guard.IsNotNull(registrations);
 		Guard.IsNotNull(mapperType);
 
 		var key = (sourceType, destinationType);
@@ -135,41 +140,26 @@ public sealed class UmbrellaMapperRegistryBuilder
 		registrations[key] = registration;
 	}
 
-	private static Dictionary<Type, IReadOnlyList<TDispatcher>> GroupDispatchers<TDispatcher>(IEnumerable<TDispatcher> dispatchers)
-		where TDispatcher : IDispatcher
-		=> dispatchers
-			.GroupBy(x => x.DestinationType)
-			.ToDictionary(x => x.Key, x => (IReadOnlyList<TDispatcher>)x.ToArray());
-
 	private abstract record MapperRegistration(Type MapperType);
-	private sealed record NewInstanceRegistration(Type MapperType, Func<IServiceProvider, object, CancellationToken, ValueTask<object?>> MapAsync, IObjectNewInstanceDispatcher Dispatcher) : MapperRegistration(MapperType);
-	private sealed record NewCollectionRegistration(Type MapperType, Func<IServiceProvider, object, CancellationToken, ValueTask<object>> MapAsync, IObjectNewCollectionDispatcher Dispatcher) : MapperRegistration(MapperType);
-	private sealed record ExistingInstanceRegistration(Type MapperType, Func<IServiceProvider, object, object, CancellationToken, ValueTask<object>> MapAsync, IObjectExistingInstanceDispatcher Dispatcher) : MapperRegistration(MapperType);
+	private sealed record NewInstanceRegistration(Type MapperType, Func<IServiceProvider, object, CancellationToken, ValueTask<object?>> MapAsync) : MapperRegistration(MapperType);
+	private sealed record NewCollectionRegistration(Type MapperType, Func<IServiceProvider, object, CancellationToken, ValueTask<object>> MapAsync) : MapperRegistration(MapperType);
+	private sealed record ExistingInstanceRegistration(Type MapperType, Func<IServiceProvider, object, object, CancellationToken, ValueTask<object>> MapAsync) : MapperRegistration(MapperType);
 }
 
 internal sealed class UmbrellaMapperRegistry
 {
 	private readonly IReadOnlyDictionary<(Type SourceType, Type DestinationType), Func<IServiceProvider, object, CancellationToken, ValueTask<object?>>> _newInstanceMappings;
-	private readonly IReadOnlyDictionary<Type, IReadOnlyList<IObjectNewInstanceDispatcher>> _newInstanceDispatchers;
 	private readonly IReadOnlyDictionary<(Type SourceType, Type DestinationType), Func<IServiceProvider, object, CancellationToken, ValueTask<object>>> _newCollectionMappings;
-	private readonly IReadOnlyDictionary<Type, IReadOnlyList<IObjectNewCollectionDispatcher>> _newCollectionDispatchers;
 	private readonly IReadOnlyDictionary<(Type SourceType, Type DestinationType), Func<IServiceProvider, object, object, CancellationToken, ValueTask<object>>> _existingInstanceMappings;
-	private readonly IReadOnlyDictionary<Type, IReadOnlyList<IObjectExistingInstanceDispatcher>> _existingInstanceDispatchers;
 
 	public UmbrellaMapperRegistry(
 		IReadOnlyDictionary<(Type SourceType, Type DestinationType), Func<IServiceProvider, object, CancellationToken, ValueTask<object?>>> newInstanceMappings,
-		IReadOnlyDictionary<Type, IReadOnlyList<IObjectNewInstanceDispatcher>> newInstanceDispatchers,
 		IReadOnlyDictionary<(Type SourceType, Type DestinationType), Func<IServiceProvider, object, CancellationToken, ValueTask<object>>> newCollectionMappings,
-		IReadOnlyDictionary<Type, IReadOnlyList<IObjectNewCollectionDispatcher>> newCollectionDispatchers,
-		IReadOnlyDictionary<(Type SourceType, Type DestinationType), Func<IServiceProvider, object, object, CancellationToken, ValueTask<object>>> existingInstanceMappings,
-		IReadOnlyDictionary<Type, IReadOnlyList<IObjectExistingInstanceDispatcher>> existingInstanceDispatchers)
+		IReadOnlyDictionary<(Type SourceType, Type DestinationType), Func<IServiceProvider, object, object, CancellationToken, ValueTask<object>>> existingInstanceMappings)
 	{
 		_newInstanceMappings = newInstanceMappings;
-		_newInstanceDispatchers = newInstanceDispatchers;
 		_newCollectionMappings = newCollectionMappings;
-		_newCollectionDispatchers = newCollectionDispatchers;
 		_existingInstanceMappings = existingInstanceMappings;
-		_existingInstanceDispatchers = existingInstanceDispatchers;
 	}
 
 	public bool TryMapNewInstanceExact<TSource, TDestination>(
@@ -188,28 +178,6 @@ internal sealed class UmbrellaMapperRegistry
 		return false;
 	}
 
-	public bool TryMapNewInstanceObject<TDestination>(
-		IServiceProvider serviceProvider,
-		object source,
-		CancellationToken cancellationToken,
-		out ValueTask<TDestination> result)
-	{
-		if (_newInstanceDispatchers.TryGetValue(typeof(TDestination), out IReadOnlyList<IObjectNewInstanceDispatcher>? dispatchers))
-		{
-			foreach (IObjectNewInstanceDispatcher dispatcher in dispatchers)
-			{
-				if (dispatcher.TryMap(serviceProvider, source, cancellationToken, out ValueTask<object?> dispatcherResult))
-				{
-					result = CastAsync<TDestination>(dispatcherResult);
-					return true;
-				}
-			}
-		}
-
-		result = default;
-		return false;
-	}
-
 	public bool TryMapNewCollectionExact<TSource, TDestination>(
 		IServiceProvider serviceProvider,
 		IEnumerable<TSource> source,
@@ -220,28 +188,6 @@ internal sealed class UmbrellaMapperRegistry
 		{
 			result = CastCollectionAsync<TDestination>(mapping(serviceProvider, source, cancellationToken));
 			return true;
-		}
-
-		result = default;
-		return false;
-	}
-
-	public bool TryMapNewCollectionObject<TDestination>(
-		IServiceProvider serviceProvider,
-		object source,
-		CancellationToken cancellationToken,
-		out ValueTask<IReadOnlyCollection<TDestination>> result)
-	{
-		if (_newCollectionDispatchers.TryGetValue(typeof(TDestination), out IReadOnlyList<IObjectNewCollectionDispatcher>? dispatchers))
-		{
-			foreach (IObjectNewCollectionDispatcher dispatcher in dispatchers)
-			{
-				if (dispatcher.TryMap(serviceProvider, source, cancellationToken, out ValueTask<object> dispatcherResult))
-				{
-					result = CastCollectionAsync<TDestination>(dispatcherResult);
-					return true;
-				}
-			}
 		}
 
 		result = default;
@@ -265,78 +211,30 @@ internal sealed class UmbrellaMapperRegistry
 		return false;
 	}
 
-	public bool TryMapExistingInstanceObject<TDestination>(
-		IServiceProvider serviceProvider,
-		object source,
-		TDestination destination,
-		CancellationToken cancellationToken,
-		out ValueTask<TDestination> result)
-	{
-		if (_existingInstanceDispatchers.TryGetValue(typeof(TDestination), out IReadOnlyList<IObjectExistingInstanceDispatcher>? dispatchers))
-		{
-			foreach (IObjectExistingInstanceDispatcher dispatcher in dispatchers)
-			{
-				if (dispatcher.TryMap(serviceProvider, source, destination!, cancellationToken, out ValueTask<object> dispatcherResult))
-				{
-					result = CastNonNullableAsync<TDestination>(dispatcherResult);
-					return true;
-				}
-			}
-		}
+#pragma warning disable VSTHRD103
+	private static ValueTask<T> CastAsync<T>(ValueTask<object?> task)
+		=> task.IsCompletedSuccessfully ? new ValueTask<T>((T)task.Result!) : SlowCastAsync<T>(task);
 
-		result = default;
-		return false;
-	}
+	private static ValueTask<T> CastNonNullableAsync<T>(ValueTask<object> task)
+		=> task.IsCompletedSuccessfully ? new ValueTask<T>((T)task.Result) : SlowCastNonNullableAsync<T>(task);
 
-	private static async ValueTask<T> CastAsync<T>(ValueTask<object?> task)
+	private static ValueTask<IReadOnlyCollection<T>> CastCollectionAsync<T>(ValueTask<object> task)
+		=> task.IsCompletedSuccessfully ? new ValueTask<IReadOnlyCollection<T>>((IReadOnlyCollection<T>)task.Result) : SlowCastCollectionAsync<T>(task);
+#pragma warning restore VSTHRD103
+
+	private static async ValueTask<T> SlowCastAsync<T>(ValueTask<object?> task)
 		=> (T)(await task.ConfigureAwait(false))!;
 
-	private static async ValueTask<T> CastNonNullableAsync<T>(ValueTask<object> task)
+	private static async ValueTask<T> SlowCastNonNullableAsync<T>(ValueTask<object> task)
 		=> (T)(await task.ConfigureAwait(false));
 
-	private static async ValueTask<IReadOnlyCollection<T>> CastCollectionAsync<T>(ValueTask<object> task)
+	private static async ValueTask<IReadOnlyCollection<T>> SlowCastCollectionAsync<T>(ValueTask<object> task)
 		=> (IReadOnlyCollection<T>)(await task.ConfigureAwait(false));
 }
 
-internal interface IDispatcher
-{
-	Type SourceType { get; }
-	Type DestinationType { get; }
-}
-
-internal interface IObjectNewInstanceDispatcher : IDispatcher
-{
-	bool TryMap(IServiceProvider serviceProvider, object source, CancellationToken cancellationToken, out ValueTask<object?> result);
-}
-
-internal interface IObjectNewCollectionDispatcher : IDispatcher
-{
-	bool TryMap(IServiceProvider serviceProvider, object source, CancellationToken cancellationToken, out ValueTask<object> result);
-}
-
-internal interface IObjectExistingInstanceDispatcher : IDispatcher
-{
-	bool TryMap(IServiceProvider serviceProvider, object source, object destination, CancellationToken cancellationToken, out ValueTask<object> result);
-}
-
-internal sealed class NewInstanceDispatcher<TMapper, TSource, TDestination> : IObjectNewInstanceDispatcher
+internal sealed class NewInstanceDispatcher<TMapper, TSource, TDestination>
 	where TMapper : class
 {
-	public Type SourceType => typeof(TSource);
-	public Type DestinationType => typeof(TDestination);
-
-	public bool TryMap(IServiceProvider serviceProvider, object source, CancellationToken cancellationToken, out ValueTask<object?> result)
-	{
-		if (source is not TSource typedSource)
-		{
-			result = default;
-			return false;
-		}
-
-		result = MapWithPreferenceAsync(serviceProvider, typedSource, cancellationToken);
-		return true;
-	}
-
 	internal static ValueTask<object?> MapWithPreferenceAsync(IServiceProvider serviceProvider, TSource source, CancellationToken cancellationToken)
 		=> serviceProvider.GetRequiredService<TMapper>() switch
 		{
@@ -352,24 +250,9 @@ internal sealed class NewInstanceDispatcher<TMapper, TSource, TDestination> : IO
 		=> await mapper.MapAsync(source, cancellationToken).ConfigureAwait(false);
 }
 
-internal sealed class NewCollectionDispatcher<TMapper, TSource, TDestination> : IObjectNewCollectionDispatcher
+internal sealed class NewCollectionDispatcher<TMapper, TSource, TDestination>
 	where TMapper : class
 {
-	public Type SourceType => typeof(TSource);
-	public Type DestinationType => typeof(TDestination);
-
-	public bool TryMap(IServiceProvider serviceProvider, object source, CancellationToken cancellationToken, out ValueTask<object> result)
-	{
-		if (source is not IEnumerable<TSource> typedSource)
-		{
-			result = default;
-			return false;
-		}
-
-		result = MapWithPreferenceAsync(serviceProvider, typedSource, cancellationToken);
-		return true;
-	}
-
 	internal static ValueTask<object> MapWithPreferenceAsync(IServiceProvider serviceProvider, IEnumerable<TSource> source, CancellationToken cancellationToken)
 		=> serviceProvider.GetRequiredService<TMapper>() switch
 		{
@@ -385,24 +268,9 @@ internal sealed class NewCollectionDispatcher<TMapper, TSource, TDestination> : 
 		=> await mapper.MapAllAsync(source, cancellationToken).ConfigureAwait(false);
 }
 
-internal sealed class ExistingInstanceDispatcher<TMapper, TSource, TDestination> : IObjectExistingInstanceDispatcher
+internal sealed class ExistingInstanceDispatcher<TMapper, TSource, TDestination>
 	where TMapper : class
 {
-	public Type SourceType => typeof(TSource);
-	public Type DestinationType => typeof(TDestination);
-
-	public bool TryMap(IServiceProvider serviceProvider, object source, object destination, CancellationToken cancellationToken, out ValueTask<object> result)
-	{
-		if (source is not TSource typedSource || destination is not TDestination typedDestination)
-		{
-			result = default;
-			return false;
-		}
-
-		result = MapWithPreferenceAsync(serviceProvider, typedSource, typedDestination, cancellationToken);
-		return true;
-	}
-
 	internal static ValueTask<object> MapWithPreferenceAsync(IServiceProvider serviceProvider, TSource source, TDestination destination, CancellationToken cancellationToken)
 		=> serviceProvider.GetRequiredService<TMapper>() switch
 		{

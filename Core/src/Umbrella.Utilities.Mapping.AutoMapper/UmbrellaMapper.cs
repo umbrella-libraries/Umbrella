@@ -25,37 +25,6 @@ public class UmbrellaMapper : IUmbrellaMapper
 		_mapper = mapper;
 	}
 
-	/// <inheritdoc />
-	public ValueTask<TDestination> MapAsync<TDestination>(object source, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			return new ValueTask<TDestination>(_mapper.Map<TDestination>(source));
-		}
-		catch (Exception exc) when (_logger.WriteError(exc, new { SourceTypeName = source?.GetType().FullName }))
-		{
-			throw new UmbrellaMappingException("There has been a problem mapping the object.", exc);
-		}
-	}
-
-	/// <inheritdoc />
-	public ValueTask<IReadOnlyCollection<TDestination>> MapAllAsync<TDestination>(IEnumerable<object> source, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			return new ValueTask<IReadOnlyCollection<TDestination>>(_mapper.Map<IReadOnlyCollection<TDestination>>(source));
-		}
-		catch (Exception exc) when (_logger.WriteError(exc, new { SourceTypeName = source?.GetType().FullName }))
-		{
-			throw new UmbrellaMappingException("There has been a problem mapping the object.", exc);
-		}
-	}
-
-	/// <inheritdoc />
 	public ValueTask<TDestination> MapAsync<TSource, TDestination>(TSource source, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
