@@ -287,6 +287,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.Generators.Mapperl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.Generators.Mapperly.Test", "Generators\test\Umbrella.Generators.Mapperly.Test\Umbrella.Generators.Mapperly.Test.csproj", "{27CAD460-68B9-42E5-903A-E2D3FECDC980}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.Utilities.Mapping.Mapperly.Analyzers", "Analyzers\src\Umbrella.Utilities.Mapping.Mapperly.Analyzers\Umbrella.Utilities.Mapping.Mapperly.Analyzers.csproj", "{55B53B5F-657F-4E11-B696-6D37D7D39973}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.Utilities.Mapping.Mapperly.Analyzers.Test", "Analyzers\test\Umbrella.Utilities.Mapping.Mapperly.Analyzers.Test\Umbrella.Utilities.Mapping.Mapperly.Analyzers.Test.csproj", "{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		AzureDevOps|Any CPU = AzureDevOps|Any CPU
@@ -1776,6 +1780,42 @@ Global
 		{27CAD460-68B9-42E5-903A-E2D3FECDC980}.Release|x64.Build.0 = Release|Any CPU
 		{27CAD460-68B9-42E5-903A-E2D3FECDC980}.Release|x86.ActiveCfg = Release|Any CPU
 		{27CAD460-68B9-42E5-903A-E2D3FECDC980}.Release|x86.Build.0 = Release|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.AzureDevOps|Any CPU.ActiveCfg = AzureDevOps|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.AzureDevOps|Any CPU.Build.0 = AzureDevOps|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.AzureDevOps|x64.ActiveCfg = AzureDevOps|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.AzureDevOps|x64.Build.0 = AzureDevOps|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.AzureDevOps|x86.ActiveCfg = AzureDevOps|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.AzureDevOps|x86.Build.0 = AzureDevOps|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.Debug|x64.Build.0 = Debug|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.Debug|x86.Build.0 = Debug|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.Release|Any CPU.Build.0 = Release|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.Release|x64.ActiveCfg = Release|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.Release|x64.Build.0 = Release|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.Release|x86.ActiveCfg = Release|Any CPU
+		{55B53B5F-657F-4E11-B696-6D37D7D39973}.Release|x86.Build.0 = Release|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.AzureDevOps|Any CPU.ActiveCfg = AzureDevOps|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.AzureDevOps|Any CPU.Build.0 = AzureDevOps|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.AzureDevOps|x64.ActiveCfg = AzureDevOps|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.AzureDevOps|x64.Build.0 = AzureDevOps|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.AzureDevOps|x86.ActiveCfg = AzureDevOps|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.AzureDevOps|x86.Build.0 = AzureDevOps|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.Debug|x64.Build.0 = Debug|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.Debug|x86.Build.0 = Debug|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.Release|x64.ActiveCfg = Release|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.Release|x64.Build.0 = Release|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.Release|x86.ActiveCfg = Release|Any CPU
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1900,6 +1940,8 @@ Global
 		{2C5CBE9D-9E4A-432D-AC12-70A8CDB652A3} = {88E8C3C8-7EAE-48FF-BFC1-F927F12BD399}
 		{1D58AE3D-C0BE-45B5-ACD8-C1123EC2107D} = {AC7FFB6C-9356-464C-8149-C093C4D03BFC}
 		{27CAD460-68B9-42E5-903A-E2D3FECDC980} = {0EB779C2-E21F-4F79-AF5B-9F363B6D7B0C}
+		{55B53B5F-657F-4E11-B696-6D37D7D39973} = {D8FC59AF-00A0-4187-8622-15AF5457E48F}
+		{6E9B4A65-7FDD-4647-AA4D-9BB04E95C5CB} = {82CC3E9D-232F-41E1-A627-64BFB2E5F16E}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {44122B62-15B4-40B8-86EA-4E3A743B0C7C}

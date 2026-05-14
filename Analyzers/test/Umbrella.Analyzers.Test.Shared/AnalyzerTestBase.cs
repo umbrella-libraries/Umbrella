@@ -55,6 +55,33 @@ public abstract class AnalyzerTestBase<T>
 	}
 
 	/// <summary>
+	/// Runs the analyzer on the provided source code with additional metadata references and verifies the expected
+	/// diagnostics.
+	/// </summary>
+	/// <param name="source">The source code to analyze.</param>
+	/// <param name="additionalReferences">The additional metadata references to include in the compilation.</param>
+	/// <param name="expected">The expected diagnostic results.</param>
+	/// <returns>A task representing the asynchronous verification operation.</returns>
+	protected static async Task VerifyAnalyzerAsync(
+		string source,
+		IEnumerable<MetadataReference> additionalReferences,
+		params ExpectedDiagnostic[] expected)
+	{
+		ArgumentNullException.ThrowIfNull(additionalReferences);
+		ArgumentNullException.ThrowIfNull(expected);
+
+		CSharpCompilation compilation = CreateCompilation(source, additionalReferences);
+		var analyzer = new T();
+
+		CompilationWithAnalyzers compilationWithAnalyzers = compilation.WithAnalyzers([analyzer]);
+		ImmutableArray<Diagnostic> diagnostics = await compilationWithAnalyzers.GetAnalyzerDiagnosticsAsync();
+
+		Diagnostic[] analyzerDiagnostics = [.. diagnostics.Where(d => _rulePrefixes.Any(x => d.Id.StartsWith(x, StringComparison.Ordinal)))];
+
+		VerifyDiagnostics(analyzerDiagnostics, expected);
+	}
+
+	/// <summary>
 	/// Runs the analyzer on the provided source code and verifies no diagnostics are reported.
 	/// </summary>
 	/// <param name="source">The source code to analyze.</param>
@@ -65,11 +92,24 @@ public abstract class AnalyzerTestBase<T>
 	}
 
 	/// <summary>
+	/// Runs the analyzer on the provided source code with additional metadata references and verifies no diagnostics are
+	/// reported.
+	/// </summary>
+	/// <param name="source">The source code to analyze.</param>
+	/// <param name="additionalReferences">The additional metadata references to include in the compilation.</param>
+	/// <returns>A task representing the asynchronous verification operation.</returns>
+	protected static async Task VerifyNoDiagnosticsAsync(string source, IEnumerable<MetadataReference> additionalReferences)
+	{
+		await VerifyAnalyzerAsync(source, additionalReferences);
+	}
+
+	/// <summary>
 	/// Creates a compilation from the provided source code.
 	/// </summary>
 	/// <param name="source">The source code to compile.</param>
+	/// <param name="additionalReferences">Optional additional metadata references to include in the compilation.</param>
 	/// <returns>A compilation object.</returns>
-	private static CSharpCompilation CreateCompilation(string source)
+	private static CSharpCompilation CreateCompilation(string source, IEnumerable<MetadataReference>? additionalReferences = null)
 	{
 		SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(source);
 
@@ -83,10 +123,14 @@ public abstract class AnalyzerTestBase<T>
 			MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
 		};
 
+		MetadataReference[] allReferences = additionalReferences is null
+			? references
+			: [.. references.Concat(additionalReferences)];
+
 		return CSharpCompilation.Create(
 			assemblyName: "TestAssembly",
 			syntaxTrees: new[] { syntaxTree },
-			references: references,
+			references: allReferences,
 			options: new CSharpCompilationOptions(
 				OutputKind.DynamicallyLinkedLibrary,
 				nullableContextOptions: NullableContextOptions.Enable));
