@@ -19,3 +19,7 @@ UA011 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — mode
 UA012 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model properties must use required
 UA013 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model properties must use { get; init; }
 UA014 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model collection properties must use IReadOnlyCollection&lt;T&gt;
+UA021 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — model records must be partial when IUmbrellaTrimmable is present
+UA022 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — Create/Update model records with string properties must implement IUmbrellaTrimmable
+UA023 | UmbrellaApiStandards | Warning | UmbrellaApiStandardsAnalyzer — UmbrellaApiController subclasses must use [UmbrellaProducesResponseType] instead of [ProducesResponseType]
+UA024 | UmbrellaSecurity | Error | AuthorizationHandlerAnalyzer — context.Fail() must not be called in HandleRequirementAsync

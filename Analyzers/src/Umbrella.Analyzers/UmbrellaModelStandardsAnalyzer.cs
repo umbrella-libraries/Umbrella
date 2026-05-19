@@ -94,8 +94,33 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		isEnabledByDefault: true,
 		description: "Per Umbrella standards, collection properties in model types should use IReadOnlyCollection<T> for better immutability.");
 
+	/// <summary>
+	/// Diagnostic rule that requires model records to be <c>partial</c> when <c>IUmbrellaTrimmable</c> is present in the compilation.
+	/// </summary>
+	public static readonly DiagnosticDescriptor ModelRecordMustBePartialRule = new(
+		id: "UA021",
+		title: "Model records must be partial when IUmbrellaTrimmable is used",
+		messageFormat: "Model record '{0}' must be declared as 'partial' when the project uses IUmbrellaTrimmable source generation",
+		category: "UmbrellaModelStandards",
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true,
+		description: "When a project uses IUmbrellaTrimmable for source-generated string trimming, model records must be partial so the source generator can emit the trimming implementation.");
+
+	/// <summary>
+	/// Diagnostic rule that requires Create*/Update* model records with string properties to implement <c>IUmbrellaTrimmable</c>.
+	/// </summary>
+	public static readonly DiagnosticDescriptor InputModelMustImplementTrimmableRule = new(
+		id: "UA022",
+		title: "Input model records with string properties must implement IUmbrellaTrimmable",
+		messageFormat: "Input model '{0}' has string properties but does not implement IUmbrellaTrimmable; user-supplied strings will not be trimmed",
+		category: "UmbrellaModelStandards",
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true,
+		description: "Create/Update model records that contain string properties should implement IUmbrellaTrimmable so the source generator emits string-trimming code for user input before it reaches validation or persistence.");
+
 	/// <inheritdoc />
-	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [ModelMustBeRecordRule, PropertiesMustBeRequiredRule, PropertiesMustBeGetterInitOnlyRule, CollectionsMustBeReadOnlyRule];
+	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+		[ModelMustBeRecordRule, PropertiesMustBeRequiredRule, PropertiesMustBeGetterInitOnlyRule, CollectionsMustBeReadOnlyRule, ModelRecordMustBePartialRule, InputModelMustImplementTrimmableRule];
 
 	/// <inheritdoc />
 	public override void Initialize(AnalysisContext context)
@@ -108,6 +133,17 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 
 		context.RegisterSyntaxNodeAction(AnalyzeTypeDeclaration, SyntaxKind.ClassDeclaration, SyntaxKind.RecordDeclaration);
 		context.RegisterSyntaxNodeAction(AnalyzePropertyDeclaration, SyntaxKind.PropertyDeclaration);
+
+		context.RegisterCompilationStartAction(startContext =>
+		{
+			INamedTypeSymbol? trimmableSymbol = startContext.Compilation.GetTypeByMetadataName("Umbrella.Utilities.Text.IUmbrellaTrimmable");
+			if (trimmableSymbol is null)
+				return;
+
+			startContext.RegisterSyntaxNodeAction(
+				ctx => AnalyzeModelRecordForBlazorRequirements(ctx, trimmableSymbol),
+				SyntaxKind.RecordDeclaration);
+		});
 	}
 
 	private void AnalyzeTypeDeclaration(SyntaxNodeAnalysisContext context)
@@ -172,6 +208,68 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			context.ReportDiagnostic(diagnostic);
 		}
 	}
+
+	private static void AnalyzeModelRecordForBlazorRequirements(SyntaxNodeAnalysisContext context, INamedTypeSymbol trimmableSymbol)
+	{
+		var recordDecl = (RecordDeclarationSyntax)context.Node;
+
+		if (!IsModelType(recordDecl.Identifier.Text))
+			return;
+
+		if (HasOptOutAttribute(recordDecl, context.SemanticModel, "UmbrellaExcludeFromModelStandardsAttribute"))
+			return;
+
+		if (context.SemanticModel.GetDeclaredSymbol(recordDecl) is not INamedTypeSymbol typeSymbol)
+			return;
+
+		bool isPartial = recordDecl.Modifiers.Any(SyntaxKind.PartialKeyword);
+
+		if (!isPartial)
+		{
+			context.ReportDiagnostic(Diagnostic.Create(
+				ModelRecordMustBePartialRule,
+				recordDecl.Identifier.GetLocation(),
+				typeSymbol.Name));
+		}
+
+		if (!IsInputModelType(recordDecl.Identifier.Text))
+			return;
+
+		bool implementsTrimmable = false;
+		foreach (INamedTypeSymbol iface in typeSymbol.AllInterfaces)
+		{
+			if (SymbolEqualityComparer.Default.Equals(iface, trimmableSymbol))
+			{
+				implementsTrimmable = true;
+				break;
+			}
+		}
+
+		if (implementsTrimmable)
+			return;
+
+		bool hasStringProperty = false;
+		foreach (ISymbol member in typeSymbol.GetMembers())
+		{
+			if (member is IPropertySymbol prop && prop.Type.SpecialType == SpecialType.System_String)
+			{
+				hasStringProperty = true;
+				break;
+			}
+		}
+
+		if (hasStringProperty)
+		{
+			context.ReportDiagnostic(Diagnostic.Create(
+				InputModelMustImplementTrimmableRule,
+				recordDecl.Identifier.GetLocation(),
+				typeSymbol.Name));
+		}
+	}
+
+	private static bool IsInputModelType(string typeName) =>
+		(typeName.StartsWith("Create", StringComparison.Ordinal) || typeName.StartsWith("Update", StringComparison.Ordinal)) &&
+		IsModelType(typeName);
 
 	private static bool IsModelType(string typeName)
 	{

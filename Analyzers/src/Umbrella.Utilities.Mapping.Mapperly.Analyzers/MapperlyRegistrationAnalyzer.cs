@@ -46,8 +46,20 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 		isEnabledByDefault: true,
 		description: "Open generic IUmbrellaMapper calls are valid only for some closed constructions, so the analyzer reports them as warnings for manual review.");
 
+	/// <summary>
+	/// Diagnostic emitted when a Mapperly mapper class is not declared as <c>public partial class</c>.
+	/// </summary>
+	public static readonly DiagnosticDescriptor MapperClassMustBePublicPartialRule = new(
+		id: "UA025",
+		title: "Mapperly mapper classes must be public partial class",
+		messageFormat: "Mapper class '{0}' must be declared as 'public partial class' so the Umbrella source generator can discover and register it",
+		category: "UmbrellaMapperStandards",
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true,
+		description: "Mapper classes decorated with [Mapper] must be public and partial. The Umbrella.Generators.Mapperly source generator only scans public types. A non-public or non-partial mapper is silently skipped and never registered in the catalog.");
+
 	/// <inheritdoc />
-	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [MissingExactMappingRule, OpenGenericMapperCallRule];
+	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [MissingExactMappingRule, OpenGenericMapperCallRule, MapperClassMustBePublicPartialRule];
 
 	/// <inheritdoc />
 	public override void Initialize(AnalysisContext context)
@@ -66,6 +78,17 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 				return;
 
 			startContext.RegisterSyntaxNodeAction(syntaxContext => AnalyzeInvocation(syntaxContext, state), Microsoft.CodeAnalysis.CSharp.SyntaxKind.InvocationExpression);
+		});
+
+		context.RegisterCompilationStartAction(startContext =>
+		{
+			INamedTypeSymbol? mapperAttributeSymbol = startContext.Compilation.GetTypeByMetadataName("Riok.Mapperly.Abstractions.MapperAttribute");
+			if (mapperAttributeSymbol is null)
+				return;
+
+			startContext.RegisterSyntaxNodeAction(
+				ctx => AnalyzeMapperClassDeclaration(ctx, mapperAttributeSymbol),
+				Microsoft.CodeAnalysis.CSharp.SyntaxKind.ClassDeclaration);
 		});
 	}
 
@@ -279,6 +302,41 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 			IPointerTypeSymbol pointerTypeSymbol => ContainsOpenTypeParameter(pointerTypeSymbol.PointedAtType),
 			_ => false
 		};
+	}
+
+	private static void AnalyzeMapperClassDeclaration(SyntaxNodeAnalysisContext context, INamedTypeSymbol mapperAttributeSymbol)
+	{
+		var classDecl = (ClassDeclarationSyntax)context.Node;
+
+		if (classDecl.AttributeLists.Count == 0)
+			return;
+
+		if (context.SemanticModel.GetDeclaredSymbol(classDecl) is not INamedTypeSymbol classSymbol)
+			return;
+
+		bool hasMapperAttribute = false;
+		foreach (AttributeData attr in classSymbol.GetAttributes())
+		{
+			if (SymbolEqualityComparer.Default.Equals(attr.AttributeClass, mapperAttributeSymbol))
+			{
+				hasMapperAttribute = true;
+				break;
+			}
+		}
+
+		if (!hasMapperAttribute)
+			return;
+
+		bool isPublic = classSymbol.DeclaredAccessibility == Accessibility.Public;
+		bool isPartial = classDecl.Modifiers.Any(Microsoft.CodeAnalysis.CSharp.SyntaxKind.PartialKeyword);
+
+		if (!isPublic || !isPartial)
+		{
+			context.ReportDiagnostic(Diagnostic.Create(
+				MapperClassMustBePublicPartialRule,
+				classDecl.Identifier.GetLocation(),
+				classSymbol.Name));
+		}
 	}
 
 	private static string GetOperationDisplayName(MapperOperation operation)

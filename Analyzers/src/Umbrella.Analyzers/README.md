@@ -2,7 +2,7 @@
 
 A collection of Roslyn analyzers enforcing Umbrella coding standards, async patterns, and model immutability across .NET solutions.
 
-All rules are configured with **Error** severity (compile blocking) to guarantee issues are fixed rather than ignored. Add the package as a PrivateAssets dependency so it does not flow transitively.
+Most rules are configured with **Error** severity (compile blocking); UA021, UA022, and UA023 are **Warning** severity. Add the package as a PrivateAssets dependency so it does not flow transitively.
 
 ## Installation
 
@@ -28,6 +28,10 @@ All rules are configured with **Error** severity (compile blocking) to guarantee
 | UA012 | Model properties must use the required keyword                        | Properties on model/QueryResult types must use the `required` modifier.                                       |
 | UA013 | Model properties must have getter and be init-only                    | Properties on model/QueryResult types must use `{ get; init; }` accessors.                                    |
 | UA014 | Collection properties must use IReadOnlyCollection\<T\>               | Collection properties on model/QueryResult types must be typed as `IReadOnlyCollection<T>`.                   |
+| UA021 | Model records must be partial when IUmbrellaTrimmable is used         | When `IUmbrellaTrimmable` is present in the compilation, model records must be `partial` to enable source generation. |
+| UA022 | Input model records with string properties must implement IUmbrellaTrimmable | Create/Update model records with string properties must implement `IUmbrellaTrimmable` so user input is trimmed. |
+| UA023 | Use [UmbrellaProducesResponseType] instead of [ProducesResponseType]  | Methods on `UmbrellaApiController` subclasses must use `[UmbrellaProducesResponseType]` rather than the raw ASP.NET Core attribute. |
+| UA024 | Do not call context.Fail() in HandleRequirementAsync                  | Calling `context.Fail()` inside `HandleRequirementAsync` silently breaks the authorization pipeline — remove the call. |
 
 ### Opt-out attributes (UA011–UA014)
 When a justified exception is needed, apply one of these attributes (all require a `justification` string):
@@ -41,7 +45,7 @@ When a justified exception is needed, apply one of these attributes (all require
 | `[UmbrellaAllowMutableCollection("reason")]` | Allows a mutable collection type instead of `IReadOnlyCollection<T>` (UA014) |
 
 ### Severity
-All analyzers emit diagnostics as `Error` so builds fail until issues are resolved. Adjust severities via ruleset / .editorconfig if you need a softer adoption path.
+UA001–UA014 and UA024 emit diagnostics as `Error` so builds fail until issues are resolved. UA021, UA022, and UA023 emit as `Warning` — they flag structural issues but do not block the build by default. Adjust severities via ruleset / .editorconfig if you need a different adoption path.
 
 ## Release Tracking
 Rule introduction and status are tracked in:
