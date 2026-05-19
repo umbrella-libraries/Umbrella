@@ -14,9 +14,10 @@ Add a Blazor manage page that handles both create and edit for a feature. The pa
 ## Discovery (read these before writing anything)
 
 1. Read 2–3 existing manage pages under `Web\<AppName>.Web.Client\Pages\Admin\` to understand the form field patterns, file upload handling if applicable, and navigation after save.
-2. Confirm the project-specific client component base class name (e.g. `ThriveForSendClientComponentBase`).
+2. Confirm the project-specific client component base class name (e.g. `ThriveForSendClientComponentBase`). `Mapper` (`IUmbrellaMapper`) is a `protected` property on `UmbrellaComponentBase` (the Umbrella framework base) — it is available in all Blazor components in the hierarchy without any injection.
 3. Read `Web\<AppName>.Web.Shared\Security\Policies\<AppName>PolicyNames.cs` or `SharedPolicyNames.cs` for the correct auth policy constant.
 4. Read the create/update model types for the feature to know which properties to include as form fields.
+5. Check `Web\<AppName>.Web.Client.Data\Mappings\Api\` for an existing `<Name>Mapper.cs`. You will need client-side mappers for: `IUmbrellaMapperlyNewInstanceMapper<<Name>Model, Update<Name>Model>` (to populate the edit form) and `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` (to refresh the concurrency stamp after save). If they do not exist, use the `dotnet-scaffold-mapperly-factories` skill to create them first.
 
 ---
 
@@ -140,13 +141,7 @@ public abstract class ManageBase : <AppName>ClientComponentBase
             if (result.IsSuccess && result.Result != null)
             {
                 Model = result.Result;
-
-                CreateUpdateModel = new Update<Name>Model
-                {
-                    Id = result.Result.Id,
-                    ConcurrencyStamp = result.Result.ConcurrencyStamp,
-                    // map remaining properties from result.Result
-                };
+                CreateUpdateModel = await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result);
 
                 CurrentState = LayoutState.Success;
 
@@ -196,7 +191,15 @@ public abstract class ManageBase : <AppName>ClientComponentBase
                 if (result.IsSuccess && result.Result is not null)
                 {
                     await DialogUtility.ShowSuccessMessageAsync("The <Name> has been updated successfully.");
-                    await ReloadAsync();
+
+                    // Preferred: map the update result back onto the existing model to refresh the
+                    // concurrency stamp and any server-computed fields — avoids a full page reload.
+                    // Requires IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>
+                    // in Client.Data. If that mapper does not exist yet, use ReloadAsync() as a fallback.
+                    _ = await Mapper.MapAsync(result.Result, updateModel);
+
+                    // Fallback (use when the client-side result mapper has not been created yet):
+                    // await ReloadAsync();
                 }
                 else
                 {
@@ -221,8 +224,9 @@ public abstract class ManageBase : <AppName>ClientComponentBase
 - `[Authorize(PolicyName)]` on the class, not in the `.razor` file.
 - `[Inject] private I<Name>Service Repository { get; set; } = null!;` — the property is always named `Repository` by convention, regardless of the type name.
 - `CreateUpdateModel` is typed as `CreateUpdate<Name>ModelBase?` (the abstract base), so both create and update models can be assigned to it.
-- `OnInitializedAsync`: if no `Id`, construct an empty `Create<Name>Model` and set `CurrentState = LayoutState.Success`. If `Id` is set, load from `Repository.FindByIdAsync` and map into an `Update<Name>Model`. Always set `CurrentState = LayoutState.Error` in the final catch/fallthrough.
-- `SubmitFormAsync`: pattern-match on `CreateUpdateModel` type to call the correct method. After a successful update, call `ReloadAsync()` (full page reload from base class) rather than navigating away — this ensures the latest concurrency stamp is reflected. After a successful create, navigate to the index route.
+- `OnInitializedAsync`: if no `Id`, construct an empty `Create<Name>Model` and set `CurrentState = LayoutState.Success`. If `Id` is set, load from `Repository.FindByIdAsync` and use `await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result)` to populate `CreateUpdateModel`.
+- `SubmitFormAsync`: pattern-match on `CreateUpdateModel` type to call the correct method. After a successful create, navigate to the index route. After a successful update, prefer `_ = await Mapper.MapAsync(result.Result, updateModel)` to refresh the concurrency stamp in place — this requires `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` in `Client.Data`. If that mapper does not exist yet, fall back to `await ReloadAsync()` and leave a `// TODO: Mapper` comment.
+- `Mapper` is a `protected` property on `UmbrellaComponentBase` (the Umbrella framework base) — no injection needed in derived components. The `Mapper.MapAsync` calls require client-side mapper classes in `Web.Client.Data\Mappings\Api\`: `IUmbrellaMapperlyNewInstanceMapper<<Name>Model, Update<Name>Model>` for load, and `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` for post-save refresh. Use the `dotnet-scaffold-mapperly-factories` skill to create them.
 - Concurrency exception is caught specifically with a dedicated user message.
 - `System.ComponentModel.DataAnnotations` is needed if `ValidationResult` is referenced — add the `using` if required.
 
@@ -281,7 +285,9 @@ protected void OnDeleteImage()
 2. `[Authorize(PolicyName)]` is on the code-behind class, not in the `.razor` file.
 3. `[Inject]` property is named `Repository` and typed as the service interface.
 4. `CreateUpdateModel` is typed as the abstract base (`CreateUpdate<Name>ModelBase?`), not as create or update directly.
-5. `OnInitializedAsync` sets `CurrentState = LayoutState.Success` on both the create and edit success paths, and `LayoutState.Error` on failure.
-6. `SubmitFormAsync` pattern-matches on `Create<Name>Model` vs `Update<Name>Model` — navigates after create, reloads after update.
-7. `UmbrellaConcurrencyException` is caught and handled with `ClientErrorMessages.Concurrency`.
-8. `UmbrellaModelLayoutStateView` wraps the form content in the `.razor`.
+5. `OnInitializedAsync` uses `await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result)` to populate the edit form — no manual property assignment.
+6. `OnInitializedAsync` sets `CurrentState = LayoutState.Success` on both the create and edit success paths, and `LayoutState.Error` on failure.
+7. `SubmitFormAsync` pattern-matches on `Create<Name>Model` vs `Update<Name>Model` — navigates after create; after update calls `_ = await Mapper.MapAsync(result.Result, updateModel)` to refresh the model in place.
+8. `UmbrellaConcurrencyException` is caught and handled with `ClientErrorMessages.Concurrency`.
+9. `UmbrellaModelLayoutStateView` wraps the form content in the `.razor`.
+10. Client-side mapper classes exist in `Web.Client.Data\Mappings\Api\` for the `<Name>Model → Update<Name>Model` and `Update<Name>ResultModel → Update<Name>Model` mappings.
