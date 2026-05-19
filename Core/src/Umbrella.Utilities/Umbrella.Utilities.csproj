@@ -60,8 +60,8 @@
 		<PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" Version="9.0.16" />
 		<PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="9.0.16" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.15" />
-		<PackageReference Include="Microsoft.Extensions.Http" Version="9.0.15" />
-		<PackageReference Include="Microsoft.Extensions.Http.Polly" Version="9.0.15" />
+		<PackageReference Include="Microsoft.Extensions.Http" Version="9.0.16" />
+		<PackageReference Include="Microsoft.Extensions.Http.Polly" Version="9.0.16" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.16" />
 		<PackageReference Include="Microsoft.Extensions.ObjectPool" Version="9.0.16" />
 	</ItemGroup>
@@ -72,8 +72,8 @@
 		<PackageReference Include="Microsoft.Extensions.FileProviders.Abstractions" Version="10.0.8" />
 		<PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="10.0.8" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.7" />
-		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
-		<PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.7" />
+		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.8" />
+		<PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.8" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
 		<PackageReference Include="Microsoft.Extensions.ObjectPool" Version="10.0.8" />
 	</ItemGroup>
