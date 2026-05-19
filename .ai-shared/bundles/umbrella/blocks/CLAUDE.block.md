@@ -21,3 +21,4 @@ The following skills are available in `.claude\skills\`. Read a skill's `SKILL.m
 - `blazor-register-nav-item` -- add a nav item to NavMenu.razor inside the correct AuthorizeView policy block
 - `dotnet-scaffold-auth-policy` -- add a named authorization policy constant and register it in the shared AuthorizationOptions extension method
 - `dotnet-scaffold-resource-auth-handler` -- add a resource-based IAuthorizationHandler for row-level access control on a specific entity type
+- `dotnet-migrate-automapper-to-mapperly` -- migrate AutoMapper Profile classes to Mapperly source-generated mappers, rewiring DI and removing all AutoMapper artefacts

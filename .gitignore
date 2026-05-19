@@ -20,3 +20,4 @@ node_modules
 /bash.exe.stackdump
 /FileSystem/bash.exe.stackdump
 /update_todo.py
+*.stackdump
