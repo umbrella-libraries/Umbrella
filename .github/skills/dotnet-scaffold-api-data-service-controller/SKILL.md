@@ -16,7 +16,7 @@ Use `dotnet-scaffold-api-repo-controller` instead when no service abstraction is
 ## Discovery (read these before writing anything)
 
 1. Read 1–2 existing controller services in `Web\<AppName>.Web.Server\Services\Api\` to confirm the `UmbrellaRepositoryDataService` generic parameter order (11 params) and any project-specific patterns.
-2. Read 1–2 existing controllers in `Web\<AppName>.Web.Server\Controllers\Api\` to confirm the project-specific base class wrapper (e.g. `ThriveForSendGenericRepositoryDataServiceApiController`) and its 9 generic parameter order.
+2. Read 1–2 existing controllers in `Web\<AppName>.Web.Server\Controllers\Api\` to confirm the project-specific base class wrapper (e.g. `IndyRecordsGenericRepositoryDataServiceApiController`) and its 9 generic parameter order.
 3. **Determine interface location**: if `Web\<AppName>.Web.Client.Data\Services\Abstractions\` exists, the interface goes there (Blazor project — enables SSR pre-rendering). Otherwise it goes in `Web\<AppName>.Web.Server\Services\Abstractions\` or equivalent.
 4. Read `Web\<AppName>.Web.Server\IServiceCollectionExtensions.cs` — find the `// Controller Services` section to see whether existing registrations use `AddScoped` or `ReplaceScoped`.
 5. Read `Web\<AppName>.Web.Shared\Security\Policies\<AppName>PolicyNames.cs` for auth policy constant names.

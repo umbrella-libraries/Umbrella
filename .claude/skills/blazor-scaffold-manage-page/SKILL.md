@@ -14,7 +14,7 @@ Add a Blazor manage page that handles both create and edit for a feature. The pa
 ## Discovery (read these before writing anything)
 
 1. Read 2–3 existing manage pages under `Web\<AppName>.Web.Client\Pages\Admin\` to understand the form field patterns, file upload handling if applicable, and navigation after save.
-2. Confirm the project-specific client component base class name (e.g. `ThriveForSendClientComponentBase`). `Mapper` (`IUmbrellaMapper`) is a `protected` property on `UmbrellaComponentBase` (the Umbrella framework base) — it is available in all Blazor components in the hierarchy without any injection.
+2. Confirm the project-specific client component base class name (e.g. `IndyRecordsClientComponentBase`). `Mapper` (`IUmbrellaMapper`) is a `protected` property on `UmbrellaComponentBase` (the Umbrella framework base) — it is available in all Blazor components in the hierarchy without any injection.
 3. Read `Web\<AppName>.Web.Shared\Security\Policies\<AppName>PolicyNames.cs` or `SharedPolicyNames.cs` for the correct auth policy constant.
 4. Read the create/update model types for the feature to know which properties to include as form fields.
 5. Check `Web\<AppName>.Web.Client.Data\Mappings\Api\` for an existing `<Name>Mapper.cs`. You will need client-side mappers for: `IUmbrellaMapperlyNewInstanceMapper<<Name>Model, Update<Name>Model>` (to populate the edit form) and `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` (to refresh the concurrency stamp after save). If they do not exist, use the `dotnet-scaffold-mapperly-factories` skill to create them first.
@@ -35,7 +35,7 @@ Add a Blazor manage page that handles both create and edit for a feature. The pa
     string subTitle = Id.HasValue ? "Edit" : "Create";
 }
 
-<ThriveForSendPageTitle>@title</ThriveForSendPageTitle>
+<<AppName>PageTitle>@title</<AppName>PageTitle>
 
 <UmbrellaBreadcrumb>
     <UmbrellaBreadcrumbItem Name="@title" Url="/admin/<route-plural>" />

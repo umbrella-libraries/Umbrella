@@ -28,7 +28,7 @@ Mappers plug into the `UmbrellaMapper` infrastructure via a **source-generated c
 When you reference `Umbrella.Generators.Mapperly` in a project, the incremental source generator runs at compile time. It scans the assembly for all public non-abstract types implementing any of the six mapper interfaces and emits a catalog class:
 
 - **Class name:** `{AssemblyName}UmbrellaMapperlyCatalog` — dots in the assembly name become underscores.
-  - Example: `ThriveForSend.Web.Server.ModelFactories` → `ThriveForSend_Web_Server_ModelFactoriesUmbrellaMapperlyCatalog`
+  - Example: `IndyRecords.Web.Server.ModelFactories` → `IndyRecords_Web_Server_ModelFactoriesUmbrellaMapperlyCatalog`
 - **Namespace:** `Umbrella.Generated.Mapping.Mapperly`
 
 The catalog exposes a `static Instance` property and implements `IUmbrellaMapperlyCatalog`. At startup, the consuming project registers it:

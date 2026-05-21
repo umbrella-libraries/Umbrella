@@ -132,9 +132,9 @@ Search all `.razor.cs` files under `Web\<AppName>.Web.Client\` for references to
 3. Update any index page base class type parameter:
    ```csharp
    // Before:
-   public abstract class IndexBase : ThriveForSendRemoteDataAccessGridComponentBase<..., I<Name>Repository>;
+   public abstract class IndexBase : <AppName>RemoteDataAccessGridComponentBase<..., I<Name>Repository>;
    // After:
-   public abstract class IndexBase : ThriveForSendRemoteDataAccessGridComponentBase<..., I<Name>Service>;
+   public abstract class IndexBase : <AppName>RemoteDataAccessGridComponentBase<..., I<Name>Service>;
    ```
 
 ---

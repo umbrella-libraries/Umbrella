@@ -13,7 +13,7 @@ This pattern does not have a separate service abstraction and does not support B
 
 ## Discovery (read these before writing anything)
 
-1. Read 2–3 existing controllers in `Web\<AppName>.Web.Server\Controllers\Api\` to confirm the project-specific base class name (e.g. `ThriveForSendGenericRepositoryApiController`) and its generic type parameter count (typically 11).
+1. Read 2–3 existing controllers in `Web\<AppName>.Web.Server\Controllers\Api\` to confirm the project-specific base class name (e.g. `IndyRecordsGenericRepositoryApiController`) and its generic type parameter count (typically 11).
 2. Note any NoOp/`object` usage in existing controllers — these indicate which endpoint-disabling patterns are already established in the project.
 3. Read `Web\<AppName>.Web.Shared\Security\Policies\<AppName>PolicyNames.cs` for available auth policy constant names.
 

@@ -19,6 +19,15 @@ Use the `nuget-safe-upgrade` Claude agent for package-management work that must 
 4. Validate accepted candidates with restore and resolved-package inspection.
 5. Return successful, skipped, and blocked packages with clear next-step options.
 
+## Skill authoring conventions
+
+When writing or updating any skill file under `.claude/skills/` or `.github/skills/`:
+
+- Use `IndyRecords` as the fictional placeholder for the client project name in all examples, descriptions, and code templates (e.g. `IndyRecordsGenericRepositoryApiController`, `IndyRecordsPageTitle`).
+- Never embed real client names — ThriveForSend, WarwickUniversity, JustCalculators, CRUGroup, Just.DestinationRetirement, ProjectBole, or any other — anywhere in skill files.
+- For multi-segment namespace examples, use `IndyRecords`, `VinylVault`, and `SpinCity.Marketing` as the fictional stand-ins.
+- Both directories must remain identical: always copy a changed `.claude/skills/<skill>/SKILL.md` to `.github/skills/<skill>/SKILL.md`.
+
 ## Shared implementation
 
 The Copilot and Claude entrypoints intentionally share one implementation layer:

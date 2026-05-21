@@ -20,7 +20,7 @@ Create an architecture test project that enforces layer dependency direction and
 
 Before writing anything, read the solution to answer:
 
-1. **Namespace prefix** — the root namespace of the project (e.g., `Just.Calculators`, `WarwickUniversity`, `CRUGroup.Marketing`). Read any existing `.csproj` to find it.
+1. **Namespace prefix** — the root namespace of the project (e.g., `IndyRecords`, `VinylVault`, `SpinCity.Marketing`). Read any existing `.csproj` to find it.
 2. **Existing test project conventions** — check if a `Tests\` or `test\` folder exists. Read 1–2 existing test project `.csproj` files to learn the TFM, NoWarn suppressions, and whether global usings (e.g., Humanizer) need removing.
 3. **Assembly anchor types** — for each layer assembly, find a concrete public type to use as `typeof(T).Assembly`. The table below shows what to look for:
 
@@ -125,7 +125,7 @@ public sealed class ArchitectureLayerDependencyTests : UmbrellaLayerDependencyTe
 **Rules:**
 - `public sealed class` — required so xunit.v3's MTP runner discovers the inherited `[Fact]` methods.
 - Override only properties for layers that genuinely exist. Omitting a property leaves it `null`, which causes the corresponding tests to be reported as **skipped** (not failed).
-- `NamespacePrefix` must match the root namespace exactly (e.g., `"Just.Calculators"` not `"Just.Calculators."`).
+- `NamespacePrefix` must match the root namespace exactly (e.g., `"IndyRecords"` not `"IndyRecords."`).
 
 ---
 

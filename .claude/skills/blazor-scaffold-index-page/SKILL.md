@@ -14,7 +14,7 @@ Add a Blazor index page that renders a paginated, sortable, filterable grid for 
 ## Discovery (read these before writing anything)
 
 1. Read 2–3 existing index pages under `Web\<AppName>.Web.Client\Pages\Admin\` to confirm folder naming conventions, route patterns, breadcrumb usage, grid column patterns, and action column structure.
-2. Confirm the project-specific grid component base class name (e.g. `ThriveForSendRemoteDataAccessGridComponentBase`).
+2. Confirm the project-specific grid component base class name (e.g. `IndyRecordsRemoteDataAccessGridComponentBase`).
 3. Read `Web\<AppName>.Web.Shared\Security\Policies\<AppName>PolicyNames.cs` or `SharedPolicyNames.cs` for the correct auth policy constant.
 4. Confirm the feature's index route (e.g. `/admin/industries`) and the manage route (e.g. `/admin/industries/manage`) by checking an analogous existing feature.
 
@@ -38,7 +38,7 @@ Add a Blazor index page that renders a paginated, sortable, filterable grid for 
     string title = "Manage <Names>";
 }
 
-<ThriveForSendPageTitle>@title</ThriveForSendPageTitle>
+<<AppName>PageTitle>@title</<AppName>PageTitle>
 
 <UmbrellaBreadcrumb>
     <UmbrellaBreadcrumbItem Name="@title" />
