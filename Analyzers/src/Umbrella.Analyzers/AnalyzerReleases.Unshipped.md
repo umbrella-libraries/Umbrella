@@ -23,3 +23,4 @@ UA021 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — mo
 UA022 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — Create/Update model records with string properties must implement IUmbrellaTrimmable
 UA023 | UmbrellaApiStandards | Warning | UmbrellaApiStandardsAnalyzer — UmbrellaApiController subclasses must use [UmbrellaProducesResponseType] instead of [ProducesResponseType]
 UA024 | UmbrellaSecurity | Error | AuthorizationHandlerAnalyzer — context.Fail() must not be called in HandleRequirementAsync
+UA026 | Architecture | Warning | ControllerEndpointOverrideAnalyzer — controller CRUD endpoint overrides must call base method or be suppressed with [NonAction]

@@ -172,6 +172,18 @@ public class <Name>Controller : <AppName>GenericRepositoryApiController<
 
 ---
 
+## Customising CRUD behaviour — use lifecycle hooks, not endpoint overrides
+
+To run logic before or after a standard CRUD operation, override a lifecycle hook (`BeforeCreateEntityAsync`, `AfterCreateEntityAsync`, `BeforeUpdateEntityAsync`, `AfterUpdateEntityAsync`, `BeforeDeleteEntityAsync`, `AfterDeleteEntityAsync`) — never override `PostAsync`, `GetAsync`, `PutAsync`, `DeleteAsync`, `PatchAsync`, or `SearchSlimAsync` directly.
+
+Overriding a CRUD method without calling `base.XxxAsync()` silently skips all base-class cross-cutting concerns: authorization checks, error handling, concurrency stamp validation, and any future hooks added to the base class.
+
+**If you must override a CRUD method** (e.g. to enrich the incoming model before delegation), always call `await base.XxxAsync(...)` within the override body — UA026 enforces this.
+
+**To disable an endpoint entirely:** use the NoOp/object pattern with `XxxEndpointEnabled => false` (documented above) — not a `[NonAction]` throw override, which leaves the route registered while lying about availability.
+
+---
+
 ## Custom action methods
 
 When the feature requires endpoints beyond standard CRUD, add them to the controller. Follow these conventions.
@@ -230,3 +242,4 @@ public async Task<IActionResult> GetByExternalIdAsync([FromQuery] string externa
 4. `object`/NoOp combinations are used consistently (T1+T2 paired, T6+T7 paired).
 5. Every `object` position has a corresponding `XxxEndpointEnabled => false` override.
 6. Lifecycle hook overrides (`AfterCreateEntityAsync`, etc.) start with `ThrowIfCancellationRequested` and `Guard.IsNotNull` on all non-cancellation params.
+7. No standard CRUD method (`PostAsync`, `GetAsync`, `PutAsync`, `DeleteAsync`, `PatchAsync`, `SearchSlimAsync`) is overridden without a `base.XxxAsync(...)` call in its body.

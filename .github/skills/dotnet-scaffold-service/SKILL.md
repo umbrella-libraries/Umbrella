@@ -9,6 +9,12 @@ description: 'Scaffold a logic service (interface, implementation, models) in th
 
 Add a new service to the `Core.<AppName>.Core.Logic` project for domain logic that goes beyond simple data access -- for example, AI integrations, external API calls, file processing orchestration, or complex calculations. Controllers call repositories directly for CRUD; this Logic project is for work that is genuinely more complex than that.
 
+## Layer boundary rule
+
+> **Core.Logic must never reference Web-layer projects.**
+>
+> Service interfaces and implementations in `Core.Logic` must not import types from any `*.Web.Models`, `*.Web.Shared.Models`, or other Web-layer namespace. If a method needs custom input/output shapes, define them as plain `record` types in `Services\<Domain>\Models\` (Step 1). If the types you need currently live in a Web.Models project, that is a signal to create dedicated Core.Logic models — not to import from Web.
+
 ## Discovery (read these before writing anything)
 
 1. Read 1-2 existing service implementations in `Core\<AppName>.Core.Logic\Services\` to understand the subfolder structure, constructor patterns, and method conventions.
@@ -69,6 +75,7 @@ public interface I<ServiceName>
 **Rules:**
 - The interface is `public` (no base interface)
 - Add explicit `using` directives for any model or enum types used in method signatures that are not covered by the project's global usings -- check existing interface files to see what is required
+- `using` directives must not reference any namespace containing `.Web.` -- method signatures must only use types from `Core.Logic`, `Core.Domain`, `Core.Common`, or the BCL
 - Every method is async with `CancellationToken cancellationToken = default` as the last parameter
 - Return types follow the same conventions as repository interfaces: `Task<T?>` for single-or-null, `Task<IReadOnlyCollection<T>>` for lists
 
