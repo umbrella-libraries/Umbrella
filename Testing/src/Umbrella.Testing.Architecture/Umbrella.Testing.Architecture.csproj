@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<PackageId>Umbrella.Testing.Architecture</PackageId>
+		<Description>Abstract base test classes enforcing Umbrella layer dependency and implementation visibility rules using NetArchTest.Rules and xunit.v3</Description>
+		<NoWarn>$(NoWarn);CA1707;CS1591</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Content Include="..\..\..\icon.png" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="NetArchTest.Rules" Version="1.3.2" />
+		<PackageReference Include="xunit.v3.assert" Version="3.2.2" />
+		<PackageReference Include="xunit.v3.extensibility.core" Version="3.2.2" />
+	</ItemGroup>
+
+</Project>
