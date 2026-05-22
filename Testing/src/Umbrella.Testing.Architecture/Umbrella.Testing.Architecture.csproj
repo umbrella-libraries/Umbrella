@@ -4,7 +4,7 @@
 		<TargetFramework>net8.0</TargetFramework>
 		<PackageId>Umbrella.Testing.Architecture</PackageId>
 		<Description>Abstract base test classes enforcing Umbrella layer dependency and implementation visibility rules using NetArchTest.Rules and xunit.v3</Description>
-		<NoWarn>$(NoWarn);CA1707;CS1591</NoWarn>
+		<NoWarn>$(NoWarn);CA1707</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
