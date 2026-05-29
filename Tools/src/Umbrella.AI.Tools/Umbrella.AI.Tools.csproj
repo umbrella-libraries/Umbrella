@@ -22,16 +22,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\..\.claude\**\*" Exclude="..\..\..\.claude\**\bin\**;..\..\..\.claude\**\obj\**" Link="tool-assets\.claude\%(RecursiveDir)%(Filename)%(Extension)">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
-      <Pack>false</Pack>
-    </None>
-    <None Include="..\..\..\.github\**\*" Exclude="..\..\..\.github\**\bin\**;..\..\..\.github\**\obj\**" Link="tool-assets\.github\%(RecursiveDir)%(Filename)%(Extension)">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
-      <Pack>false</Pack>
-    </None>
     <None Include="..\..\..\.ai-shared\**\*" Exclude="..\..\..\.ai-shared\**\bin\**;..\..\..\.ai-shared\**\obj\**" Link="tool-assets\.ai-shared\%(RecursiveDir)%(Filename)%(Extension)">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <CopyToPublishDirectory>Always</CopyToPublishDirectory>

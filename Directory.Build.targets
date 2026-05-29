@@ -1,0 +1,7 @@
+<Project>
+
+	<PropertyGroup Condition="'$(IsTestProject)'=='true'">
+		<OutputType>Exe</OutputType>
+	</PropertyGroup>
+
+</Project>

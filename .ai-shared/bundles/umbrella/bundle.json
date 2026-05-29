@@ -2,10 +2,38 @@
   "bundleId": "umbrella",
   "displayName": "Umbrella AI Skills",
   "managedDirectories": [
-    ".claude",
-    ".github\\agents",
-    ".github\\skills",
-    ".ai-shared"
+    ".ai-shared\\bundles\\umbrella"
+  ],
+  "adapterDirectories": [
+    {
+      "source": ".ai-shared\\skills",
+      "targets": [
+        { "destination": ".claude\\skills", "substitutions": { "{{skill_dir}}": ".claude\\skills" } },
+        { "destination": ".github\\skills", "substitutions": { "{{skill_dir}}": ".github\\skills" } }
+      ]
+    },
+    {
+      "source": ".ai-shared\\agents\\claude",
+      "targets": [{ "destination": ".claude\\agents" }]
+    },
+    {
+      "source": ".ai-shared\\agents\\github",
+      "targets": [{ "destination": ".github\\agents" }]
+    }
+  ],
+  "skillListBlocks": [
+    {
+      "targetPath": ".ai-shared\\bundles\\umbrella\\blocks\\CLAUDE.block.md",
+      "skillsDirectory": ".claude\\skills"
+    },
+    {
+      "targetPath": ".ai-shared\\bundles\\umbrella\\blocks\\AGENTS.block.md",
+      "skillsDirectory": ".github\\skills"
+    },
+    {
+      "targetPath": ".ai-shared\\bundles\\umbrella\\blocks\\copilot-instructions.block.md",
+      "skillsDirectory": ".github\\skills"
+    }
   ],
   "managedBlocks": [
     {

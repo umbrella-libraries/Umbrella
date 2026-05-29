@@ -13,6 +13,12 @@ public sealed class AiBundleDefinition
     [JsonPropertyName("managedDirectories")]
     public List<string> ManagedDirectories { get; set; } = [];
 
+    [JsonPropertyName("adapterDirectories")]
+    public List<AdapterDirectoryDefinition> AdapterDirectories { get; set; } = [];
+
+    [JsonPropertyName("skillListBlocks")]
+    public List<SkillListBlockDefinition> SkillListBlocks { get; set; } = [];
+
     [JsonPropertyName("managedBlocks")]
     public List<ManagedBlockDefinition> ManagedBlocks { get; set; } = [];
 
@@ -21,6 +27,33 @@ public sealed class AiBundleDefinition
 
     [JsonPropertyName("exclusionsStarterPath")]
     public string ExclusionsStarterPath { get; set; } = "";
+}
+
+public sealed class AdapterDirectoryDefinition
+{
+    [JsonPropertyName("source")]
+    public string Source { get; set; } = "";
+
+    [JsonPropertyName("targets")]
+    public List<AdapterTarget> Targets { get; set; } = [];
+}
+
+public sealed class AdapterTarget
+{
+    [JsonPropertyName("destination")]
+    public string Destination { get; set; } = "";
+
+    [JsonPropertyName("substitutions")]
+    public Dictionary<string, string>? Substitutions { get; set; }
+}
+
+public sealed class SkillListBlockDefinition
+{
+    [JsonPropertyName("targetPath")]
+    public string TargetPath { get; set; } = "";
+
+    [JsonPropertyName("skillsDirectory")]
+    public string SkillsDirectory { get; set; } = "";
 }
 
 public sealed class ManagedBlockDefinition

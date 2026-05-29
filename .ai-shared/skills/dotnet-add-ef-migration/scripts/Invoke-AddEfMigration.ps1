@@ -93,7 +93,7 @@ if ([string]::IsNullOrWhiteSpace($Context)) {
     foreach ($line in $output) {
         $text = "$line"
         if ($text -match '^//Begin') { $inJson = $true; continue }
-        if ($text -match '^//End') { break }
+        if ($inJson -and $text -match '^//End') { break }
         if ($inJson) { $jsonLines.Add($text) }
     }
 

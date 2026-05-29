@@ -7,7 +7,6 @@
 		<NoWarn>CS1591</NoWarn>
 		<PreserveCompilationContext>true</PreserveCompilationContext>
 		<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-		<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
 		<WarningsAsErrors>xUnit1051</WarningsAsErrors>
 		<UserSecretsId>e4b2c7f3-9a1d-4e8b-b3c2-f5a6d0e1c9b7</UserSecretsId>
 	</PropertyGroup>
@@ -20,32 +19,14 @@
 
 	<ItemGroup>
 		<PackageReference Include="Azure.Identity" Version="1.21.0" />
-		<PackageReference Include="coverlet.collector" Version="10.0.1">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-		<PackageReference Include="coverlet.msbuild" Version="10.0.1">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
 		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.8" />
-		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
 		<PackageReference Include="Moq" Version="4.20.72" />
-		<PackageReference Include="xunit.v3" Version="3.2.2" />
-		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-		</PackageReference>
 		<PackageReference Include="Xunit.v3.Priority" Version="1.1.18" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\Internal\src\Umbrella.Internal.Mocks\Umbrella.Internal.Mocks.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.FileSystem.SharePoint\Umbrella.FileSystem.SharePoint.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<Service Include="{82a7f48d-3b50-4b1e-b82e-3ada8210c358}" />
 	</ItemGroup>
 
 </Project>

@@ -1,5 +1,7 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Umbrella.AI.Tools.Models;
 
 namespace Umbrella.AI.Tools.Services;
@@ -12,6 +14,150 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
     public OperationResult Install(CommandOptions options) => InstallOrUpdate(options, requireExistingManifest: false, operationName: "install");
 
     public OperationResult Update(CommandOptions options) => InstallOrUpdate(options, requireExistingManifest: true, operationName: "update");
+
+    public OperationResult Sync(string repoRoot)
+    {
+        string bundleDefPath = Path.Combine(repoRoot, NormalizePath(BundleDefinitionRelativePath));
+        AiBundleDefinition bundle = JsonSerializer.Deserialize<AiBundleDefinition>(File.ReadAllText(bundleDefPath), _serializerOptions)
+            ?? throw new InvalidOperationException($"Failed to read bundle definition at {bundleDefPath}.");
+
+        var result = new OperationResult { Success = true };
+
+        foreach (AdapterDirectoryDefinition adapter in bundle.AdapterDirectories)
+        {
+            string sourceDirectory = Path.Combine(repoRoot, NormalizePath(adapter.Source));
+
+            foreach (AdapterTarget target in adapter.Targets)
+            {
+                string targetDirectory = Path.Combine(repoRoot, NormalizePath(target.Destination));
+
+                foreach (string file in Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+                {
+                    string relativeToSource = Path.GetRelativePath(sourceDirectory, file);
+                    string targetPath = Path.Combine(targetDirectory, relativeToSource);
+                    Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+                    WriteFile(targetPath, new ManagedFileEntry(file, target.Substitutions));
+                    result.Messages.Add($"Synced: {NormalizePath(Path.Combine(target.Destination, relativeToSource))}");
+                }
+            }
+        }
+
+        if (bundle.SkillListBlocks.Count > 0)
+        {
+            string firstBlockSkillsDir = bundle.SkillListBlocks[0].SkillsDirectory;
+            string skillsSource = Path.Combine(repoRoot, NormalizePath(
+                bundle.AdapterDirectories
+                    .FirstOrDefault(a => a.Targets.Any(t => t.Destination.Equals(firstBlockSkillsDir, StringComparison.OrdinalIgnoreCase)))
+                    ?.Source ?? ".ai-shared\\skills"));
+            List<(string Name, string Description)> skills = ReadSkillMetadata(skillsSource);
+
+            foreach (SkillListBlockDefinition blockConfig in bundle.SkillListBlocks)
+            {
+                string blockPath = Path.Combine(repoRoot, NormalizePath(blockConfig.TargetPath));
+                Directory.CreateDirectory(Path.GetDirectoryName(blockPath)!);
+                File.WriteAllText(blockPath, GenerateSkillListBlock(skills, blockConfig.SkillsDirectory));
+                result.Messages.Add($"Generated: {NormalizePath(blockConfig.TargetPath)}");
+            }
+        }
+
+        string manifestPath = GetManifestPath(repoRoot, bundle.BundleId);
+        if (File.Exists(manifestPath))
+        {
+            AiBundleManifest manifest = LoadManifest(manifestPath)!;
+            foreach (PathHashRecord record in manifest.ManagedFiles)
+            {
+                string targetPath = Path.Combine(repoRoot, NormalizePath(record.Path));
+                if (File.Exists(targetPath))
+                    record.Hash = HashUtility.ComputeFileHash(targetPath);
+            }
+
+            File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest, _serializerOptions));
+            result.Messages.Add($"Refreshed manifest hashes: {manifestPath}");
+        }
+
+        return result;
+    }
+
+    private static List<(string Name, string Description)> ReadSkillMetadata(string skillsDirectory)
+    {
+        if (!Directory.Exists(skillsDirectory))
+        {
+            return [];
+        }
+
+        var skills = new List<(string Name, string Description)>();
+
+        foreach (string skillDir in Directory.GetDirectories(skillsDirectory))
+        {
+            string skillMdPath = Path.Combine(skillDir, "SKILL.md");
+            if (!File.Exists(skillMdPath))
+            {
+                continue;
+            }
+
+            string name = "", description = "";
+            bool inFrontmatter = false;
+
+            foreach (string line in File.ReadLines(skillMdPath))
+            {
+                if (line.Trim() == "---")
+                {
+                    if (!inFrontmatter)
+                    {
+                        inFrontmatter = true;
+                        continue;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                if (!inFrontmatter)
+                {
+                    break;
+                }
+
+                Match match = Regex.Match(line, @"^(\w+):\s*(.+?)\s*$");
+                if (match.Success)
+                {
+                    string rawValue = match.Groups[2].Value;
+                    string value = rawValue.Length >= 2 && rawValue[0] == '\'' && rawValue[^1] == '\''
+                        ? rawValue[1..^1]
+                        : rawValue;
+
+                    switch (match.Groups[1].Value)
+                    {
+                        case "name": name = value; break;
+                        case "description": description = value; break;
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(description))
+            {
+                skills.Add((name, description));
+            }
+        }
+
+        return [.. skills.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private static string GenerateSkillListBlock(List<(string Name, string Description)> skills, string skillsDirectory)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("## Umbrella Skills");
+        sb.AppendLine();
+        sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"The following skills are available in `{skillsDirectory}`. Read a skill's `SKILL.md` for full instructions before using it.");
+        sb.AppendLine();
+
+        foreach ((string name, string description) in skills)
+        {
+            sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"- `{name}` -- {description}");
+        }
+
+        return sb.ToString().TrimEnd() + "\n";
+    }
 
     public OperationResult GetStatus(CommandOptions options)
     {
@@ -225,7 +371,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             .Where(x => !x.BundleId.Equals(bundle.BundleId, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        Dictionary<string, string> sourceFiles = EnumerateManagedSourceFiles(bundle);
+        Dictionary<string, ManagedFileEntry> sourceFiles = EnumerateAllManagedFiles(bundle);
         var result = new OperationResult();
 
         ValidateManagedFiles(targetRoot, sourceFiles, currentManifest, otherManifests, options, result);
@@ -247,11 +393,11 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             InstalledAt = DateTimeOffset.UtcNow
         };
 
-        foreach ((string relativePath, string sourcePath) in sourceFiles)
+        foreach ((string relativePath, ManagedFileEntry entry) in sourceFiles)
         {
             string targetPath = Path.Combine(targetRoot, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-            File.Copy(sourcePath, targetPath, overwrite: true);
+            WriteFile(targetPath, entry);
             newManifest.ManagedFiles.Add(new PathHashRecord { Path = relativePath, Hash = HashUtility.ComputeFileHash(targetPath) });
             result.Messages.Add($"Managed file {operationName}ed: {relativePath}");
         }
@@ -300,12 +446,11 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         return result;
     }
 
-    private static void ValidateManagedFiles(string targetRoot, Dictionary<string, string> sourceFiles, AiBundleManifest? currentManifest, List<AiBundleManifest> otherManifests, CommandOptions options, OperationResult result)
+    private static void ValidateManagedFiles(string targetRoot, Dictionary<string, ManagedFileEntry> sourceFiles, AiBundleManifest? currentManifest, List<AiBundleManifest> otherManifests, CommandOptions options, OperationResult result)
     {
-        foreach ((string relativePath, string sourcePath) in sourceFiles)
+        foreach ((string relativePath, ManagedFileEntry entry) in sourceFiles)
         {
             string normalizedRelativePath = NormalizePath(relativePath);
-            string sourceHash = HashUtility.ComputeFileHash(sourcePath);
             string targetPath = Path.Combine(targetRoot, normalizedRelativePath);
             AiBundleManifest? otherOwner = otherManifests.FirstOrDefault(x => x.ManagedFiles.Any(y => PathEquals(y.Path, normalizedRelativePath)));
             PathHashRecord? currentRecord = currentManifest?.ManagedFiles.FirstOrDefault(x => PathEquals(x.Path, normalizedRelativePath));
@@ -333,11 +478,34 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
                 continue;
             }
 
-            if (!options.Force && targetHash != sourceHash)
+            if (!options.Force && targetHash != ComputeInstallHash(entry))
             {
                 result.Conflicts.Add($"Unowned file already exists: {normalizedRelativePath}");
             }
         }
+    }
+
+    private static string ApplySubstitutions(ManagedFileEntry entry)
+    {
+        string content = File.ReadAllText(entry.SourcePath);
+        foreach ((string token, string replacement) in entry.Substitutions!)
+            content = content.Replace(token, replacement, StringComparison.Ordinal);
+        return content;
+    }
+
+    private static string ComputeInstallHash(ManagedFileEntry entry)
+    {
+        if (entry.Substitutions?.Count > 0)
+            return HashUtility.ComputeStringHash(ApplySubstitutions(entry));
+        return HashUtility.ComputeFileHash(entry.SourcePath);
+    }
+
+    private static void WriteFile(string targetPath, ManagedFileEntry entry)
+    {
+        if (entry.Substitutions?.Count > 0)
+            File.WriteAllText(targetPath, ApplySubstitutions(entry));
+        else
+            File.Copy(entry.SourcePath, targetPath, overwrite: true);
     }
 
     private static void ValidateManagedBlocks(string targetRoot, AiBundleDefinition bundle, AiBundleManifest? currentManifest, CommandOptions options, OperationResult result)
@@ -436,9 +604,9 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
     private AiBundleManifest? LoadManifest(string manifestPath)
         => JsonSerializer.Deserialize<AiBundleManifest>(File.ReadAllText(manifestPath), _serializerOptions);
 
-    private Dictionary<string, string> EnumerateManagedSourceFiles(AiBundleDefinition bundle)
+    private Dictionary<string, ManagedFileEntry> EnumerateAllManagedFiles(AiBundleDefinition bundle)
     {
-        var results = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var results = new Dictionary<string, ManagedFileEntry>(StringComparer.OrdinalIgnoreCase);
 
         foreach (string directory in bundle.ManagedDirectories)
         {
@@ -447,12 +615,35 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             foreach (string file in Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories))
             {
                 string relativePath = NormalizePath(Path.GetRelativePath(assetRoot, file));
-                results[relativePath] = file;
+                results[relativePath] = new ManagedFileEntry(file, null);
+            }
+        }
+
+        foreach (AdapterDirectoryDefinition adapter in bundle.AdapterDirectories)
+        {
+            string sourceDirectory = ResolveAssetPath(adapter.Source);
+
+            foreach (AdapterTarget target in adapter.Targets)
+            {
+                foreach (string file in Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+                {
+                    string relativeToSource = Path.GetRelativePath(sourceDirectory, file);
+                    string relativePath = NormalizePath(Path.Combine(target.Destination, relativeToSource));
+
+                    if (results.ContainsKey(relativePath))
+                    {
+                        throw new InvalidOperationException($"Adapter path collision: multiple adapter targets produce '{relativePath}'. Review adapterDirectories in bundle.json.");
+                    }
+
+                    results[relativePath] = new ManagedFileEntry(file, target.Substitutions);
+                }
             }
         }
 
         return results;
     }
+
+    private sealed record ManagedFileEntry(string SourcePath, Dictionary<string, string>? Substitutions);
 
     private static string ResolveTargetRoot(string targetPath) => Path.GetFullPath(targetPath);
 

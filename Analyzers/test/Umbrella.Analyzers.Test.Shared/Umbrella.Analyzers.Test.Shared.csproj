@@ -7,7 +7,6 @@
 		<NoWarn>CS1591</NoWarn>
 		<PreserveCompilationContext>true</PreserveCompilationContext>
 		<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-		<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
 		<WarningsAsErrors>xUnit1051</WarningsAsErrors>
 		<OutputType>Exe</OutputType>
 	</PropertyGroup>
@@ -18,7 +17,7 @@
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="xunit.v3" Version="3.2.2" />
+		<PackageReference Include="xunit.v3.mtp-v2" Version="3.2.2" />
 	</ItemGroup>
 
 	<ItemGroup>

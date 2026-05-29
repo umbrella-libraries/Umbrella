@@ -1,24 +1,25 @@
 ## Umbrella Skills
 
-The following skills are available in `.github\skills\`. Read a skill's `SKILL.md` for full instructions before using it.
+The following skills are available in `.github\skills`. Read a skill's `SKILL.md` for full instructions before using it.
 
-- `nuget-safe-upgrade` -- upgrade NuGet packages safely across multiple TFMs; use the `nuget-safe-upgrade` agent
-- `dotnet-add-ef-migration` -- add a new EF Core migration
-- `dotnet-scaffold-ef-entity` -- add a new EF Core entity class and register it in DbContext
-- `dotnet-scaffold-ef-repository` -- add a repository interface and implementation for an existing EF Core entity
-- `dotnet-scaffold-service` -- add a logic service to the Core.Logic project
-- `dotnet-scaffold-file-handler` -- add a file handler to the Core.Logic FileSystem project
-- `dotnet-scaffold-file-authorization-handler` -- add a file authorization handler to the Core.Logic FileSystem project
-- `dotnet-scaffold-api-server-models` -- add API model records (request/response types) for a feature
-- `dotnet-scaffold-mapperly-factories` -- add Mapperly mapper classes that map between entities and API models
-- `dotnet-scaffold-api-repo-controller` -- add an API controller that communicates directly with a repository (GenericRepositoryApiController pattern)
-- `dotnet-scaffold-api-data-service-controller` -- add a thin API controller backed by a controller service, with a shared service interface that supports Blazor SSR pre-rendering (GenericRepositoryDataServiceApiController pattern)
-- `dotnet-scaffold-client-data` -- add a client-side HTTP data service implementing an existing IManage<Name>Service interface (GenericHttpDataService pattern); updates server DI to ReplaceScoped
-- `dotnet-rename-client-repository-to-service` -- rename a client data type from the legacy ...Repository convention to ...Service, moving files, updating namespaces, DI, and all Blazor component references
-- `dotnet-migrate-repo-controller-to-data-service` -- migrate an existing GenericRepositoryApiController (Pattern 1) to GenericRepositoryDataServiceApiController (Pattern 2), creating the backing controller service and rewiring DI
-- `blazor-scaffold-index-page` -- add a Blazor index/listing page with UmbrellaGrid, breadcrumb, auth policy, and action column
-- `blazor-scaffold-manage-page` -- add a Blazor create/edit manage page with EditForm, UmbrellaModelLayoutStateView, auth policy, and concurrency handling
-- `blazor-register-nav-item` -- add a nav item to NavMenu.razor inside the correct AuthorizeView policy block
-- `dotnet-scaffold-auth-policy` -- add a named authorization policy constant and register it in the shared AuthorizationOptions extension method
-- `dotnet-scaffold-resource-auth-handler` -- add a resource-based IAuthorizationHandler for row-level access control on a specific entity type
-- `dotnet-migrate-automapper-to-mapperly` -- migrate AutoMapper Profile classes to Mapperly source-generated mappers, rewiring DI and removing all AutoMapper artefacts
+- `blazor-register-nav-item` -- Add a nav item to the Blazor NavMenu.razor for a new feature, inside the correct AuthorizeView policy block and section, following the existing nav structure.
+- `blazor-scaffold-index-page` -- Scaffold a Blazor index/listing page (.razor + .razor.cs) for a feature, following the Umbrella UmbrellaGrid pattern with breadcrumb, auth policy, and action column.
+- `blazor-scaffold-manage-page` -- Scaffold a Blazor manage page (.razor + .razor.cs) for create/edit operations, following the Umbrella EditForm pattern with UmbrellaModelLayoutStateView, breadcrumb, auth policy, and concurrency handling.
+- `dotnet-add-ef-migration` -- Add an EF Core database migration with auto-detection of the migrations project, startup project, and DbContext. Reports generated and modified files and warns on empty migrations.
+- `dotnet-migrate-automapper-to-mapperly` -- Migrate AutoMapper Profile classes to Mapperly source-generated mappers, following the Umbrella catalog pattern. Covers ForMember translation, AfterMap, Ignore, flattening detection, DI rewiring, and AutoMapper removal.
+- `dotnet-migrate-repo-controller-to-data-service` -- Migrate an existing GenericRepositoryApiController (Pattern 1, direct repository) to GenericRepositoryDataServiceApiController (Pattern 2, backing controller service). Creates the controller service, updates the controller, and rewires DI. Run dotnet-rename-client-repository-to-service first if the client interface still uses the ...Repository naming convention.
+- `dotnet-rename-client-repository-to-service` -- Rename a client data type from the old ...Repository convention to ...Service, moving files from Repositories/ to Services/, updating namespaces, DI registration, and all Blazor component references.
+- `dotnet-scaffold-api-data-service-controller` -- Scaffold a thin API controller backed by a controller service (GenericRepositoryDataServiceApiController pattern). Supports Blazor SSR pre-rendering when the service interface lives in the client data project. Produces 4 artifacts: service interface, server controller service, controller, and DI registration.
+- `dotnet-scaffold-api-repo-controller` -- Scaffold an ASP.NET Core API controller that inherits GenericRepositoryApiController, communicating directly with a repository. Supports selective endpoint disabling via NoOp types and object placeholders.
+- `dotnet-scaffold-api-server-models` -- Scaffold API model records (request/response types) for a new feature, following the Umbrella shared models pattern with optional base class hierarchies.
+- `dotnet-scaffold-architecture-tests` -- Add a layer-dependency and implementation-visibility architecture test project to a repo using the Umbrella.Testing.Architecture NuGet package and xunit.v3.
+- `dotnet-scaffold-auth-policy` -- Scaffold a new ASP.NET Core authorization policy — adds a name constant to the shared policy names class and registers the policy in the shared AuthorizationOptions extension method. Used by both controllers ([Authorize]) and Blazor pages/nav (<AuthorizeView>).
+- `dotnet-scaffold-client-data` -- Scaffold a client-side HTTP data service implementing an existing IManage<Name>Service interface, following the Umbrella GenericHttpDataService pattern. Registers the service in the client project and updates the server DI from AddScoped to ReplaceScoped.
+- `dotnet-scaffold-ef-entity` -- Scaffold a new EF Core entity: entity class in Core.Domain, configuration method in DbContext. Follows Umbrella patterns and is front-end agnostic.
+- `dotnet-scaffold-ef-repository` -- Scaffold a repository interface, implementation, IncludeMap, and DI registration for an existing EF Core entity, following Umbrella GenericDbRepository patterns.
+- `dotnet-scaffold-file-authorization-handler` -- Scaffold a file authorization handler in the Core.Logic project, following the Umbrella UmbrellaFileAuthorizationHandler pattern. Authorization is decoupled from the file handler — use this skill alongside dotnet-scaffold-file-handler when access control is needed.
+- `dotnet-scaffold-file-handler` -- Scaffold a file handler (interface, implementation, DirectoryNames constant, DI registration) in the Core.Logic project, following the Umbrella UmbrellaFileHandler pattern. Authorization is separate — see dotnet-scaffold-file-authorization-handler.
+- `dotnet-scaffold-mapperly-factories` -- Scaffold Mapperly mapper classes that map between EF Core entities and API model records, or between client-side model types, following the Umbrella source-generated catalog pattern.
+- `dotnet-scaffold-resource-auth-handler` -- Scaffold a resource-based ASP.NET Core IAuthorizationHandler for an entity, handling row-level access control (ownership, role, operation-specific checks). Used when AuthorizationXxxChecksEnabled is not suppressed on a controller or controller service.
+- `dotnet-scaffold-service` -- Scaffold a logic service (interface, implementation, models) in the Core.Logic project, following the Umbrella ServiceBase pattern with Lazy<T> repo injection.
+- `nuget-safe-upgrade` -- Safely analyze and apply NuGet package upgrades in multi-targeted .NET repositories using exclusions, framework-aware version selection, restore checks, and transitive dependency graph validation.

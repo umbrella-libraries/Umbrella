@@ -19,4 +19,13 @@ When upgrading NuGet packages:
 - Repo-wide Copilot guidance: `.github\copilot-instructions.md`
 - Copilot agent: `.github\agents\nuget-safe-upgrade.agent.md`
 - Copilot skill wrapper: `.github\skills\nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1`
-- Shared implementation: `.ai-shared\nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1`
+- Shared implementation: `.ai-shared\skills\nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1`
+
+## Skill and agent authoring
+
+`.github\skills\` and `.github\agents\` are **generated outputs** — do not edit them directly.
+
+- Edit skill files in `.ai-shared\skills\<name>\SKILL.md`
+- Edit agent files in `.ai-shared\agents\claude\` or `.ai-shared\agents\github\`
+- Run `umbrella-ai sync` to regenerate `.claude\skills\`, `.github\skills\`, `.claude\agents\`, and `.github\agents\`
+- Commit both the canonical source and the regenerated files

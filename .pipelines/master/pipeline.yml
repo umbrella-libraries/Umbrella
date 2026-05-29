@@ -1,0 +1,173 @@
+trigger:
+- master
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  feedId: '3ed80ad0-ebb0-49c2-bc79-ab237f51e313'
+
+stages:
+- stage: Build
+  variables:
+    buildConfiguration: 'AzureDevOps'
+    targetProjectFilter: '**/*.csproj'
+  jobs:
+  - job: Build
+    steps:
+
+    - task: Npm@1
+      displayName: NPM CI (Umbrella.AspNetCore.Blazor)
+      inputs:
+        command: 'ci'
+        workingDir: 'AspNetCore/src/Umbrella.AspNetCore.Blazor'
+
+    - task: Npm@1
+      displayName: NPM Build Release (Umbrella.AspNetCore.Blazor)
+      inputs:
+        command: 'custom'
+        workingDir: 'AspNetCore/src/Umbrella.AspNetCore.Blazor'
+        customCommand: 'run build-release'
+
+    - task: CmdLine@2
+      displayName: Install Required Workloads
+      inputs:
+        script: dotnet workload restore
+
+    - task: DotNetCoreCLI@2
+      displayName: Restore
+      inputs:
+        command: 'restore'
+        projects: '$(targetProjectFilter)'
+        feedsToUse: 'config'
+        nugetConfigPath: 'NuGet.config'
+
+    - task: DotNetCoreCLI@2
+      displayName: Build
+      inputs:
+        command: 'build'
+        projects: '$(targetProjectFilter)'
+        arguments: '--configuration $(buildConfiguration) --no-restore'
+
+    - task: PowerShell@2
+      displayName: Test
+      inputs:
+        targetType: inline
+        workingDirectory: '$(Build.SourcesDirectory)'
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $testProjects = Get-ChildItem -Path "$(Build.SourcesDirectory)" -Filter *.Test.csproj -Recurse |
+            Sort-Object FullName
+          if (-not $testProjects) {
+            throw "No test projects were found."
+          }
+          $failedProjects = @()
+          foreach ($testProject in $testProjects) {
+            Write-Host "Running tests for '$($testProject.FullName)'."
+            & dotnet test `
+              --project $testProject.FullName `
+              --configuration "$(buildConfiguration)" `
+              --no-restore `
+              --output Detailed `
+              --report-trx `
+              --coverage `
+              --coverage-output-format cobertura `
+              --coverage-output coverage.cobertura.xml
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "dotnet test failed for '$($testProject.FullName)' with exit code $LASTEXITCODE."
+              $failedProjects += $testProject.FullName
+            }
+          }
+          if ($failedProjects.Count -gt 0) {
+            $failedProjectList = $failedProjects -join [Environment]::NewLine
+            Write-Host "Failed test projects:"
+            Write-Host $failedProjectList
+            throw "Test failures detected in $($failedProjects.Count) project(s)."
+          }
+
+    - task: PublishTestResults@2
+      displayName: Publish Test Results
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '$(Build.SourcesDirectory)/**/*.trx'
+        mergeTestResults: true
+        failTaskOnFailedTests: false
+        testRunTitle: 'dotnet test (MTP)'
+
+    - task: PublishCodeCoverageResults@2
+      displayName: Publish Code Coverage
+      inputs:
+        summaryFileLocation: '$(Build.SourcesDirectory)/**/*.cobertura.xml'
+
+    - task: DotNetCoreCLI@2
+      displayName: Pack
+      inputs:
+        command: 'pack'
+        packagesToPack: '$(targetProjectFilter)'
+        configuration: '$(buildConfiguration)'
+        versioningScheme: 'off'
+
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Artifacts
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+    - task: PowerShell@2
+      name: SetVersion
+      displayName: Read Package Version
+      inputs:
+        targetType: inline
+        script: |
+          $content = Get-Content '$(Build.SourcesDirectory)/Directory.Build.props' -Raw
+          $version = [regex]::Match($content, '<Version>([^<]+)</Version>').Groups[1].Value
+          $isPreRelease = $version -match '-'
+          Write-Host "##vso[task.setvariable variable=packageVersion;isOutput=true]$version"
+          Write-Host "##vso[task.setvariable variable=isPreRelease;isOutput=true]$isPreRelease"
+          Write-Host "Package version: $version (pre-release: $isPreRelease)"
+
+- stage: Deploy
+  dependsOn: Build
+  variables:
+    isPreRelease: $[ stageDependencies.Build.Build.outputs['SetVersion.isPreRelease'] ]
+  jobs:
+    - deployment: DeployToADO
+      displayName: Deploy to ADO Feed (pre-release)
+      condition: eq(variables['isPreRelease'], 'True')
+      environment: Development
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: NuGetCommand@2
+                displayName: Push Packages to ADO Feed
+                inputs:
+                  command: 'push'
+                  packagesToPush: '$(Agent.BuildDirectory)/drop/**/*.nupkg;$(Agent.BuildDirectory)/drop/**/*.snupkg'
+                  nuGetFeedType: 'internal'
+                  publishVstsFeed: $(feedId)
+                  allowPackageConflicts: true
+                  verbosityPush: 'Normal'
+
+    - deployment: DeployToNuGet
+      displayName: Deploy to NuGet.org (stable release)
+      condition: eq(variables['isPreRelease'], 'False')
+      environment: Production
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - task: CmdLine@2
+                displayName: Push Packages to NuGet.org
+                inputs:
+                  script: |
+                    dotnet nuget push "$(Agent.BuildDirectory)/drop/**/*.nupkg" ^
+                      --api-key $(nugetApiKey) ^
+                      --source https://api.nuget.org/v3/index.json ^
+                      --skip-duplicate
+                    dotnet nuget push "$(Agent.BuildDirectory)/drop/**/*.snupkg" ^
+                      --api-key $(nugetApiKey) ^
+                      --source https://api.nuget.org/v3/index.json ^
+                      --skip-duplicate

@@ -18,9 +18,19 @@ public class BundleInstallerTest
 
         Assert.True(result.Success);
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "agents", "nuget-safe-upgrade.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "agents", "nuget-safe-upgrade.agent.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "skills", "dotnet-scaffold-service", "SKILL.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "skills", "dotnet-scaffold-service", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".mcp.json")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, "nuget-upgrade-exclusions.json")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".ai-shared", "bundles", "umbrella", "manifest.json")));
+
+        string claudeSkill = File.ReadAllText(Path.Combine(workspace.RootPath, ".claude", "skills", "dotnet-add-ef-migration", "SKILL.md"));
+        string githubSkill = File.ReadAllText(Path.Combine(workspace.RootPath, ".github", "skills", "dotnet-add-ef-migration", "SKILL.md"));
+        Assert.Contains(@".claude\skills\dotnet-add-ef-migration", claudeSkill, StringComparison.Ordinal);
+        Assert.Contains(@".github\skills\dotnet-add-ef-migration", githubSkill, StringComparison.Ordinal);
+        Assert.DoesNotContain("{{skill_dir}}", claudeSkill, StringComparison.Ordinal);
+        Assert.DoesNotContain("{{skill_dir}}", githubSkill, StringComparison.Ordinal);
 
         string agents = File.ReadAllText(Path.Combine(workspace.RootPath, "AGENTS.md"));
         Assert.Contains("<!-- ai-bundle:umbrella:start -->", agents, StringComparison.Ordinal);

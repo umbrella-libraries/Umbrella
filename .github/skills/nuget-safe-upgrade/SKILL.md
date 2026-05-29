@@ -7,13 +7,13 @@ description: 'Safely analyze and apply NuGet package upgrades in multi-targeted 
 
 ## Purpose
 
-This skill wraps the shared NuGet upgrade implementation so GitHub Copilot can use the same behavior as Claude Code without duplicating package logic.
+This skill safely analyzes and applies NuGet package upgrades while respecting exclusions, framework-coupling rules, and transitive dependency graph constraints.
 
 ## Assets
 
 - `scripts\Invoke-NuGetSafeUpgrade.ps1`
-- `..\..\..\..\.ai-shared\nuget-safe-upgrade\scripts\`
-- `..\..\..\..\.ai-shared\nuget-safe-upgrade\nuget-upgrade-exclusions.schema.json`
+- `scripts\NuGetSafeUpgrade.Common.ps1`
+- `nuget-upgrade-exclusions.schema.json`
 
 ## Inputs
 

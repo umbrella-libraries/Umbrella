@@ -7,12 +7,11 @@ description: 'Add an EF Core database migration with auto-detection of the migra
 
 ## Purpose
 
-This skill wraps the shared EF migration script so agents can add migrations consistently without running `dotnet ef migrations add` by hand.
+This skill adds EF Core migrations consistently without running `dotnet ef migrations add` by hand.
 
 ## Assets
 
 - `scripts\Invoke-AddEfMigration.ps1`
-- `..\..\..\..\.ai-shared\dotnet-add-ef-migration\scripts\`
 
 ## Inputs
 

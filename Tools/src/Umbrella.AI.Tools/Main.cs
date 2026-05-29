@@ -87,10 +87,21 @@ public sealed class Main(AiBundleInstaller installer)
             return CommandPrinter.Print(installer.Remove(options));
         });
 
+        var syncCommand = new Command("sync", "Regenerate adapter directories (.claude/skills, .github/skills, etc.) from .ai-shared sources in this repository.")
+        {
+            rootDirOption
+        };
+        syncCommand.SetAction(parseResult =>
+        {
+            string syncRoot = parseResult.GetValue(rootDirOption) ?? Directory.GetCurrentDirectory();
+            return CommandPrinter.Print(installer.Sync(syncRoot));
+        });
+
         rootCommand.Subcommands.Add(installCommand);
         rootCommand.Subcommands.Add(updateCommand);
         rootCommand.Subcommands.Add(statusCommand);
         rootCommand.Subcommands.Add(removeCommand);
+        rootCommand.Subcommands.Add(syncCommand);
 
         return await rootCommand.Parse(args).InvokeAsync();
     }

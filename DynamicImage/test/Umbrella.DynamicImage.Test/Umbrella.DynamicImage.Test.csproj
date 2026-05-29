@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
@@ -7,25 +7,10 @@
 		<NoWarn>CS1591</NoWarn>
 		<PreserveCompilationContext>true</PreserveCompilationContext>
 		<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-		<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
 		<WarningsAsErrors>xUnit1051</WarningsAsErrors>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="coverlet.collector" Version="10.0.1">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-		<PackageReference Include="coverlet.msbuild" Version="10.0.1">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
-		<PackageReference Include="xunit.v3" Version="3.2.2" />
-		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-		</PackageReference>
 		<PackageReference Include="Moq" Version="4.20.72" />
 	</ItemGroup>
 
@@ -34,10 +19,6 @@
 		<ProjectReference Include="..\..\src\Umbrella.DynamicImage.Abstractions\Umbrella.DynamicImage.Abstractions.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.DynamicImage.Caching.AzureStorage\Umbrella.DynamicImage.Caching.AzureStorage.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.DynamicImage.Caching.Disk\Umbrella.DynamicImage.Caching.Disk.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<Service Include="{82a7f48d-3b50-4b1e-b82e-3ada8210c358}" />
 	</ItemGroup>
 
 </Project>
