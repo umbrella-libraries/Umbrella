@@ -42,12 +42,11 @@ stages:
         feedsToUse: 'config'
         nugetConfigPath: 'NuGet.config'
 
-    - task: DotNetCoreCLI@2
+    - task: VSBuild@1
       displayName: Build
       inputs:
-        command: 'build'
-        projects: '$(targetProjectFilter)'
-        arguments: '--configuration $(buildConfiguration) --no-restore'
+        solution: '**\*.sln'
+        configuration: '$(buildConfiguration)'
 
     - task: PowerShell@2
       displayName: Test
