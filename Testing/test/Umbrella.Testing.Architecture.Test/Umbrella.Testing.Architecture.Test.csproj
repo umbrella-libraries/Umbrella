@@ -12,4 +12,8 @@
 		<ProjectReference Include="..\..\src\Umbrella.Testing.Architecture\Umbrella.Testing.Architecture.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <PackageReference Update="Microsoft.Testing.Extensions.CodeCoverage" Version="18.7.0" />
+	</ItemGroup>
+
 </Project>

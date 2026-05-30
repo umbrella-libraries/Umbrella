@@ -14,4 +14,8 @@
 		<ProjectReference Include="..\..\src\Umbrella.TypeScript\Umbrella.TypeScript.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <PackageReference Update="Microsoft.Testing.Extensions.CodeCoverage" Version="18.7.0" />
+	</ItemGroup>
+
 </Project>
