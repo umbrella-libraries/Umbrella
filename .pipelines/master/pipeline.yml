@@ -47,6 +47,7 @@ stages:
       inputs:
         solution: '**\*.sln'
         configuration: '$(buildConfiguration)'
+        vsVersion: 'latest'
 
     - task: PowerShell@2
       displayName: Test
