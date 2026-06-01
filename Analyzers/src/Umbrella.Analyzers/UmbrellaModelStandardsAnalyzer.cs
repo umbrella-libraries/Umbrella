@@ -98,7 +98,7 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 	/// Diagnostic rule that requires model records to be <c>partial</c> when <c>IUmbrellaTrimmable</c> is present in the compilation.
 	/// </summary>
 	public static readonly DiagnosticDescriptor ModelRecordMustBePartialRule = new(
-		id: "UA021",
+		id: "UA015",
 		title: "Model records must be partial when IUmbrellaTrimmable is used",
 		messageFormat: "Model record '{0}' must be declared as 'partial' when the project uses IUmbrellaTrimmable source generation",
 		category: "UmbrellaModelStandards",
@@ -110,7 +110,7 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 	/// Diagnostic rule that requires Create*/Update* model records with string properties to implement <c>IUmbrellaTrimmable</c>.
 	/// </summary>
 	public static readonly DiagnosticDescriptor InputModelMustImplementTrimmableRule = new(
-		id: "UA022",
+		id: "UA016",
 		title: "Input model records with string properties must implement IUmbrellaTrimmable",
 		messageFormat: "Input model '{0}' has string properties but does not implement IUmbrellaTrimmable; user-supplied strings will not be trimmed",
 		category: "UmbrellaModelStandards",

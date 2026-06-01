@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 
 namespace Umbrella.Utilities.Mapping.Mapperly.Analyzers.Test;
 
-public class Ua019MapperlyRegistrationAnalyzerTests : AnalyzerTestBase<MapperlyRegistrationAnalyzer>
+public class UMA001_MapperlyRegistrationAnalyzerTests : AnalyzerTestBase<MapperlyRegistrationAnalyzer>
 {
 	[Fact]
 	public async Task VerifyNoDiagnosticsAsyncWhenExactNewInstanceMappingExists()

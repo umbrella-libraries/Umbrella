@@ -1,6 +1,6 @@
 namespace Umbrella.Analyzers.Test;
 
-public class UA023_UmbrellaApiStandardsAnalyzerTests : AnalyzerTestBase<UmbrellaApiStandardsAnalyzer>
+public class UA017_UmbrellaApiStandardsAnalyzerTests : AnalyzerTestBase<UmbrellaApiStandardsAnalyzer>
 {
 	private const string ControllerStubs = @"using System;
 namespace Microsoft.AspNetCore.Mvc

@@ -29,7 +29,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	/// Diagnostic rule that requires DynamicImage URL properties to declare matching version token properties.
 	/// </summary>
 	public static readonly DiagnosticDescriptor MissingVersionTokenPropertyRule = new(
-		id: "UA015",
+		id: "UWDI001",
 		title: "DynamicImage URL properties must declare matching version token properties",
 		messageFormat: "Property '{0}' in model type '{1}' must declare a matching '{2}' property when DynamicImage URL fingerprinting is explicitly enabled",
 		category: "DynamicImageVersioning",
@@ -41,7 +41,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	/// Diagnostic rule that requires DynamicImage URL assignments to assign the matching version token property.
 	/// </summary>
 	public static readonly DiagnosticDescriptor MissingVersionTokenAssignmentRule = new(
-		id: "UA016",
+		id: "UWDI002",
 		title: "DynamicImage URL assignments must also assign matching version tokens",
 		messageFormat: "Assignment to '{0}' must also assign '{1}' in the same model construction or update flow when DynamicImage URL fingerprinting is explicitly enabled",
 		category: "DynamicImageVersioning",
@@ -54,7 +54,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	/// input.
 	/// </summary>
 	public static readonly DiagnosticDescriptor MissingVersionTokenUsageRule = new(
-		id: "UA017",
+		id: "UWDI003",
 		title: "DynamicImage UI usages must assign VersionToken",
 		messageFormat: "DynamicImage usage bound to '{0}' must also assign '{1}' when URL fingerprinting is explicitly enabled",
 		category: "DynamicImageVersioning",
@@ -67,7 +67,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	/// catalog discovery.
 	/// </summary>
 	public static readonly DiagnosticDescriptor NonStaticVariantShapingInputRule = new(
-		id: "UA018",
+		id: "UWDI004",
 		title: "DynamicImage variant discovery coverage is reduced by non-static inputs",
 		messageFormat: "DynamicImage usage assigns non-static variant-shaping input(s) '{0}', so source-generated variant discovery and validation coverage may be incomplete; this does not affect runtime rendering",
 		category: "DynamicImageGeneration",

@@ -17,7 +17,7 @@ public sealed class ControllerEndpointOverrideAnalyzer : DiagnosticAnalyzer
 	/// <summary>
 	/// The diagnostic ID for this analyzer.
 	/// </summary>
-	public const string DiagnosticId = "UA026";
+	public const string DiagnosticId = "UA019";
 
 	private static readonly ImmutableHashSet<string> _crudMethodNames = ImmutableHashSet.Create(
 		StringComparer.Ordinal,

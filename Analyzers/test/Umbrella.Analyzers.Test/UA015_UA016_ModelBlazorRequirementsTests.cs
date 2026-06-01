@@ -1,6 +1,6 @@
 namespace Umbrella.Analyzers.Test;
 
-public class UA021_UA022_ModelBlazorRequirementsTests : AnalyzerTestBase<UmbrellaModelStandardsAnalyzer>
+public class UA015_UA016_ModelBlazorRequirementsTests : AnalyzerTestBase<UmbrellaModelStandardsAnalyzer>
 {
 	private const string TrimmableStub = @"namespace Umbrella.Utilities.Text
 {
@@ -8,7 +8,7 @@ public class UA021_UA022_ModelBlazorRequirementsTests : AnalyzerTestBase<Umbrell
 }
 ";
 
-	// UA021 tests
+	// UA015 tests
 
 	[Fact]
 	public async Task ModelRecord_NonPartial_WhenTrimmablePresent_ReportsDiagnostic()
@@ -62,7 +62,7 @@ public class UA021_UA022_ModelBlazorRequirementsTests : AnalyzerTestBase<Umbrell
 		await VerifyNoDiagnosticsAsync(source);
 	}
 
-	// UA022 tests
+	// UA016 tests
 
 	[Fact]
 	public async Task CreateModel_WithStringProperty_NotTrimmable_ReportsDiagnostic()
@@ -117,7 +117,7 @@ public class UA021_UA022_ModelBlazorRequirementsTests : AnalyzerTestBase<Umbrell
 	}
 
 	[Fact]
-	public async Task UserModel_NotCreateOrUpdate_WithStringProperty_NoDiagnosticForUA022()
+	public async Task UserModel_NotCreateOrUpdate_WithStringProperty_NoDiagnosticForUA016()
 	{
 		const string source = TrimmableStub + @"namespace TestApp
 {

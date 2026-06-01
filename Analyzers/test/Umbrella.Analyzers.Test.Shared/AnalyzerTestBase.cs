@@ -15,8 +15,11 @@ public abstract class AnalyzerTestBase<T>
 {
 	private static readonly FrozenSet<string> _rulePrefixes =
 	[
-		"UMS", // Umbrella Analyzer - Model Standards
-		"UA"  // Umbrella Analyzer
+		"UMS",  // Umbrella Analyzer - Model Standards
+		"UA",   // Umbrella Analyzer
+		"UDA",  // Umbrella DataAccess Analyzer
+		"UMA",  // Umbrella Mapperly Analyzer
+		"UWDI"  // Umbrella WebUtilities DynamicImage Analyzer
 	];
 
 	/// <summary>

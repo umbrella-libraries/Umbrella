@@ -111,7 +111,7 @@ public class Manage<Name>ControllerService : UmbrellaRepositoryDataService<
 - Extra dependencies (e.g. `I<Name>FileHandler`) go after the 9 base constructor params and are stored as `private readonly` fields.
 - `AfterCreateEntityAsync`, `AfterUpdateEntityAsync`, `AfterDeleteEntityAsync` are added only when needed. Follow the same guard/cancellation pattern as repositories.
 - Controller services always use full concrete model types — no NoOp/`object` patterns.
-- Do not override `PostAsync`, `PutAsync`, `DeleteAsync`, `GetAsync`, or `SearchSlimAsync` in the controller service. All CRUD customisation belongs in lifecycle hooks (`BeforeCreateEntityAsync`, `AfterCreateEntityAsync`, etc.) — UA026 enforces this.
+- Do not override `PostAsync`, `PutAsync`, `DeleteAsync`, `GetAsync`, or `SearchSlimAsync` in the controller service. All CRUD customisation belongs in lifecycle hooks (`BeforeCreateEntityAsync`, `AfterCreateEntityAsync`, etc.) — UA019 enforces this.
 - **Layer note:** the controller service lives in the Web layer and may reference Web.Models types — this is intentional, it is the translation boundary. Core.Logic services (see `dotnet-scaffold-service`) must never reference Web.Models. Do not place complex domain logic in the controller service; if the logic belongs in Core.Logic, create a dedicated service there and inject it here.
 
 ### Lifecycle hook example (file handling)

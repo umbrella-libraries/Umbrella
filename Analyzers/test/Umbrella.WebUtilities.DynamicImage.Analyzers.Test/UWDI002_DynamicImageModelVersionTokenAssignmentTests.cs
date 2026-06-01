@@ -1,6 +1,6 @@
 namespace Umbrella.WebUtilities.DynamicImage.Analyzers.Test;
 
-public class UA016_DynamicImageModelVersionTokenAssignmentTests : AnalyzerTestBase<Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer>
+public class UWDI002_DynamicImageModelVersionTokenAssignmentTests : AnalyzerTestBase<Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer>
 {
 	[Fact]
 	public async Task ObjectInitializer_WithoutMatchingVersionTokenAssignment_ShouldTriggerDiagnostic()

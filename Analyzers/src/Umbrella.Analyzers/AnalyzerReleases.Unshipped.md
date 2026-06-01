@@ -1,4 +1,4 @@
-﻿; Unshipped analyzer release
+; Unshipped analyzer release
 ; https://github.com/dotnet/roslyn/blob/main/src/RoslynAnalyzers/Microsoft.CodeAnalysis.Analyzers/ReleaseTrackingAnalyzers.Help.md
 
 ### New Rules
@@ -19,8 +19,8 @@ UA011 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — mode
 UA012 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model properties must use required
 UA013 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model properties must use { get; init; }
 UA014 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model collection properties must use IReadOnlyCollection&lt;T&gt;
-UA021 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — model records must be partial when IUmbrellaTrimmable is present
-UA022 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — Create/Update model records with string properties must implement IUmbrellaTrimmable
-UA023 | UmbrellaApiStandards | Warning | UmbrellaApiStandardsAnalyzer — UmbrellaApiController subclasses must use [UmbrellaProducesResponseType] instead of [ProducesResponseType]
-UA024 | UmbrellaSecurity | Error | AuthorizationHandlerAnalyzer — context.Fail() must not be called in HandleRequirementAsync
-UA026 | Architecture | Warning | ControllerEndpointOverrideAnalyzer — controller CRUD endpoint overrides must call base method or be suppressed with [NonAction]
+UA015 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — model records must be partial when IUmbrellaTrimmable is present
+UA016 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — Create/Update model records with string properties must implement IUmbrellaTrimmable
+UA017 | UmbrellaApiStandards | Warning | UmbrellaApiStandardsAnalyzer — UmbrellaApiController subclasses must use [UmbrellaProducesResponseType] instead of [ProducesResponseType]
+UA018 | UmbrellaSecurity | Error | AuthorizationHandlerAnalyzer — context.Fail() must not be called in HandleRequirementAsync
+UA019 | Architecture | Warning | ControllerEndpointOverrideAnalyzer — controller CRUD endpoint overrides must call base method or be suppressed with [NonAction]

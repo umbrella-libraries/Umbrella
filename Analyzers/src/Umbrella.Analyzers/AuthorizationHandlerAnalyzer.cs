@@ -19,7 +19,7 @@ public sealed class AuthorizationHandlerAnalyzer : DiagnosticAnalyzer
 	/// Diagnostic emitted when <c>context.Fail()</c> is called inside <c>HandleRequirementAsync</c>.
 	/// </summary>
 	public static readonly DiagnosticDescriptor DoNotCallContextFailRule = new(
-		id: "UA024",
+		id: "UA018",
 		title: "Do not call context.Fail() in HandleRequirementAsync",
 		messageFormat: "context.Fail() must not be called in HandleRequirementAsync; silently failing breaks the authorization pipeline — remove the call or throw an exception instead",
 		category: "UmbrellaSecurity",

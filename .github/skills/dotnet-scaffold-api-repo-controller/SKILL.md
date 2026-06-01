@@ -178,7 +178,7 @@ To run logic before or after a standard CRUD operation, override a lifecycle hoo
 
 Overriding a CRUD method without calling `base.XxxAsync()` silently skips all base-class cross-cutting concerns: authorization checks, error handling, concurrency stamp validation, and any future hooks added to the base class.
 
-**If you must override a CRUD method** (e.g. to enrich the incoming model before delegation), always call `await base.XxxAsync(...)` within the override body — UA026 enforces this.
+**If you must override a CRUD method** (e.g. to enrich the incoming model before delegation), always call `await base.XxxAsync(...)` within the override body — UA019 enforces this.
 
 **To disable an endpoint entirely:** use the NoOp/object pattern with `XxxEndpointEnabled => false` (documented above) — not a `[NonAction]` throw override, which leaves the route registered while lying about availability.
 

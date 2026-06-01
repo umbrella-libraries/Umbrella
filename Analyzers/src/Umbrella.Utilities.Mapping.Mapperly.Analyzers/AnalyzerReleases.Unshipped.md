@@ -5,6 +5,6 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
-UA019 | MapperlyRegistration | Error | MapperlyRegistrationAnalyzer - exact IUmbrellaMapper calls must have an exact Mapperly registration
-UA020 | MapperlyRegistration | Warning | MapperlyRegistrationAnalyzer - open generic IUmbrellaMapper calls cannot be fully validated
-UA025 | UmbrellaMapperStandards | Warning | MapperlyRegistrationAnalyzer - Mapperly mapper classes must be public partial class
+UMA001 | MapperlyRegistration | Error | MapperlyRegistrationAnalyzer - exact IUmbrellaMapper calls must have an exact Mapperly registration
+UMA002 | MapperlyRegistration | Warning | MapperlyRegistrationAnalyzer - open generic IUmbrellaMapper calls cannot be fully validated
+UMA003 | UmbrellaMapperStandards | Warning | MapperlyRegistrationAnalyzer - Mapperly mapper classes must be public partial class

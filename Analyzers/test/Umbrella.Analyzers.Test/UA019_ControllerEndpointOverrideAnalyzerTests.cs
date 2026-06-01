@@ -1,6 +1,6 @@
 namespace Umbrella.Analyzers.Test;
 
-public class UA026_ControllerEndpointOverrideAnalyzerTests : AnalyzerTestBase<ControllerEndpointOverrideAnalyzer>
+public class UA019_ControllerEndpointOverrideAnalyzerTests : AnalyzerTestBase<ControllerEndpointOverrideAnalyzer>
 {
 	[Fact]
 	public async Task OverridePostAsync_WithoutBaseCall_ShouldTriggerDiagnostic()

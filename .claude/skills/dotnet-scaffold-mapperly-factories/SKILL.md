@@ -38,7 +38,7 @@ builder.Services.AddUmbrellaUtilitiesMappingMapperly(
     Umbrella.Generated.Mapping.Mapperly.MyApp_Web_Server_ModelFactoriesUmbrellaMapperlyCatalog.Instance);
 ```
 
-The Roslyn analyzer (`UA019`/`UA020`) validates `IUmbrellaMapper` call sites using the `[assembly: UmbrellaMapperlyCatalogReference(typeof(...))]` attribute on the consuming project — if a `MapAsync` call has no registered mapping, it emits an error at compile time.
+The Roslyn analyzer (`UMA001`/`UMA002`) validates `IUmbrellaMapper` call sites using the `[assembly: UmbrellaMapperlyCatalogReference(typeof(...))]` attribute on the consuming project — if a `MapAsync` call has no registered mapping, it emits an error at compile time.
 
 **Consequence:** mapper classes must be `public`. An `internal` mapper is not discovered by the source generator and will silently do nothing.
 
@@ -237,7 +237,7 @@ If both catalogs are already registered (i.e. you are adding mappers to an exist
 
 ## Step 4 -- Add the assembly attribute for the Roslyn analyzer
 
-The consuming project's `IServiceCollectionExtensions.cs` must carry a `[assembly: UmbrellaMapperlyCatalogReference(typeof(...))]` attribute pointing to its generated catalog. This is what enables the UA019/UA020 diagnostic rules to validate `IUmbrellaMapper` call sites at compile time.
+The consuming project's `IServiceCollectionExtensions.cs` must carry a `[assembly: UmbrellaMapperlyCatalogReference(typeof(...))]` attribute pointing to its generated catalog. This is what enables the UMA001/UMA002 diagnostic rules to validate `IUmbrellaMapper` call sites at compile time.
 
 ```csharp
 // In Web.Server/IServiceCollectionExtensions.cs

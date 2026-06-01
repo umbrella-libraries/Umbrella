@@ -26,7 +26,7 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 	/// Diagnostic emitted when a closed mapper call has no exact Mapperly registration.
 	/// </summary>
 	public static readonly DiagnosticDescriptor MissingExactMappingRule = new(
-		id: "UA019",
+		id: "UMA001",
 		title: "IUmbrellaMapper calls must target an exact Mapperly registration",
 		messageFormat: "No exact Mapperly {0} mapping is registered for source type '{1}' and destination type '{2}'",
 		category: "MapperlyRegistration",
@@ -38,7 +38,7 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 	/// Diagnostic emitted when a mapper call uses open generic type arguments.
 	/// </summary>
 	public static readonly DiagnosticDescriptor OpenGenericMapperCallRule = new(
-		id: "UA020",
+		id: "UMA002",
 		title: "Open generic IUmbrellaMapper calls cannot be fully validated",
 		messageFormat: "Mapperly {0} call uses open generic type argument(s) for source '{1}' and destination '{2}', so exact registration cannot be proven at the generic definition site",
 		category: "MapperlyRegistration",
@@ -50,7 +50,7 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 	/// Diagnostic emitted when a Mapperly mapper class is not declared as <c>public partial class</c>.
 	/// </summary>
 	public static readonly DiagnosticDescriptor MapperClassMustBePublicPartialRule = new(
-		id: "UA025",
+		id: "UMA003",
 		title: "Mapperly mapper classes must be public partial class",
 		messageFormat: "Mapper class '{0}' must be declared as 'public partial class' so the Umbrella source generator can discover and register it",
 		category: "UmbrellaMapperStandards",

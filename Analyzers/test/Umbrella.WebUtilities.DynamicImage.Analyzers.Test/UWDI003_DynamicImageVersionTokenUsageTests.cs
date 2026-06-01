@@ -1,6 +1,6 @@
 namespace Umbrella.WebUtilities.DynamicImage.Analyzers.Test;
 
-public class UA017_DynamicImageVersionTokenUsageTests : AnalyzerTestBase<Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer>
+public class UWDI003_DynamicImageVersionTokenUsageTests : AnalyzerTestBase<Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer>
 {
 	[Fact]
 	public async Task BlazorComponentUsage_WithoutVersionToken_ShouldTriggerDiagnostic()

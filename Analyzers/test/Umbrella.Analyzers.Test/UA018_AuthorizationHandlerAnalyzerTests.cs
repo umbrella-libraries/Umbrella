@@ -1,6 +1,6 @@
 namespace Umbrella.Analyzers.Test;
 
-public class UA024_AuthorizationHandlerAnalyzerTests : AnalyzerTestBase<AuthorizationHandlerAnalyzer>
+public class UA018_AuthorizationHandlerAnalyzerTests : AnalyzerTestBase<AuthorizationHandlerAnalyzer>
 {
 	private const string AuthorizationStubs = @"using System.Threading.Tasks;
 namespace Microsoft.AspNetCore.Authorization

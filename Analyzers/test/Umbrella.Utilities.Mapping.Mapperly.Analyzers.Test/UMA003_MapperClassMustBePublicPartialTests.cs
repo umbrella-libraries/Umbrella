@@ -1,6 +1,6 @@
 namespace Umbrella.Utilities.Mapping.Mapperly.Analyzers.Test;
 
-public class Ua025MapperClassMustBePublicPartialTests : AnalyzerTestBase<MapperlyRegistrationAnalyzer>
+public class UMA003_MapperClassMustBePublicPartialTests : AnalyzerTestBase<MapperlyRegistrationAnalyzer>
 {
 	private const string MapperStub = @"using System;
 namespace Riok.Mapperly.Abstractions

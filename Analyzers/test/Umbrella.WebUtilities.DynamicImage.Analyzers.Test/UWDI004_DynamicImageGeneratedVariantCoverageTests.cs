@@ -1,6 +1,6 @@
 namespace Umbrella.WebUtilities.DynamicImage.Analyzers.Test;
 
-public class UA018_DynamicImageGeneratedVariantCoverageTests : AnalyzerTestBase<Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer>
+public class UWDI004_DynamicImageGeneratedVariantCoverageTests : AnalyzerTestBase<Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer>
 {
 	[Fact]
 	public async Task BlazorComponent_WithNonStaticVariantInputs_ShouldTriggerDiagnostic()

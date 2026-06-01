@@ -17,7 +17,7 @@ public sealed class UmbrellaApiStandardsAnalyzer : DiagnosticAnalyzer
 	/// Diagnostic emitted when a method on a <c>UmbrellaApiController</c> subclass uses <c>[ProducesResponseType]</c> instead of <c>[UmbrellaProducesResponseType]</c>.
 	/// </summary>
 	public static readonly DiagnosticDescriptor UseUmbrellaProducesResponseTypeRule = new(
-		id: "UA023",
+		id: "UA017",
 		title: "Use [UmbrellaProducesResponseType] instead of [ProducesResponseType]",
 		messageFormat: "Method '{0}' uses [ProducesResponseType]; replace with [UmbrellaProducesResponseType] in UmbrellaApiController subclasses",
 		category: "UmbrellaApiStandards",
