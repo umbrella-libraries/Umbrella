@@ -2,7 +2,7 @@
 
 A collection of Roslyn analyzers enforcing Umbrella coding standards, async patterns, and model immutability across .NET solutions.
 
-Most rules are configured with **Error** severity (compile blocking); UA015, UA016, and UA017 are **Warning** severity. Add the package as a PrivateAssets dependency so it does not flow transitively.
+Most rules are configured with **Error** severity (compile blocking); UA015, UA016, UA017, and UA019 are **Warning** severity. Add the package as a PrivateAssets dependency so it does not flow transitively.
 
 ## Installation
 
@@ -33,6 +33,7 @@ Most rules are configured with **Error** severity (compile blocking); UA015, UA0
 | UA017 | Use [UmbrellaProducesResponseType] instead of [ProducesResponseType]  | Methods on `UmbrellaApiController` subclasses must use `[UmbrellaProducesResponseType]` rather than the raw ASP.NET Core attribute. |
 | UA018 | Do not call context.Fail() in HandleRequirementAsync                  | Calling `context.Fail()` inside `HandleRequirementAsync` silently breaks the authorization pipeline — remove the call. |
 | UA019 | Controller endpoint override must call base method                    | Overriding a standard CRUD endpoint (`GetAsync`, `PostAsync`, `PutAsync`, `DeleteAsync`, `PatchAsync`, `SearchAsync`, `SearchSlimAsync`) in a controller without calling `base.{method}()` skips base lifecycle hooks. Use Before/After lifecycle hook overrides for custom logic, or apply `[NonAction]` to intentionally disable the endpoint. |
+| UA020 | Entity types must not be used as query method parameters              | Methods whose names start with `Find`, `Get`, `Search`, `Lookup`, `Fetch`, or `Query` must not accept parameters of a type implementing `IEntity<TEntityKey>`. Passing an entity as a query parameter treats it as a specification bag, coupling the query contract to the entity shape. Accept individual primitive values or a dedicated filter/query type instead. |
 
 ### Opt-out attributes (UA011–UA014)
 When a justified exception is needed, apply one of these attributes (all require a `justification` string):
@@ -46,7 +47,7 @@ When a justified exception is needed, apply one of these attributes (all require
 | `[UmbrellaAllowMutableCollection("reason")]` | Allows a mutable collection type instead of `IReadOnlyCollection<T>` (UA014) |
 
 ### Severity
-UA001–UA014 and UA018 emit diagnostics as `Error` so builds fail until issues are resolved. UA015, UA016, UA017, and UA019 emit as `Warning` — they flag structural issues but do not block the build by default. Adjust severities via ruleset / .editorconfig if you need a different adoption path.
+UA001–UA014, UA018, and UA020 emit diagnostics as `Error` so builds fail until issues are resolved. UA015, UA016, UA017, and UA019 emit as `Warning` — they flag structural issues but do not block the build by default. Adjust severities via ruleset / .editorconfig if you need a different adoption path.
 
 ## Release Tracking
 Rule introduction and status are tracked in:

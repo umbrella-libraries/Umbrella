@@ -24,3 +24,4 @@ UA016 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — Cr
 UA017 | UmbrellaApiStandards | Warning | UmbrellaApiStandardsAnalyzer — UmbrellaApiController subclasses must use [UmbrellaProducesResponseType] instead of [ProducesResponseType]
 UA018 | UmbrellaSecurity | Error | AuthorizationHandlerAnalyzer — context.Fail() must not be called in HandleRequirementAsync
 UA019 | Architecture | Warning | ControllerEndpointOverrideAnalyzer — controller CRUD endpoint overrides must call base method or be suppressed with [NonAction]
+UA020 | DataAccess | Error | EntityQueryParameterAnalyzer — entity types must not be used as parameters to query/lookup methods
