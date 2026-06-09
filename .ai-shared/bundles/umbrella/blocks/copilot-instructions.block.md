@@ -1,6 +1,6 @@
 ## Umbrella Skills
 
-The following skills are available in `.github\skills`. Read a skill's `SKILL.md` for full instructions before using it.
+The following skills are available in `.agents\skills`. Read a skill's `SKILL.md` for full instructions before using it.
 
 - `blazor-register-nav-item` -- Add a nav item to the Blazor NavMenu.razor for a new feature, inside the correct AuthorizeView policy block and section, following the existing nav structure.
 - `blazor-scaffold-index-page` -- Scaffold a Blazor index/listing page (.razor + .razor.cs) for a feature, following the Umbrella UmbrellaGrid pattern with breadcrumb, auth policy, and action column.
