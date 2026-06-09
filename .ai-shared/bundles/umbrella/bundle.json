@@ -9,7 +9,8 @@
       "source": ".ai-shared\\skills",
       "targets": [
         { "destination": ".claude\\skills", "substitutions": { "{{skill_dir}}": ".claude\\skills" } },
-        { "destination": ".github\\skills", "substitutions": { "{{skill_dir}}": ".github\\skills" } }
+        { "destination": ".github\\skills", "substitutions": { "{{skill_dir}}": ".github\\skills" } },
+        { "destination": ".agents\\skills", "substitutions": { "{{skill_dir}}": ".agents\\skills" } }
       ]
     },
     {
@@ -28,11 +29,11 @@
     },
     {
       "targetPath": ".ai-shared\\bundles\\umbrella\\blocks\\AGENTS.block.md",
-      "skillsDirectory": ".github\\skills"
+      "skillsDirectory": ".agents\\skills"
     },
     {
       "targetPath": ".ai-shared\\bundles\\umbrella\\blocks\\copilot-instructions.block.md",
-      "skillsDirectory": ".github\\skills"
+      "skillsDirectory": ".agents\\skills"
     }
   ],
   "managedBlocks": [
