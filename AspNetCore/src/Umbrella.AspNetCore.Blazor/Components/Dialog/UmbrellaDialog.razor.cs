@@ -1,13 +1,11 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Blazored.Modal;
-using Blazored.Modal.Services;
 using Umbrella.AspNetCore.Blazor.Constants;
 
 namespace Umbrella.AspNetCore.Blazor.Components.Dialog;
 
 /// <summary>
-/// A dialog component that is rendered using the <see cref="BlazoredModal"/> infrastructure.
+/// A dialog component rendered by the <see cref="UmbrellaDialogHost"/> infrastructure.
 /// </summary>
 /// <seealso cref="ComponentBase" />
 public partial class UmbrellaDialog
@@ -16,10 +14,10 @@ public partial class UmbrellaDialog
 	private NavigationManager Navigation { get; [RequiresUnreferencedCode(TrimConstants.DI)] set; } = null!;
 
 	/// <summary>
-	/// Gets or sets the modal instance as a cascading parameter.
+	/// Gets or sets the dialog instance as a cascading parameter.
 	/// </summary>
 	[CascadingParameter]
-	protected BlazoredModalInstance ModalInstance { get; set; } = null!;
+	protected UmbrellaDialogInstance ModalInstance { get; set; } = null!;
 
 	/// <summary>
 	/// Gets or sets the size.
@@ -129,8 +127,8 @@ public partial class UmbrellaDialog
 	{
 		base.OnInitialized();
 
-		ModalInstance.Options.HideHeader = !ShowHeader;
-		ModalInstance.Options.HideCloseButton = !ShowCloseButton;
+		ModalInstance.HideHeader = !ShowHeader;
+		ModalInstance.HideCloseButton = !ShowCloseButton;
 	}
 
 	/// <summary>
@@ -138,7 +136,7 @@ public partial class UmbrellaDialog
 	/// </summary>
 	protected async Task BackgroundClickAsync()
 	{
-		if (ModalInstance.Options.DisableBackgroundCancel is not true)
+		if (ModalInstance.DisableBackgroundCancel is not true)
 			await ModalInstance.CancelAsync();
 	}
 

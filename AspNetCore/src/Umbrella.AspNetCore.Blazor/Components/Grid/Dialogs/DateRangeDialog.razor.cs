@@ -1,5 +1,4 @@
-﻿using Blazored.Modal.Services;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Umbrella.AspNetCore.Blazor.Components.Grid.Dialogs.Models;
 using Umbrella.AspNetCore.Blazor.Infrastructure;
 

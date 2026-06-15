@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Microsoft.JSInterop;
 using Umbrella.AspNetCore.Blazor.Services.Abstractions;
 
 namespace Umbrella.AspNetCore.Blazor.Services;

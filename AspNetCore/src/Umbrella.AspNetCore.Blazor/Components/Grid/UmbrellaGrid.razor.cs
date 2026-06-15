@@ -2,8 +2,6 @@
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Text.Json;
-using Blazored.Modal;
-using Blazored.SessionStorage;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Logging;
 using Umbrella.AspNetCore.Blazor.Components.Dialog.Abstractions;
@@ -13,6 +11,7 @@ using Umbrella.AspNetCore.Blazor.Components.Grid.Options;
 using Umbrella.AspNetCore.Blazor.Components.Pagination;
 using Umbrella.AspNetCore.Blazor.Constants;
 using Umbrella.AspNetCore.Blazor.Enumerations;
+using Umbrella.AppFramework.Services.Abstractions;
 using Umbrella.AspNetCore.Blazor.Services.Abstractions;
 using Umbrella.AspNetCore.Shared.Extensions;
 using Umbrella.Utilities.Data.Filtering;
@@ -101,7 +100,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	private Lazy<IBrowserEventAggregator> BrowserEventAggregator { get; [RequiresUnreferencedCode(TrimConstants.DI)] set; } = null!;
 
 	[Inject]
-	private ISessionStorageService SessionStorageService { get; [RequiresUnreferencedCode(TrimConstants.DI)] set; } = null!;
+	private IAppSessionStorageService SessionStorageService { get; [RequiresUnreferencedCode(TrimConstants.DI)] set; } = null!;
 
 	/// <summary>
 	/// Gets or sets the instance of the associated <see cref="UmbrellaPagination"/> component.
@@ -161,7 +160,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	/// Gets or sets the dialog instance.
 	/// </summary>
 	[CascadingParameter]
-	protected BlazoredModalInstance? ModalInstance { get; set; }
+	protected UmbrellaDialogInstance? ModalInstance { get; set; }
 
 	/// <summary>
 	/// Gets or sets the additional content to be displayed between the filter fields and the action buttons that apply the
@@ -569,7 +568,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 			await SetColumnScanCompletedAsync();
 
 			if (!string.IsNullOrEmpty(_sessionStorageSearchStateKey))
-				await SessionStorageService.SetItemAsStringAsync(_sessionStorageSearchStateKey, Navigation.Uri, _cts.Token);
+				await SessionStorageService.SetAsync(_sessionStorageSearchStateKey, Navigation.Uri);
 		}
 	}
 
@@ -830,7 +829,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 					// Before navigating, store the url in SessionStorage, the intention being that if the user has navigated
 					// away from the screen containing the grid, we can restore state by loading it from there.
 					if (!string.IsNullOrEmpty(_sessionStorageSearchStateKey))
-						await SessionStorageService.SetItemAsStringAsync(_sessionStorageSearchStateKey, url, _cts.Token);
+						await SessionStorageService.SetAsync(_sessionStorageSearchStateKey, url);
 
 					Navigation.NavigateTo(url);
 				}
@@ -918,7 +917,7 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 				&& !pageSizeResult.success
 				&& !string.IsNullOrEmpty(_sessionStorageSearchStateKey))
 			{
-				string url = await SessionStorageService.GetItemAsStringAsync(_sessionStorageSearchStateKey, _cts.Token);
+				string? url = await SessionStorageService.GetAsync(_sessionStorageSearchStateKey);
 
 				if (!string.IsNullOrEmpty(url) && url != Navigation.Uri)
 				{

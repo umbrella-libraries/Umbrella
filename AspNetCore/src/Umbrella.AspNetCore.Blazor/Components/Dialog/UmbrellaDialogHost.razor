@@ -1,0 +1,8 @@
+@namespace Umbrella.AspNetCore.Blazor.Components.Dialog
+
+@foreach (var entry in DialogService.ActiveDialogs)
+{
+    <CascadingValue Value="@entry.Instance">
+        <DynamicComponent Type="@entry.ComponentType" Parameters="@entry.Parameters.ToDictionary()" />
+    </CascadingValue>
+}

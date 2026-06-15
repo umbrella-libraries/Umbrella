@@ -1,14 +1,14 @@
 ﻿<div class="modal-backdrop fade show" @onclick="BackgroundClickAsync"></div>
 <div class="modal fade show d-block u-dialog" tabindex="-1" role="dialog">
-	<div class="modal-dialog @(DialogSizeCssClass) @(ModalInstance.Options.Class) modal-dialog-scrollable" role="document">
+	<div class="modal-dialog @(DialogSizeCssClass) @(ModalInstance.CssClass) modal-dialog-scrollable" role="document">
 		<div class="modal-content">
-			@if (ModalInstance.Options.HideHeader is not true)
+			@if (ModalInstance.HideHeader is not true)
 			{
 				@if (Header is null)
 				{
 					<div class="modal-header">
 						<h5 class="modal-title">@ModalInstance.Title</h5>
-						@if (ModalInstance.Options.HideCloseButton is not true)
+						@if (ModalInstance.HideCloseButton is not true)
 						{
 							<button type="button" class="close" aria-label="Close the @ModalInstance.Title dialog" @onclick="CloseClickAsync">
 								@if (RenderCloseButtonIcon)

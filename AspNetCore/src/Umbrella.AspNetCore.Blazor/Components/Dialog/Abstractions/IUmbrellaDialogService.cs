@@ -1,6 +1,3 @@
-﻿
-using Blazored.Modal;
-using Blazored.Modal.Services;
 using Umbrella.AppFramework.Options;
 using Umbrella.AppFramework.Services.Abstractions;
 using Umbrella.AppFramework.Services.Constants;
@@ -13,6 +10,16 @@ namespace Umbrella.AspNetCore.Blazor.Components.Dialog.Abstractions;
 /// <seealso cref="IDialogService" />
 public interface IUmbrellaDialogService : IDialogService
 {
+	/// <summary>
+	/// Raised whenever the set of active dialogs changes so that <see cref="UmbrellaDialogHost"/> can re-render.
+	/// </summary>
+	event EventHandler? OnChanged;
+
+	/// <summary>
+	/// Gets the currently active dialogs being managed by the dialog system.
+	/// </summary>
+	IReadOnlyList<UmbrellaDialogEntry> ActiveDialogs { get; }
+
 	/// <summary>
 	/// Shows a confirmation success dialog.
 	/// </summary>
@@ -75,7 +82,7 @@ public interface IUmbrellaDialogService : IDialogService
 	/// <typeparam name="T">The type of the component rendered inside the dialog.</typeparam>
 	/// <param name="title">The title.</param>
 	/// <param name="cssClass">The custom css class applied to the dialog container.</param>
-	/// <param name="modalParameters">The modal parameters used to pass data to the dialog instance.</param>
+	/// <param name="modalParameters">The parameters used to pass data to the dialog instance.</param>
 	/// <returns>An awaitable task that completes when the dialog has been actioned.</returns>
 	ValueTask<ModalResult> ShowDialogAsync<T>(string title, string cssClass, ModalParameters? modalParameters = null)
 		where T : ComponentBase;
@@ -87,7 +94,7 @@ public interface IUmbrellaDialogService : IDialogService
 	/// <typeparam name="TResult">The type of the result.</typeparam>
 	/// <param name="title">The title.</param>
 	/// <param name="cssClass">The custom css class applied to the dialog container.</param>
-	/// <param name="modalParameters">The modal parameters used to pass data to the dialog instance.</param>
+	/// <param name="modalParameters">The parameters used to pass data to the dialog instance.</param>
 	/// <returns>An awaitable task that completes when the dialog has been actioned.</returns>
 	ValueTask<TResult> ShowDialogAsync<T, TResult>(string title, string cssClass, ModalParameters? modalParameters = null)
 		where T : ComponentBase

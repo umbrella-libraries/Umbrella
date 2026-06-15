@@ -1,11 +1,10 @@
-﻿using Blazored.LocalStorage;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Umbrella.AppFramework.Services.Abstractions;
 
 namespace Umbrella.AspNetCore.Blazor.Services;
 
 /// <summary>
-/// A persistent local storage service used to store string values used by the app using the <see cref="ILocalStorageService"/>.
+/// A persistent local storage service that stores string values using the browser's native <c>localStorage</c> API.
 /// </summary>
 /// <remarks>
 /// This service requires an interactive render mode (Interactive Server or WebAssembly). All operations are silently
@@ -15,19 +14,19 @@ namespace Umbrella.AspNetCore.Blazor.Services;
 public class BlazorLocalStorageService : IAppLocalStorageService
 {
 	private readonly ILogger _logger;
-	private readonly ILocalStorageService _storageService;
+	private readonly IJSRuntime _js;
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="BlazorLocalStorageService"/> class.
 	/// </summary>
 	/// <param name="logger">The logger.</param>
-	/// <param name="storageService">The storage service.</param>
+	/// <param name="js">The JS runtime.</param>
 	public BlazorLocalStorageService(
 		ILogger<BlazorLocalStorageService> logger,
-		ILocalStorageService storageService)
+		IJSRuntime js)
 	{
 		_logger = logger;
-		_storageService = storageService;
+		_js = js;
 	}
 
 	/// <inheritdoc />
@@ -35,7 +34,7 @@ public class BlazorLocalStorageService : IAppLocalStorageService
 	{
 		try
 		{
-			return await _storageService.GetItemAsStringAsync(key);
+			return await _js.InvokeAsync<string?>("localStorage.getItem", key);
 		}
 		catch (InvalidOperationException)
 		{
@@ -54,7 +53,7 @@ public class BlazorLocalStorageService : IAppLocalStorageService
 	{
 		try
 		{
-			await _storageService.RemoveItemAsync(key);
+			await _js.InvokeVoidAsync("localStorage.removeItem", key);
 		}
 		catch (InvalidOperationException)
 		{
@@ -72,7 +71,7 @@ public class BlazorLocalStorageService : IAppLocalStorageService
 	{
 		try
 		{
-			await _storageService.SetItemAsStringAsync(key, value);
+			await _js.InvokeVoidAsync("localStorage.setItem", key, value);
 		}
 		catch (InvalidOperationException)
 		{

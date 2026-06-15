@@ -1,11 +1,7 @@
 ﻿
-using Blazored.LocalStorage;
-using Blazored.Modal;
-using Blazored.SessionStorage;
 using CommunityToolkit.Diagnostics;
 using Umbrella.AppFramework.Services.Abstractions;
 using Umbrella.AspNetCore.Blazor.Components.Breadcrumb.Options;
-using Umbrella.AspNetCore.Blazor.Components.Dialog;
 using Umbrella.AspNetCore.Blazor.Components.Dialog.Abstractions;
 using Umbrella.AspNetCore.Blazor.Components.DynamicImage.Options;
 using Umbrella.AspNetCore.Blazor.Components.Grid.Options;
@@ -76,11 +72,6 @@ public static class IServiceCollectionExtensions
 		_ = services.ConfigureUmbrellaOptions(umbrellaGridOptionsBuilder);
 		_ = services.ConfigureUmbrellaOptions(umbrellaDynamicImageOptionsBuilder);
 		_ = services.ConfigureUmbrellaOptions(umbrellaBreadcrumbOptionsBuilder);
-
-		// Add the Blazored Services here too to avoid the user having to add them manually
-		_ = services.AddBlazoredModal();
-		_ = services.AddBlazoredLocalStorage();
-		_ = services.AddBlazoredSessionStorage();
 
 		return services;
 	}

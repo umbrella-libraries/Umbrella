@@ -22,11 +22,6 @@
 		<Content Remove="Content\**" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
-		<PackageReference Include="Blazored.SessionStorage" Version="2.4.0" />
-		<PackageReference Include="Blazored.Modal" Version="7.3.1" />
-	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
 		<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.17" />
@@ -62,8 +57,10 @@
 
 	<ItemGroup>
 		<Using Include="Microsoft.AspNetCore.Components" />
+		<Using Include="Microsoft.JSInterop" />
 		<Using Include="Umbrella.Utilities.Extensions" />
 		<Using Include="Umbrella.AspNetCore.Blazor.Exceptions" />
+		<Using Include="Umbrella.AspNetCore.Blazor.Components.Dialog" />
 	</ItemGroup>
 
 </Project>

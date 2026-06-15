@@ -1,9 +1,7 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Security.Claims;
-using Blazored.Modal;
-using Blazored.Modal.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +27,7 @@ public class UmbrellaDialogService : IUmbrellaDialogService
 	private static readonly ModalParameters _emptyModalParameters = [];
 
 	private readonly ConcurrentDictionary<Type, IReadOnlyCollection<AuthorizeAttribute>> _authorizationAttributeCache = new();
+	private readonly List<UmbrellaDialogEntry> _active = [];
 
 	private readonly IReadOnlyCollection<UmbrellaDialogButton> _defaultMessageButtons = new[]
 	{
@@ -87,31 +86,33 @@ public class UmbrellaDialogService : IUmbrellaDialogService
 
 	private readonly ILogger _logger;
 	private readonly IDialogTrackerService _dialogTracker;
-	private readonly IModalService _modalService;
 	private readonly IServiceProvider _serviceProvider;
 	private readonly IHttpContextService _httpContextService;
 	private readonly DialogServiceOptions _options;
+
+	/// <inheritdoc/>
+	public event EventHandler? OnChanged;
+
+	/// <inheritdoc/>
+	public IReadOnlyList<UmbrellaDialogEntry> ActiveDialogs => _active;
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="UmbrellaDialogService"/> class.
 	/// </summary>
 	/// <param name="logger">The logger.</param>
 	/// <param name="dialogTracker">The dialog tracker.</param>
-	/// <param name="modalService">The modal service.</param>
 	/// <param name="serviceProvider">The service provider.</param>
 	/// <param name="httpContextService">The HTTP context service.</param>
 	/// <param name="options">The dialog service options.</param>
 	public UmbrellaDialogService(
 		ILogger<UmbrellaDialogService> logger,
 		IDialogTrackerService dialogTracker,
-		IModalService modalService,
 		IServiceProvider serviceProvider,
 		IHttpContextService httpContextService,
 		DialogServiceOptions options)
 	{
 		_logger = logger;
 		_dialogTracker = dialogTracker;
-		_modalService = modalService;
 		_serviceProvider = serviceProvider;
 		_httpContextService = httpContextService;
 		_options = options;
@@ -340,17 +341,7 @@ public class UmbrellaDialogService : IUmbrellaDialogService
 				{ nameof(UmbrellaDialog.RenderCloseButtonIcon), _options.RenderCloseButtonIcon }
 			};
 
-			var options = new ModalOptions
-			{
-				Class = cssClass,
-				DisableBackgroundCancel = true,
-				UseCustomLayout = true,
-				HideCloseButton = !showCloseIcon
-			};
-
-			IModalReference modal = _modalService.Show<UmbrellaDialog>(title, parameters, options);
-
-			return await modal.Result;
+			return await ShowCoreAsync<UmbrellaDialog, ModalResult>(title, cssClass, parameters, disableBackgroundCancel: true, hideCloseButton: !showCloseIcon);
 		}
 		catch (Exception exc) when (_logger.WriteError(exc, new { message, title, cssClass, buttons, subTitle }))
 		{
@@ -449,23 +440,39 @@ public class UmbrellaDialogService : IUmbrellaDialogService
 				}
 			}
 
-			var options = new ModalOptions
-			{
-				Class = cssClass,
-				DisableBackgroundCancel = true,
-				UseCustomLayout = true
-			};
-
-			IModalReference modal = modalParameters is not null
-				? _modalService.Show<T>(title, modalParameters, options)
-				: _modalService.Show<T>(title, _emptyModalParameters, options);
-
-			return (TResult)await modal.Result;
+			return await ShowCoreAsync<T, TResult>(title, cssClass, modalParameters ?? _emptyModalParameters, disableBackgroundCancel: true);
 		}
 		catch (Exception exc) when (_logger.WriteError(exc, new { title, cssClass }))
 		{
 			throw new UmbrellaBlazorException("There has been a problem showing the dialog.", exc);
 		}
+	}
+
+	/// <inheritdoc/>
+	public ValueTask ShowConcurrencyDangerMessageAsync(string message = DialogDefaults.ConcurrencyErrorMessage) => ShowDangerMessageAsync(message);
+
+	private async ValueTask<TResult> ShowCoreAsync<T, TResult>(string title, string? cssClass, ModalParameters parameters, bool disableBackgroundCancel, bool hideCloseButton = false)
+		where T : ComponentBase
+		where TResult : ModalResult
+	{
+		var instance = new UmbrellaDialogInstance
+		{
+			Title = title,
+			CssClass = cssClass,
+			DisableBackgroundCancel = disableBackgroundCancel,
+			HideCloseButton = hideCloseButton
+		};
+
+		var entry = new UmbrellaDialogEntry(typeof(T), parameters, instance);
+		_active.Add(entry);
+		OnChanged?.Invoke(this, EventArgs.Empty);
+
+		var result = (TResult)await instance.Result;
+
+		_active.Remove(entry);
+		OnChanged?.Invoke(this, EventArgs.Empty);
+
+		return result;
 	}
 
 	private static IReadOnlyCollection<UmbrellaDialogButton> GetConfirmButtons(UmbrellaDialogButtonType acceptButtonType, IReadOnlyCollection<UmbrellaDialogButton> defaultButtons, string acceptButtonText, string cancelButtonText)
@@ -476,7 +483,4 @@ public class UmbrellaDialogService : IUmbrellaDialogService
 				new UmbrellaDialogButton(cancelButtonText, UmbrellaDialogButtonType.Default, true),
 				new UmbrellaDialogButton(acceptButtonText, acceptButtonType)
 			};
-
-	/// <inheritdoc/>
-	public ValueTask ShowConcurrencyDangerMessageAsync(string message = DialogDefaults.ConcurrencyErrorMessage) => ShowDangerMessageAsync(message);
 }

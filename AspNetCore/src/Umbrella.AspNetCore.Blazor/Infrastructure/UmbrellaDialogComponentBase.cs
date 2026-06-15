@@ -1,5 +1,4 @@
 ﻿
-using Blazored.Modal;
 using Microsoft.Extensions.Logging;
 
 namespace Umbrella.AspNetCore.Blazor.Infrastructure;
@@ -14,7 +13,7 @@ public abstract class UmbrellaDialogComponentBase : UmbrellaClientComponentBase
 	/// Gets or sets the dialog instance.
 	/// </summary>
 	[CascadingParameter]
-	protected BlazoredModalInstance ModalInstance { get; set; } = null!;
+	protected UmbrellaDialogInstance ModalInstance { get; set; } = null!;
 
 	/// <summary>
 	/// Handles the close button click event for the dialog.
