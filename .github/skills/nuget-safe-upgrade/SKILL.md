@@ -46,12 +46,16 @@ Packages listed in `frameworkCoupledFamilies` (in `nuget-upgrade-exclusions.json
 
 When a package upgrade is blocked on some TFMs but would be safe on others, the script automatically splits the single unconditional `<PackageReference>` into per-framework conditional `<ItemGroup>` blocks:
 
-- **Blocked TFMs** keep the current version (e.g., `net8.0`/`net9.0` when the new version pulls v10 transitive deps).
+- **Blocked TFMs** keep the current version (e.g., `netstandard2.0`/`net8.0`/`net9.0` when the new version pulls v10 transitive deps or bumps the package major).
 - **Allowed TFMs** receive the upgraded version (e.g., `net10.0`).
 
 Split candidates appear in the `successful` list with action `Analyzed (split candidate)` or `Applied (split by framework)` and include `upgradeFrameworks`/`keepFrameworks` fields.
 
 Split only applies to unconditional `PackageReference` items directly in `.csproj` files. `PackageVersion` entries in `Directory.Packages.props` and already-conditional references are not split.
+
+**TFM ordering:** Condition strings and `<ItemGroup>` blocks are written in ascending semantic order: `netstandard*` (lowest) → `net4*` → `net5+` (ascending by major version). Lower TFMs always appear first in the file, matching conventional `.csproj` reading order.
+
+**Legacy-TFM major-version guard:** For `netstandard*` and `net4*` TFMs any candidate that bumps the package's major version is automatically added to the blocked set — the same as a transitive-graph violation on `net5+` TFMs. This prevents a major upgrade from silently pulling in runtime dependencies that only ship on newer .NET targets. Use `-OverrideBlockedPackageId` to bypass after manual verification.
 
 ## Lockstep package families
 

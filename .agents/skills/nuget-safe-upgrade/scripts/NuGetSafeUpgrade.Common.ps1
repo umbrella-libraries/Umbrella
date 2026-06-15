@@ -479,6 +479,33 @@ function Get-NuGetUpgradeFrameworkMajor {
     return $major
 }
 
+function Get-TfmSortKey {
+    param([string]$Tfm)
+    if ($Tfm -match '^netstandard(\d+)\.(\d+)') {
+        return [pscustomobject]@{ Tier = 0; Major = [int]$Matches[1]; Minor = [int]$Matches[2] }
+    }
+    if ($Tfm -match '^net4') {
+        $ver = $Tfm -replace '^net', ''
+        if    ($ver -match '^(\d)\.(\d+)') { $maj = [int]$Matches[1]; $min = [int]$Matches[2] }
+        elseif ($ver -match '^(\d)(\d+)')  { $maj = [int]$Matches[1]; $min = [int]$Matches[2] }
+        elseif ($ver -match '^(\d+)')       { $maj = [int]$Matches[1]; $min = 0 }
+        else                               { $maj = 4; $min = 0 }
+        return [pscustomobject]@{ Tier = 1; Major = $maj; Minor = $min }
+    }
+    if ($Tfm -match '^net(\d+)\.(\d+)') {
+        return [pscustomobject]@{ Tier = 2; Major = [int]$Matches[1]; Minor = [int]$Matches[2] }
+    }
+    return [pscustomobject]@{ Tier = 3; Major = 0; Minor = 0 }
+}
+
+function Sort-NuGetUpgradeTargetFrameworks {
+    param([string[]]$Frameworks)
+    $Frameworks | Sort-Object `
+        @{ Expression = { (Get-TfmSortKey -Tfm $_).Tier  } }, `
+        @{ Expression = { (Get-TfmSortKey -Tfm $_).Major } }, `
+        @{ Expression = { (Get-TfmSortKey -Tfm $_).Minor } }
+}
+
 function Get-NuGetUpgradeGuardrail {
     param(
         [string]$PackageId,
@@ -727,9 +754,25 @@ function Split-NuGetUpgradePackageReference {
 
     Remove-NuGetUpgradePackageReferenceLine -FilePath $FilePath -ItemName $ItemName -PackageId $PackageId -Version $CurrentVersion
 
-    $keepCondition = Build-NuGetUpgradeFrameworkCondition -Frameworks $KeepFrameworks
-    Add-NuGetUpgradePackageReferenceBlock -FilePath $FilePath -ItemName $ItemName -PackageId $PackageId -Version $CurrentVersion -Condition $keepCondition
+    $sortedKeep    = @(Sort-NuGetUpgradeTargetFrameworks -Frameworks $KeepFrameworks)
+    $sortedUpgrade = @(Sort-NuGetUpgradeTargetFrameworks -Frameworks $UpgradeFrameworks)
 
-    $upgradeCondition = Build-NuGetUpgradeFrameworkCondition -Frameworks $UpgradeFrameworks
-    Add-NuGetUpgradePackageReferenceBlock -FilePath $FilePath -ItemName $ItemName -PackageId $PackageId -Version $NewVersion -Condition $upgradeCondition
+    $keepCondition    = Build-NuGetUpgradeFrameworkCondition -Frameworks $sortedKeep
+    $upgradeCondition = Build-NuGetUpgradeFrameworkCondition -Frameworks $sortedUpgrade
+
+    # Write the block whose lowest TFM sorts first (semantic order: netstandard* < net4* < net5+).
+    $keepKey    = Get-TfmSortKey -Tfm $sortedKeep[0]
+    $upgradeKey = Get-TfmSortKey -Tfm $sortedUpgrade[0]
+    $writeKeepFirst = ($keepKey.Tier -lt $upgradeKey.Tier) -or
+                      ($keepKey.Tier -eq $upgradeKey.Tier -and $keepKey.Major -lt $upgradeKey.Major) -or
+                      ($keepKey.Tier -eq $upgradeKey.Tier -and $keepKey.Major -eq $upgradeKey.Major -and $keepKey.Minor -le $upgradeKey.Minor)
+
+    if ($writeKeepFirst) {
+        Add-NuGetUpgradePackageReferenceBlock -FilePath $FilePath -ItemName $ItemName -PackageId $PackageId -Version $CurrentVersion -Condition $keepCondition
+        Add-NuGetUpgradePackageReferenceBlock -FilePath $FilePath -ItemName $ItemName -PackageId $PackageId -Version $NewVersion -Condition $upgradeCondition
+    }
+    else {
+        Add-NuGetUpgradePackageReferenceBlock -FilePath $FilePath -ItemName $ItemName -PackageId $PackageId -Version $NewVersion -Condition $upgradeCondition
+        Add-NuGetUpgradePackageReferenceBlock -FilePath $FilePath -ItemName $ItemName -PackageId $PackageId -Version $CurrentVersion -Condition $keepCondition
+    }
 }

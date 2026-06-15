@@ -148,9 +148,11 @@ foreach ($definition in $definitions) {
             }
 
             $allValidationFrameworks = @(
-                $definition.ValidationReferences | ForEach-Object {
-                    foreach ($fw in @($_.TargetFrameworks)) { $fw }
-                } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+                Sort-NuGetUpgradeTargetFrameworks -Frameworks @(
+                    $definition.ValidationReferences | ForEach-Object {
+                        foreach ($fw in @($_.TargetFrameworks)) { $fw }
+                    } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+                )
             )
 
             $graphViolationsByFramework = @{}
@@ -177,10 +179,28 @@ foreach ($definition in $definitions) {
                 }
             }
 
-            $graphBlockedFrameworks = @($graphViolationsByFramework.Keys | Sort-Object)
-            $graphAllowedFrameworks = @($allValidationFrameworks | Where-Object { $graphBlockedFrameworks -notcontains $_ })
+            $graphBlockedFrameworks = @(Sort-NuGetUpgradeTargetFrameworks -Frameworks $graphViolationsByFramework.Keys)
 
-            if ($graphViolationsByFramework.Count -gt 0 -and -not $isOverride) {
+            # Block legacy TFMs (netstandard*, net4*) from major-version bumps: the package may
+            # have dropped legacy TFM support or pulled in transitive dependencies that target a
+            # newer runtime generation. Callers can override via -OverrideBlockedPackageId.
+            $candidateMajorVersion = (ConvertTo-NuGetUpgradeVersionInfo -Version $candidateVersion).Major
+            $currentMajorVersion   = (ConvertTo-NuGetUpgradeVersionInfo -Version $definition.CurrentVersion).Major
+            $legacyMajorBumpFrameworks = @()
+            if ($candidateMajorVersion -gt $currentMajorVersion) {
+                $legacyMajorBumpFrameworks = @($allValidationFrameworks | Where-Object { $_ -match '^netstandard' -or $_ -match '^net4' })
+                if ($legacyMajorBumpFrameworks.Count -gt 0) {
+                    $graphBlockedFrameworks = @(Sort-NuGetUpgradeTargetFrameworks -Frameworks (
+                        @($graphBlockedFrameworks + $legacyMajorBumpFrameworks) | Select-Object -Unique
+                    ))
+                }
+            }
+
+            $graphAllowedFrameworks = @(Sort-NuGetUpgradeTargetFrameworks -Frameworks (
+                @($allValidationFrameworks | Where-Object { $graphBlockedFrameworks -notcontains $_ })
+            ))
+
+            if ($graphBlockedFrameworks.Count -gt 0 -and -not $isOverride) {
                 $canSplit = $graphAllowedFrameworks.Count -gt 0 -and
                             [string]::IsNullOrWhiteSpace($definition.Condition) -and
                             $definition.ItemName -eq 'PackageReference'
@@ -208,6 +228,11 @@ foreach ($definition in $definitions) {
                                 "Candidate $candidateVersion resolves $($violation.PackageId) $($violation.Version) ($($violation.Kind)) for $($violation.Project) [$($violation.TargetFramework)], above max major $($violation.MaxAllowedMajor)."
                             )
                         }
+                    }
+                    foreach ($legacyFw in $legacyMajorBumpFrameworks) {
+                        $attemptReasons.Add(
+                            "Candidate $candidateVersion is a major-version bump ($currentMajorVersion to $candidateMajorVersion) blocked for legacy TFM [$legacyFw]."
+                        )
                     }
                     continue
                 }
