@@ -32,12 +32,15 @@ This skill safely analyzes and applies NuGet package upgrades while respecting e
 6. Keep only changes that pass restore and transitive graph checks.
 7. Return successful, skipped, and blocked packages with override guidance.
 8. After each Apply pass, check the blocked list for lockstep family packages and run a second Apply pass if any are present.
+9. After the final Apply pass, run `dotnet build <solutionPath>` and verify the solution builds cleanly. Report any build failures before declaring the upgrade complete.
 
 ## Legacy TFM version pinning
 
 Packages listed in `frameworkCoupledFamilies` (in `nuget-upgrade-exclusions.json`) are capped at the target framework's major version for net5+ TFMs. For legacy TFMs (`netstandard*`, `net4*`), the cap is the package's *current* major version — preventing inadvertent upgrades that pull in transitive dependencies from a newer runtime generation.
 
 `System.Text.Json` and `System.Net.Http.Json` are included in `frameworkCoupledFamilies` for this reason: on `netstandard2.0`/`net462` they must stay at their current 6.x baseline and must not be upgraded to 10.x.
+
+`Microsoft.Maui.` packages follow the same contract and must also appear in `frameworkCoupledFamilies`. More generally, any SDK family whose major version must match the target framework's major (MAUI, ASP.NET Core, EF Core, etc.) belongs in this list. If you encounter an already-conditional reference that was upgraded to a version whose major exceeds the condition TFM's major, that family is missing from `frameworkCoupledFamilies` — add it to `nuget-upgrade-exclusions.json` before re-running.
 
 ## Framework-split upgrades
 
@@ -97,4 +100,6 @@ powershell -ExecutionPolicy Bypass -File .github\skills\nuget-safe-upgrade\scrip
 - Never flatten framework-specific versions into a single package version.
 - Never keep a candidate that fails restore.
 - Never keep a candidate that resolves framework-coupled package families beyond the target framework major unless explicitly overridden.
+- Always verify that already-conditional package references are upgraded to a version compatible with their condition's TFM. If a package family is TFM-version-coupled but absent from `frameworkCoupledFamilies`, add it before applying upgrades.
+- Never declare an Apply pass complete without running `dotnet build` to confirm the solution compiles cleanly.
 - Keep reusable logic in `.ai-shared\` and keep this folder as a thin wrapper.

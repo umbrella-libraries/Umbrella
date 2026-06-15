@@ -19,7 +19,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Azure.Identity" Version="1.21.0" />
-		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.8" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.9" />
 		<PackageReference Include="Moq" Version="4.20.72" />
 		<PackageReference Include="Xunit.v3.Priority" Version="1.1.18" />
 	</ItemGroup>
@@ -27,6 +27,10 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\Internal\src\Umbrella.Internal.Mocks\Umbrella.Internal.Mocks.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.FileSystem.SharePoint\Umbrella.FileSystem.SharePoint.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Update="Microsoft.Testing.Extensions.CodeCoverage" Version="18.8.0" />
 	</ItemGroup>
 
 </Project>

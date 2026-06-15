@@ -16,4 +16,8 @@
 		<ProjectReference Include="..\..\..\Generators\src\Umbrella.Generators.Mapperly\Umbrella.Generators.Mapperly.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <PackageReference Update="Microsoft.Testing.Extensions.CodeCoverage" Version="18.8.0" />
+	</ItemGroup>
+
 </Project>
