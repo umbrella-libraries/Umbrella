@@ -1,5 +1,6 @@
 ﻿/* eslint-disable */
 import { BrowserEventAggregator } from './browserEventAggregator';
+import { TextEditorInterop } from './textEditor';
 
 /**
  * Provides JavaScript interop helpers used by Blazor components.
@@ -7,6 +8,7 @@ import { BrowserEventAggregator } from './browserEventAggregator';
 export class UmbrellaBlazorInterop
 {
 	#browserEventAggregator: BrowserEventAggregator | null = null;
+	#textEditor: TextEditorInterop | null = null;
 
 	scrollTimeout: number | null = null;
 	blazorInteropUtility: any;
@@ -23,6 +25,19 @@ export class UmbrellaBlazorInterop
 		this.#browserEventAggregator = new BrowserEventAggregator();
 
 		return this.#browserEventAggregator;
+	}
+
+	/**
+	 * Gets a lazily-initialized text editor interop instance.
+	 */
+	get textEditor()
+	{
+		if (this.#textEditor)
+			return this.#textEditor;
+
+		this.#textEditor = new TextEditorInterop();
+
+		return this.#textEditor;
 	}
 
 	/**

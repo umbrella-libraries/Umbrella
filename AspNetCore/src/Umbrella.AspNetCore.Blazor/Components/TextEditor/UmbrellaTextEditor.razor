@@ -1,0 +1,17 @@
+@if (!BottomToolbar)
+{
+	<div class="@ToolbarCssClass" id="@ResolvedToolbarId" @ref="_toolbarElement" style="@ToolbarCssStyle">
+		@ToolbarContent
+	</div>
+}
+
+<div class="@EditorCssClass" id="@ResolvedEditorId" @ref="_editorElement" style="@EditorCssStyle">
+	@EditorContent
+</div>
+
+@if (BottomToolbar)
+{
+	<div class="@ToolbarCssClass" id="@ResolvedToolbarId" @ref="_toolbarElement" style="@ToolbarCssStyle">
+		@ToolbarContent
+	</div>
+}

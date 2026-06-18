@@ -52,7 +52,6 @@ module.exports = async (env, argv) =>
 				{ test: /\.ts$/, exclude: /(node_modules|bower_components)/, use: "ts-loader" },
 				{
 					test: /\.(css|scss)$/,
-					exclude: /(node_modules|bower_components)/,
 					use: [MiniCssExtractPlugin.loader,
 					{
 						loader: 'css-loader',
