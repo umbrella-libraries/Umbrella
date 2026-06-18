@@ -1,8 +1,7 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Umbrella.Utilities.Encryption;
 using Umbrella.Utilities.Encryption.Options;
-using Xunit;
 
 namespace Umbrella.Utilities.Test.Encryption;
 

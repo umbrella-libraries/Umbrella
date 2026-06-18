@@ -1,7 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Umbrella.Utilities.Imaging;
-using Xunit;
 
 namespace Umbrella.Utilities.Test.Imaging;
 

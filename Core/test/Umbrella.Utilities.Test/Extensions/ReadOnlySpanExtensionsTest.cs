@@ -1,5 +1,4 @@
-﻿using Umbrella.Utilities.Extensions;
-using Xunit;
+using Umbrella.Utilities.Extensions;
 
 namespace Umbrella.Utilities.Test.Extensions;
 

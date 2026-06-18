@@ -2,12 +2,7 @@
 
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
-		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>
-		<NoWarn>CS1591</NoWarn>
-		<PreserveCompilationContext>true</PreserveCompilationContext>
-		<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-		<WarningsAsErrors>xUnit1051</WarningsAsErrors>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -23,14 +18,6 @@
 	<ItemGroup>
 		<Compile Include="..\Umbrella.AspNetCore.WebUtilities.Test\Mocks.cs" Link="Mocks.cs" />
 		<Compile Include="..\Umbrella.AspNetCore.WebUtilities.Test\GlobalSuppressions.cs" Link="GlobalSuppressions.cs" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<PackageReference Include="Moq" Version="4.20.72" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <PackageReference Update="Microsoft.Testing.Extensions.CodeCoverage" Version="18.8.0" />
 	</ItemGroup>
 
 </Project>

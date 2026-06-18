@@ -1,7 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Umbrella.Utilities.Mime;
-using Xunit;
 
 namespace Umbrella.Utilities.Test.Mime;
 

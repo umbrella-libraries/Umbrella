@@ -1,5 +1,4 @@
-﻿using System.Linq.Expressions;
-using Xunit;
+using System.Linq.Expressions;
 
 namespace Umbrella.DataAccess.Abstractions.Test;
 

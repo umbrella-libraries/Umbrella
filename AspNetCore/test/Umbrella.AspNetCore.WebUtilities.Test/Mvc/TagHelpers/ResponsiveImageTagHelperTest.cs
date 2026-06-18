@@ -1,8 +1,7 @@
-﻿using Microsoft.AspNetCore.Razor.TagHelpers;
+using Microsoft.AspNetCore.Razor.TagHelpers;
 using Umbrella.AspNetCore.WebUtilities.Razor.TagHelpers;
 using Umbrella.Internal.Mocks;
 using Umbrella.Utilities.Exceptions;
-using Xunit;
 
 namespace Umbrella.AspNetCore.WebUtilities.Test.Mvc.TagHelpers;
 

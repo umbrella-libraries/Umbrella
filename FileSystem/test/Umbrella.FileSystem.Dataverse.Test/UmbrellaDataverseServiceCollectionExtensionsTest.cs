@@ -2,7 +2,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.PowerPlatform.Dataverse.Client;
 using Moq;
 using Umbrella.FileSystem.Abstractions;
-using Xunit;
 
 namespace Umbrella.FileSystem.Dataverse.Test;
 

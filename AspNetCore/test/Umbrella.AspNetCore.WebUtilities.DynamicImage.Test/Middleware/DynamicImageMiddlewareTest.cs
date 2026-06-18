@@ -8,7 +8,6 @@ using Umbrella.Internal.Mocks;
 using Umbrella.Utilities.Mime.Abstractions;
 using Umbrella.WebUtilities.DynamicImage.Middleware.Options;
 using Umbrella.WebUtilities.Http.Abstractions;
-using Xunit;
 
 namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Test.Middleware;
 

@@ -1,6 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Umbrella.AspNetCore.WebUtilities.Extensions;
-using Xunit;
 
 namespace Umbrella.AspNetCore.WebUtilities.Test.Extensions;
 

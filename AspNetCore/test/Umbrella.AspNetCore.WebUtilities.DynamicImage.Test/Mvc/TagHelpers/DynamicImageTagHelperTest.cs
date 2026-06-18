@@ -4,7 +4,6 @@ using Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.Options;
 using Umbrella.AspNetCore.WebUtilities.Test;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.Internal.Mocks;
-using Xunit;
 
 namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Test.Mvc.TagHelpers;
 

@@ -1,4 +1,4 @@
-﻿
+
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
@@ -13,7 +13,6 @@ using Umbrella.FileSystem.Abstractions;
 using Umbrella.Utilities.Compilation;
 using Umbrella.Utilities.Helpers;
 using Umbrella.Utilities.Runtime;
-using Xunit;
 using FreeImageResizer = Umbrella.DynamicImage.FreeImage.DynamicImageResizer;
 using NetVipsResizer = Umbrella.DynamicImage.NetVips.DynamicImageResizer;
 using SkiaSharpResizer = Umbrella.DynamicImage.SkiaSharp.DynamicImageResizer;

@@ -1,4 +1,4 @@
-﻿
+
 using System.Collections.ObjectModel;
 using Azure.Identity;
 using CommunityToolkit.Diagnostics;
@@ -14,7 +14,6 @@ using Umbrella.FileSystem.SharePoint;
 using Umbrella.Internal.Mocks;
 using Umbrella.Utilities.Compilation;
 using Umbrella.Utilities.Helpers;
-using Xunit;
 using Xunit.v3.Priority;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]

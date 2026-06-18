@@ -1,7 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using Umbrella.Utilities.Comparers;
-using Xunit;
 
 namespace Umbrella.DataAccess.Abstractions.Test;
 

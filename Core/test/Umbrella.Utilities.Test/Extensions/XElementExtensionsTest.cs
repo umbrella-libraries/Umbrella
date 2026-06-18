@@ -1,6 +1,5 @@
-﻿using System.Xml.Linq;
+using System.Xml.Linq;
 using Umbrella.Utilities.Extensions;
-using Xunit;
 
 namespace Umbrella.Utilities.Test.Extensions;
 

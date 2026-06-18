@@ -2,12 +2,7 @@
 
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
-		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>
-		<NoWarn>CS1591</NoWarn>
-		<PreserveCompilationContext>true</PreserveCompilationContext>
-		<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-		<WarningsAsErrors>xUnit1051</WarningsAsErrors>
 		<UserSecretsId>a3f1d9e2-7b4c-4f8a-b6e3-c2d5f0a1e8b4</UserSecretsId>
 	</PropertyGroup>
 
@@ -21,7 +16,6 @@
 		<PackageReference Include="Azure.Identity" Version="1.21.0" />
 		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.10" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.9" />
-		<PackageReference Include="Moq" Version="4.20.72" />
 		<PackageReference Include="Xunit.v3.Priority" Version="1.1.18" />
 	</ItemGroup>
 
@@ -31,10 +25,6 @@
 		<ProjectReference Include="..\..\src\Umbrella.FileSystem.Dataverse\Umbrella.FileSystem.Dataverse.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.FileSystem.Disk\Umbrella.FileSystem.Disk.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.FileSystem.SharePoint\Umbrella.FileSystem.SharePoint.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <PackageReference Update="Microsoft.Testing.Extensions.CodeCoverage" Version="18.8.0" />
 	</ItemGroup>
 
 </Project>

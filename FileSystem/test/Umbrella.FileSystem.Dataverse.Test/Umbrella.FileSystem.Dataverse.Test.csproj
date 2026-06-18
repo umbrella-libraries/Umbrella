@@ -2,12 +2,7 @@
 
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
-		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>
-		<NoWarn>CS1591</NoWarn>
-		<PreserveCompilationContext>true</PreserveCompilationContext>
-		<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-		<WarningsAsErrors>xUnit1051</WarningsAsErrors>
 		<UserSecretsId>b7c3f2a1-4d8e-4f9b-a5c6-e2d1f0b8c3a4</UserSecretsId>
 	</PropertyGroup>
 
@@ -20,17 +15,12 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.10" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.9" />
-		<PackageReference Include="Moq" Version="4.20.72" />
 		<PackageReference Include="Xunit.v3.Priority" Version="1.1.18" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\Internal\src\Umbrella.Internal.Mocks\Umbrella.Internal.Mocks.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.FileSystem.Dataverse\Umbrella.FileSystem.Dataverse.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <PackageReference Update="Microsoft.Testing.Extensions.CodeCoverage" Version="18.8.0" />
 	</ItemGroup>
 
 </Project>

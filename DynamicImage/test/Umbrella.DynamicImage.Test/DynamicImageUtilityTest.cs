@@ -1,7 +1,6 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Umbrella.DynamicImage.Abstractions;
-using Xunit;
 
 namespace Umbrella.DynamicImage.Test;
 

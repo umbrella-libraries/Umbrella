@@ -5,7 +5,6 @@ using Umbrella.Internal.Mocks;
 using Umbrella.Utilities.Exceptions;
 using Umbrella.Utilities.Mapping.Abstractions;
 using Umbrella.Utilities.Mapping.Mapperly.Abstractions;
-using Xunit;
 
 namespace Umbrella.Utilities.Mapping.Mapperly.Test;
 

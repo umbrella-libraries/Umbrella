@@ -2,6 +2,11 @@
 
 	<PropertyGroup Condition="'$(IsTestProject)'=='true'">
 		<OutputType>Exe</OutputType>
+		<IsPackable>false</IsPackable>
+		<NoWarn>CS1591</NoWarn>
+		<WarningsAsErrors>xUnit1051</WarningsAsErrors>
+		<PreserveCompilationContext>true</PreserveCompilationContext>
+		<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
 	</PropertyGroup>
 
 </Project>

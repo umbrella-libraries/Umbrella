@@ -1,11 +1,10 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Umbrella.Internal.Mocks;
 using Umbrella.Legacy.WebUtilities.Hosting;
 using Umbrella.Utilities.Caching;
 using Umbrella.Utilities.Data.Abstractions;
 using Umbrella.Utilities.Hosting.Options;
-using Xunit;
 
 namespace Umbrella.Legacy.WebUtilities.Test.Hosting;
 

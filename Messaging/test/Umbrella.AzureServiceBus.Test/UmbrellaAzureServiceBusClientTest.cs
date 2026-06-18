@@ -1,4 +1,4 @@
-﻿using Azure.Messaging.ServiceBus;
+using Azure.Messaging.ServiceBus;
 using Azure.Storage.Blobs;
 
 #if !AZUREDEVOPS
@@ -7,7 +7,6 @@ using Microsoft.Extensions.Configuration;
 using Umbrella.AzureServiceBus.Abstractions;
 using Umbrella.AzureServiceBus.Plugins;
 using Umbrella.Internal.Mocks;
-using Xunit;
 
 namespace Umbrella.AzureServiceBus.Test;
 

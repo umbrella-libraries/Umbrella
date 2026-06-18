@@ -2,7 +2,6 @@ using Azure.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Graph;
 using Umbrella.FileSystem.Abstractions;
-using Xunit;
 
 namespace Umbrella.FileSystem.SharePoint.Test;
 

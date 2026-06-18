@@ -1,5 +1,4 @@
-﻿using Umbrella.Utilities.Helpers;
-using Xunit;
+using Umbrella.Utilities.Helpers;
 
 namespace Umbrella.AspNetCore.WebUtilities.Test.Hosting;
 

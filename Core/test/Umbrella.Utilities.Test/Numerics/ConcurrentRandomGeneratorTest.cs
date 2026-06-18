@@ -1,8 +1,7 @@
-﻿
+
 using Microsoft.Extensions.Logging;
 using Moq;
 using Umbrella.Utilities.Numerics;
-using Xunit;
 
 namespace Umbrella.Utilities.Test.Numerics;
 

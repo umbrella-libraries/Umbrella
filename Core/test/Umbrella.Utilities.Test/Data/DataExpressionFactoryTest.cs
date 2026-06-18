@@ -1,9 +1,8 @@
-﻿using Umbrella.Internal.Mocks;
+using Umbrella.Internal.Mocks;
 using Umbrella.Utilities.Data;
 using Umbrella.Utilities.Data.Abstractions;
 using Umbrella.Utilities.Data.Filtering;
 using Umbrella.Utilities.Data.Sorting;
-using Xunit;
 
 namespace Umbrella.Utilities.Test.Data;
 

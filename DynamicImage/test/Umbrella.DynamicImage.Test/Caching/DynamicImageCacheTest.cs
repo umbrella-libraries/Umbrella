@@ -1,4 +1,4 @@
-﻿
+
 using CommunityToolkit.Diagnostics;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.DynamicImage.Abstractions.Caching;
@@ -10,7 +10,6 @@ using Umbrella.FileSystem.Disk;
 using Umbrella.Internal.Mocks;
 using Umbrella.Utilities.Compilation;
 using Umbrella.Utilities.Helpers;
-using Xunit;
 
 namespace Umbrella.DynamicImage.Test.Caching;
 

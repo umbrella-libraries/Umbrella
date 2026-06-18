@@ -1,9 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Umbrella.Internal.Mocks;
 using Umbrella.Utilities.Caching;
 using Umbrella.Utilities.Data.Abstractions;
-using Xunit;
 
 namespace Umbrella.Utilities.Test.Caching;
 
