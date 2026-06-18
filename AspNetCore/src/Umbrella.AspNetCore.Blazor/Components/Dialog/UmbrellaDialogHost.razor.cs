@@ -5,6 +5,7 @@ namespace Umbrella.AspNetCore.Blazor.Components.Dialog;
 /// <summary>
 /// The root host component for the Umbrella dialog system.
 /// Place this component once in the application layout to enable dialog rendering.
+/// Each active dialog is rendered with its <see cref="UmbrellaDialogInstance"/> cascaded to the dialog component.
 /// </summary>
 public sealed partial class UmbrellaDialogHost : ComponentBase, IDisposable
 {
