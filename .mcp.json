@@ -47,6 +47,16 @@
 				"https://api.nuget.org/v3/index.json",
 				"--yes"
 			]
+		},
+		"azure": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@azure/mcp@latest",
+				"server",
+				"start"
+			]
 		}
 	},
 	"servers": {
@@ -96,6 +106,16 @@
 				"--source",
 				"https://api.nuget.org/v3/index.json",
 				"--yes"
+			]
+		},
+		"azure": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"@azure/mcp@latest",
+				"server",
+				"start"
 			]
 		}
 	}
