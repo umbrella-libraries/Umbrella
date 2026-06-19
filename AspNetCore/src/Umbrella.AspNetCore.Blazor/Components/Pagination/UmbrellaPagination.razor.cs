@@ -40,16 +40,29 @@ public partial class UmbrellaPagination
 	public IReadOnlyCollection<int> PageSizeOptions { get; set; } = UmbrellaPaginationDefaults.PageSizeOptions;
 
 	/// <summary>
-	/// Gets or sets the maximum pages to show.
+	/// Gets or sets the maximum pages to show. Defaults to <see cref="UmbrellaPaginationDefaults.MaxPagesToShow"/>.
 	/// </summary>
 	[Parameter]
-	public int MaxPagesToShow { get; set; } = 5;
+	public int MaxPagesToShow { get; set; } = UmbrellaPaginationDefaults.MaxPagesToShow;
 
 	/// <summary>
 	/// Gets or sets a value indicating whether to use small pagination styling.
 	/// </summary>
 	[Parameter]
 	public bool SmallPagination { get; set; } = true;
+
+	/// <summary>
+	/// Gets or sets a value indicating whether the page size selection dropdown is shown. Defaults to <see langword="true"/>.
+	/// </summary>
+	[Parameter]
+	public bool ShowPageSizeOptions { get; set; } = true;
+
+	/// <summary>
+	/// Gets or sets the querystring key used for the page number in the generated pagination hyperlink <c>href</c> values.
+	/// Defaults to <c>"pageNumber"</c>.
+	/// </summary>
+	[Parameter]
+	public string PageNumberQueryStringKey { get; set; } = "pageNumber";
 
 	/// <summary>
 	/// Gets or sets the event handler that is invoked when the pagination options have been changed as a result of user interaction.
@@ -61,6 +74,11 @@ public partial class UmbrellaPagination
 	/// Gets or sets the model.
 	/// </summary>
 	protected PaginationModel Model { get; set; }
+
+	/// <summary>
+	/// Gets the unique element id used to associate the page size dropdown toggle with its menu. Computed once per instance.
+	/// </summary>
+	private string PaginationSizeButtonId { get; } = "a" + Guid.NewGuid().ToString("N")[1..];
 
 	/// <summary>
 	/// Updates the pagination state using the specified parameters.
@@ -153,9 +171,11 @@ public partial class UmbrellaPagination
 
 	private async Task RefreshAsync(bool raiseEvent = true)
 	{
-		Model = new PaginationModel(TotalCount, PageNumber, PageSize, true, MaxPagesToShow);
+		Model = new PaginationModel(TotalCount, PageNumber, PageSize, ShowPageSizeOptions, MaxPagesToShow);
 
 		if (raiseEvent && OnOptionsChanged.HasDelegate)
 			await OnOptionsChanged.InvokeAsync(new UmbrellaPaginationEventArgs(PageSize, PageNumber));
 	}
+
+	private string BuildPageHref(int pageNumber) => $"?{PageNumberQueryStringKey}={pageNumber}";
 }

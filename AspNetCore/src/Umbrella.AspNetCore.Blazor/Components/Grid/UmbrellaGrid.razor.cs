@@ -322,6 +322,18 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	public IReadOnlyCollection<int> PageSizeOptions { get; set; } = UmbrellaPaginationDefaults.PageSizeOptions;
 
 	/// <summary>
+	/// Gets or sets a value indicating whether the page size selection dropdown is shown in the pagination control. Defaults to <see langword="true"/>.
+	/// </summary>
+	[Parameter]
+	public bool ShowPageSizeOptions { get; set; } = true;
+
+	/// <summary>
+	/// Gets or sets the maximum number of page links to show in the pagination control. Defaults to <see cref="UmbrellaPaginationDefaults.MaxPagesToShow"/>.
+	/// </summary>
+	[Parameter]
+	public int MaxPagesToShow { get; set; } = UmbrellaPaginationDefaults.MaxPagesToShow;
+
+	/// <summary>
 	/// Gets or sets the CSS class applied to the grid.
 	/// </summary>
 	[Parameter]

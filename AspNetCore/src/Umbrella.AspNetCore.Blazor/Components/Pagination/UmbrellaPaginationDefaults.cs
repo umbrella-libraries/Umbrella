@@ -16,6 +16,11 @@ public static class UmbrellaPaginationDefaults
 	public const int PageSize = 50;
 
 	/// <summary>
+	/// The default maximum number of page links to show.
+	/// </summary>
+	public const int MaxPagesToShow = 5;
+
+	/// <summary>
 	/// The default page size options of 10, 25, and 50.
 	/// </summary>
 	public static readonly IReadOnlyCollection<int> PageSizeOptions = new[] { 10, 25, 50 };

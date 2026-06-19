@@ -309,7 +309,7 @@
 
                 @if (ShowPagination)
                 {
-                    <UmbrellaPagination SmallPagination="@SmallPagination" OnOptionsChanged="OnPaginationOptionsChangedAsync" @ref="PaginationInstance" />
+                    <UmbrellaPagination SmallPagination="@SmallPagination" PageSizeOptions="@PageSizeOptions" ShowPageSizeOptions="@ShowPageSizeOptions" MaxPagesToShow="@MaxPagesToShow" PageNumberQueryStringKey="@PageNumberQueryStringParamKey" OnOptionsChanged="OnPaginationOptionsChangedAsync" @ref="PaginationInstance" />
                 }
             }
             else if (RenderMode is UmbrellaGridRenderMode.CollectionView)
@@ -343,7 +343,7 @@
 
                 @if (ShowPagination)
                 {
-                    <UmbrellaPagination SmallPagination="@SmallPagination" OnOptionsChanged="OnPaginationOptionsChangedAsync" @ref="PaginationInstance" />
+                    <UmbrellaPagination SmallPagination="@SmallPagination" PageSizeOptions="@PageSizeOptions" ShowPageSizeOptions="@ShowPageSizeOptions" MaxPagesToShow="@MaxPagesToShow" PageNumberQueryStringKey="@PageNumberQueryStringParamKey" OnOptionsChanged="OnPaginationOptionsChangedAsync" @ref="PaginationInstance" />
                 }
             }
         }

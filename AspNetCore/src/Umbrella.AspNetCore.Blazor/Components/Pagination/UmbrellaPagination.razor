@@ -1,18 +1,16 @@
 ﻿@if (Model.TotalCount > 0)
 {
-    string paginationSizeButtonId = "a" + Guid.NewGuid().ToString("N")[1..];
-
 	<nav class="u-pagination" aria-label="table navigation">
 		<ul class="pagination @(SmallPagination ? "pagination-sm" : "")">
 			@if (Model.PageNumbers.Count > 1)
 			{
-				<li class="page-item">
-					<a class="page-link" href="#" aria-label="First Page" @onclick="FirstClickAsync" @onclick:preventDefault>
+				<li class="page-item @(Model.FirstPageNumber.HasValue ? "" : "disabled")">
+					<a class="page-link" href="@(Model.FirstPageNumber.HasValue ? BuildPageHref(Model.FirstPageNumber.Value) : null)" aria-label="First Page" aria-disabled="@(Model.FirstPageNumber.HasValue ? null : "true")" tabindex="@(Model.FirstPageNumber.HasValue ? null : "-1")" @onclick="FirstClickAsync" @onclick:preventDefault>
 						<span aria-hidden="true">&laquo;</span>
 					</a>
 				</li>
-				<li class="page-item">
-					<a class="page-link" href="#" aria-label="Previous Page" @onclick="PreviousClickAsync" @onclick:preventDefault>
+				<li class="page-item @(Model.PreviousPageNumber.HasValue ? "" : "disabled")">
+					<a class="page-link" href="@(Model.PreviousPageNumber.HasValue ? BuildPageHref(Model.PreviousPageNumber.Value) : null)" aria-label="Previous Page" aria-disabled="@(Model.PreviousPageNumber.HasValue ? null : "true")" tabindex="@(Model.PreviousPageNumber.HasValue ? null : "-1")" @onclick="PreviousClickAsync" @onclick:preventDefault>
 						<span aria-hidden="true">&lsaquo;</span>
 					</a>
 				</li>
@@ -20,35 +18,38 @@
 			@foreach (var item in Model.PageNumbers)
 			{
 				<li class="page-item @(item.IsCurrentPage ? "active" : "")">
-					<a class="page-link" href="#" aria-label="Page @(item.Number)" @onclick="(e => ItemClickAsync(item.Number))" @onclick:preventDefault>@item.Number</a>
+					<a class="page-link" href="@BuildPageHref(item.Number)" aria-label="Page @(item.Number)" aria-current="@(item.IsCurrentPage ? "page" : null)" @onclick="(e => ItemClickAsync(item.Number))" @onclick:preventDefault>@item.Number</a>
 				</li>
 			}
 			@if (Model.PageNumbers.Count > 1)
 			{
-				<li class="page-item">
-					<a class="page-link" href="#" aria-label="Next Page" @onclick="NextClickAsync" @onclick:preventDefault>
+				<li class="page-item @(Model.NextPageNumber.HasValue ? "" : "disabled")">
+					<a class="page-link" href="@(Model.NextPageNumber.HasValue ? BuildPageHref(Model.NextPageNumber.Value) : null)" aria-label="Next Page" aria-disabled="@(Model.NextPageNumber.HasValue ? null : "true")" tabindex="@(Model.NextPageNumber.HasValue ? null : "-1")" @onclick="NextClickAsync" @onclick:preventDefault>
 						<span aria-hidden="true">&rsaquo;</span>
 					</a>
 				</li>
-				<li class="page-item">
-					<a class="page-link" href="#" aria-label="Last Page" @onclick="LastClickAsync" @onclick:preventDefault>
+				<li class="page-item @(Model.LastPageNumber.HasValue ? "" : "disabled")">
+					<a class="page-link" href="@(Model.LastPageNumber.HasValue ? BuildPageHref(Model.LastPageNumber.Value) : null)" aria-label="Last Page" aria-disabled="@(Model.LastPageNumber.HasValue ? null : "true")" tabindex="@(Model.LastPageNumber.HasValue ? null : "-1")" @onclick="LastClickAsync" @onclick:preventDefault>
 						<span aria-hidden="true">&raquo;</span>
 					</a>
 				</li>
 			}
 		</ul>
-		<div class="pagination-size">
-			<div class="dropdown" role="menu">
-                <a class="btn @(SmallPagination ? "btn-sm" : "") btn-primary dropdown-toggle" href="#" role="button" id="@paginationSizeButtonId" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-					@PageSize
-				</a>
-                <div class="dropdown-menu" aria-labelledby="@paginationSizeButtonId">
-					@foreach (var option in PageSizeOptions)
-					{
-						<a class="dropdown-item @(option == PageSize ? "active" : "")" href="#" @onclick="@(e => PageSizeClickAsync(option))" @onclick:preventDefault>@option</a>
-					}
+		@if (ShowPageSizeOptions)
+		{
+			<div class="pagination-size">
+				<div class="dropdown" role="menu">
+					<a class="btn @(SmallPagination ? "btn-sm" : "") btn-primary dropdown-toggle" href="#" role="button" id="@PaginationSizeButtonId" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+						@PageSize
+					</a>
+					<div class="dropdown-menu" aria-labelledby="@PaginationSizeButtonId">
+						@foreach (var option in PageSizeOptions)
+						{
+							<a class="dropdown-item @(option == PageSize ? "active" : "")" href="#" role="menuitem" @onclick="@(e => PageSizeClickAsync(option))" @onclick:preventDefault>@option</a>
+						}
+					</div>
 				</div>
 			</div>
-		</div>
+		}
 	</nav>
 }
