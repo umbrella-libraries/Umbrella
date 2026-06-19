@@ -1,7 +1,5 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Umbrella.AspNetCore.Shared.Services.Abstractions;
 using Umbrella.Utilities.Mapping.Abstractions;
@@ -40,14 +38,14 @@ public abstract class UmbrellaComponentBase : ComponentBase, IAsyncDisposable
 	/// Gets the HTTP request aborted service.
 	/// </summary>
 	/// <remarks>
-	/// When this component is running on server, this service will provide data about the current HttpContext.
-	/// In Blazor WebAssembly, this service will provide a no-op implementation as there is no context.
+	/// When this component is running on server, this service will provide data about the current HttpContext. In Blazor
+	/// WebAssembly, this service will provide a no-op implementation as there is no context.
 	/// </remarks>
 	[Inject]
 	protected IHttpContextService HttpContextService { get; private set; } = null!;
 
 	[Inject]
-	private protected IServiceProvider ServiceProvider { get; set; } = null!;
+	private protected IClaimsPrincipalAccessorService ClaimsPrincipalAccessorService { get; set; } = null!;
 
 	/// <summary>
 	/// Gets the logger.
@@ -82,24 +80,14 @@ public abstract class UmbrellaComponentBase : ComponentBase, IAsyncDisposable
 	/// Gets the claims principal for the current user.
 	/// </summary>
 	/// <returns>The claims principal.</returns>
-	protected async ValueTask<ClaimsPrincipal> GetClaimsPrincipalAsync()
-	{
-		AuthenticationStateProvider? authenticationStateProvider = ServiceProvider.GetService<AuthenticationStateProvider>();
-
-		if (authenticationStateProvider is not null)
-		{
-			var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
-
-			return authState.User;
-		}
-
-		return HttpContextService.User ?? new ClaimsPrincipal(new ClaimsIdentity());
-	}
+	protected ValueTask<ClaimsPrincipal> GetClaimsPrincipalAsync() => ClaimsPrincipalAccessorService.GetAsync();
 
 	/// <summary>
 	/// Releases unmanaged and - optionally - managed resources.
 	/// </summary>
-	/// <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
+	/// <param name="disposing">
+	/// <c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.
+	/// </param>
 	protected virtual async ValueTask DisposeAsync(bool disposing)
 	{
 		if (!_disposedValue)

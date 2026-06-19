@@ -84,6 +84,8 @@ public static class IServiceCollectionExtensions
 	{
 		Guard.IsNotNull(services, nameof(services));
 
+		_ = services.AddUmbrellaAspNetCoreShared();
+
 		// Add the hosting environment as a singleton and then ensure the same instance is bound to both interfaces
 		_ = services.AddSingleton<TUmbrellaWebHostingEnvironment>();
 		_ = services.ReplaceSingleton<IUmbrellaHostingEnvironment>(x => x.GetRequiredService<TUmbrellaWebHostingEnvironment>());

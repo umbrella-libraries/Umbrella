@@ -1,4 +1,4 @@
-﻿<CascadingValue Value="this" IsFixed="true">
+<CascadingValue Value="this" IsFixed="true">
     @ChildContent
 </CascadingValue>
 
@@ -7,11 +7,11 @@
         <ol class="u-breadcrumb breadcrumb">
             @if (BreadcrumbItemList.Count is 0)
             {
-                <li class="u-breadcrumb-item breadcrumb-item active" aria-current="page">@Options.RootName</li>
+                <li class="u-breadcrumb-item breadcrumb-item active" aria-current="page">@EffectiveRootName</li>
             }
             else
             {
-                <li class="u-breadcrumb-item breadcrumb-item"><a class="u-breadcrumb-item__link breadcrumb-item__link" href="@Options.RootPath">@Options.RootName</a></li>
+                <li class="u-breadcrumb-item breadcrumb-item"><a class="u-breadcrumb-item__link breadcrumb-item__link" href="@EffectiveRootPath">@EffectiveRootName</a></li>
             }
 
             @for (int i = 0; i < BreadcrumbItemList.Count; i++)

@@ -59,6 +59,8 @@ public static class IServiceCollectionExtensions
 	{
 		Guard.IsNotNull(services);
 
+		_ = services.AddUmbrellaAspNetCoreShared();
+
 		_ = services.AddScoped<IAppLocalStorageService, BlazorLocalStorageService>();
 		_ = services.AddScoped<IAppSessionStorageService, BlazorSessionStorageService>();
 		_ = services.AddScoped<IUmbrellaDialogService, UmbrellaDialogService>();
