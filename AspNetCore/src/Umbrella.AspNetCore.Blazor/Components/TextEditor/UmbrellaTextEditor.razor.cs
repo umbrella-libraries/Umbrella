@@ -6,9 +6,9 @@ namespace Umbrella.AspNetCore.Blazor.Components.TextEditor;
 /// A Quill-based rich text editor component for Blazor applications.
 /// </summary>
 /// <remarks>
-/// Add the generated Umbrella Blazor assets to the consuming app:
-/// <c>_content/Umbrella.AspNetCore.Blazor/dist/umbrella-blazor.css</c> and
-/// <c>_content/Umbrella.AspNetCore.Blazor/dist/umbrella-blazor.js</c>.
+/// Add the generated Umbrella text editor assets to the consuming app:
+/// <c>_content/Umbrella.AspNetCore.Blazor/dist/umbrella-blazor-text-editor.css</c> and
+/// <c>_content/Umbrella.AspNetCore.Blazor/dist/umbrella-blazor-text-editor.js</c>.
 /// This component uses npm package <c>quill@2.0.3</c>. The optional Quill syntax module is passed through
 /// unchanged; consuming apps must provide any additional syntax-highlighting support required by Quill.
 /// Adapted from the MIT-licensed Blazored.TextEditor project.
@@ -17,6 +17,8 @@ namespace Umbrella.AspNetCore.Blazor.Components.TextEditor;
 /// <seealso cref="IAsyncDisposable" />
 public partial class UmbrellaTextEditor : IAsyncDisposable
 {
+	private const string InteropObjectPath = "UmbrellaBlazorTextEditorInterop";
+
 	private readonly string _generatedEditorId = $"umbrella-text-editor-{Guid.NewGuid():N}".ToLowerInvariant();
 	private ElementReference _editorElement;
 	private ElementReference _toolbarElement;
@@ -153,7 +155,7 @@ public partial class UmbrellaTextEditor : IAsyncDisposable
 		if (firstRender)
 		{
 			await JSRuntime.InvokeVoidAsync(
-				"UmbrellaBlazorInterop.textEditor.create",
+				$"{InteropObjectPath}.create",
 				_editorElement,
 				_toolbarElement,
 				ReadOnly,
@@ -183,7 +185,7 @@ public partial class UmbrellaTextEditor : IAsyncDisposable
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The editor content as plain text.</returns>
 	public async Task<string> GetTextAsync(CancellationToken cancellationToken)
-		=> await JSRuntime.InvokeAsync<string>("UmbrellaBlazorInterop.textEditor.getText", cancellationToken, _editorElement);
+		=> await JSRuntime.InvokeAsync<string>($"{InteropObjectPath}.getText", cancellationToken, _editorElement);
 
 	/// <summary>
 	/// Gets the editor content as HTML.
@@ -197,7 +199,7 @@ public partial class UmbrellaTextEditor : IAsyncDisposable
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The editor content as HTML.</returns>
 	public async Task<string> GetHTMLAsync(CancellationToken cancellationToken)
-		=> await JSRuntime.InvokeAsync<string>("UmbrellaBlazorInterop.textEditor.getHTML", cancellationToken, _editorElement);
+		=> await JSRuntime.InvokeAsync<string>($"{InteropObjectPath}.getHTML", cancellationToken, _editorElement);
 
 	/// <summary>
 	/// Gets the editor content as Quill Delta JSON.
@@ -211,7 +213,7 @@ public partial class UmbrellaTextEditor : IAsyncDisposable
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The editor content as Quill Delta JSON.</returns>
 	public async Task<string> GetContentAsync(CancellationToken cancellationToken)
-		=> await JSRuntime.InvokeAsync<string>("UmbrellaBlazorInterop.textEditor.getContent", cancellationToken, _editorElement);
+		=> await JSRuntime.InvokeAsync<string>($"{InteropObjectPath}.getContent", cancellationToken, _editorElement);
 
 	/// <summary>
 	/// Loads Quill Delta JSON into the editor.
@@ -226,7 +228,7 @@ public partial class UmbrellaTextEditor : IAsyncDisposable
 	/// <param name="cancellationToken">The cancellation token.</param>
 	public async Task LoadContentAsync(string content, CancellationToken cancellationToken)
 	{
-		await JSRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.textEditor.loadContent", cancellationToken, _editorElement, content);
+		await JSRuntime.InvokeVoidAsync($"{InteropObjectPath}.loadContent", cancellationToken, _editorElement, content);
 		_lastLoadedContent = content;
 	}
 
@@ -242,7 +244,7 @@ public partial class UmbrellaTextEditor : IAsyncDisposable
 	/// <param name="htmlContent">The HTML content.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	public async Task LoadHTMLContentAsync(string htmlContent, CancellationToken cancellationToken)
-		=> await JSRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.textEditor.loadHTMLContent", cancellationToken, _editorElement, htmlContent);
+		=> await JSRuntime.InvokeVoidAsync($"{InteropObjectPath}.loadHTMLContent", cancellationToken, _editorElement, htmlContent);
 
 	/// <summary>
 	/// Inserts an image at the current editor selection.
@@ -256,7 +258,7 @@ public partial class UmbrellaTextEditor : IAsyncDisposable
 	/// <param name="imageUrl">The image URL.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	public async Task InsertImageAsync(string imageUrl, CancellationToken cancellationToken)
-		=> await JSRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.textEditor.insertImage", cancellationToken, _editorElement, imageUrl);
+		=> await JSRuntime.InvokeVoidAsync($"{InteropObjectPath}.insertImage", cancellationToken, _editorElement, imageUrl);
 
 	/// <summary>
 	/// Inserts text at the current editor selection.
@@ -270,7 +272,7 @@ public partial class UmbrellaTextEditor : IAsyncDisposable
 	/// <param name="text">The text to insert.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	public async Task InsertTextAsync(string text, CancellationToken cancellationToken)
-		=> await JSRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.textEditor.insertText", cancellationToken, _editorElement, text);
+		=> await JSRuntime.InvokeVoidAsync($"{InteropObjectPath}.insertText", cancellationToken, _editorElement, text);
 
 	/// <summary>
 	/// Enables or disables the editor.
@@ -284,7 +286,7 @@ public partial class UmbrellaTextEditor : IAsyncDisposable
 	/// <param name="mode"><c>true</c> to enable the editor; otherwise, <c>false</c>.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	public async Task EnableEditorAsync(bool mode, CancellationToken cancellationToken)
-		=> await JSRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.textEditor.enable", cancellationToken, _editorElement, mode);
+		=> await JSRuntime.InvokeVoidAsync($"{InteropObjectPath}.enable", cancellationToken, _editorElement, mode);
 
 	/// <summary>
 	/// Handles Quill Delta change notifications from JavaScript.
@@ -313,7 +315,7 @@ public partial class UmbrellaTextEditor : IAsyncDisposable
 		try
 		{
 			if (_isInitialized)
-				await JSRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.textEditor.dispose", _editorElement);
+				await JSRuntime.InvokeVoidAsync($"{InteropObjectPath}.dispose", _editorElement);
 		}
 		catch (InvalidOperationException)
 		{

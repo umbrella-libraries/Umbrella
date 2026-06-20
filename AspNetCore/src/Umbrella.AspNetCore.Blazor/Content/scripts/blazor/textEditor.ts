@@ -1,6 +1,4 @@
 import Quill, { type DebugLevel, type QuillOptions } from "quill";
-import "quill/dist/quill.bubble.css";
-import "quill/dist/quill.snow.css";
 
 type DotNetObjectReference = {
 	invokeMethodAsync: (methodName: string, ...args: unknown[]) => Promise<void>;

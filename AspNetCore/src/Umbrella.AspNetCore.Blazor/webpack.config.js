@@ -32,7 +32,8 @@ module.exports = async (env, argv) =>
 		},
 		stats: "errors-warnings",
 		entry: {
-			"umbrella-blazor": "scripts"
+			"umbrella-blazor": "scripts",
+			"umbrella-blazor-text-editor": "scripts/textEditor"
 		},
 		resolve: {
 			extensions: ['.js', '.ts', '.json'],
