@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Umbrella.AspNetCore.Shared.Components.Abstractions;
+using Umbrella.AspNetCore.WebUtilities.Components.Options;
 using Umbrella.WebUtilities.Bundling.Abstractions;
 using Umbrella.WebUtilities.Security;
 
@@ -28,6 +29,12 @@ public abstract class BundleScriptComponentBase<TBundleUtility> : UmbrellaCompon
 	/// </summary>
 	[Inject]
 	protected NonceContext NonceContext { get; private set; } = null!;
+
+	/// <summary>
+	/// Gets the bundle component options.
+	/// </summary>
+	[Inject]
+	protected BundleComponentOptions BundleComponentOptions { get; private set; } = null!;
 
 	/// <summary>
 	/// Gets or sets the name of the bundle.
@@ -86,7 +93,11 @@ public abstract class BundleScriptComponentBase<TBundleUtility> : UmbrellaCompon
 		}
 		else
 		{
+#if NET9_0_OR_GREATER
+			builder.AddAttribute(2, "src", StaticAssetUrlResolver.Resolve(Assets, _contentOrPath, BundleComponentOptions));
+#else
 			builder.AddAttribute(2, "src", _contentOrPath);
+#endif
 		}
 
 		builder.CloseElement();

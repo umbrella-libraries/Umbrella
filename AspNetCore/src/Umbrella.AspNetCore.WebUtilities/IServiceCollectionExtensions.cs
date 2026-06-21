@@ -42,6 +42,7 @@ public static class IServiceCollectionExtensions
 	/// <param name="fileAccessTokenQueryStringMiddlewareOptions">The optional <see cref="FileAccessTokenQueryStringMiddlewareOptions"/> builder.</param>
 	/// <param name="razorViewToStringRendererOptionsBuilder">The optional <see cref="RazorViewToStringRendererOptions"/> builder.</param>
 	/// <param name="razorComponentToStringRendererOptionsBuilder">The optional <see cref="RazorComponentToStringRendererOptions"/> builder.</param>
+	/// <param name="bundleComponentOptionsBuilder">The optional <see cref="BundleComponentOptions"/> builder.</param>
 	/// <returns>The <see cref="IServiceCollection"/> dependency injection container builder.</returns>
 	/// <exception cref="ArgumentNullException">Thrown if the <paramref name="services"/> is null.</exception>
 	public static IServiceCollection AddUmbrellaAspNetCoreWebUtilities(
@@ -50,13 +51,15 @@ public static class IServiceCollectionExtensions
 		Action<IServiceProvider, UmbrellaScheduledHostedServiceWithViewSupportOptions>? umbrellaScheduledHostedServiceWithViewSupportOptionsBuilder = null,
 		Action<IServiceProvider, FileAccessTokenQueryStringMiddlewareOptions>? fileAccessTokenQueryStringMiddlewareOptions = null,
 		Action<IServiceProvider, RazorViewToStringRendererOptions>? razorViewToStringRendererOptionsBuilder = null,
-		Action<IServiceProvider, RazorComponentToStringRendererOptions>? razorComponentToStringRendererOptionsBuilder = null)
+		Action<IServiceProvider, RazorComponentToStringRendererOptions>? razorComponentToStringRendererOptionsBuilder = null,
+		Action<IServiceProvider, BundleComponentOptions>? bundleComponentOptionsBuilder = null)
 		=> services.AddUmbrellaAspNetCoreWebUtilities<UmbrellaWebHostingEnvironment>(
 			apiIntegrationCookieAuthenticationEventsOptionsBuilder,
 			umbrellaScheduledHostedServiceWithViewSupportOptionsBuilder,
 			fileAccessTokenQueryStringMiddlewareOptions,
 			razorViewToStringRendererOptionsBuilder,
-			razorComponentToStringRendererOptionsBuilder);
+			razorComponentToStringRendererOptionsBuilder,
+			bundleComponentOptionsBuilder);
 
 	/// <summary>
 	/// Adds the <see cref="Umbrella.AspNetCore.WebUtilities"/> services to the specified <see cref="IServiceCollection"/> dependency injection container builder.
@@ -71,6 +74,7 @@ public static class IServiceCollectionExtensions
 	/// <param name="fileAccessTokenQueryStringMiddlewareOptions">The optional <see cref="FileAccessTokenQueryStringMiddlewareOptions"/> builder.</param>
 	/// <param name="razorViewToStringRendererOptionsBuilder">The optional <see cref="RazorViewToStringRendererOptions"/> builder.</param>
 	/// <param name="razorComponentToStringRendererOptionsBuilder">The optional <see cref="RazorComponentToStringRendererOptions"/> builder.</param>
+	/// <param name="bundleComponentOptionsBuilder">The optional <see cref="BundleComponentOptions"/> builder.</param>
 	/// <returns>The <see cref="IServiceCollection"/> dependency injection container builder.</returns>
 	/// <exception cref="ArgumentNullException">Thrown if the <paramref name="services"/> is null.</exception>
 	public static IServiceCollection AddUmbrellaAspNetCoreWebUtilities<TUmbrellaWebHostingEnvironment>(
@@ -79,7 +83,8 @@ public static class IServiceCollectionExtensions
 		Action<IServiceProvider, UmbrellaScheduledHostedServiceWithViewSupportOptions>? umbrellaScheduledHostedServiceWithViewSupportOptionsBuilder = null,
 		Action<IServiceProvider, FileAccessTokenQueryStringMiddlewareOptions>? fileAccessTokenQueryStringMiddlewareOptions = null,
 		Action<IServiceProvider, RazorViewToStringRendererOptions>? razorViewToStringRendererOptionsBuilder = null,
-		Action<IServiceProvider, RazorComponentToStringRendererOptions>? razorComponentToStringRendererOptionsBuilder = null)
+		Action<IServiceProvider, RazorComponentToStringRendererOptions>? razorComponentToStringRendererOptionsBuilder = null,
+		Action<IServiceProvider, BundleComponentOptions>? bundleComponentOptionsBuilder = null)
 		where TUmbrellaWebHostingEnvironment : class, IUmbrellaWebHostingEnvironment
 	{
 		Guard.IsNotNull(services, nameof(services));
@@ -106,6 +111,7 @@ public static class IServiceCollectionExtensions
 		_ = services.ConfigureUmbrellaOptions(fileAccessTokenQueryStringMiddlewareOptions);
 		_ = services.ConfigureUmbrellaOptions(razorViewToStringRendererOptionsBuilder);
 		_ = services.ConfigureUmbrellaOptions(razorComponentToStringRendererOptionsBuilder);
+		_ = services.ConfigureUmbrellaOptions(bundleComponentOptionsBuilder);
 
 		return services;
 	}
