@@ -1,6 +1,6 @@
 {
   "bundleId": "umbrella",
-  "displayName": "Umbrella AI Skills",
+  "displayName": "Umbrella AI Skills and Agents",
   "managedDirectories": [
     ".ai-shared\\bundles\\umbrella"
   ],

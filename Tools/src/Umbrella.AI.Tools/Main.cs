@@ -37,9 +37,9 @@ public sealed class Main(AiBundleInstaller installer)
             Description = "When removing, delete .mcp.json if it becomes empty."
         };
 
-        var rootCommand = new RootCommand("The dotnet tool used to install and manage Umbrella AI agent bundles.");
+        var rootCommand = new RootCommand("The dotnet tool used to install and manage Umbrella AI skills and agents bundles.");
 
-        var installCommand = new Command("install", "Install the Umbrella NuGet safe-upgrade bundle into a target repository.")
+        var installCommand = new Command("install", "Install the Umbrella AI skills and agents bundle into a target repository.")
         {
             rootDirOption,
             forceOption,

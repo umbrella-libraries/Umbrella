@@ -18,6 +18,8 @@ public class BundleInstallerTest
         Assert.True(result.Success);
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "agents", "nuget-safe-upgrade.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "agents", "nuget-safe-upgrade.agent.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "agents", "dotnet-blazor-admin-crud-feature-agent.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "agents", "dotnet-blazor-admin-crud-feature-agent.agent.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "skills", "dotnet-scaffold-service", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "skills", "dotnet-scaffold-service", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".mcp.json")));
