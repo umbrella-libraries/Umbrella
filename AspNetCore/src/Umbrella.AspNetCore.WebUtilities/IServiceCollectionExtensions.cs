@@ -1,6 +1,8 @@
 ﻿
 using CommunityToolkit.Diagnostics;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
+using Umbrella.AspNetCore.WebUtilities.Middleware;
 using Umbrella.AspNetCore.WebUtilities.Components;
 using Umbrella.AspNetCore.WebUtilities.Components.Abstractions;
 using Umbrella.AspNetCore.WebUtilities.Components.Options;
@@ -137,6 +139,26 @@ public static class IServiceCollectionExtensions
 
 		_ = services.AddScoped<IAnonymousPhoneNumberVerificationCodeGenerator, AnonymousPhoneNumberVerificationCodeGenerator<TUserManager, TUser, TUserKey>>();
 		_ = services.ConfigureUmbrellaOptions(optionsBuilder);
+
+		return services;
+	}
+
+	/// <summary>
+	/// Adds the <see cref="Umbrella.AspNetCore.WebUtilities.Middleware.BrowserLinkNonceMiddleware"/> to the pipeline via an <see cref="IStartupFilter"/>,
+	/// registering it as the outermost middleware so it can inject CSP nonces onto BrowserLink and
+	/// ASP.NET Core hot-reload script tags injected by development tooling.
+	/// This should only be called in Development environments.
+	/// </summary>
+	/// <param name="services">The services dependency injection container builder.</param>
+	/// <returns>The <see cref="IServiceCollection"/> dependency injection container builder.</returns>
+	/// <exception cref="ArgumentNullException">Thrown if <paramref name="services"/> is null.</exception>
+	public static IServiceCollection AddUmbrellaBrowserLinkNonce(this IServiceCollection services)
+	{
+		Guard.IsNotNull(services, nameof(services));
+
+		// Insert at 0 so our startup filter is resolved first and therefore runs outermost in the pipeline.
+		// ASP.NET Core applies startup filters in reverse DI registration order, so index 0 = outermost wrapper.
+		services.Insert(0, ServiceDescriptor.Transient<IStartupFilter, BrowserLinkNonceStartupFilter>());
 
 		return services;
 	}
