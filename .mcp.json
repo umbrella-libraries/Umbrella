@@ -4,8 +4,6 @@
 			"type": "stdio",
 			"command": "aspire",
 			"args": [
-				"mcp",
-				"start",
 				"agent",
 				"mcp"
 			]
@@ -29,6 +27,16 @@
 				"X-MCP-Readonly": "true",
 				"X-MCP-Toolsets": "repos,wiki,wit,pipelines"
 			}
+		},
+		"ado-zinofi": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [ "-y", "@azure-devops/mcp", "zinofi", "--authentication", "envvar" ]
+		},
+		"ado-remarkablexcp": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [ "-y", "@azure-devops/mcp", "remarkablexcp", "--authentication", "envvar" ]
 		},
 		"chrome-devtools": {
 			"type": "stdio",
@@ -64,8 +72,6 @@
 			"type": "stdio",
 			"command": "aspire",
 			"args": [
-				"mcp",
-				"start",
 				"agent",
 				"mcp"
 			]
@@ -89,6 +95,16 @@
 				"X-MCP-Readonly": "true",
 				"X-MCP-Toolsets": "repos,wiki,wit,pipelines"
 			}
+		},
+		"ado-zinofi": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [ "-y", "@azure-devops/mcp", "zinofi", "--authentication", "envvar" ]
+		},
+		"ado-remarkablexcp": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [ "-y", "@azure-devops/mcp", "remarkablexcp", "--authentication", "envvar" ]
 		},
 		"chrome-devtools": {
 			"type": "stdio",
