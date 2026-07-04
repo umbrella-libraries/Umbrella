@@ -144,7 +144,7 @@ public static class IServiceCollectionExtensions
 	}
 
 	/// <summary>
-	/// Adds the <see cref="Umbrella.AspNetCore.WebUtilities.Middleware.BrowserLinkNonceMiddleware"/> to the pipeline via an <see cref="IStartupFilter"/>,
+	/// Adds the <see cref="BrowserLinkNonceMiddleware"/> to the pipeline via an <see cref="IStartupFilter"/>,
 	/// registering it as the outermost middleware so it can inject CSP nonces onto BrowserLink and
 	/// ASP.NET Core hot-reload script tags injected by development tooling.
 	/// This should only be called in Development environments.

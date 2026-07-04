@@ -24,8 +24,11 @@ public static class IMvcBuilderExtensions
 		/// </summary>
 		/// <remarks>
 		/// This method customizes the response returned when model validation fails, returning a problem details object with
-		/// a status code of 400 or 422 depending on the model state. Use this method to ensure consistent validation error
-		/// responses across your API.
+		/// a status code of 400 or 422 depending on the model state. Model state entries keyed by <c>$</c> indicate
+		/// JSON input-formatting errors at the root of the request body, such as malformed JSON or a root value that cannot
+		/// be converted to the action parameter type. These are treated as bad requests and return 400. Other model state
+		/// errors are treated as validation failures against a successfully parsed request body and return 422. Use this
+		/// method to ensure consistent validation error responses across your API.
 		/// </remarks>
 		/// <returns>
 		/// The same <see cref="IMvcBuilder"/> instance so that additional configuration calls can be chained.
