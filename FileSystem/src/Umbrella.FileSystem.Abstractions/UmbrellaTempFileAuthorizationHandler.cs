@@ -39,6 +39,9 @@ public class UmbrellaTempFileAuthorizationHandler : UmbrellaFileAuthorizationHan
 
 		try
 		{
+			if (operationType is UmbrellaFileOperationType.Create && fileInfo.IsNew)
+				return true;
+
 			string fileInfoCreatedById = await fileInfo.GetCreatedByIdAsync<string>(cancellationToken).ConfigureAwait(false);
 
 			if (string.IsNullOrEmpty(fileInfoCreatedById))
