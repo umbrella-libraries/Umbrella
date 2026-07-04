@@ -25,6 +25,8 @@ namespace Umbrella.FileSystem.Test;
 
 public class UmbrellaFileProviderTest
 {
+	private const string DisabledProvidersEnvironmentVariableName = "UMBRELLA_FILESYSTEM_DISABLED_PROVIDERS";
+
 #if AZUREDEVOPS
         private static readonly string _storageConnectionString = Environment.GetEnvironmentVariable("StorageConnectionString")!;
 #else
@@ -32,6 +34,11 @@ public class UmbrellaFileProviderTest
 	private static readonly string _storageConnectionString = "UseDevelopmentStorage=true";
 #pragma warning restore CA1802 // Use literals where appropriate
 #endif
+
+	private static readonly HashSet<string> _disabledProviders =
+		(Environment.GetEnvironmentVariable(DisabledProvidersEnvironmentVariableName) ?? "")
+			.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+			.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
 	private static readonly IConfiguration _sharePointConfig = new ConfigurationBuilder()
 		.AddUserSecrets<UmbrellaFileProviderTest>()
@@ -64,43 +71,48 @@ public class UmbrellaFileProviderTest
 		}
 	}
 
+	private static readonly Func<IUmbrellaFileStorageProvider> _azureBlobProvider = CreateProviderFactory("AzureBlob", CreateAzureBlobFileProvider);
+	private static readonly Func<IUmbrellaFileStorageProvider> _diskProvider = CreateProviderFactory("Disk", CreateDiskFileProvider);
+	private static readonly Func<IUmbrellaFileStorageProvider> _sharePointProvider = CreateProviderFactory("SharePoint", CreateSharePointFileProvider);
+	private static readonly Func<IUmbrellaFileStorageProvider> _dataverseProvider = CreateProviderFactory("Dataverse", CreateDataverseFileProvider);
+
 	public static List<Func<IUmbrellaFileStorageProvider>> Providers =
 	[
-		CreateAzureBlobFileProvider,
-		CreateDiskFileProvider,
-		CreateSharePointFileProvider,
-		CreateDataverseFileProvider
+		_azureBlobProvider,
+		_diskProvider,
+		_sharePointProvider,
+		_dataverseProvider
 	];
 
 	// SharePoint restricts % in path segments; exclude from path-variation tests to avoid false failures
 	// Dataverse uses a GUID-per-directory model so arbitrary path variations are handled by the adapter
 	private static readonly List<Func<IUmbrellaFileStorageProvider>> _pathVariationProviders =
 	[
-		CreateAzureBlobFileProvider,
-		CreateDiskFileProvider
+		_azureBlobProvider,
+		_diskProvider
 	];
 
 	// SharePoint and Dataverse throw NotSupportedException for metadata operations
 	private static readonly List<Func<IUmbrellaFileStorageProvider>> _metadataCapableProviders =
 	[
-		CreateAzureBlobFileProvider,
-		CreateDiskFileProvider
+		_azureBlobProvider,
+		_diskProvider
 	];
 
 	// Dataverse throws NotSupportedException for Copy/Move; only these providers support it
 	private static readonly List<Func<IUmbrellaFileStorageProvider>> _copyMoveCapableProviders =
 	[
-		CreateAzureBlobFileProvider,
-		CreateDiskFileProvider,
-		CreateSharePointFileProvider
+		_azureBlobProvider,
+		_diskProvider,
+		_sharePointProvider
 	];
 
 	// Dataverse records are flat (one file per record) so downlevel directory tests can't work cross-GUID
 	private static readonly List<Func<IUmbrellaFileStorageProvider>> _hierarchyProviders =
 	[
-		CreateAzureBlobFileProvider,
-		CreateDiskFileProvider,
-		CreateSharePointFileProvider
+		_azureBlobProvider,
+		_diskProvider,
+		_sharePointProvider
 	];
 
 	public static List<string> PathsToTest =
@@ -1388,6 +1400,20 @@ public class UmbrellaFileProviderTest
 
 		Assert.Equal("Magic", metaName);
 		Assert.Equal("Man", metaDescription);
+	}
+
+	private static Func<IUmbrellaFileStorageProvider> CreateProviderFactory(string providerName, Func<IUmbrellaFileStorageProvider> createProvider)
+	{
+		ArgumentNullException.ThrowIfNull(providerName);
+		ArgumentNullException.ThrowIfNull(createProvider);
+
+		return () =>
+		{
+			if (_disabledProviders.Contains(providerName))
+				Assert.Skip($"File system provider '{providerName}' is disabled for this test run by {DisabledProvidersEnvironmentVariableName}.");
+
+			return createProvider();
+		};
 	}
 
 	private static UmbrellaAzureBlobStorageFileProvider CreateAzureBlobFileProvider()

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net8.0</TargetFramework>
+		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
 		<PackageId>Umbrella.Testing.Architecture</PackageId>
 		<Description>Abstract base test classes enforcing Umbrella layer dependency and implementation visibility rules using NetArchTest.Rules and xunit.v3</Description>
 		<NoWarn>$(NoWarn);CA1707</NoWarn>
