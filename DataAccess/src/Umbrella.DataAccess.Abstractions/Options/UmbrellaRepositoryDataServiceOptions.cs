@@ -14,7 +14,7 @@ namespace Umbrella.DataAccess.Abstractions.Options;
 public class UmbrellaRepositoryDataServiceOptions : ISanitizableUmbrellaOptions, IValidatableUmbrellaOptions
 {
 	/// <summary>
-	/// Gets or sets the concurrency error message returned concurrency error responses for <see cref="OperationResultStatus.Conflict"/> statuses.
+	/// Gets or sets the concurrency error message returned for <see cref="OperationResultStatus.ConcurrencyConflict"/> statuses.
 	/// </summary>
 	public string ConcurrencyErrorMessage { get; set; } = "This information has been changed elsewhere since this screen was loaded. Please try again.";
 

@@ -56,6 +56,13 @@ public record OperationResult : IOperationResult
 	public static OperationResult Conflict(string errorMessage) => Failure(OperationResultStatus.Conflict, errorMessage);
 
 	/// <summary>
+	/// Creates an <see cref="OperationResult"/> with a <see cref="Status"/> of <see cref="OperationResultStatus.ConcurrencyConflict"/>.
+	/// </summary>
+	/// <param name="errorMessage">The error message.</param>
+	/// <returns>The <see cref="OperationResult"/> instance.</returns>
+	public static OperationResult ConcurrencyConflict(string errorMessage) => Failure(OperationResultStatus.ConcurrencyConflict, errorMessage);
+
+	/// <summary>
 	/// Creates an operation result that indicates the request was forbidden, including a specified error message.
 	/// </summary>
 	/// <param name="errorMessage">The error message that describes the reason the operation was forbidden. Cannot be null or empty.</param>
@@ -191,6 +198,14 @@ public record OperationResult<TResult> : OperationResult, IOperationResult<TResu
 	public static OperationResult<TResult> Conflict(string errorMessage, TResult? result = default) => Failure(OperationResultStatus.Conflict, result, [new ValidationResult(errorMessage)]);
 
 	/// <summary>
+	/// Creates an <see cref="OperationResult{TResult}"/> with a <see cref="OperationResult.Status"/> of <see cref="OperationResultStatus.ConcurrencyConflict"/> for the specified <paramref name="result"/>.
+	/// </summary>
+	/// <param name="errorMessage">The error message.</param>
+	/// <param name="result">The result.</param>
+	/// <returns>The <see cref="OperationResult{TResult}"/> instance.</returns>
+	public static OperationResult<TResult> ConcurrencyConflict(string errorMessage, TResult? result = default) => Failure(OperationResultStatus.ConcurrencyConflict, result, [new ValidationResult(errorMessage)]);
+
+	/// <summary>
 	/// Creates an operation result that represents a forbidden action, including a specified error message.
 	/// </summary>
 	/// <param name="errorMessage">The error message that describes the reason the action is forbidden. Cannot be null or empty.</param>
@@ -255,6 +270,12 @@ public enum OperationResultStatus
 	/// e.g, when creating a user, another user already exists with the same username.
 	/// </summary>
 	Conflict = 409,
+
+	/// <summary>
+	/// Indicates that the operation failed because the target of the operation has changed since it was loaded.
+	/// </summary>
+	/// <remarks>This maps to HTTP 409 when converted to an API response.</remarks>
+	ConcurrencyConflict = 409001,
 
 	/// <summary>
 	/// Indicates that the operation failed because the context of the operation is forbidden, e.g. the user does not have permission to perform the operation.

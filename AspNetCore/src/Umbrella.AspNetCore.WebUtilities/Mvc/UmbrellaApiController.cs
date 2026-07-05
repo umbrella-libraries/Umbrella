@@ -77,6 +77,7 @@ public abstract class UmbrellaApiController : ControllerBase
 		OperationResultStatus.GenericSuccess => Ok(),
 		OperationResultStatus.GenericFailure => InternalServerError(operationResult.PrimaryValidationMessage ?? "There has been a problem."),
 		OperationResultStatus.NotFound => NotFound(operationResult.PrimaryValidationMessage ?? "Not Found"),
+		OperationResultStatus.ConcurrencyConflict => ConcurrencyConflict(operationResult.PrimaryValidationMessage ?? "Concurrency Conflict"),
 		OperationResultStatus.Conflict => Conflict(operationResult.PrimaryValidationMessage ?? "Conflict"),
 		OperationResultStatus.Forbidden => Forbidden(operationResult.PrimaryValidationMessage ?? "Forbidden"),
 		OperationResultStatus.NoContent => NoContent(),
@@ -126,6 +127,9 @@ public abstract class UmbrellaApiController : ControllerBase
 			case OperationResultStatus.Conflict when exception.ValidationResults is not { Count: > 0 }:
 				_ = Logger.WriteError(state: new { exception.Status }, message: exception.Message);
 				return Conflict(exception.Message);
+			case OperationResultStatus.ConcurrencyConflict when exception.ValidationResults is not { Count: > 0 }:
+				_ = Logger.WriteError(state: new { exception.Status }, message: exception.Message);
+				return ConcurrencyConflict(exception.Message);
 			case OperationResultStatus.GenericFailure when exception.ValidationResults is { Count: > 0 }:
 				_ = Logger.WriteError(state: new { exception.Status }, message: exception.PrimaryValidationMessage);
 				return ValidationProblem(exception.ValidationResults.ToModelStateDictionary());
@@ -135,6 +139,9 @@ public abstract class UmbrellaApiController : ControllerBase
 			case OperationResultStatus.Conflict when exception.ValidationResults is { Count: > 0 }:
 				_ = Logger.WriteError(state: new { exception.Status }, message: exception.PrimaryValidationMessage);
 				return Conflict(exception.PrimaryValidationMessage ?? "Conflict");
+			case OperationResultStatus.ConcurrencyConflict when exception.ValidationResults is { Count: > 0 }:
+				_ = Logger.WriteError(state: new { exception.Status }, message: exception.PrimaryValidationMessage);
+				return ConcurrencyConflict(exception.PrimaryValidationMessage ?? "Concurrency Conflict");
 			default:
 				throw new SwitchExpressionException(exception.Status);
 		}

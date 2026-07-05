@@ -414,7 +414,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 			// Check the concurrency stamp. This is done in the repos and again when the database query is executed but good to fail on
 			// this as early as possible.
 			if (entity is IConcurrencyStamp concurrencyStamp && concurrencyStamp.ConcurrencyStamp != model.ConcurrencyStamp)
-				return OperationResult<TResultModel>.Conflict(Options.ConcurrencyErrorMessage);
+				return OperationResult<TResultModel>.ConcurrencyConflict(Options.ConcurrencyErrorMessage);
 
 			if (beforeMappingCallback is not null)
 			{
@@ -484,7 +484,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 		}
 		catch (UmbrellaConcurrencyException)
 		{
-			return OperationResult<TResultModel>.Conflict(Options.ConcurrencyErrorMessage);
+			return OperationResult<TResultModel>.ConcurrencyConflict(Options.ConcurrencyErrorMessage);
 		}
 		catch (Exception exc) when (Options.UpdateExceptionFilter(exc))
 		{
