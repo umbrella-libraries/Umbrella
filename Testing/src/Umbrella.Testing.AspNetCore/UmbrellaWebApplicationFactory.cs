@@ -58,7 +58,14 @@ public abstract class UmbrellaWebApplicationFactory<TProgram> : WebApplicationFa
 
 		_ = logging.ClearProviders();
 		_ = logging.AddXUnitTestOutputHelperLogging();
+		_ = logging.SetMinimumLevel(GetMinimumLogLevel());
 	}
+
+	/// <summary>
+	/// Gets the minimum log level used by the test host.
+	/// </summary>
+	/// <returns>The minimum log level. The default value is <see cref="LogLevel.Warning"/>.</returns>
+	protected virtual LogLevel GetMinimumLogLevel() => LogLevel.Warning;
 
 	/// <summary>
 	/// Configures project-specific test services.

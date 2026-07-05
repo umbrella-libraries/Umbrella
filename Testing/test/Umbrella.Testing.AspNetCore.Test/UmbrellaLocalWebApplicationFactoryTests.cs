@@ -1,5 +1,7 @@
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Umbrella.Testing.AspNetCore.TestApp;
 
 namespace Umbrella.Testing.AspNetCore.Test;
@@ -21,9 +23,25 @@ public sealed class UmbrellaLocalWebApplicationFactoryTests
 		Assert.True(factory.ConfigureServicesCalled);
 	}
 
+	[Fact]
+	public void ConfigureLoggingUsesWarningMinimumLevel()
+	{
+		using var factory = new SmokeLocalWebApplicationFactory();
+		var services = new ServiceCollection();
+
+		_ = services.AddLogging(factory.ConfigureLoggingForTest);
+
+		using ServiceProvider serviceProvider = services.BuildServiceProvider();
+		LoggerFilterOptions options = serviceProvider.GetRequiredService<IOptions<LoggerFilterOptions>>().Value;
+
+		Assert.Equal(LogLevel.Warning, options.MinLevel);
+	}
+
 	private sealed class SmokeLocalWebApplicationFactory : UmbrellaLocalWebApplicationFactory<SmokeProgram>
 	{
 		public bool ConfigureServicesCalled { get; private set; }
+
+		public void ConfigureLoggingForTest(ILoggingBuilder logging) => ConfigureLogging(logging);
 
 		protected override string GetEnvironmentName() => "Smoke";
 
