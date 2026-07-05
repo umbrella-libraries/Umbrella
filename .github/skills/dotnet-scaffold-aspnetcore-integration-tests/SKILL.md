@@ -117,6 +117,17 @@ Rules:
 - Use `Development` only when it disables production-only startup paths.
 - Replace unsafe services if startup itself opens network connections.
 
+## Test logging
+
+Do not add a project-level `ConfigureLogging` override by default. `UmbrellaWebApplicationFactory` already clears host logging providers, adds the xUnit output logger provider, and sets the minimum log level to `Warning`.
+
+Rules:
+
+- Do not call `logging.ClearProviders()` in consuming app factories unless there is a specific, documented reason; it removes the xUnit output logger.
+- Do not add `ConfigureTestLogging` helper methods to scaffolded test projects.
+- Override `GetMinimumLogLevel()` in the factory only when a project genuinely needs more or less log detail.
+- Prefer keeping the default `Warning` minimum level to reduce ADO memory pressure while preserving useful xUnit output on failures.
+
 ## Local factory
 
 Create a sealed local factory:
