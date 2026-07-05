@@ -8,6 +8,7 @@ namespace Umbrella.Utilities.Security.Abstractions;
 /// </summary>
 /// <typeparam name="TAuthCheckId">The type from which this is derived.</typeparam>
 /// <typeparam name="TValue">The type of the value stored by this type.</typeparam>
+[Obsolete("Please favour a pattern of creating AuthCheckId types as readonly record structs with a Value property and then creating the AuthId types as needed instead of using this factory.")]
 public abstract class UmbrellaAuthCheckId<TAuthCheckId, TValue> : IDisposable
 	where TAuthCheckId : class
 {

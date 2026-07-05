@@ -7,6 +7,7 @@ namespace Umbrella.Utilities.Security.Abstractions;
 /// <summary>
 /// The base class for factories used to create AuthCheckId instances.
 /// </summary>
+[Obsolete("Please favour a pattern of creating AuthCheckId types as readonly record structs with a Value property and then creating the AuthId types as needed instead of using this factory.")]
 public abstract class UmbrellaAuthCheckIdFactory
 {
 	private static readonly ConcurrentDictionary<Type, object> _objectPoolDictionary = new();
