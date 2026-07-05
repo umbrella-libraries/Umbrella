@@ -1,6 +1,6 @@
 ---
 name: dotnet-scaffold-aspnetcore-integration-tests
-description: 'Scaffold ASP.NET Core controller integration test infrastructure into an existing or newly created .NET test project using Umbrella.Testing.AspNetCore: concrete local and SQL Server Testcontainers WebApplicationFactory classes, xUnit collections, test authentication, config overrides, Program hook, and a minimal smoke test. Use after auditing the server app or when adding WebApplicationFactory-based integration tests.'
+description: 'Scaffold ASP.NET Core controller integration test infrastructure into an existing or newly created .NET test project using Umbrella.Testing.AspNetCore: concrete local and SQL Server/Azurite Testcontainers WebApplicationFactory classes, xUnit collections, test authentication, config overrides, Program hook, and a minimal smoke test. Use after auditing the server app or when adding WebApplicationFactory-based integration tests.'
 ---
 
 # Scaffold ASP.NET Core Integration Tests
@@ -19,7 +19,7 @@ Before writing files, either run `dotnet-audit-aspnetcore-integration-test-readi
 - EF Core `DbContext` type and constructor shape;
 - database provider and migrations assembly;
 - required startup configuration values;
-- external services that must be isolated;
+- external services that must be isolated, including Azure Blob Storage/Azurite requirements;
 - project package/version style.
 
 ## Packages and references
@@ -140,17 +140,28 @@ public sealed class <App>WebApplicationFactory : UmbrellaLocalWebApplicationFact
 
 Use this for host/auth/routing tests that do not require database state.
 
-## SQL Server Testcontainers factory
+## SQL Server/Azurite Testcontainers factory
 
-Create a sealed SQL Server factory when the app uses SQL Server:
+Create a sealed SQL Server factory when the app uses SQL Server. The Umbrella base also starts an Azurite Testcontainer by default; override `UseAzurite` and return `false` only when the app does not need Azure Blob Storage during integration tests.
 
 ```csharp
-public sealed class <App>SqlServerWebApplicationFactory : UmbrellaSqlServerWebApplicationFactory<Program, <App>DbContext>
+public sealed class <App>SqlServerWebApplicationFactory : UmbrellaSqlServerAzuriteWebApplicationFactory<Program, <App>DbContext>
 {
 	protected override void ConfigureWebHostBuilder(IWebHostBuilder builder)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 		_ = builder.ConfigureAppConfiguration((_, configurationBuilder) => <App>TestConfiguration.Add(configurationBuilder));
+	}
+
+	protected override void ConfigureAzuriteConfiguration(IConfigurationBuilder configurationBuilder, string connectionString)
+	{
+		ArgumentNullException.ThrowIfNull(configurationBuilder);
+		ArgumentNullException.ThrowIfNull(connectionString);
+
+		_ = configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+		{
+			["<AzureStorageConnectionStringKey>"] = connectionString
+		});
 	}
 
 	protected override void ConfigureAuthentication(IServiceCollection services)
@@ -169,6 +180,12 @@ public sealed class <App>SqlServerWebApplicationFactory : UmbrellaSqlServerWebAp
 			.EnableRetryOnFailure();
 	}
 }
+```
+
+If the app does not use Azure Blob Storage, add:
+
+```csharp
+protected override bool UseAzurite => false;
 ```
 
 Add this override when the context constructor needs non-generic options removed:
@@ -205,7 +222,7 @@ public sealed class <App>SqlServerIntegrationTestCollection : ICollectionFixture
 
 Rules:
 
-- Put Testcontainers tests in the SQL collection.
+- Put Testcontainers tests in the SQL collection. This collection may own both SQL Server and Azurite containers.
 - Keep parallelization disabled by default to reduce memory pressure and avoid multiple containers fighting for resources.
 - Do not share one factory type for local and SQL tests unless the app has no meaningful non-database integration tests.
 

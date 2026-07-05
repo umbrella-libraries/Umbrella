@@ -5,7 +5,7 @@ using Umbrella.Testing.AspNetCore.TestApp;
 
 namespace Umbrella.Testing.AspNetCore.Test;
 
-public sealed class UmbrellaSqlServerWebApplicationFactoryTests
+public sealed class UmbrellaSqlServerAzuriteWebApplicationFactoryTests
 {
 	[Fact]
 	public void ConfigureServicesReplacesExistingDbContextRegistration()
@@ -16,7 +16,7 @@ public sealed class UmbrellaSqlServerWebApplicationFactoryTests
 		_ = services.AddSingleton(existingOptions);
 		_ = services.AddSingleton<SmokeDbContext>();
 
-		using var factory = new SmokeSqlServerWebApplicationFactory();
+		using var factory = new SmokeSqlServerAzuriteWebApplicationFactory();
 
 		factory.ConfigureServicesForTest(services);
 
@@ -31,7 +31,7 @@ public sealed class UmbrellaSqlServerWebApplicationFactoryTests
 		if (!string.Equals(Environment.GetEnvironmentVariable("UMBRELLA_RUN_TESTCONTAINERS"), "true", StringComparison.OrdinalIgnoreCase))
 			Assert.Skip("Set UMBRELLA_RUN_TESTCONTAINERS=true to run this Docker-backed smoke test.");
 
-		await using var factory = new SmokeSqlServerWebApplicationFactory();
+		await using var factory = new SmokeSqlServerAzuriteDisabledWebApplicationFactory();
 
 		await factory.InitializeAsync();
 
@@ -44,9 +44,29 @@ public sealed class UmbrellaSqlServerWebApplicationFactoryTests
 		Assert.Equal("1", content);
 	}
 
-	private sealed class SmokeSqlServerWebApplicationFactory : UmbrellaSqlServerWebApplicationFactory<SmokeProgram, SmokeDbContext>
+	[Fact]
+	public async Task SqlServerAzuriteFactoryCanStartContainersWhenEnabled()
+	{
+		if (!string.Equals(Environment.GetEnvironmentVariable("UMBRELLA_RUN_TESTCONTAINERS"), "true", StringComparison.OrdinalIgnoreCase))
+			Assert.Skip("Set UMBRELLA_RUN_TESTCONTAINERS=true to run this Docker-backed smoke test.");
+
+		await using var factory = new SmokeSqlServerAzuriteWebApplicationFactory();
+
+		await factory.InitializeAsync();
+
+		Assert.False(string.IsNullOrWhiteSpace(factory.GetAzuriteConnectionStringForTest()));
+	}
+
+	private sealed class SmokeSqlServerAzuriteDisabledWebApplicationFactory : SmokeSqlServerAzuriteWebApplicationFactory
+	{
+		protected override bool UseAzurite => false;
+	}
+
+	private class SmokeSqlServerAzuriteWebApplicationFactory : UmbrellaSqlServerAzuriteWebApplicationFactory<SmokeProgram, SmokeDbContext>
 	{
 		public void ConfigureServicesForTest(IServiceCollection services) => ConfigureServices(services);
+
+		public string GetAzuriteConnectionStringForTest() => AzuriteConnectionString;
 
 		protected override string GetEnvironmentName() => "Smoke";
 
