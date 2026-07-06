@@ -517,7 +517,7 @@ public abstract class UmbrellaRepositoryDataService<TItem, TSlimItem, TPaginated
 
 			return result.Status switch
 			{
-				OperationResultStatus.GenericSuccess => OperationResult<bool>.Success(true),
+				OperationResultStatus.NoContent => OperationResult<bool>.Success(true),
 				OperationResultStatus.NotFound => OperationResult<bool>.Success(false),
 				_ => throw new InvalidOperationException($"Unexpected {nameof(OperationResultStatus)} value '{result.Status}' returned from repository.")
 			};
