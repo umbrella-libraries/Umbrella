@@ -36,6 +36,8 @@ namespace Umbrella.AspNetCore.WebUtilities.Mvc;
 /// <seealso cref="UmbrellaDataAccessApiController" />
 [UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
 [UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
+[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
+[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
 [UmbrellaProducesResponseType(StatusCodes.Status500InternalServerError)]
 public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPaginatedResultModel, TModel, TCreateModel, TCreateResultModel, TUpdateModel, TUpdateResultModel, TRepository, TEntity, TRepositoryOptions, TEntityKey> : UmbrellaDataAccessApiController
 	where TPaginatedResultModel : PaginatedResultModel<TSlimModel>, new()
@@ -422,10 +424,6 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// <seealso cref="UmbrellaDataAccessApiController.ReadAllAsync"/>
 	[HttpGet("SearchSlim")]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
-	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
-	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
-	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
-	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
 	public virtual Task<IActionResult> SearchSlimAsync(int pageNumber, int pageSize, [FromQuery] SortExpression<TEntity>[]? sorters = null, [FromQuery] FilterExpression<TEntity>[]? filters = null, FilterExpressionCombinator? filterCombinator = null, CancellationToken cancellationToken = default)
 		=> SlimReadEndpointEnabled
 		? ReadAllAsync<TEntity, TEntity, TEntityKey, TRepositoryOptions, TSlimModel, TPaginatedResultModel>(
@@ -462,11 +460,7 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// <seealso cref="UmbrellaDataAccessApiController.ReadAsync"/>
 	[HttpGet]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
-	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
-	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
-	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
 	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
-	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
 	public virtual Task<IActionResult> GetAsync(TEntityKey id, CancellationToken cancellationToken = default)
 		=> ReadEndpointEnabled
 		? ReadAsync<TEntity, TEntityKey, TRepository, TRepositoryOptions, TModel>(
@@ -503,11 +497,7 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	[HttpPost]
 	[UmbrellaProducesResponseType(StatusCodes.Status201Created)]
 	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
-	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
-	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
-	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
 	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
-	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
 	public virtual Task<IActionResult> PostAsync(TCreateModel model, CancellationToken cancellationToken = default)
 		=> CreateEndpointEnabled
 		? CreateAsync<TEntity, TEntityKey, TRepository, TRepositoryOptions, TCreateModel, TCreateResultModel>(
@@ -545,12 +535,8 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	[HttpPut]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
 	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
-	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
-	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
 	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
-	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
 	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
-	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
 	public virtual Task<IActionResult> PutAsync(TUpdateModel model, CancellationToken cancellationToken = default)
 		=> UpdateEndpointEnabled
 		? UpdateAsync<TEntity, TEntityKey, TRepository, TRepositoryOptions, TUpdateModel, TUpdateResultModel>(
@@ -587,11 +573,7 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// <seealso cref="UmbrellaDataAccessApiController.DeleteAsync"/>
 	[HttpDelete]
 	[UmbrellaProducesResponseType(StatusCodes.Status204NoContent)]
-	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
-	[UmbrellaProducesResponseType(StatusCodes.Status401Unauthorized)]
-	[UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
 	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
-	[UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
 	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
 	public virtual Task<IActionResult> DeleteAsync(TEntityKey id, CancellationToken cancellationToken = default)
 		=> DeleteEndpointEnabled

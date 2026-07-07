@@ -15,7 +15,7 @@ public sealed class UmbrellaProducesResponseTypeAttribute : ProducesResponseType
 	public UmbrellaProducesResponseTypeAttribute(int statusCode)
 		: base(statusCode)
 	{
-		Type = statusCode == 400 ? typeof(UmbrellaValidationProblemDetails) : typeof(UmbrellaProblemDetails);
+		Type = GetProblemDetailsType(statusCode);
 	}
 
 	/// <summary>
@@ -26,7 +26,7 @@ public sealed class UmbrellaProducesResponseTypeAttribute : ProducesResponseType
 	public UmbrellaProducesResponseTypeAttribute(Type type, int statusCode)
 		: base(type, statusCode)
 	{
-		Type = statusCode == 400 ? typeof(UmbrellaValidationProblemDetails) : typeof(UmbrellaProblemDetails);
+		Type = GetProblemDetailsType(statusCode);
 	}
 
 	/// <summary>
@@ -39,10 +39,13 @@ public sealed class UmbrellaProducesResponseTypeAttribute : ProducesResponseType
 	public UmbrellaProducesResponseTypeAttribute(Type type, int statusCode, string contentType, params string[] additionalContentTypes)
 		: base(type, statusCode, contentType, additionalContentTypes)
 	{
-		Type = statusCode == 400 ? typeof(UmbrellaValidationProblemDetails) : typeof(UmbrellaProblemDetails);
+		Type = GetProblemDetailsType(statusCode);
 		ContentType = contentType;
 		AdditionalContentTypes = additionalContentTypes;
 	}
+
+	private static Type GetProblemDetailsType(int statusCode)
+		=> statusCode is 400 or 422 ? typeof(UmbrellaValidationProblemDetails) : typeof(UmbrellaProblemDetails);
 
 	/// <summary>
 	/// Gets the media type of the content associated with the current instance.
