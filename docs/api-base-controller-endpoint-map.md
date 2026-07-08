@@ -151,6 +151,8 @@ For the response-code contract above to be observable, the `WebApplicationFactor
 
 Assertion conventions: all error responses in the contract are `application/problem+json`; `400`/`422` bodies deserialize to `UmbrellaValidationProblemDetails`, all other errors to `UmbrellaProblemDetails` (both carry a correlation/trace id). The concurrency `409` carries `code = HttpProblemCodes.ConcurrencyStampMismatch`.
 
+Do not build this host from scratch: the repository already provides the infrastructure. Use the `dotnet-audit-aspnetcore-integration-test-readiness` skill to assess the target server project, then `dotnet-scaffold-aspnetcore-integration-tests` (with `dotnet-scaffold-test-project` where a test project does not yet exist) to generate the `WebApplicationFactory` classes, xUnit collections, test authentication handler, SQL Server Testcontainers wiring, and configuration overrides from `Umbrella.Testing.AspNetCore`. Generated endpoint tests should target that scaffolding and only extend it where a prerequisite above (e.g. a denying test identity, a non-Development environment name) is missing.
+
 ## Per-Endpoint Testing Guidance
 
 Terminology used below: *auth checks enabled* = the relevant `AuthorizationXxxChecksEnabled` flag left at its default `true` (on the controller for Pattern 1, on the data service for Pattern 2); *denying handler* = a resource authorization handler that can fail for a test identity you can authenticate as.
@@ -293,3 +295,14 @@ When generating an integration test suite for a concrete controller derived from
 7. Is `TEntityKey` a non-`string` type? → gates the `422` id-binding tests on `GET`/`DELETE`/`ExistsById`.
 8. Do the create/update models carry validation attributes, and does the entity have `IEntityValidator` rules beyond them? → gates body `422` and entity-validation `400` tests respectively.
 9. Is the test host configured per the prerequisites section (behavior options, claims propagation, policies, non-Development environment)? → gates `422` fidelity, imperative `403`s, and `500` shape assertions.
+
+## Intended Test-Generation Skill Breakdown
+
+This document is the contract source for four planned skills, one per base controller, each generating integration tests for concrete controllers:
+
+1. **`UmbrellaGenericRepositoryApiController` (Pattern 1)** — consume the endpoint matrices and the testability decision checklist directly; enablement and auth-check flags live on the controller.
+2. **`UmbrellaGenericRepositoryDataServiceApiController` (Pattern 2)** — same matrices, but resolve the enablement/auth-check flags and hooks on the backing data service (the `TRepositoryDataService` generic argument), not the controller.
+3. **`UmbrellaDataAccessApiController`** — derive each action's contract from the protected-helper table and union rule in the custom-endpoints section.
+4. **`UmbrellaApiController`** — derive each action's contract using the hand-rolled-action derivation rules in the custom-endpoints section.
+
+All four share the status-code production mechanics, the test host prerequisites (delegated to the scaffolding skills referenced there), and the per-code test recipes. Each skill must spot-verify the concrete controller against the code rather than trusting this document blindly — the checklist questions force most of that verification. Real-world usages of the two endpoint-less base controllers can be found in consuming applications such as the ERM repository (`Erm.Admin.Web.Server`).
