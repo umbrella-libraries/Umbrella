@@ -9,6 +9,8 @@ The map describes the reusable base controller contract, including supported vir
 
 It also provides per-endpoint, per-status-code integration testing guidance, with each code traced to the exact code path that produces it, so that test generation can determine which codes are testable for a given concrete controller and how to trigger them.
 
+Two further base controllers sit above these in the hierarchy and expose **no endpoints of their own**: `UmbrellaApiController` (the root, providing the status-code helper methods, problem-details shapes and `IOperationResult` mapping) and `UmbrellaDataAccessApiController` (adding the protected `ReadAllAsync`/`ReadAsync`/`CreateAsync`/`UpdateAsync`/`DeleteAsync` helpers that the Pattern 1 generic controller composes). Concrete applications derive custom-shaped endpoints from them directly. They have no fixed endpoint map — see [Custom Endpoints on the Base Controller Hierarchy](#custom-endpoints-on-the-base-controller-hierarchy) for how to derive a per-action contract and generate tests for them.
+
 ## Controller-Level Responses
 
 | Controller | Class-Level Responses |
@@ -243,9 +245,44 @@ Ordering note for test design: the PUT pipeline evaluates **404 → 409 (stamp) 
 
 No `422` exists for `TotalCount` — the endpoint binds no input, so no model-state failure is possible (consistent with its attribute set).
 
+## Custom Endpoints on the Base Controller Hierarchy
+
+`UmbrellaApiController` and `UmbrellaDataAccessApiController` define no endpoints, so no fixed endpoint map exists for them. Applications typically insert their own intermediate abstract controller (adding `[Route("api/[controller]")]`, a mapper, shared error messages) and build custom-shaped actions on top — e.g. a singleton-settings controller whose `GET` takes no `id`, an Identity-backed account controller, or orchestration endpoints with no repository at all. A test-generation skill must therefore **derive each action's status contract from the action's code**, using the rules below. Everything needed already exists in this document:
+
+- **All of [Status Code Production Mechanics](#status-code-production-mechanics) applies hierarchy-wide**, not just to the two generic controllers: the `OperationResultStatus` → HTTP mapping table, the status-helper problem-details shapes, the 400/`validationFailureStatusCode` model-state factory (any `[ApiController]`-derived action with bindable inputs can produce a `422`), the 401/403 middleware behaviour, and the `returnValue: !IsDevelopment` catch-filter convention for `500`s.
+- **The [Test Host Prerequisites](#test-host-prerequisites) apply unchanged.**
+- **The per-code test recipes in [Per-Endpoint Testing Guidance](#per-endpoint-testing-guidance) are reusable** once you know which codes an action can produce — the recipes describe how to trigger a mechanism, not a specific endpoint.
+
+### `UmbrellaDataAccessApiController` protected helper contracts
+
+Custom actions on this controller compose the same protected helpers the Pattern 1 generic controller uses, so each helper call contributes a fixed, traced status set to the action's contract:
+
+| Helper | Built-in statuses | Conditions |
+| --- | --- | --- |
+| `ReadAllAsync` | `200`, `403`, `500` | `403` only when `enableAuthorizationChecks: true` (parameter, default `true`) and the read policy denies ≥1 loaded entity. Pagination is clamped 1–50 before the core call. |
+| `ReadAsync` | `200`, `404`, `403`, `500` | `404` when the entity/id lookup returns `null`; `403` per `enableAuthorizationChecks`. |
+| `CreateAsync` | `201`, `400`, `403`, `500` | `400` from a `null` body reaching the action, or entity-level `IEntityValidator` failures on save; `403` per `enableAuthorizationChecks`. No built-in `409`. |
+| `UpdateAsync` | `200`, `400`, `404`, `409`, `403`, `500` | `409` (`ConcurrencyStampMismatch` code) from the pre-mapping stamp comparison, the repository stamp guard, or a commit-time race — requires the entity to implement `IConcurrencyStamp`. |
+| `DeleteAsync` | `204`, `404`, `403`, `409`, `500` | `409` only from a commit-time concurrency race (not deterministically testable over HTTP) or a `beforeDeleteEntityAsyncCallback` returning `Conflict`. |
+
+An action's derived contract is the **union** of: the statuses of every helper it calls (minus `403` where it passes `enableAuthorizationChecks: false`), plus `422` if it binds any input, plus `401`/declarative `403` from its `[Authorize]` attributes, plus any status produced by callbacks it supplies (a callback returning any `IOperationResult` maps through the standard table) and by code in the action before/after the helper calls. Example: a singleton-settings `GET` calling `ReadAsync(1, ..., enableAuthorizationChecks: false)` under `[Authorize(Policy = ...)]` yields `200`, `404` (only if the seed row can be absent), `401`, `403` (declarative only), `500` — and no `422`, since nothing is bound.
+
+### Deriving contracts for hand-rolled actions (`UmbrellaApiController`)
+
+For actions that orchestrate services or ASP.NET Identity directly, enumerate the status-helper and `OperationResult`/`OperationResultFailure` calls in the action body — that enumeration *is* the method-level contract. Rules that real-world usage shows a skill must apply:
+
+1. **In-action `Unauthorized(...)` is not middleware 401.** It returns `401` *with* an `UmbrellaProblemDetails` body and is testable without `[Authorize]` (e.g. anonymous access to protected content, or own-account-locked checks). Distinguish it from the empty-bodied middleware challenge when generating assertions.
+2. **`ValidationProblem(ModelState)` from an action body is `400`**, not `422` — the custom factory only governs pre-action model binding. Identity-style flows (`IdentityResult` errors copied into model state) therefore produce `400`.
+3. **Both `Conflict(...)` and `ConcurrencyConflict(...)` are `409`** — assert `code = ConcurrencyStampMismatch` to target the concurrency variant. Hand-rolled update paths typically pair a manual stamp comparison with `catch (UmbrellaConcurrencyException)`, both → `ConcurrencyConflict`.
+4. **Duplicate-resource guards often exist twice** — a pre-save lookup *and* a save-result error-code check that closes the race window. Both return `409 Conflict`; a duplicate-seed test exercises the first, and the second is usually untestable over HTTP.
+5. **Never infer statuses from route shape.** Anti-enumeration endpoints deliberately return success (e.g. `204`) for missing resources; only generate a `404` test where the action actually returns `NotFound`.
+6. **Do not assume base-class conventions.** Hand-rolled actions may clamp pagination differently, add their own guards (e.g. `id < 1` → `400`), or return `401` for states like a locked own-account. The action body is the source of truth.
+7. **External dependencies gate some codes.** Statuses that depend on external services (CAPTCHA verification → `400`, email senders, payment gateways) are only testable if the test host substitutes those dependencies with controllable fakes — record each such status's dependency alongside the derived contract.
+8. **The `500` contract is identical**: catch-all filters with `returnValue: !IsDevelopment`, so shape assertions need a non-Development host, and triggering one requires a throwing fake.
+
 ## Testability Decision Checklist
 
-When generating an integration test suite for a concrete controller, resolve these questions first — they determine which cells of the matrices above apply:
+When generating an integration test suite for a concrete controller derived from one of the two **generic** controllers, resolve these questions first — they determine which cells of the matrices above apply. (For controllers derived directly from `UmbrellaApiController` or `UmbrellaDataAccessApiController`, derive the per-action contract using [Custom Endpoints on the Base Controller Hierarchy](#custom-endpoints-on-the-base-controller-hierarchy) instead, then apply questions 1, 3, 5, 7, 8 and 9 below to each action.)
 
 1. Does the concrete controller (or a global policy) apply `[Authorize]`? → gates all `401` tests, and declarative `403` tests.
 2. Which `AuthorizationXxxChecksEnabled` flags are overridden to `false` (controller for Pattern 1, data service for Pattern 2)? → removes the corresponding imperative `403` tests.
