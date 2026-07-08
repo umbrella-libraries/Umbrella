@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Umbrella.DataAccess.Abstractions;
 using Umbrella.DataAccess.Abstractions.Exceptions;
+using Umbrella.Utilities.Exceptions;
 
 namespace Umbrella.DataAccess.EntityFrameworkCore;
 
@@ -36,6 +37,10 @@ public class DataAccessUnitOfWork<TDbContext> : IDataAccessUnitOfWork
 		try
 		{
 			_ = await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+		}
+		catch (DbUpdateConcurrencyException exc) when (_logger.WriteError(exc))
+		{
+			throw new UmbrellaConcurrencyException("A concurrency error occurred committing the unit of work.", exc);
 		}
 		catch (Exception exc) when (_logger.WriteError(exc))
 		{

@@ -562,6 +562,10 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 
 			return OperationResult.NoContent();
 		}
+		catch (UmbrellaConcurrencyException)
+		{
+			return OperationResult.ConcurrencyConflict(Options.ConcurrencyErrorMessage);
+		}
 		catch (Exception exc) when (Options.DeleteExceptionFilter(exc))
 		{
 			OperationResult? result = await Options.HandleDeleteExceptionAsync(exc).ConfigureAwait(false);
