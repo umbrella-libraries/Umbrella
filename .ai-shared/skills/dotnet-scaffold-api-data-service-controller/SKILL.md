@@ -15,7 +15,7 @@ Use `dotnet-scaffold-api-repo-controller` instead when no service abstraction is
 
 ## Discovery (read these before writing anything)
 
-1. Read 1–2 existing controller services in `Web\<AppName>.Web.Server\Controllers\Api\Services\` (fall back to the legacy `Web\<AppName>.Web.Server\Services\Api\` location in older projects) to confirm the `UmbrellaRepositoryDataService` generic parameter order (11 params) and any project-specific patterns.
+1. Read 1–2 existing controller services in `Web\<AppName>.Web.Server\Services\` (fall back to the legacy `Web\<AppName>.Web.Server\Services\Api\` location in older projects) to confirm the `UmbrellaRepositoryDataService` generic parameter order (11 params) and any project-specific patterns.
 2. Read 1–2 existing controllers in `Web\<AppName>.Web.Server\Controllers\Api\` to confirm the project-specific base class wrapper (e.g. `IndyRecordsGenericRepositoryDataServiceApiController`) and its 9 generic parameter order.
 3. **Determine interface location**: if `Web\<AppName>.Web.Client.Data\Services\Abstractions\` exists, the interface goes there (Blazor project — enables SSR pre-rendering). Otherwise it goes in `Web\<AppName>.Web.Server\Services\Abstractions\` or equivalent.
 4. Read `Web\<AppName>.Web.Server\IServiceCollectionExtensions.cs` — find the `// Controller Services` section to see whether existing registrations use `AddScoped` or `ReplaceScoped`.
@@ -51,9 +51,9 @@ public interface IManage<Name>Service : IGenericDataService<
 
 ## Step 2 -- Create the server controller service
 
-**File:** `Web\<AppName>.Web.Server\Controllers\Api\Services\Manage<Name>ControllerService.cs`
+**File:** `Web\<AppName>.Web.Server\Services\Manage<Name>ControllerService.cs`
 
-Controller services always live in a `Services` folder inside `Controllers\Api`, next to the controllers they back — not in a top-level `Services` folder. (Older projects may have them in `Services\Api\`; new controller services still go in `Controllers\Api\Services\`.)
+Concrete controller services live directly in the `Services` folder, alongside the `Services\Abstractions\` interfaces folder — mirroring the client data project layout. (Older projects may have them in `Services\Api\`; new controller services still go in `Services\`.)
 
 ```csharp
 using <AppName>.Core.Data.Repositories.Abstractions;
@@ -68,7 +68,7 @@ using Umbrella.Utilities.Mapping.Abstractions;
 using Umbrella.Utilities.Security.Abstractions;
 using Umbrella.Utilities.Threading.Abstractions;
 
-namespace <AppName>.Web.Server.Controllers.Api.Services;
+namespace <AppName>.Web.Server.Services;
 
 public class Manage<Name>ControllerService : UmbrellaRepositoryDataService<
     Manage<Name>Model,
@@ -246,7 +246,7 @@ public async Task<IActionResult> GetSummaryAsync([FromQuery] int id, Cancellatio
 ## Verification
 
 1. Service interface is in the correct location — client data abstractions for Blazor projects, server abstractions for API-only.
-2. The controller service file is in `Web\<AppName>.Web.Server\Controllers\Api\Services\` with namespace `<AppName>.Web.Server.Controllers.Api.Services`.
+2. The controller service file is in `Web\<AppName>.Web.Server\Services\` with namespace `<AppName>.Web.Server.Services`.
 3. `IGenericDataService` has 8 type params; the first is `TModel` (full model), second is `TIdentifier` (int), third is `TSlimModel`.
 4. `UmbrellaRepositoryDataService` has 11 type params; `TModel` comes before `TSlimModel` (opposite order from the controller's type list).
 5. The controller service is `public class` (not `internal`).
