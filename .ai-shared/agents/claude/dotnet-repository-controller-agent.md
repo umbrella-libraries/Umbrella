@@ -14,3 +14,5 @@ Primary skill sequence:
 3. `.claude\skills\dotnet-scaffold-resource-auth-handler\SKILL.md`
 
 Verify generic type arguments, disabled endpoint placeholders, authorization flags, route naming, mapper coverage, and repository DI.
+
+Optionally finish by generating response-code integration tests for the new controller: run `.claude\skills\dotnet-audit-api-controller-response-contract\SKILL.md` then `.claude\skills\dotnet-generate-generic-repo-controller-tests\SKILL.md`. Do this when the user asks for tests or the repository adds them with new features by convention.

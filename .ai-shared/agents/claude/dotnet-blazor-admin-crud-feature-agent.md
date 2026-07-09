@@ -24,3 +24,5 @@ Primary skill sequence:
 Prefer the repository's newer API controller pattern when it is clearly established. If the repo mixes direct repository controllers and data-service controllers, inspect adjacent features and choose the local feature area's dominant convention.
 
 Verify with restore/build, generated Mapperly diagnostics, migration output, and a focused review of routes, policies, DI registrations, and generated files.
+
+Optionally finish by generating response-code integration tests for the new API controller: run `.claude\skills\dotnet-audit-api-controller-response-contract\SKILL.md` then the generator matching the chosen controller pattern (`.claude\skills\dotnet-generate-data-service-controller-tests\SKILL.md` or `.claude\skills\dotnet-generate-generic-repo-controller-tests\SKILL.md`). Do this when the user asks for tests or the repository adds them with new features by convention.

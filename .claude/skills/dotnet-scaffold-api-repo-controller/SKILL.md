@@ -243,3 +243,9 @@ public async Task<IActionResult> GetByExternalIdAsync([FromQuery] string externa
 5. Every `object` position has a corresponding `XxxEndpointEnabled => false` override.
 6. Lifecycle hook overrides (`AfterCreateEntityAsync`, etc.) start with `ThrowIfCancellationRequested` and `Guard.IsNotNull` on all non-cancellation params.
 7. No standard CRUD method (`PostAsync`, `GetAsync`, `PutAsync`, `DeleteAsync`, `PatchAsync`, `SearchSlimAsync`) is overridden without a `base.XxxAsync(...)` call in its body.
+
+---
+
+## Next steps
+
+After the controller builds and its routes are wired, generate integration tests for it with `dotnet-generate-generic-repo-controller-tests` (run `dotnet-audit-api-controller-response-contract` first to derive the per-endpoint status contract).

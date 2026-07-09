@@ -157,3 +157,4 @@ _ = services.AddScoped<IAuthorizationHandler, <Name>AuthorizationHandler>();
 3. The corresponding `AuthorizationXxxChecksEnabled` override is absent (or `true`) on the controller/controller service for any operation this handler covers.
 4. `services.AddScoped<IAuthorizationHandler, <Name>AuthorizationHandler>()` is present in `IServiceCollectionExtensions.cs`.
 5. If the handler only covers some operations (e.g. Read only), the remaining operations on the controller are still suppressed with `=> false`.
+6. A test identity can be constructed that the handler denies (e.g. a non-owner user id or missing role). A handler that succeeds for every authenticated user makes the imperative 403 path untestable in integration tests — if that is intentional, note it so test generation skips the 403 tests.

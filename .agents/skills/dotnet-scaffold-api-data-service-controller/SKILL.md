@@ -252,3 +252,9 @@ public async Task<IActionResult> GetSummaryAsync([FromQuery] int id, Cancellatio
 7. DI registration uses `AddScoped` or `ReplaceScoped` based on whether the client already registers the interface.
 8. No standard CRUD method (`PostAsync`, `GetAsync`, `PutAsync`, `DeleteAsync`, `SearchSlimAsync`) is overridden in the controller service without a `base.XxxAsync(...)` call.
 9. No `using` directive in the controller service references a `Core.Logic` namespace — domain logic belongs in a dedicated Core.Logic service, not here.
+
+---
+
+## Next steps
+
+After the controller and controller service build and DI is wired, generate integration tests with `dotnet-generate-data-service-controller-tests` (run `dotnet-audit-api-controller-response-contract` first — enablement and authorization flags resolve on the controller service for this pattern).

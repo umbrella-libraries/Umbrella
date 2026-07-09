@@ -88,6 +88,18 @@ Recommendation rules:
 - Do not rely on real user secrets, developer machines, cloud resources, or production-looking defaults.
 - Note endpoints such as health checks that may touch external services even if normal controller tests do not.
 
+## Response contract audit
+
+When the goal includes testing controller response codes (see `docs\api-base-controller-endpoint-map.md` in the Umbrella repository), capture the host facts that gate which codes are observable:
+
+- whether `Program.cs` (or an extension it calls) registers `UseUmbrellaPropagateClaimsPrincipal()` or otherwise assigns `Thread.CurrentPrincipal` — without it, imperative resource authorization checks in `UmbrellaRepositoryCoreDataService` throw and every expected `403` surfaces as a `500`;
+- whether the MVC setup calls `ConfigureUmbrellaApiBehaviorOptions()` / `ConfigureUmbrellaMvcBuilderOptions()` and whether it overrides `validationFailureStatusCode` — this determines whether model binding/validation failures return `422` (the default) or another code, and tests must assert the configured value;
+- which environment name the app runs under in tests — the base controllers' exception filters use `returnValue: !IsDevelopment`, so `500` `UmbrellaProblemDetails` shapes are only observable under a non-`Development` environment;
+- whether the `CorePolicyNames.Create/Read/Update/Delete` policies (or custom names configured on `UmbrellaRepositoryDataServiceOptions`) are registered, and which resource authorization handlers exist for the entities under test;
+- whether a test identity can be constructed that each resource handler denies — an always-succeeds handler makes imperative `403` untestable.
+
+Include these facts in the readiness report when controller response-code tests are in scope.
+
 ## Test project audit
 
 Determine:
@@ -108,6 +120,7 @@ Return a short readiness report with:
 - external services and isolation risks;
 - proposed factory classes and collection names;
 - packages/project references to add;
+- response contract host facts (claims propagation, validation failure status code, environment name, policy/handler coverage) when controller response-code tests are in scope;
 - validation commands.
 
 Do not modify files in this skill.

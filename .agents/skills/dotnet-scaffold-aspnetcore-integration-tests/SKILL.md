@@ -77,6 +77,14 @@ Create a test auth handler that:
 - allows per-test overrides through request headers or a small client helper;
 - supports unauthenticated requests for authorization tests.
 
+When controller response-code tests are in scope, the handler (or client helper) must be able to issue **three distinct identities** per entity under test:
+
+- **anonymous** — no authentication result, so `[Authorize]` endpoints challenge with `401`;
+- **passing** — an authenticated identity that satisfies both the declarative policies and the imperative resource authorization handlers;
+- **denying** — an authenticated identity that passes `[Authorize]` but fails the entity's resource authorization handler (e.g. a non-owner user id), so imperative checks produce `403`.
+
+A single high-privilege default identity cannot exercise the `401`/`403` paths.
+
 For Identity-cookie apps, replace the application scheme handler rather than bypassing authorization:
 
 ```csharp
@@ -116,6 +124,15 @@ Rules:
 - Avoid user secrets and cloud resources.
 - Use `Development` only when it disables production-only startup paths.
 - Replace unsafe services if startup itself opens network connections.
+
+## Response contract host requirements
+
+When the test project will assert controller response codes (see `docs\api-base-controller-endpoint-map.md` in the Umbrella repository), verify the following in the server app and compensate in the factory where missing:
+
+- **Claims principal propagation** — the pipeline must call `UseUmbrellaPropagateClaimsPrincipal()` (or equivalent) so `HttpContext.User` flows to `Thread.CurrentPrincipal`. Without it, the imperative authorization checks in `UmbrellaRepositoryCoreDataService` throw and expected `403` responses surface as `500`s. If the production pipeline lacks it, flag this to the user rather than patching it only in tests — the production app has the same defect.
+- **Validation status code** — confirm the app calls `ConfigureUmbrellaApiBehaviorOptions()` / `ConfigureUmbrellaMvcBuilderOptions()` and record any `validationFailureStatusCode` override. Generated tests must assert the configured value (default `422`) for model binding/validation failures, and `400` for malformed JSON root errors.
+- **Environment name** — the base controllers' exception filters only catch when the host environment is not `Development`. Run the factory with a non-`Development` environment (e.g. `Production` or a dedicated `IntegrationTest` name, provided startup avoids production-only services) whenever `500` response shapes are asserted.
+- **Authorization policies** — the `CorePolicyNames.Create/Read/Update/Delete` policies (or the custom names configured on `UmbrellaRepositoryDataServiceOptions`) must be registered together with the entities' resource authorization handlers. Use `dotnet-scaffold-auth-policy` and `dotnet-scaffold-resource-auth-handler` if they are missing.
 
 ## Test logging
 
