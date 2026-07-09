@@ -17,7 +17,7 @@ Upgrade an existing Pattern 1 API controller (inheriting `GenericRepositoryApiCo
 ## Discovery (read these before writing anything)
 
 1. Read the existing controller at `Web\<AppName>.Web.Server\Controllers\Api\Manage<Name>Controller.cs` in full — capture the current base class, all generic type params, all constructor dependencies, and any lifecycle hook overrides (`AfterCreateEntityAsync`, `AfterUpdateEntityAsync`, `AfterDeleteEntityAsync`).
-2. Read 1–2 existing controller services in `Web\<AppName>.Web.Server\Controllers\Api\Services\` (fall back to the legacy `Web\<AppName>.Web.Server\Services\Api\` location in older projects) to confirm the `UmbrellaRepositoryDataService` generic parameter order and project-specific patterns.
+2. Read 1–2 existing controller services in `Web\<AppName>.Web.Server\Services\` (fall back to the legacy `Web\<AppName>.Web.Server\Services\Api\` location in older projects) to confirm the `UmbrellaRepositoryDataService` generic parameter order and project-specific patterns.
 3. **Determine if a client service interface already exists:** Check `Web\<AppName>.Web.Client.Data\Services\Abstractions\I<Name>Service.cs`. If it exists (after running the rename skill), the server registration must use `ReplaceScoped`. If it does not exist, create it and use `AddScoped`.
 4. Read `Web\<AppName>.Web.Server\IServiceCollectionExtensions.cs` — `// Controller Services` section — to confirm the current DI state for this feature.
 
@@ -55,9 +55,9 @@ Use the same model types that the existing controller uses in its generic parame
 
 ## Step 2 -- Create the controller service
 
-**File:** `Web\<AppName>.Web.Server\Controllers\Api\Services\<Name>ControllerService.cs`
+**File:** `Web\<AppName>.Web.Server\Services\<Name>ControllerService.cs`
 
-Controller services always live in a `Services` folder inside `Controllers\Api`, next to the controllers they back — even when the project has existing controller services in the legacy `Services\Api\` location.
+Concrete controller services live directly in the `Services` folder, alongside the `Services\Abstractions\` interfaces folder — even when the project has existing controller services in the legacy `Services\Api\` location.
 
 Extract any lifecycle hook logic from the existing controller into this new class. If the controller had no hooks, the service body will only have the auth-disabled overrides.
 
@@ -74,7 +74,7 @@ using Umbrella.Utilities.Mapping.Abstractions;
 using Umbrella.Utilities.Security.Abstractions;
 using Umbrella.Utilities.Threading.Abstractions;
 
-namespace <AppName>.Web.Server.Controllers.Api.Services;
+namespace <AppName>.Web.Server.Services;
 
 public class <Name>ControllerService : UmbrellaRepositoryDataService<
     <Name>Model,
@@ -213,7 +213,7 @@ If the old server DI had any explicit registration for this controller's old rep
 
 1. The old `Manage<Name>Controller` no longer inherits `GenericRepositoryApiController` — it inherits `<AppName>GenericRepositoryDataServiceApiController` with 9 type params.
 2. No lifecycle hooks remain on the controller — they live in `<Name>ControllerService`.
-3. `<Name>ControllerService` is `public class`, lives in `Web\<AppName>.Web.Server\Controllers\Api\Services\`, inherits `UmbrellaRepositoryDataService` with 11 type params, uses `IHostEnvironment` (not `IWebHostEnvironment`).
+3. `<Name>ControllerService` is `public class`, lives in `Web\<AppName>.Web.Server\Services\`, inherits `UmbrellaRepositoryDataService` with 11 type params, uses `IHostEnvironment` (not `IWebHostEnvironment`).
 4. Any extra dependencies (file handlers, services) from the old controller are now in the controller service constructor, after the 9 base params.
 5. Server DI uses `ReplaceScoped` if a client service interface exists, `AddScoped` otherwise.
 6. The old controller's `IUmbrellaMapper`, `Lazy<I<Name>Repository>`, and `IUmbrellaRepositoryCoreDataService` constructor dependencies are gone from the controller.
