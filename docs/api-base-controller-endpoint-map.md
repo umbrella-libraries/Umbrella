@@ -9,7 +9,7 @@ The map describes the reusable base controller contract, including supported vir
 
 It also provides per-endpoint, per-status-code integration testing guidance, with each code traced to the exact code path that produces it, so that test generation can determine which codes are testable for a given concrete controller and how to trigger them.
 
-Two further base controllers sit above these in the hierarchy and expose **no endpoints of their own**: `UmbrellaApiController` (the root, providing the status-code helper methods, problem-details shapes and `IOperationResult` mapping) and `UmbrellaDataAccessApiController` (adding the protected `ReadAllAsync`/`ReadAsync`/`CreateAsync`/`UpdateAsync`/`DeleteAsync` helpers that the Pattern 1 generic controller composes). Concrete applications derive custom-shaped endpoints from them directly. They have no fixed endpoint map — see [Custom Endpoints on the Base Controller Hierarchy](#custom-endpoints-on-the-base-controller-hierarchy) for how to derive a per-action contract and generate tests for them.
+Three further base controllers sit above these in the hierarchy and expose **no endpoints of their own**: `UmbrellaApiController` (the root, providing the status-code helper methods, problem-details shapes and `IOperationResult` mapping), `UmbrellaDataAccessApiController` (adding the protected `ReadAllAsync`/`ReadAsync`/`CreateAsync`/`UpdateAsync`/`DeleteAsync` helpers that the Pattern 1 generic controller composes), and `UmbrellaDataServiceApiController<TDataService>` (the service-pattern equivalent: an unconstrained `Lazy<TDataService>` plus the protected `ExecuteOperationAsync` overload pair that the Pattern 2 generic controller's endpoints compose). Concrete applications derive custom-shaped endpoints from them directly. They have no fixed endpoint map — see [Custom Endpoints on the Base Controller Hierarchy](#custom-endpoints-on-the-base-controller-hierarchy) for how to derive a per-action contract and generate tests for them.
 
 ## Controller-Level Responses
 
@@ -51,7 +51,7 @@ Every status code in the contract is produced by one of a small number of mechan
 
 **Pattern 1 (`UmbrellaGenericRepositoryApiController`)**: action method → `UmbrellaDataAccessApiController.ReadAllAsync/ReadAsync/CreateAsync/UpdateAsync/DeleteAsync` → `IUmbrellaRepositoryCoreDataService` (`UmbrellaRepositoryCoreDataService`) → `IGenericDbRepository` → `IDataAccessUnitOfWork.CommitAsync`. Endpoint-enablement flags (`SlimReadEndpointEnabled` etc.) live **on the controller**.
 
-**Pattern 2 (`UmbrellaGenericRepositoryDataServiceApiController`)**: action method → `TRepositoryDataService` (typically derived from `UmbrellaRepositoryDataService`, which itself derives from `UmbrellaRepositoryCoreDataService`) → same repository/unit-of-work path. Endpoint-enablement flags and all virtual hooks live **on the data service**, not the controller. `ExistsByIdEndpointEnabled` and `TotalCountEndpointEnabled` also exist here.
+**Pattern 2 (`UmbrellaGenericRepositoryDataServiceApiController`)**: action method → `TRepositoryDataService` (typically derived from `UmbrellaRepositoryDataService`, which itself derives from `UmbrellaRepositoryCoreDataService`) → same repository/unit-of-work path. Endpoint-enablement flags and all virtual hooks live **on the data service**, not the controller. `ExistsByIdEndpointEnabled` and `TotalCountEndpointEnabled` also exist here. The controller derives from `UmbrellaDataServiceApiController<TRepositoryDataService>`, whose `ExecuteOperationAsync` envelope its endpoints compose — the HTTP contract is unchanged by that layering.
 
 Both pipelines return `IOperationResult` values that `UmbrellaApiController.OperationResult(...)` maps to HTTP results:
 
@@ -249,7 +249,7 @@ No `422` exists for `TotalCount` — the endpoint binds no input, so no model-st
 
 ## Custom Endpoints on the Base Controller Hierarchy
 
-`UmbrellaApiController` and `UmbrellaDataAccessApiController` define no endpoints, so no fixed endpoint map exists for them. Applications typically insert their own intermediate abstract controller (adding `[Route("api/[controller]")]`, a mapper, shared error messages) and build custom-shaped actions on top — e.g. a singleton-settings controller whose `GET` takes no `id`, an Identity-backed account controller, or orchestration endpoints with no repository at all. A test-generation skill must therefore **derive each action's status contract from the action's code**, using the rules below. Everything needed already exists in this document:
+`UmbrellaApiController`, `UmbrellaDataAccessApiController` and `UmbrellaDataServiceApiController<TDataService>` define no endpoints, so no fixed endpoint map exists for them. Applications typically insert their own intermediate abstract controller (adding `[Route("api/[controller]")]`, a mapper, shared error messages) and build custom-shaped actions on top — e.g. a singleton-settings controller whose `GET` takes no `id`, an Identity-backed account controller, or orchestration endpoints with no repository at all. A test-generation skill must therefore **derive each action's status contract from the action's code**, using the rules below. Everything needed already exists in this document:
 
 - **All of [Status Code Production Mechanics](#status-code-production-mechanics) applies hierarchy-wide**, not just to the two generic controllers: the `OperationResultStatus` → HTTP mapping table, the status-helper problem-details shapes, the 400/`validationFailureStatusCode` model-state factory (any `[ApiController]`-derived action with bindable inputs can produce a `422`), the 401/403 middleware behaviour, and the `returnValue: !IsDevelopment` catch-filter convention for `500`s.
 - **The [Test Host Prerequisites](#test-host-prerequisites) apply unchanged.**
@@ -268,6 +268,15 @@ Custom actions on this controller compose the same protected helpers the Pattern
 | `DeleteAsync` | `204`, `404`, `403`, `409`, `500` | `409` only from a commit-time concurrency race (not deterministically testable over HTTP) or a `beforeDeleteEntityAsyncCallback` returning `Conflict`. |
 
 An action's derived contract is the **union** of: the statuses of every helper it calls (minus `403` where it passes `enableAuthorizationChecks: false`), plus `422` if it binds any input, plus `401`/declarative `403` from its `[Authorize]` attributes, plus any status produced by callbacks it supplies (a callback returning any `IOperationResult` maps through the standard table) and by code in the action before/after the helper calls. Example: a singleton-settings `GET` calling `ReadAsync(1, ..., enableAuthorizationChecks: false)` under `[Authorize(Policy = ...)]` yields `200`, `404` (only if the seed row can be absent), `401`, `403` (declarative only), `500` — and no `422`, since nothing is bound.
+
+### `UmbrellaDataServiceApiController` operation contracts
+
+Custom actions on this controller compose the protected `ExecuteOperationAsync` overload pair: each call takes a delegate invoking one operation on the injected `TDataService`, an endpoint-specific `500` error message, and optional log state. The envelope contributes a fixed mechanical contract — cancellation check, `IOperationResult` → HTTP mapping via the standard table, and the `returnValue: !IsDevelopment` catch producing the `500` — while the **status codes themselves come from the `IOperationResult`s the service operation can return**:
+
+- For services extending `UmbrellaRepositoryDataService`, the per-operation status sets match the Pattern 2 endpoint map (e.g. `FindByIdAsync` → `200`/`404`/imperative `403`; `UpdateAsync` → `200`/`400`/`404`/`409`-concurrency; a disabled endpoint flag → `405`).
+- For custom service implementations, enumerate the `IOperationResult` factory calls in the service method — that enumeration is the operation's status set, mapped through the standard table.
+
+An action's derived contract is the union of: the composed operation's statuses, plus the envelope `500`, plus `422` (or the configured `validationFailureStatusCode`) if the action binds input, plus `401`/declarative `403` from its `[Authorize]` attributes. `TDataService` is unconstrained, so services implementing only a subset of `IGenericDataService` (e.g. a read+update singleton-settings service) or fully custom interfaces are first-class — derive from the methods that actually exist.
 
 ### Deriving contracts for hand-rolled actions (`UmbrellaApiController`)
 
