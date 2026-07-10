@@ -42,6 +42,7 @@ For `UmbrellaDataAccessApiController` actions, record the `enableAuthorizationCh
 
 - `[Authorize]`/`[AllowAnonymous]` on the controller and actions, including policy names — gates `401` and declarative `403`.
 - Which resource authorization handlers exist for the entity and whether a test identity can be constructed that they deny — gates imperative `403`.
+- **The distinct grant branches inside each handler** (e.g. owner, account-manager, admin-role, operation-specific rules). List each identity class the handler distinguishes — test generation should produce one denying/passing pair per branch, not one pair total, so a bug in a secondary grant path is not missed.
 - Host facts (from `dotnet-audit-aspnetcore-integration-test-readiness` if already run): `UseUmbrellaPropagateClaimsPrincipal` present, `validationFailureStatusCode` value, environment name strategy.
 
 ## Step 5 — Derive the contract

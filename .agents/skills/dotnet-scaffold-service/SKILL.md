@@ -9,6 +9,8 @@ description: 'Scaffold a logic service (interface, implementation, models) in th
 
 Add a new service to the `Core.<AppName>.Core.Logic` project for domain logic that goes beyond simple data access -- for example, AI integrations, external API calls, file processing orchestration, or complex calculations. Controllers call repositories directly for CRUD; this Logic project is for work that is genuinely more complex than that.
 
+**Do not create per-entity wrapper services that only delegate to a repository** — that logic belongs in the controller (or its lifecycle hooks / controller service for Pattern 2). This rule overrides anything the Discovery step suggests: if the target project contains existing thin wrapper services, they are a legacy deviation, not a pattern to replicate.
+
 ## Layer boundary rule
 
 > **Core.Logic must never reference Web-layer projects.**

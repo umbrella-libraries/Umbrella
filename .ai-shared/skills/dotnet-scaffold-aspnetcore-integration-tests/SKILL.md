@@ -83,7 +83,7 @@ When controller response-code tests are in scope, the handler (or client helper)
 - **passing** — an authenticated identity that satisfies both the declarative policies and the imperative resource authorization handlers;
 - **denying** — an authenticated identity that passes `[Authorize]` but fails the entity's resource authorization handler (e.g. a non-owner user id), so imperative checks produce `403`.
 
-A single high-privilege default identity cannot exercise the `401`/`403` paths.
+A single high-privilege default identity cannot exercise the `401`/`403` paths. When a resource handler distinguishes several identity classes (owner, account manager, admin role, …), the handler/helper must be able to construct a passing and a denying variant for each class, not just one pair overall.
 
 For Identity-cookie apps, replace the application scheme handler rather than bypassing authorization:
 
