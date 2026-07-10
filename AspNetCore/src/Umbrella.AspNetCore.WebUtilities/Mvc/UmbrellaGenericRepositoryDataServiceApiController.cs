@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -8,7 +8,6 @@ using Umbrella.Utilities.Data.Filtering;
 using Umbrella.Utilities.Data.Pagination;
 using Umbrella.Utilities.Data.Services.Abstractions;
 using Umbrella.Utilities.Data.Sorting;
-using Umbrella.Utilities.Primitives.Abstractions;
 
 namespace Umbrella.AspNetCore.WebUtilities.Mvc;
 
@@ -19,9 +18,10 @@ namespace Umbrella.AspNetCore.WebUtilities.Mvc;
 /// </summary>
 /// <remarks>This controller is intended to be used as a base class for API controllers that expose
 /// repository-backed data services. It provides standard endpoints for searching, retrieving, creating, updating, and
-/// deleting entities, delegating all data access logic to the injected repository data service. The controller is
-/// designed for extensibility and can be customized by overriding its virtual methods. All endpoints are asynchronous
-/// and support cancellation via <see cref="CancellationToken"/>.</remarks>
+/// deleting entities, delegating all data access logic to the injected repository data service. Each endpoint executes
+/// through the <see cref="UmbrellaDataServiceApiController{TDataService}.ExecuteOperationAsync{TResult}"/> envelope
+/// provided by the base class. The controller is designed for extensibility and can be customized by overriding its
+/// virtual methods. All endpoints are asynchronous and support cancellation via <see cref="CancellationToken"/>.</remarks>
 /// <typeparam name="TItem">The type representing the full entity model, which must implement <see cref="IKeyedItem{TEntityKey}"/>.</typeparam>
 /// <typeparam name="TSlimItem">The type representing a lightweight or summary view of the entity, used for paginated or list results. Must
 /// implement <see cref="IKeyedItem{TEntityKey}"/>.</typeparam>
@@ -40,7 +40,7 @@ namespace Umbrella.AspNetCore.WebUtilities.Mvc;
 [UmbrellaProducesResponseType(StatusCodes.Status403Forbidden)]
 [UmbrellaProducesResponseType(StatusCodes.Status405MethodNotAllowed)]
 [UmbrellaProducesResponseType(StatusCodes.Status500InternalServerError)]
-public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimItem, TPaginatedResultModel, TItem, TCreateItem, TCreateResult, TUpdateItem, TUpdateResult, TEntityKey, TRepositoryDataService> : UmbrellaApiController
+public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimItem, TPaginatedResultModel, TItem, TCreateItem, TCreateResult, TUpdateItem, TUpdateResult, TEntityKey, TRepositoryDataService> : UmbrellaDataServiceApiController<TRepositoryDataService>
 	where TSlimItem : class, IKeyedItem<TEntityKey>
 	where TPaginatedResultModel : PaginatedResultModel<TSlimItem>
 	where TItem : class, IKeyedItem<TEntityKey>
@@ -59,17 +59,17 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 		ILogger logger,
 		IWebHostEnvironment hostingEnvironment,
 		Lazy<TRepositoryDataService> repositoryDataService)
-		: base(logger, hostingEnvironment)
+		: base(logger, hostingEnvironment, repositoryDataService)
 	{
-		RepositoryDataService = repositoryDataService;
 	}
 
 	/// <summary>
 	/// Gets the lazy-initialized repository data service instance.
 	/// </summary>
 	/// <remarks>The repository data service is created only when first accessed. Use this property to access
-	/// repository-related operations without incurring the cost of initialization until needed.</remarks>
-	protected Lazy<TRepositoryDataService> RepositoryDataService { get; }
+	/// repository-related operations without incurring the cost of initialization until needed. This is an alias for
+	/// <see cref="UmbrellaDataServiceApiController{TDataService}.DataService"/>.</remarks>
+	protected Lazy<TRepositoryDataService> RepositoryDataService => DataService;
 
 	/// <summary>
 	/// An API endpoint used to load paginated entities in bulk from the repository based on the specified <paramref name="sorters"/> and <paramref name="filters"/>
@@ -85,27 +85,19 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 	/// The action result containing the endpoint response which either be a <typeparamref name="TPaginatedResultModel"/> when successful or
 	/// a <see cref="ProblemDetails"/> response and / or erroneous state code as appropriate.
 	/// </returns>
-	/// <exception cref="NotSupportedException">Unsupported Endpoint</exception>
 	/// <remarks>
-	/// This endpoint calls into the <c>ReadAllAsync</c> base controller method.
-	/// Please see this for further details regarding behaviour.
+	/// This endpoint invokes the <c>FindAllSlimAsync</c> method on the data service using the
+	/// <see cref="UmbrellaDataServiceApiController{TDataService}.ExecuteOperationAsync{TResult}"/> envelope.
 	/// </remarks>
 	[HttpGet("SearchSlim")]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
 	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-	public virtual async Task<IActionResult> SearchSlimAsync(int pageNumber, int pageSize, [FromQuery] IEnumerable<SortExpressionDescriptor>? sorters = null, [FromQuery] IEnumerable<FilterExpressionDescriptor>? filters = null, FilterExpressionCombinator? filterCombinator = null, CancellationToken cancellationToken = default)
-	{
-		try
-		{
-			IOperationResult<TPaginatedResultModel?> result = await RepositoryDataService.Value.FindAllSlimAsync(pageNumber, pageSize, sorters, filters, filterCombinator ?? FilterExpressionCombinator.And, cancellationToken);
-
-			return OperationResult<TPaginatedResultModel>(result);
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { pageNumber, pageSize, sorters, filters, filterCombinator }, returnValue: !IsDevelopment))
-		{
-			return InternalServerError("An error occurred while attempting to load the requested resources.");
-		}
-	}
+	public virtual Task<IActionResult> SearchSlimAsync(int pageNumber, int pageSize, [FromQuery] IEnumerable<SortExpressionDescriptor>? sorters = null, [FromQuery] IEnumerable<FilterExpressionDescriptor>? filters = null, FilterExpressionCombinator? filterCombinator = null, CancellationToken cancellationToken = default)
+		=> ExecuteOperationAsync<TPaginatedResultModel>(
+			(service, token) => service.FindAllSlimAsync(pageNumber, pageSize, sorters, filters, filterCombinator ?? FilterExpressionCombinator.And, token),
+			"An error occurred while attempting to load the requested resources.",
+			cancellationToken,
+			new { pageNumber, pageSize, sorters, filters, filterCombinator });
 
 	/// <summary>
 	/// An API endpoint used to load a single entity from the repository based on the specified <paramref name="id"/> and
@@ -117,30 +109,20 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 	/// The action result containing the endpoint response which either be a <typeparamref name="TItem"/> when successful
 	/// or a <see cref="ProblemDetails"/> response and / or erroneous state code as appropriate.
 	/// </returns>
-	/// <exception cref="NotSupportedException">Unsupported Endpoint</exception>
 	/// <remarks>
-	/// This endpoint calls into the <c> ReadAsync</c> base controller method. Please see this for further details
-	/// regarding behaviour.
+	/// This endpoint invokes the <c>FindByIdAsync</c> method on the data service using the
+	/// <see cref="UmbrellaDataServiceApiController{TDataService}.ExecuteOperationAsync{TResult}"/> envelope.
 	/// </remarks>
 	[HttpGet]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
 	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
 	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-	public virtual async Task<IActionResult> GetAsync(TEntityKey id, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			var result = await RepositoryDataService.Value.FindByIdAsync(id, cancellationToken);
-
-			return OperationResult<TItem>(result);
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { id }, returnValue: !IsDevelopment))
-		{
-			return InternalServerError("An error occurred while attempting to load the requested resource.");
-		}
-	}
+	public virtual Task<IActionResult> GetAsync(TEntityKey id, CancellationToken cancellationToken = default)
+		=> ExecuteOperationAsync<TItem>(
+			(service, token) => service.FindByIdAsync(id, token),
+			"An error occurred while attempting to load the requested resource.",
+			cancellationToken,
+			new { id });
 
 	/// <summary>
 	/// An API endpoint used to create a new entity in the repository based on the provided <typeparamref name="TCreateItem"/> which returns
@@ -152,32 +134,21 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 	/// The action result containing the endpoint response which either be a <typeparamref name="TCreateResult"/> when successful or
 	/// a <see cref="ProblemDetails"/> response and / or erroneous state code as appropriate.
 	/// </returns>
-	/// <exception cref="NotSupportedException">Unsupported Endpoint</exception>
 	/// <remarks>
-	/// This endpoint calls into the <c>CreateAsync</c> base controller method.
-	/// Please see this for further details regarding behaviour.
+	/// This endpoint invokes the <c>CreateAsync</c> method on the data service using the
+	/// <see cref="UmbrellaDataServiceApiController{TDataService}.ExecuteOperationAsync{TResult}"/> envelope.
 	/// </remarks>
-	/// <seealso cref="UmbrellaDataAccessApiController.CreateAsync"/>
 	[HttpPost]
 	[UmbrellaProducesResponseType(StatusCodes.Status201Created)]
 	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
 	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
 	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-	public virtual async Task<IActionResult> PostAsync(TCreateItem model, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			var result = await RepositoryDataService.Value.CreateAsync(model, cancellationToken);
-
-			return OperationResult<TCreateResult>(result);
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { model }, returnValue: !IsDevelopment))
-		{
-			return InternalServerError("An error occurred while attempting to create the requested resource.");
-		}
-	}
+	public virtual Task<IActionResult> PostAsync(TCreateItem model, CancellationToken cancellationToken = default)
+		=> ExecuteOperationAsync<TCreateResult>(
+			(service, token) => service.CreateAsync(model, token),
+			"An error occurred while attempting to create the requested resource.",
+			cancellationToken,
+			new { model });
 
 	/// <summary>
 	/// An API endpoint used to update an existing entity in the repository based on the provided <typeparamref name="TUpdateItem"/> which returns
@@ -189,33 +160,22 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 	/// The action result containing the endpoint response which either be a <typeparamref name="TUpdateResult"/> when successful or
 	/// a <see cref="ProblemDetails"/> response and / or erroneous state code as appropriate.
 	/// </returns>
-	/// <exception cref="NotSupportedException">Unsupported Endpoint</exception>
 	/// <remarks>
-	/// This endpoint calls into the <c>UpdateAsync</c> base controller method.
-	/// Please see this for further details regarding behaviour.
+	/// This endpoint invokes the <c>UpdateAsync</c> method on the data service using the
+	/// <see cref="UmbrellaDataServiceApiController{TDataService}.ExecuteOperationAsync{TResult}"/> envelope.
 	/// </remarks>
-	/// <seealso cref="UmbrellaDataAccessApiController.UpdateAsync"/>
 	[HttpPut]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
 	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
 	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
 	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
 	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-	public virtual async Task<IActionResult> PutAsync(TUpdateItem model, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			var result = await RepositoryDataService.Value.UpdateAsync(model, cancellationToken);
-
-			return OperationResult<TUpdateResult>(result);
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { model }, returnValue: !IsDevelopment))
-		{
-			return InternalServerError("An error occurred while attempting to update the requested resource.");
-		}
-	}
+	public virtual Task<IActionResult> PutAsync(TUpdateItem model, CancellationToken cancellationToken = default)
+		=> ExecuteOperationAsync<TUpdateResult>(
+			(service, token) => service.UpdateAsync(model, token),
+			"An error occurred while attempting to update the requested resource.",
+			cancellationToken,
+			new { model });
 
 	/// <summary>
 	/// An API endpoint used to delete a single entity in the repository based on the specified <paramref name="id"/>.
@@ -226,32 +186,21 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 	/// The action result containing the endpoint response which either be a <c>204</c> status code when successful or
 	/// a <see cref="ProblemDetails"/> response and / or erroneous state code as appropriate.
 	/// </returns>
-	/// <exception cref="NotSupportedException">Unsupported Endpoint</exception>
 	/// <remarks>
-	/// This endpoint calls into the <c>DeleteAsync</c> base controller method.
-	/// Please see this for further details regarding behaviour.
+	/// This endpoint invokes the <c>DeleteAsync</c> method on the data service using the
+	/// <see cref="UmbrellaDataServiceApiController{TDataService}.ExecuteOperationAsync"/> envelope.
 	/// </remarks>
-	/// <seealso cref="UmbrellaDataAccessApiController.DeleteAsync"/>
 	[HttpDelete]
 	[UmbrellaProducesResponseType(StatusCodes.Status204NoContent)]
 	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
 	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
 	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-	public virtual async Task<IActionResult> DeleteAsync(TEntityKey id, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			var result = await RepositoryDataService.Value.DeleteAsync(id, cancellationToken);
-
-			return OperationResult(result);
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { id }, returnValue: !IsDevelopment))
-		{
-			return InternalServerError("An error occurred while attempting to delete the requested resource.");
-		}
-	}
+	public virtual Task<IActionResult> DeleteAsync(TEntityKey id, CancellationToken cancellationToken = default)
+		=> ExecuteOperationAsync(
+			(service, token) => service.DeleteAsync(id, token),
+			"An error occurred while attempting to delete the requested resource.",
+			cancellationToken,
+			new { id });
 
 	/// <summary>
 	/// Checks whether an entity with the specified identifier exists.
@@ -259,45 +208,34 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 	/// <param name="id">The unique identifier of the entity to check for existence.</param>
 	/// <param name="cancellationToken">A cancellation token that can be used to cancel the operation.</param>
 	/// <returns>An <see cref="IActionResult"/> containing a boolean value indicating whether the entity exists. The result is <see langword="true"/> if the entity exists; otherwise, <see langword="false"/>.</returns>
+	/// <remarks>
+	/// This endpoint invokes the <c>ExistsByIdAsync</c> method on the data service using the
+	/// <see cref="UmbrellaDataServiceApiController{TDataService}.ExecuteOperationAsync{TResult}"/> envelope.
+	/// </remarks>
 	[HttpGet("ExistsById")]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
 	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-	public virtual async Task<IActionResult> ExistsByIdAsync(TEntityKey id, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			var result = await RepositoryDataService.Value.ExistsByIdAsync(id, cancellationToken);
-
-			return OperationResult<bool>(result);
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { id }, returnValue: !IsDevelopment))
-		{
-			return InternalServerError("An error occurred while attempting to check for the existence of the requested resource.");
-		}
-	}
+	public virtual Task<IActionResult> ExistsByIdAsync(TEntityKey id, CancellationToken cancellationToken = default)
+		=> ExecuteOperationAsync<bool>(
+			(service, token) => service.ExistsByIdAsync(id, token),
+			"An error occurred while attempting to check for the existence of the requested resource.",
+			cancellationToken,
+			new { id });
 
 	/// <summary>
 	/// Handles an HTTP GET request to retrieve the total count of resources asynchronously.
 	/// </summary>
 	/// <param name="cancellationToken">A cancellation token that can be used to cancel the operation.</param>
 	/// <returns>An <see cref="IActionResult"/> containing the total count of resources if successful; otherwise, an error response.</returns>
+	/// <remarks>
+	/// This endpoint invokes the <c>FindTotalCountAsync</c> method on the data service using the
+	/// <see cref="UmbrellaDataServiceApiController{TDataService}.ExecuteOperationAsync{TResult}"/> envelope.
+	/// </remarks>
 	[HttpGet("TotalCount")]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
-	public virtual async Task<IActionResult> TotalCountAsync(CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		try
-		{
-			var result = await RepositoryDataService.Value.FindTotalCountAsync(cancellationToken);
-
-			return OperationResult<int>(result);
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, returnValue: !IsDevelopment))
-		{
-			return InternalServerError("An error occurred while attempting to retrieve the total count of resources.");
-		}
-	}
+	public virtual Task<IActionResult> TotalCountAsync(CancellationToken cancellationToken = default)
+		=> ExecuteOperationAsync<int>(
+			(service, token) => service.FindTotalCountAsync(token),
+			"An error occurred while attempting to retrieve the total count of resources.",
+			cancellationToken);
 }
