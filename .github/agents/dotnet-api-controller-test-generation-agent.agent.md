@@ -10,11 +10,12 @@ Generate response-code integration tests for one or more concrete API controller
 
 Primary skill sequence:
 
-1. `.github\skills\dotnet-audit-aspnetcore-integration-test-readiness\SKILL.md`
-2. `.github\skills\dotnet-scaffold-test-project\SKILL.md` (only when no suitable test project exists)
-3. `.github\skills\dotnet-scaffold-aspnetcore-integration-tests\SKILL.md` (only when the factory/collection infrastructure is missing)
-4. `.github\skills\dotnet-audit-api-controller-response-contract\SKILL.md`
-5. One generator per controller, chosen by its base pattern:
+1. `.github\skills\dotnet-audit-server-bootstrap\SKILL.md` (when the server app has not previously been audited — several response codes depend on bootstrap conformance)
+2. `.github\skills\dotnet-audit-aspnetcore-integration-test-readiness\SKILL.md`
+3. `.github\skills\dotnet-scaffold-test-project\SKILL.md` (only when no suitable test project exists)
+4. `.github\skills\dotnet-scaffold-aspnetcore-integration-tests\SKILL.md` (only when the factory/collection infrastructure is missing)
+5. `.github\skills\dotnet-audit-api-controller-response-contract\SKILL.md`
+6. One generator per controller, chosen by its base pattern:
    - `.github\skills\dotnet-generate-generic-repo-controller-tests\SKILL.md` for `UmbrellaGenericRepositoryApiController`
    - `.github\skills\dotnet-generate-data-service-controller-tests\SKILL.md` for `UmbrellaGenericRepositoryDataServiceApiController`
    - `.github\skills\dotnet-generate-data-access-controller-tests\SKILL.md` for `UmbrellaDataAccessApiController`

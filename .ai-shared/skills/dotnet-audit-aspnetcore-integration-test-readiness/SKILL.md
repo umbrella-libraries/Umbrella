@@ -98,7 +98,7 @@ When the goal includes testing controller response codes (see `docs\api-base-con
 - whether the `CorePolicyNames.Create/Read/Update/Delete` policies (or custom names configured on `UmbrellaRepositoryDataServiceOptions`) are registered, and which resource authorization handlers exist for the entities under test;
 - whether a test identity can be constructed that each resource handler denies — an always-succeeds handler makes imperative `403` untestable.
 
-Include these facts in the readiness report when controller response-code tests are in scope.
+Include these facts in the readiness report when controller response-code tests are in scope. For a fuller conformance check of the server bootstrap itself (with consequences and recommended fixes), run `dotnet-audit-server-bootstrap`.
 
 ## Test project audit
 
