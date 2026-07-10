@@ -11,7 +11,7 @@ Add a thin API controller backed by a *controller service* that inherits `Umbrel
 
 This pattern decouples the service interface from the transport layer, enabling Blazor SSR pre-rendering: the same interface that the controller service implements server-side can also be implemented client-side as an HTTP data service. For pure API projects without Blazor, the interface simply lives in a server-side abstractions folder.
 
-Use `dotnet-scaffold-api-repo-controller` instead when no service abstraction is needed.
+Use `dotnet-scaffold-api-repo-controller` instead when no service abstraction is needed, and `dotnet-scaffold-custom-api-controller` when the endpoint shape does not fit the generic CRUD patterns at all.
 
 ## Discovery (read these before writing anything)
 
