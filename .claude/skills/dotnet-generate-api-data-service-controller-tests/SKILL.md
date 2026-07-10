@@ -1,5 +1,5 @@
 ---
-name: dotnet-generate-data-service-controller-tests
+name: dotnet-generate-api-data-service-controller-tests
 description: 'Generate integration tests for a concrete API controller derived from UmbrellaGenericRepositoryDataServiceApiController (Pattern 2, backing controller service), covering every testable response status code per endpoint including ExistsById and TotalCount. Resolves enablement and authorization flags on the backing data service. Use after integration test infrastructure exists.'
 ---
 
@@ -13,7 +13,7 @@ The authoritative contract is `docs\api-base-controller-endpoint-map.md` in the 
 
 ## Required inputs
 
-As for `dotnet-generate-generic-repo-controller-tests`:
+As for `dotnet-generate-api-repo-controller-tests`:
 
 1. `dotnet-audit-api-controller-response-contract` output for the target controller **and its data service**.
 2. Working integration test infrastructure via `dotnet-audit-aspnetcore-integration-test-readiness` / `dotnet-scaffold-aspnetcore-integration-tests`, satisfying the response contract host requirements (claims propagation, configured `validationFailureStatusCode`, non-`Development` environment for `500` shapes, policies/handlers).
@@ -35,7 +35,7 @@ Strike codes the audit marked untestable and never generate tests for them.
 
 ## Pattern 2 differences from Pattern 1
 
-Apply the recipes from `dotnet-generate-generic-repo-controller-tests` with these deltas:
+Apply the recipes from `dotnet-generate-api-repo-controller-tests` with these deltas:
 
 - **Flag resolution**: `SlimReadEndpointEnabled`, `ReadEndpointEnabled`, `CreateEndpointEnabled`, `UpdateEndpointEnabled`, `DeleteEndpointEnabled`, `ExistsByIdEndpointEnabled`, `TotalCountEndpointEnabled` and the five `AuthorizationXxxChecksEnabled` flags are read from the **data service** class. A disabled endpoint returns `405` via a `NotAllowed` operation result.
 - **`ExistsById`**: assert `200` with body `true` for a seeded id and `200` with body `false` for a non-existent id. **Never** generate a `404` test — the service maps not-found to `false`. There is no imperative auth check on the default path, so `403` is declarative-policy-only.

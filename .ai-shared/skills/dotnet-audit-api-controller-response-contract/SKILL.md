@@ -1,6 +1,6 @@
 ---
 name: dotnet-audit-api-controller-response-contract
-description: 'Read-only audit of a concrete API controller built on the Umbrella base controller hierarchy (UmbrellaGenericRepositoryApiController, UmbrellaGenericRepositoryDataServiceApiController, UmbrellaDataAccessApiController, UmbrellaApiController) that derives the per-endpoint response status code contract and a testability verdict for each code. Use before generating controller integration tests.'
+description: 'Read-only audit of a concrete API controller built on the Umbrella base controller hierarchy (UmbrellaGenericRepositoryApiController, UmbrellaGenericRepositoryDataServiceApiController, UmbrellaDataAccessApiController, UmbrellaDataServiceApiController, UmbrellaApiController) that derives the per-endpoint response status code contract and a testability verdict for each code. Use before generating controller integration tests.'
 ---
 
 # Audit API Controller Response Contract
@@ -13,12 +13,13 @@ The authoritative deep-dive is `docs\api-base-controller-endpoint-map.md` in the
 
 ## Step 1 — Identify the base controller pattern
 
-Walk the controller's base type chain (through any application-level intermediate base, e.g. `IndyRecordsApiController`) until you reach one of:
+Walk the controller's base type chain (through any application-level intermediate base, e.g. `IndyRecordsApiController`) and classify by the **most derived** Umbrella base reached:
 
 1. `UmbrellaGenericRepositoryApiController<...>` — Pattern 1, fixed endpoint map, flags on the **controller**.
-2. `UmbrellaGenericRepositoryDataServiceApiController<...>` — Pattern 2, fixed endpoint map, flags and hooks on the **backing data service** (resolve the `TRepositoryDataService` generic argument and locate its implementation, typically derived from `UmbrellaRepositoryDataService`).
+2. `UmbrellaGenericRepositoryDataServiceApiController<...>` — Pattern 2, fixed endpoint map, flags and hooks on the **backing data service** (resolve the `TRepositoryDataService` generic argument and locate its implementation, typically derived from `UmbrellaRepositoryDataService`). Note: this controller itself derives from `UmbrellaDataServiceApiController` — classify it as Pattern 2, not case 4.
 3. `UmbrellaDataAccessApiController` — no fixed endpoints; each action composes the protected helpers (`ReadAllAsync`, `ReadAsync`, `CreateAsync`, `UpdateAsync`, `DeleteAsync`).
-4. `UmbrellaApiController` — no fixed endpoints; each action is hand-rolled using the status helper methods and/or `OperationResult` mapping.
+4. `UmbrellaDataServiceApiController<TDataService>` — no fixed endpoints; each action composes the protected `ExecuteOperationAsync` envelope over one operation on the injected data service.
+5. `UmbrellaApiController` — no fixed endpoints; each action is hand-rolled using the status helper methods and/or `OperationResult` mapping.
 
 ## Step 2 — Resolve the configuration flags
 
@@ -57,6 +58,7 @@ Record the resolved state and code in the contract report; the test generators c
 
 - **Patterns 1 and 2**: start from the endpoint map (`SearchSlim`, `GET`, `POST`, `PUT`, `DELETE`, plus `ExistsById`/`TotalCount` for Pattern 2) and strike codes disabled by the flags recorded above.
 - **`UmbrellaDataAccessApiController`**: each action's contract is the union of the built-in statuses of the helpers it calls (`ReadAllAsync` → 200/403/500; `ReadAsync` → 200/404/403/500; `CreateAsync` → 201/400/403/500; `UpdateAsync` → 200/400/404/409/403/500; `DeleteAsync` → 204/404/403/409/500), minus imperative `403` where `enableAuthorizationChecks: false`, plus `422` if the action binds input, plus `401`/declarative `403` from attributes, plus callback-driven statuses.
+- **`UmbrellaDataServiceApiController`**: each action's contract is the union of the statuses of the `IOperationResult`s the composed service operation can return (for `UmbrellaRepositoryDataService`-derived services these match the Pattern 2 per-operation sets, including `405` from enablement flags and imperative `403` from authorization flags on the service; for custom services, enumerate the `IOperationResult` factory calls in the service method), plus the envelope `500` (assert the action's exact error message), plus `422` if the action binds input, plus `401`/declarative `403` from attributes.
 - **`UmbrellaApiController`**: the enumeration of status helper and `OperationResult` calls in the action body is the contract. Apply these rules: in-action `Unauthorized(...)` is a `401` with an `UmbrellaProblemDetails` body testable without `[Authorize]`; `ValidationProblem(ModelState)` is `400`, not `422`; `Conflict(...)` and `ConcurrencyConflict(...)` are both `409` distinguished by `code = ConcurrencyStampMismatch`; never infer a `404` from route shape — anti-enumeration endpoints deliberately return success for missing resources; note statuses gated on external dependencies (CAPTCHA, email, payment) that require test doubles.
 
 ## Output

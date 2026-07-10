@@ -248,4 +248,4 @@ public async Task<IActionResult> GetByExternalIdAsync([FromQuery] string externa
 
 ## Next steps
 
-After the controller builds and its routes are wired, generate integration tests for it with `dotnet-generate-generic-repo-controller-tests` (run `dotnet-audit-api-controller-response-contract` first to derive the per-endpoint status contract).
+After the controller builds and its routes are wired, generate integration tests for it with `dotnet-generate-api-repo-controller-tests` (run `dotnet-audit-api-controller-response-contract` first to derive the per-endpoint status contract).

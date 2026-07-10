@@ -1,22 +1,24 @@
 ---
 name: dotnet-scaffold-custom-api-controller
-description: 'Scaffold a custom API controller on UmbrellaDataAccessApiController (custom-shaped CRUD composing the protected data-access helpers) or UmbrellaApiController (fully hand-rolled orchestration/Identity/service-composed actions), following the Umbrella house conventions: status helper envelope, UmbrellaProducesResponseType declarations, concurrency handling, and authorization. Use when the endpoint shape does not fit the generic repository controllers.'
+description: 'Scaffold a custom API controller on UmbrellaDataAccessApiController (custom-shaped CRUD composing the protected data-access helpers), UmbrellaDataServiceApiController (ExecuteOperationAsync over a controller service), or UmbrellaApiController (fully hand-rolled orchestration/Identity actions), following the Umbrella house conventions: status helper envelope, UmbrellaProducesResponseType declarations, concurrency handling, and authorization. Use when the endpoint shape does not fit the generic repository controllers.'
 ---
 
 # Scaffold Custom API Controller
 
 ## Purpose
 
-Add an API controller whose endpoint surface does not fit the two generic CRUD patterns. Covers the two endpoint-less Umbrella base controllers:
+Add an API controller whose endpoint surface does not fit the two generic CRUD patterns. Covers the three endpoint-less Umbrella base controllers:
 
-- **`UmbrellaDataAccessApiController`** — the entity is repository-backed but the endpoint shape is custom: a singleton resource (`GET` with no `id`), partial CRUD, shaped queries. Actions compose the protected `ReadAllAsync`/`ReadAsync`/`CreateAsync`/`UpdateAsync`/`DeleteAsync` helpers.
-- **`UmbrellaApiController`** — no repository helper usage: orchestration over services, ASP.NET Identity flows, external integrations. Actions are fully hand-rolled using the status helper methods and/or `OperationResult` mapping.
+- **`UmbrellaDataAccessApiController`** (Variant A) — the entity is repository-backed but the endpoint shape is custom: a singleton resource (`GET` with no `id`), partial CRUD, shaped queries. Actions compose the protected `ReadAllAsync`/`ReadAsync`/`CreateAsync`/`UpdateAsync`/`DeleteAsync` helpers.
+- **`UmbrellaApiController`** (Variant B) — no repository or data-service usage: orchestration over services, ASP.NET Identity flows, external integrations. Actions are fully hand-rolled using the status helper methods and/or `OperationResult` mapping.
+- **`UmbrellaDataServiceApiController<TDataService>`** (Variant C) — the operations live on a controller service (a subset of `IGenericDataService`, an `UmbrellaRepositoryDataService`-derived service, or a fully custom interface returning `IOperationResult`s) but the endpoint shape is custom. Actions compose the protected `ExecuteOperationAsync` envelope.
 
 ## Pattern selection (decide first)
 
 1. Standard CRUD over one entity, standard endpoint shapes → **do not use this skill**: use `dotnet-scaffold-api-repo-controller` (Pattern 1) or `dotnet-scaffold-api-data-service-controller` (Pattern 2).
-2. Repository-backed entity, non-standard endpoint shapes → `UmbrellaDataAccessApiController` variant below.
-3. Anything else (services, Identity, external APIs, no entity) → `UmbrellaApiController` variant below.
+2. Repository-backed entity, non-standard endpoint shapes, no service abstraction needed → Variant A below.
+3. Operations belong on a controller service (shared interface, SSR pre-rendering, or the logic-in-service convention) with a non-standard endpoint shape → Variant C below.
+4. Anything else (service orchestration without a data-service abstraction, Identity, external APIs, no entity) → Variant B below.
 
 A single controller must not mix variants; if part of the surface is standard CRUD, prefer a generic controller plus a separate custom controller.
 
@@ -55,7 +57,7 @@ public abstract class IndyRecordsDataAccessApiController : UmbrellaDataAccessApi
 
 The `UmbrellaApiController` intermediate base is identical in shape with the base constructor `(logger, hostingEnvironment)` plus an `IUmbrellaMapper` property if the project's actions map models.
 
-## Shared conventions (both variants)
+## Shared conventions (all variants)
 
 - **Response type declarations**: use `[UmbrellaProducesResponseType(StatusCodes.StatusXxx)]` (never plain `[ProducesResponseType]`) on each action for its method-level codes. 401/403/500 belong at class level on the intermediate base or concrete controller. Per verb:
 
@@ -174,15 +176,90 @@ public async Task<IActionResult> GetAsync(string urlSegment, CancellationToken c
 - **Sensitive lookups** (password reset, account existence): consider returning the success status regardless of resource existence (anti-enumeration) — document the choice in a comment so test generation asserts the intended behaviour instead of inferring a 404.
 - Actions are `public virtual` only when a base-controller hierarchy needs overrides; otherwise non-virtual.
 
+## Variant C -- `UmbrellaDataServiceApiController<TDataService>`
+
+Each action composes the protected `ExecuteOperationAsync` envelope over one operation on the injected service. The envelope owns cancellation, `IOperationResult` → HTTP mapping, exception logging with caller info, and the `500` response — do not add try/catch around it. Example — a singleton settings resource backed by a read+update controller service:
+
+```csharp
+using IndyRecords.Web.Server.Infrastructure.Mvc;
+using IndyRecords.Web.Server.Services.Abstractions;
+using IndyRecords.Web.Shared.Models.Api.SystemSettings;
+using IndyRecords.Web.Shared.Security.Policies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace IndyRecords.Web.Server.Controllers.Api;
+
+[Authorize(IndyRecordsPolicyNames.SystemSettingsManagement)]
+public class SystemSettingsController : IndyRecordsDataServiceApiController<IManageSystemSettingsService>
+{
+	public SystemSettingsController(
+		ILogger<SystemSettingsController> logger,
+		IWebHostEnvironment hostingEnvironment,
+		Lazy<IManageSystemSettingsService> dataService)
+		: base(logger, hostingEnvironment, dataService)
+	{
+	}
+
+	[HttpGet]
+	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
+	public Task<IActionResult> GetAsync(CancellationToken cancellationToken = default)
+		=> ExecuteOperationAsync<SystemSettingsModel>(
+			(service, token) => service.FindAsync(token),
+			"An error occurred while attempting to load the settings.",
+			cancellationToken);
+
+	[HttpPut]
+	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
+	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
+	[UmbrellaProducesResponseType(StatusCodes.Status409Conflict)]
+	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+	public Task<IActionResult> PutAsync(UpdateSystemSettingsModel model, CancellationToken cancellationToken = default)
+		=> ExecuteOperationAsync<UpdateSystemSettingsResultModel>(
+			(service, token) => service.UpdateAsync(model, token),
+			"An error occurred while attempting to update the settings.",
+			cancellationToken,
+			new { model });
+}
+```
+
+The intermediate base for this variant is generic and passes the service type through:
+
+```csharp
+[Route("api/[controller]")]
+public abstract class IndyRecordsDataServiceApiController<TDataService> : UmbrellaDataServiceApiController<TDataService>
+{
+	protected IndyRecordsDataServiceApiController(
+		ILogger logger,
+		IWebHostEnvironment hostingEnvironment,
+		Lazy<TDataService> dataService)
+		: base(logger, hostingEnvironment, dataService)
+	{
+	}
+}
+```
+
+**Rules:**
+
+- `TDataService` is unconstrained — the service may implement a subset of `IGenericDataService`, derive from `UmbrellaRepositoryDataService` (in which case its enablement/authorization flags and hooks behave as in Pattern 2), or be a fully custom interface whose methods return `IOperationResult`/`IOperationResult<T>`.
+- Pass **expression lambdas returning the service's `Task` directly** — `(service, token) => service.FindAsync(token)` — never `async` lambdas, which can bind to the wrong `ExecuteOperationAsync` overload and lose the typed response body.
+- Use the generic overload for operations returning `IOperationResult<T>` (200/201 with body) and the non-generic overload for plain `IOperationResult` (204/200 without body).
+- Give each action an endpoint-specific `500` error message and pass the action's significant inputs as the `logState` anonymous object.
+- Declare `[UmbrellaProducesResponseType]` per the statuses the composed service operation can return (for `UmbrellaRepositoryDataService`-derived services these match the Pattern 2 endpoint sets), plus 422 whenever the action binds input.
+- Status codes come from the service's `IOperationResult`s — put conflict/not-found/validation decisions in the service, not the controller.
+
 ## Verification
 
 1. The controller derives from the app intermediate base, not the Umbrella base directly.
 2. Every action declares its method-level codes with `[UmbrellaProducesResponseType]`; 401/403/500 are class-level only.
 3. Variant A: no try/catch around helper calls; `enableAuthorizationChecks` decisions are deliberate and handlers exist where it is `true`.
 4. Variant B: every action has the cancellation/guard/try-catch envelope with `returnValue: !IsDevelopment`; every error path uses an Umbrella status helper; update paths handle concurrency; create paths guard duplicates where applicable.
-5. `[Authorize]`/`[AllowAnonymous]` is explicit and intentional at class level.
-6. Build the server project.
+5. Variant C: actions are expression-bodied one-liners over `ExecuteOperationAsync` with expression lambdas (no `async` lambdas), endpoint-specific error messages, and log state for their inputs; no try/catch around the envelope.
+6. `[Authorize]`/`[AllowAnonymous]` is explicit and intentional at class level.
+7. Build the server project.
 
 ## Next steps
 
-Generate integration tests: run `dotnet-audit-api-controller-response-contract`, then `dotnet-generate-data-access-controller-tests` (Variant A) or `dotnet-generate-api-controller-tests` (Variant B). The explicit `[UmbrellaProducesResponseType]` declarations and status-helper branches this skill produces are exactly what those skills derive the test contract from.
+Generate integration tests: run `dotnet-audit-api-controller-response-contract`, then `dotnet-generate-custom-api-controller-tests` (its variants mirror this skill's). The explicit `[UmbrellaProducesResponseType]` declarations and status-helper branches this skill produces are exactly what test generation derives the contract from.

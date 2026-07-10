@@ -1,5 +1,5 @@
 ---
-name: dotnet-generate-generic-repo-controller-tests
+name: dotnet-generate-api-repo-controller-tests
 description: 'Generate integration tests for a concrete API controller derived from UmbrellaGenericRepositoryApiController (Pattern 1, direct repository), covering every testable response status code per endpoint: success paths, 401/403 authorization, 404, 405 disabled endpoints, 409 concurrency via stamp rotation, 400/422 validation, and optional 500. Use after integration test infrastructure exists.'
 ---
 

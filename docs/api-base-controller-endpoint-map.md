@@ -307,11 +307,10 @@ When generating an integration test suite for a concrete controller derived from
 
 ## Intended Test-Generation Skill Breakdown
 
-This document is the contract source for four planned skills, one per base controller, each generating integration tests for concrete controllers:
+This document is the contract source for three test-generation skills, mirroring the three controller scaffold skills:
 
-1. **`UmbrellaGenericRepositoryApiController` (Pattern 1)** — consume the endpoint matrices and the testability decision checklist directly; enablement and auth-check flags live on the controller.
-2. **`UmbrellaGenericRepositoryDataServiceApiController` (Pattern 2)** — same matrices, but resolve the enablement/auth-check flags and hooks on the backing data service (the `TRepositoryDataService` generic argument), not the controller.
-3. **`UmbrellaDataAccessApiController`** — derive each action's contract from the protected-helper table and union rule in the custom-endpoints section.
-4. **`UmbrellaApiController`** — derive each action's contract using the hand-rolled-action derivation rules in the custom-endpoints section.
+1. **`dotnet-generate-api-repo-controller-tests`** — `UmbrellaGenericRepositoryApiController` (Pattern 1): consume the endpoint matrices and the testability decision checklist directly; enablement and auth-check flags live on the controller.
+2. **`dotnet-generate-api-data-service-controller-tests`** — `UmbrellaGenericRepositoryDataServiceApiController` (Pattern 2): same matrices, but resolve the enablement/auth-check flags and hooks on the backing data service (the `TRepositoryDataService` generic argument), not the controller.
+3. **`dotnet-generate-custom-api-controller-tests`** — the three endpoint-less bases as variants: `UmbrellaDataAccessApiController` (protected-helper table and union rule), `UmbrellaApiController` (hand-rolled-action derivation rules), and `UmbrellaDataServiceApiController` (`ExecuteOperationAsync` operation-status derivation) — all in the custom-endpoints section.
 
-All four share the status-code production mechanics, the test host prerequisites (delegated to the scaffolding skills referenced there), and the per-code test recipes. Each skill must spot-verify the concrete controller against the code rather than trusting this document blindly — the checklist questions force most of that verification. Real-world usages of the two endpoint-less base controllers can be found in consuming applications such as the ERM repository (`Erm.Admin.Web.Server`).
+All three share the status-code production mechanics, the test host prerequisites (delegated to the scaffolding skills referenced there), and the per-code test recipes. Each skill must spot-verify the concrete controller against the code rather than trusting this document blindly — the checklist questions force most of that verification. Real-world usages of the endpoint-less base controllers can be found in consuming applications such as the ERM repository (`Erm.Admin.Web.Server`).

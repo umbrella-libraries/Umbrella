@@ -16,10 +16,9 @@ Primary skill sequence:
 4. `.github\skills\dotnet-scaffold-aspnetcore-integration-tests\SKILL.md` (only when the factory/collection infrastructure is missing)
 5. `.github\skills\dotnet-audit-api-controller-response-contract\SKILL.md`
 6. One generator per controller, chosen by its base pattern:
-   - `.github\skills\dotnet-generate-generic-repo-controller-tests\SKILL.md` for `UmbrellaGenericRepositoryApiController`
-   - `.github\skills\dotnet-generate-data-service-controller-tests\SKILL.md` for `UmbrellaGenericRepositoryDataServiceApiController`
-   - `.github\skills\dotnet-generate-data-access-controller-tests\SKILL.md` for `UmbrellaDataAccessApiController`
-   - `.github\skills\dotnet-generate-api-controller-tests\SKILL.md` for `UmbrellaApiController`
+   - `.github\skills\dotnet-generate-api-repo-controller-tests\SKILL.md` for `UmbrellaGenericRepositoryApiController`
+   - `.github\skills\dotnet-generate-api-data-service-controller-tests\SKILL.md` for `UmbrellaGenericRepositoryDataServiceApiController`
+   - `.github\skills\dotnet-generate-custom-api-controller-tests\SKILL.md` for the endpoint-less bases: `UmbrellaDataAccessApiController`, `UmbrellaDataServiceApiController` and `UmbrellaApiController`
 
 Read `docs\api-base-controller-endpoint-map.md` (Umbrella repository) when available — it is the authoritative status-code contract. Spot-verify the concrete controller against the code rather than trusting documentation blindly.
 

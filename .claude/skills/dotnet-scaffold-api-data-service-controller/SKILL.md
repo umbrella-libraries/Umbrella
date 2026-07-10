@@ -195,7 +195,7 @@ Check `Web\<AppName>.Web.Client.Data\IServiceCollectionExtensions.cs` to see whe
 
 ## Custom action methods
 
-Custom action methods on Pattern 2 controllers are rare — the controller should remain thin. If the custom logic is non-trivial, add it to the controller service and delegate from the controller.
+Custom action methods on Pattern 2 controllers are rare — the controller should remain thin. If the custom logic is non-trivial, add it to the controller service and delegate from the controller. When most of the controller's surface is custom-shaped, use `dotnet-scaffold-custom-api-controller` (Variant C, `UmbrellaDataServiceApiController`) instead of adding many custom actions here.
 
 When a genuinely custom endpoint is needed, follow these conventions.
 
@@ -226,20 +226,22 @@ OperationResult(IOperationResult)  // converts OperationResultStatus enum to the
 
 **Example: delegating to the controller service**
 
+Prefer composing the inherited `ExecuteOperationAsync` envelope (from `UmbrellaDataServiceApiController`) with an expression lambda over the service — it owns cancellation, the `IOperationResult` → HTTP mapping, logging with caller info, and the `500` response. Have the service method return an `IOperationResult<T>` (e.g. `NotFound` when the summary is missing):
+
 ```csharp
 [HttpGet("GetSummary")]
 [UmbrellaProducesResponseType(StatusCodes.Status200OK)]
 [UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
 [UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
-public async Task<IActionResult> GetSummaryAsync([FromQuery] int id, CancellationToken cancellationToken = default)
-{
-    cancellationToken.ThrowIfCancellationRequested();
-
-    var result = await _repositoryDataService.Value.GetSummaryAsync(id, cancellationToken);
-
-    return result is null ? NotFound("Not found.") : Ok(result);
-}
+public Task<IActionResult> GetSummaryAsync([FromQuery] int id, CancellationToken cancellationToken = default)
+    => ExecuteOperationAsync<Manage<Name>SummaryModel>(
+        (service, token) => service.GetSummaryAsync(id, token),
+        "An error occurred while attempting to load the summary.",
+        cancellationToken,
+        new { id });
 ```
+
+Do not use `async` lambdas with `ExecuteOperationAsync` — pass an expression lambda returning the service's `Task` directly, or the call can bind to the wrong overload and lose the typed response body.
 
 ---
 
@@ -260,4 +262,4 @@ public async Task<IActionResult> GetSummaryAsync([FromQuery] int id, Cancellatio
 
 ## Next steps
 
-After the controller and controller service build and DI is wired, generate integration tests with `dotnet-generate-data-service-controller-tests` (run `dotnet-audit-api-controller-response-contract` first — enablement and authorization flags resolve on the controller service for this pattern).
+After the controller and controller service build and DI is wired, generate integration tests with `dotnet-generate-api-data-service-controller-tests` (run `dotnet-audit-api-controller-response-contract` first — enablement and authorization flags resolve on the controller service for this pattern).
