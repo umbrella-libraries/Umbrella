@@ -43,7 +43,15 @@ For `UmbrellaDataAccessApiController` actions, record the `enableAuthorizationCh
 - `[Authorize]`/`[AllowAnonymous]` on the controller and actions, including policy names — gates `401` and declarative `403`.
 - Which resource authorization handlers exist for the entity and whether a test identity can be constructed that they deny — gates imperative `403`.
 - **The distinct grant branches inside each handler** (e.g. owner, account-manager, admin-role, operation-specific rules). List each identity class the handler distinguishes — test generation should produce one denying/passing pair per branch, not one pair total, so a bug in a secondary grant path is not missed.
-- Host facts (from `dotnet-audit-aspnetcore-integration-test-readiness` if already run): `UseUmbrellaPropagateClaimsPrincipal` present, `validationFailureStatusCode` value, environment name strategy.
+- Host facts (from `dotnet-audit-aspnetcore-integration-test-readiness` if already run): `UseUmbrellaPropagateClaimsPrincipal` present, validation failure status code (below), environment name strategy.
+
+**Determining the validation failure status code** — read `Program.cs`/`Startup` and the MVC builder extension calls; the host is in exactly one of three states, and every `422` cell in the contract depends on which:
+
+1. **`ConfigureUmbrellaApiBehaviorOptions()` / `ConfigureUmbrellaMvcBuilderOptions()` called with defaults** → model binding/validation failures return `422` with an `UmbrellaValidationProblemDetails` body; malformed JSON at the body root (`$` model-state key) returns `400`.
+2. **Called with an explicit `validationFailureStatusCode` argument** → as state 1, but tests must assert the configured code instead of `422`.
+3. **Not called at all** → ASP.NET default behaviour: ALL model-state failures return `400` with a plain `ValidationProblemDetails` body (no `Code`/`TraceId`), and the malformed-JSON-root vs validation distinction disappears (both are `400`). Record this explicitly — generated tests must assert `400` + the plain body shape, and the report should recommend adopting `ConfigureUmbrellaApiBehaviorOptions()` so the app matches the standard contract.
+
+Record the resolved state and code in the contract report; the test generators consume it verbatim.
 
 ## Step 5 — Derive the contract
 

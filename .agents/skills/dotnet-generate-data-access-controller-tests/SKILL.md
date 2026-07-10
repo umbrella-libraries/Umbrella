@@ -32,7 +32,7 @@ Each protected helper contributes a fixed status set:
 An action's contract is the **union** of:
 
 - the statuses of every helper it calls, minus imperative `403` where it passes `enableAuthorizationChecks: false`;
-- `422` (or the configured `validationFailureStatusCode`) if the action binds any input — id parameters, query values, body models;
+- `422` (or the configured `validationFailureStatusCode`; plain `400` with an ASP.NET `ValidationProblemDetails` body when the host never registers the Umbrella behavior options — the contract audit resolves which state applies) if the action binds any input — id parameters, query values, body models;
 - `401` and declarative `403` from its `[Authorize]` attributes;
 - any status produced by callbacks the action supplies (a callback returning an `IOperationResult` maps through the standard status table — `Conflict` → `409`, `InvalidOperation` → `400`, `Forbidden` → `403`, etc.);
 - any status produced by code in the action before or after the helper calls (audit these lines like `UmbrellaApiController` hand-rolled actions).

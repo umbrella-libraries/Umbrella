@@ -78,7 +78,7 @@ Seed through a scoped `DbContext` from the factory, reuse the `UmbrellaProblemDe
 ## Rules
 
 - Generate tests only for codes the contract audit marked testable; document exclusions in a comment block at the top of the test class.
-- Assert the configured `validationFailureStatusCode` (default `422`) for model-state failures and `400` for malformed JSON roots.
+- Assert the validation failure status and body per the host state resolved by the contract audit (Umbrella behavior options default → `422` + `UmbrellaValidationProblemDetails`; explicit `validationFailureStatusCode` → that code; not configured → `400` + plain ASP.NET `ValidationProblemDetails`, no separate malformed-JSON-root test). Never hard-code `422` without checking.
 - Satisfy earlier pipeline gates when targeting later ones (existing id + current stamp + valid model for a `PUT` `403`).
 - Keep tests independent with uniquely seeded data.
 - Do not weaken production authorization; use the denying identity.
