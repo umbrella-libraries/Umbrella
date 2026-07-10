@@ -144,6 +144,112 @@ public class BundleInstallerTest
         Assert.Contains(result.Conflicts, x => x.Contains("another bundle", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void SyncPropagatesCanonicalEditInASingleRun()
+    {
+        using var workspace = new TemporaryWorkspace();
+        CreateSyncWorkspace(workspace.RootPath);
+        var installer = CreateInstaller();
+
+        Assert.True(installer.Sync(workspace.RootPath).Success);
+        string claudeSkillPath = Path.Combine(workspace.RootPath, ".claude", "skills", "sample-skill", "SKILL.md");
+        Assert.Contains(@".claude\skills", File.ReadAllText(claudeSkillPath), StringComparison.Ordinal);
+
+        string canonicalPath = Path.Combine(workspace.RootPath, ".ai-shared", "skills", "sample-skill", "SKILL.md");
+        File.AppendAllText(canonicalPath, "\nEdited line.\n");
+
+        var result = installer.Sync(workspace.RootPath);
+
+        Assert.True(result.Success);
+
+        foreach (string adapterDir in new[] { ".claude", ".github", ".agents" })
+        {
+            string content = File.ReadAllText(Path.Combine(workspace.RootPath, adapterDir, "skills", "sample-skill", "SKILL.md"));
+            Assert.Contains("Edited line.", content, StringComparison.Ordinal);
+            Assert.DoesNotContain("{{skill_dir}}", content, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void SyncResolvesRepositoryRootFromSubdirectory()
+    {
+        using var workspace = new TemporaryWorkspace();
+        CreateSyncWorkspace(workspace.RootPath);
+        var installer = CreateInstaller();
+        string subdirectory = Path.Combine(workspace.RootPath, ".ai-shared", "agents");
+
+        var result = installer.Sync(subdirectory);
+
+        Assert.True(result.Success);
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "agents", "sample-agent.md")));
+    }
+
+    [Fact]
+    public void SyncFailsWithClearMessageOutsideRepository()
+    {
+        using var workspace = new TemporaryWorkspace();
+        var installer = CreateInstaller();
+
+        var result = installer.Sync(workspace.RootPath);
+
+        Assert.False(result.Success);
+        Assert.Contains(result.Conflicts, x => x.Contains("bundle.json", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void SyncDoesNotRewriteUnchangedTargets()
+    {
+        using var workspace = new TemporaryWorkspace();
+        CreateSyncWorkspace(workspace.RootPath);
+        var installer = CreateInstaller();
+        Assert.True(installer.Sync(workspace.RootPath).Success);
+
+        string targetPath = Path.Combine(workspace.RootPath, ".claude", "skills", "sample-skill", "SKILL.md");
+        DateTime firstWriteTime = File.GetLastWriteTimeUtc(targetPath);
+
+        var result = installer.Sync(workspace.RootPath);
+
+        Assert.True(result.Success);
+        Assert.Equal(firstWriteTime, File.GetLastWriteTimeUtc(targetPath));
+        Assert.Contains(result.Messages, x => x.StartsWith("Unchanged:", StringComparison.Ordinal));
+    }
+
+    private static void CreateSyncWorkspace(string root)
+    {
+        string skillDir = Path.Combine(root, ".ai-shared", "skills", "sample-skill");
+        Directory.CreateDirectory(skillDir);
+        File.WriteAllText(Path.Combine(skillDir, "SKILL.md"), "---\nname: sample-skill\ndescription: Sample skill.\n---\n\nRun the script in `{{skill_dir}}`.\n");
+
+        string agentDir = Path.Combine(root, ".ai-shared", "agents", "claude");
+        Directory.CreateDirectory(agentDir);
+        File.WriteAllText(Path.Combine(agentDir, "sample-agent.md"), "# Sample agent\n");
+
+        string bundleDir = Path.Combine(root, ".ai-shared", "bundles", "umbrella");
+        Directory.CreateDirectory(bundleDir);
+        File.WriteAllText(Path.Combine(bundleDir, "bundle.json"), """
+        {
+          "bundleId": "umbrella",
+          "adapterDirectories": [
+            {
+              "source": ".ai-shared\\skills",
+              "targets": [
+                { "destination": ".claude\\skills", "substitutions": { "{{skill_dir}}": ".claude\\skills" } },
+                { "destination": ".github\\skills", "substitutions": { "{{skill_dir}}": ".github\\skills" } },
+                { "destination": ".agents\\skills", "substitutions": { "{{skill_dir}}": ".agents\\skills" } }
+              ]
+            },
+            {
+              "source": ".ai-shared\\agents\\claude",
+              "targets": [ { "destination": ".claude\\agents" } ]
+            }
+          ],
+          "skillListBlocks": [
+            { "targetPath": ".ai-shared\\bundles\\umbrella\\blocks\\CLAUDE.block.md", "skillsDirectory": ".claude\\skills" }
+          ]
+        }
+        """);
+    }
+
     private static AiBundleInstaller CreateInstaller() => new(RepoRoot, "Umbrella.AI.Tools.Test", "1.0.0-test");
 
     private static JsonObject LoadServers(string path) => JsonNode.Parse(File.ReadAllText(path))!["servers"]!.AsObject();

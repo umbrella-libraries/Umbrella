@@ -15,13 +15,22 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
 
     public OperationResult Update(CommandOptions options) => InstallOrUpdate(options, requireExistingManifest: true, operationName: "update");
 
-    public OperationResult Sync(string repoRoot)
+    public OperationResult Sync(string startDirectory)
     {
+        string? repoRoot = LocateRepoRoot(startDirectory);
+
+        if (repoRoot is null)
+        {
+            return Failure($"Could not locate '{NormalizePath(BundleDefinitionRelativePath)}' in '{Path.GetFullPath(startDirectory)}' or any parent directory. Run sync from within an installed repository or pass --root-dir <repo-root>.");
+        }
+
         string bundleDefPath = Path.Combine(repoRoot, NormalizePath(BundleDefinitionRelativePath));
         AiBundleDefinition bundle = JsonSerializer.Deserialize<AiBundleDefinition>(File.ReadAllText(bundleDefPath), _serializerOptions)
             ?? throw new InvalidOperationException($"Failed to read bundle definition at {bundleDefPath}.");
 
         var result = new OperationResult { Success = true };
+        result.Messages.Add($"Repository root: {repoRoot}");
+        var syncedFiles = new List<(ManagedFileEntry Entry, string TargetPath, string DisplayPath)>();
 
         foreach (AdapterDirectoryDefinition adapter in bundle.AdapterDirectories)
         {
@@ -35,9 +44,12 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
                 {
                     string relativeToSource = Path.GetRelativePath(sourceDirectory, file);
                     string targetPath = Path.Combine(targetDirectory, relativeToSource);
+                    string displayPath = NormalizePath(Path.Combine(target.Destination, relativeToSource));
+                    var entry = new ManagedFileEntry(file, target.Substitutions);
                     Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-                    WriteFile(targetPath, new ManagedFileEntry(file, target.Substitutions));
-                    result.Messages.Add($"Synced: {NormalizePath(Path.Combine(target.Destination, relativeToSource))}");
+                    bool updated = WriteFileIfChanged(targetPath, entry);
+                    syncedFiles.Add((entry, targetPath, displayPath));
+                    result.Messages.Add(updated ? $"Synced: {displayPath}" : $"Unchanged: {displayPath}");
                 }
             }
         }
@@ -60,6 +72,17 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             }
         }
 
+        // Re-check every target against a fresh read of its source. This catches sources
+        // that were modified while the sync was running, which would otherwise leave a
+        // stale target behind a "Success" result.
+        foreach ((ManagedFileEntry entry, string targetPath, string displayPath) in syncedFiles)
+        {
+            if (WriteFileIfChanged(targetPath, entry))
+            {
+                result.Messages.Add($"Re-synced (source changed during sync): {displayPath}");
+            }
+        }
+
         string manifestPath = GetManifestPath(repoRoot, bundle.BundleId);
         if (File.Exists(manifestPath))
         {
@@ -76,6 +99,23 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         }
 
         return result;
+    }
+
+    private static string? LocateRepoRoot(string startDirectory)
+    {
+        var directory = new DirectoryInfo(Path.GetFullPath(startDirectory));
+
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, NormalizePath(BundleDefinitionRelativePath))))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        return null;
     }
 
     private static List<(string Name, string Description)> ReadSkillMetadata(string skillsDirectory)
@@ -506,6 +546,26 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             File.WriteAllText(targetPath, ApplySubstitutions(entry));
         else
             File.Copy(entry.SourcePath, targetPath, overwrite: true);
+    }
+
+    private static byte[] ComputeTargetBytes(ManagedFileEntry entry)
+        => entry.Substitutions?.Count > 0
+            ? new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(ApplySubstitutions(entry))
+            : File.ReadAllBytes(entry.SourcePath);
+
+    private static bool WriteFileIfChanged(string targetPath, ManagedFileEntry entry)
+    {
+        byte[] expected = ComputeTargetBytes(entry);
+
+        if (File.Exists(targetPath) && expected.AsSpan().SequenceEqual(File.ReadAllBytes(targetPath)))
+        {
+            return false;
+        }
+
+        // Write bytes rather than File.Copy so the target always gets a fresh
+        // last-write time instead of inheriting the source's timestamp.
+        File.WriteAllBytes(targetPath, expected);
+        return true;
     }
 
     private static void ValidateManagedBlocks(string targetRoot, AiBundleDefinition bundle, AiBundleManifest? currentManifest, CommandOptions options, OperationResult result)
