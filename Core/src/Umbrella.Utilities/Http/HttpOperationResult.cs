@@ -36,6 +36,20 @@ public record HttpOperationResult : OperationResult, IHttpOperationResult
 	/// </summary>
 	/// <returns>The <see cref="IHttpOperationResult"/> instance.</returns>
 	public static new IHttpOperationResult Success() => new HttpOperationResult();
+
+	/// <summary>
+	/// Creates an <see cref="IHttpOperationResult"/> with a <see cref="OperationResult.Status"/> of
+	/// <see cref="OperationResultStatus.Created"/>.
+	/// </summary>
+	/// <returns>The <see cref="IHttpOperationResult"/> instance.</returns>
+	public static IHttpOperationResult Created() => new HttpOperationResult() { Status = OperationResultStatus.Created };
+
+	/// <summary>
+	/// Creates an <see cref="IHttpOperationResult"/> with a <see cref="OperationResult.Status"/> of
+	/// <see cref="OperationResultStatus.NoContent"/>.
+	/// </summary>
+	/// <returns>The <see cref="IHttpOperationResult"/> instance.</returns>
+	public static new IHttpOperationResult NoContent() => new HttpOperationResult() { Status = OperationResultStatus.NoContent };
 }
 
 /// <summary>
@@ -77,4 +91,26 @@ public record HttpOperationResult<TResult> : OperationResult<TResult>, IHttpOper
 
 	/// <inheritdoc />
 	public HttpProblemDetails? ProblemDetails { get; }
+
+	/// <summary>
+	/// Creates an <see cref="IHttpOperationResult{TResult}"/> with a <see cref="OperationResult.Status"/> of
+	/// <see cref="OperationResultStatus.GenericSuccess"/> and a result.
+	/// </summary>
+	/// <param name="result">The result of the operation.</param>
+	/// <returns>The <see cref="IHttpOperationResult{TResult}"/> instance.</returns>
+	public static new IHttpOperationResult<TResult> Success(TResult? result) => new HttpOperationResult<TResult>(result);
+
+	/// <summary>
+	/// Creates an <see cref="IHttpOperationResult{TResult}"/> with a <see cref="OperationResult.Status"/> of
+	/// <see cref="OperationResultStatus.Created"/>.
+	/// </summary>
+	/// <returns>The <see cref="IHttpOperationResult{TResult}"/> instance.</returns>
+	public static IHttpOperationResult<TResult> Created() => new HttpOperationResult<TResult>(default(TResult)) { Status = OperationResultStatus.Created };
+
+	/// <summary>
+	/// Creates an <see cref="IHttpOperationResult{TResult}"/> with a <see cref="OperationResult.Status"/> of
+	/// <see cref="OperationResultStatus.NoContent"/>.
+	/// </summary>
+	/// <returns>The <see cref="IHttpOperationResult{TResult}"/> instance.</returns>
+	public static new IHttpOperationResult<TResult> NoContent() => new HttpOperationResult<TResult>(default(TResult)) { Status = OperationResultStatus.NoContent };
 }

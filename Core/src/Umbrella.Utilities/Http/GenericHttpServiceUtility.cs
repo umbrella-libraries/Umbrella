@@ -121,7 +121,14 @@ public class GenericHttpServiceUtility : IGenericHttpServiceUtility
 				// Now check for a 201 or 204 in cases where we didn't receive content as those are still valid responses.
 				// NB: The ProcessResponseAsync below was added after this method. Need to keep this check here to avoid breaking existing apps.
 				if (response.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.Created)
-					return (true, new HttpOperationResult<TResult>(await GetProblemDetailsAsync(response, cancellationToken).ConfigureAwait(false)));
+				{
+					return response.StatusCode switch
+					{
+						HttpStatusCode.NoContent => (true, HttpOperationResult<TResult?>.NoContent()),
+						HttpStatusCode.Created => (true, HttpOperationResult<TResult?>.Created()),
+						_ => throw new NotSupportedException("Only 201 Created and 204 NoContent responses are supported when there is no result from the endpoint.")
+					};
+				}
 			}
 
 			return default;
@@ -143,7 +150,14 @@ public class GenericHttpServiceUtility : IGenericHttpServiceUtility
 			if (response.IsSuccessStatusCode)
 			{
 				if (response.StatusCode is HttpStatusCode.NoContent or HttpStatusCode.Created)
-					return Task.FromResult((true, HttpOperationResult.Success()));
+				{
+					return response.StatusCode switch
+					{
+						HttpStatusCode.NoContent => Task.FromResult((true, HttpOperationResult.NoContent())),
+						HttpStatusCode.Created => Task.FromResult((true, HttpOperationResult.Created())),
+						_ => throw new NotSupportedException("Only 201 Created and 204 NoContent responses are supported when there is no result from the endpoint.")
+					};
+				}
 
 				throw new NotSupportedException("Only 201 Created and 204 NoContent responses are supported when there is no result from the endpoint.");
 			}
