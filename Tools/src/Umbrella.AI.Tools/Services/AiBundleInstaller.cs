@@ -65,13 +65,15 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
 
             foreach (SkillListBlockDefinition blockConfig in bundle.SkillListBlocks)
             {
+                List<(string Name, string Description, string FileName)> agents = string.IsNullOrWhiteSpace(blockConfig.AgentsDirectory)
+                    ? []
+                    : ReadAgentMetadata(Path.Combine(repoRoot, NormalizePath(blockConfig.AgentsDirectory)));
                 string blockPath = Path.Combine(repoRoot, NormalizePath(blockConfig.TargetPath));
                 Directory.CreateDirectory(Path.GetDirectoryName(blockPath)!);
-                File.WriteAllText(blockPath, GenerateSkillListBlock(skills, blockConfig.SkillsDirectory));
+                File.WriteAllText(blockPath, GenerateSkillListBlock(skills, blockConfig.SkillsDirectory, agents, blockConfig.AgentsDirectory));
                 result.Messages.Add($"Generated: {NormalizePath(blockConfig.TargetPath)}");
             }
         }
-
         // Re-check every target against a fresh read of its source. This catches sources
         // that were modified while the sync was running, which would otherwise leave a
         // stale target behind a "Success" result.
@@ -183,7 +185,77 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         return [.. skills.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    private static string GenerateSkillListBlock(List<(string Name, string Description)> skills, string skillsDirectory)
+    private static List<(string Name, string Description, string FileName)> ReadAgentMetadata(string agentsDirectory)
+    {
+        if (!Directory.Exists(agentsDirectory))
+        {
+            return [];
+        }
+
+        var agents = new List<(string Name, string Description, string FileName)>();
+
+        foreach (string agentPath in Directory.GetFiles(agentsDirectory, "*.md"))
+        {
+            (string name, string description) = ReadFrontmatterMetadata(agentPath);
+
+            if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(description))
+            {
+                agents.Add((name, description, Path.GetFileName(agentPath)));
+            }
+        }
+
+        return [.. agents.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private static (string Name, string Description) ReadFrontmatterMetadata(string filePath)
+    {
+        string name = "", description = "";
+        bool inFrontmatter = false;
+
+        foreach (string line in File.ReadLines(filePath))
+        {
+            if (line.Trim() == "---")
+            {
+                if (!inFrontmatter)
+                {
+                    inFrontmatter = true;
+                    continue;
+                }
+
+                break;
+            }
+
+            if (!inFrontmatter)
+            {
+                break;
+            }
+
+            Match match = Regex.Match(line, @"^(\w+):\s*(.+?)\s*$");
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            string rawValue = match.Groups[2].Value;
+            string value = rawValue.Length >= 2 && rawValue[0] == '\'' && rawValue[^1] == '\''
+                ? rawValue[1..^1]
+                : rawValue;
+
+            switch (match.Groups[1].Value)
+            {
+                case "name": name = value; break;
+                case "description": description = value; break;
+            }
+        }
+
+        return (name, description);
+    }
+
+    private static string GenerateSkillListBlock(
+        List<(string Name, string Description)> skills,
+        string skillsDirectory,
+        List<(string Name, string Description, string FileName)> agents,
+        string? agentsDirectory)
     {
         var sb = new StringBuilder();
         sb.AppendLine("## Umbrella Skills");
@@ -196,9 +268,23 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"- `{name}` -- {description}");
         }
 
+        if (agents.Count > 0 && !string.IsNullOrWhiteSpace(agentsDirectory))
+        {
+            sb.AppendLine();
+            sb.AppendLine("## Umbrella Agents");
+            sb.AppendLine();
+            sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"The following agent playbooks are available in `{agentsDirectory}`. For a matching task, read the relevant playbook before starting work.");
+            sb.AppendLine();
+
+            foreach ((string name, string description, string fileName) in agents)
+            {
+                string agentPath = NormalizePath(Path.Combine(agentsDirectory, fileName));
+                sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"- `{name}` -- {description} Playbook: `{agentPath}`.");
+            }
+        }
+
         return sb.ToString().TrimEnd() + "\n";
     }
-
     public OperationResult GetStatus(CommandOptions options)
     {
         string targetRoot = ResolveTargetRoot(options.TargetPath);

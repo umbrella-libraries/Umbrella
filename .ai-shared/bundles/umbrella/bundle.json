@@ -25,15 +25,18 @@
   "skillListBlocks": [
     {
       "targetPath": ".ai-shared\\bundles\\umbrella\\blocks\\CLAUDE.block.md",
-      "skillsDirectory": ".claude\\skills"
+      "skillsDirectory": ".claude\\skills",
+      "agentsDirectory": ".claude\\agents"
     },
     {
       "targetPath": ".ai-shared\\bundles\\umbrella\\blocks\\AGENTS.block.md",
-      "skillsDirectory": ".agents\\skills"
+      "skillsDirectory": ".agents\\skills",
+      "agentsDirectory": ".claude\\agents"
     },
     {
       "targetPath": ".ai-shared\\bundles\\umbrella\\blocks\\copilot-instructions.block.md",
-      "skillsDirectory": ".agents\\skills"
+      "skillsDirectory": ".agents\\skills",
+      "agentsDirectory": ".github\\agents"
     }
   ],
   "managedBlocks": [

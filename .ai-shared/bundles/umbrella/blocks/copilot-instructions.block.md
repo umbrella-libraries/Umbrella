@@ -34,3 +34,26 @@ The following skills are available in `.agents\skills`. Read a skill's `SKILL.md
 - `umbrella-dotnet-scaffold-test-project` -- Create a repo-standard .NET runnable test project shell using the shared Umbrella IsTestProject=true pattern, singular .Test naming, solution folder registration, minimal project-specific package references, and restore/build/test validation. Use when adding a new architecture, integration, analyzer, Mapperly, or other test project before adding specialized test infrastructure.
 - `umbrella-dotnet-standardize-test-projects` -- Analyze, set up, or update .NET test project configuration across a solution to follow the shared Umbrella IsTestProject=true pattern, singular .Test naming, and xUnit v3 Microsoft Testing Platform conventions.
 - `umbrella-nuget-safe-upgrade` -- Safely analyze and apply NuGet package upgrades in multi-targeted .NET repositories using exclusions, framework-aware version selection, restore checks, and transitive dependency graph validation.
+
+## Umbrella Agents
+
+The following agent playbooks are available in `.github\agents`. For a matching task, read the relevant playbook before starting work.
+
+- `Dotnet API Controller Test Generation Agent` -- Generate integration tests for concrete API controllers built on the Umbrella base controller hierarchy, covering every testable response status code per endpoint with traced trigger recipes. Playbook: `.github\agents\umbrella-dotnet-api-controller-test-generation-agent.agent.md`.
+- `Dotnet API Feature Agent` -- Build API-only CRUD or data access for an entity without assuming any frontend. Playbook: `.github\agents\umbrella-dotnet-api-feature-agent.agent.md`.
+- `Dotnet API Modernization Agent` -- Migrate direct repository controllers to controller-service-backed APIs. Playbook: `.github\agents\umbrella-dotnet-api-modernization-agent.agent.md`.
+- `Dotnet ASP.NET Core Integration Test Agent` -- Create or prepare ASP.NET Core WebApplicationFactory integration test infrastructure with standard Umbrella test project conventions, test authentication, EF Core replacement, xUnit collections, and SQL Server Testcontainers. Playbook: `.github\agents\umbrella-dotnet-aspnetcore-integration-test-agent.agent.md`.
+- `Dotnet Blazor Admin CRUD Feature Agent` -- Build a complete Umbrella-style Blazor admin CRUD feature from EF entity through API, client data, UI, navigation, auth, and migration. Playbook: `.github\agents\umbrella-dotnet-blazor-admin-crud-feature-agent.agent.md`.
+- `Dotnet Blazor Auth Policy Feature Agent` -- Add a shared authorization policy and wire it through Blazor pages, navigation, and resource authorization where needed. Playbook: `.github\agents\umbrella-dotnet-blazor-auth-policy-feature-agent.agent.md`.
+- `Dotnet Blazor Client Data Modernization Agent` -- Migrate legacy Blazor client data types from Repository naming and folders to Service naming and folders. Playbook: `.github\agents\umbrella-dotnet-blazor-client-data-modernization-agent.agent.md`.
+- `Dotnet Blazor Client UI Feature Agent` -- Add Blazor client UI for an existing API feature, including client data access, index/manage pages, Mapperly form mappings, and navigation. Playbook: `.github\agents\umbrella-dotnet-blazor-client-ui-feature-agent.agent.md`.
+- `Dotnet Blazor File Backed CRUD Feature Agent` -- Build a Blazor CRUD feature with file or image upload, file handler wiring, secured file access, admin UI, and database migration. Playbook: `.github\agents\umbrella-dotnet-blazor-file-backed-crud-feature-agent.agent.md`.
+- `Dotnet Core Service Agent` -- Build a non-CRUD core/domain service with logic-layer models and repository access where needed. Playbook: `.github\agents\umbrella-dotnet-core-service-agent.agent.md`.
+- `Dotnet Data Service Controller Agent` -- Build the newer controller-service-backed API pattern for a repository-backed entity. Playbook: `.github\agents\umbrella-dotnet-data-service-controller-agent.agent.md`.
+- `Dotnet EF Migration Agent` -- Add and validate EF Core migrations after entity or DbContext changes. Playbook: `.github\agents\umbrella-dotnet-ef-migration-agent.agent.md`.
+- `Dotnet Maintenance Agent` -- Handle safe NuGet upgrades and repo-wide test project maintenance. Playbook: `.github\agents\umbrella-dotnet-maintenance-agent.agent.md`.
+- `Dotnet Mapperly Modernization Agent` -- Migrate legacy AutoMapper profiles and IMapper usage to Mapperly source-generated mappers. Playbook: `.github\agents\umbrella-dotnet-mapperly-modernization-agent.agent.md`.
+- `Dotnet Repository Controller Agent` -- Build a direct repository-backed API controller. Playbook: `.github\agents\umbrella-dotnet-repository-controller-agent.agent.md`.
+- `Dotnet Resource Security Agent` -- Add or tighten row-level ASP.NET Core resource authorization for an existing entity or API. Playbook: `.github\agents\umbrella-dotnet-resource-security-agent.agent.md`.
+- `Dotnet Test Architecture Agent` -- Add or standardize architecture tests and shared test project conventions. Playbook: `.github\agents\umbrella-dotnet-test-architecture-agent.agent.md`.
+- `NuGet Safe Upgrade` -- Safely analyze and upgrade NuGet packages while respecting exclusions, target frameworks, and transitive dependency graph constraints. Playbook: `.github\agents\umbrella-nuget-safe-upgrade.agent.md`.

@@ -54,6 +54,8 @@ public sealed class SkillListBlockDefinition
 
     [JsonPropertyName("skillsDirectory")]
     public string SkillsDirectory { get; set; } = "";
+    [JsonPropertyName("agentsDirectory")]
+    public string? AgentsDirectory { get; set; }
 }
 
 public sealed class ManagedBlockDefinition

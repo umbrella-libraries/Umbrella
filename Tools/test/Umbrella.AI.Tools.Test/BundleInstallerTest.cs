@@ -35,6 +35,17 @@ public class BundleInstallerTest
 
         string agents = File.ReadAllText(Path.Combine(workspace.RootPath, "AGENTS.md"));
         Assert.Contains("<!-- ai-bundle:umbrella:start -->", agents, StringComparison.Ordinal);
+        Assert.Contains("## Umbrella Agents", agents, StringComparison.Ordinal);
+        Assert.Contains("`umbrella-dotnet-core-service-agent`", agents, StringComparison.Ordinal);
+        Assert.Contains(@".claude\agents\umbrella-dotnet-core-service-agent.md", agents, StringComparison.Ordinal);
+
+        string claudeGuidance = File.ReadAllText(Path.Combine(workspace.RootPath, "CLAUDE.md"));
+        Assert.Contains("## Umbrella Agents", claudeGuidance, StringComparison.Ordinal);
+        Assert.Contains(@".claude\agents\umbrella-dotnet-core-service-agent.md", claudeGuidance, StringComparison.Ordinal);
+
+        string copilotGuidance = File.ReadAllText(Path.Combine(workspace.RootPath, ".github", "copilot-instructions.md"));
+        Assert.Contains("## Umbrella Agents", copilotGuidance, StringComparison.Ordinal);
+        Assert.Contains(@".github\agents\umbrella-dotnet-core-service-agent.agent.md", copilotGuidance, StringComparison.Ordinal);
 
         JsonObject mcpServers = LoadServers(Path.Combine(workspace.RootPath, ".mcp.json"));
         Assert.NotNull(mcpServers["aspire"]);
@@ -65,6 +76,17 @@ public class BundleInstallerTest
         string agents = File.ReadAllText(agentsPath);
         Assert.Contains("User-owned intro.", agents, StringComparison.Ordinal);
         Assert.Contains("<!-- ai-bundle:umbrella:start -->", agents, StringComparison.Ordinal);
+        Assert.Contains("## Umbrella Agents", agents, StringComparison.Ordinal);
+        Assert.Contains("`umbrella-dotnet-core-service-agent`", agents, StringComparison.Ordinal);
+        Assert.Contains(@".claude\agents\umbrella-dotnet-core-service-agent.md", agents, StringComparison.Ordinal);
+
+        string claudeGuidance = File.ReadAllText(Path.Combine(workspace.RootPath, "CLAUDE.md"));
+        Assert.Contains("## Umbrella Agents", claudeGuidance, StringComparison.Ordinal);
+        Assert.Contains(@".claude\agents\umbrella-dotnet-core-service-agent.md", claudeGuidance, StringComparison.Ordinal);
+
+        string copilotGuidance = File.ReadAllText(Path.Combine(workspace.RootPath, ".github", "copilot-instructions.md"));
+        Assert.Contains("## Umbrella Agents", copilotGuidance, StringComparison.Ordinal);
+        Assert.Contains(@".github\agents\umbrella-dotnet-core-service-agent.agent.md", copilotGuidance, StringComparison.Ordinal);
         Assert.Equal("{\"packages\":[\"Contoso\"]}", File.ReadAllText(exclusionsPath));
 
         JsonObject mcpServers = LoadServers(mcpPath);
