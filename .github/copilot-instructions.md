@@ -13,9 +13,9 @@ This repository contains a portable NuGet safe-upgrade workflow.
 ## Relevant files
 
 - `AGENTS.md`
-- `.github\agents\nuget-safe-upgrade.agent.md`
-- `.github\skills\nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1`
-- `.ai-shared\skills\nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1`
+- `.github\agents\umbrella-nuget-safe-upgrade.agent.md`
+- `.github\skills\umbrella-nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1`
+- `.ai-shared\skills\umbrella-nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1`
 
 ## Skill and agent authoring
 

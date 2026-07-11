@@ -464,6 +464,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         string targetMcpPath = Path.Combine(targetRoot, ".mcp.json");
         JsonObject targetMcpRoot = LoadMcpRoot(targetMcpPath) ?? [];
         JsonObject targetServers = GetOrCreateServers(targetMcpRoot);
+        JsonObject targetMcpServers = GetOrCreateMcpServers(targetMcpRoot);
 
         foreach ((string serverName, JsonNode? serverNode) in templateServers)
         {
@@ -474,6 +475,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
 
             targetServers[serverName] = serverNode.DeepClone();
             newManifest.ManagedMcpServers.Add(new NameHashRecord { Name = serverName, Hash = HashUtility.ComputeJsonHash(serverNode) });
+            targetMcpServers[serverName] = serverNode.DeepClone();
             result.Messages.Add($"Managed MCP server {operationName}ed: {serverName}");
         }
 
@@ -854,6 +856,16 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         }
 
         return rootObject["servers"]!.AsObject();
+    }
+
+    private static JsonObject GetOrCreateMcpServers(JsonObject rootObject)
+    {
+        if (rootObject["mcpServers"] is null)
+        {
+            rootObject["mcpServers"] = new JsonObject();
+        }
+
+        return rootObject["mcpServers"]!.AsObject();
     }
 
     private static void SaveMcpJson(string mcpPath, JsonObject root)

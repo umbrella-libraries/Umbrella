@@ -1,5 +1,5 @@
 {
-  "$schema": "./.ai-shared/nuget-safe-upgrade/nuget-upgrade-exclusions.schema.json",
+  "$schema": "./.ai-shared/umbrella-nuget-safe-upgrade/nuget-upgrade-exclusions.schema.json",
   "packages": [],
   "patterns": [],
   "frameworkCoupledFamilies": [

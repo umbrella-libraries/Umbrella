@@ -9,12 +9,12 @@ For this repository, Claude should use:
 
 ## NuGet safe upgrade agent
 
-Use the `nuget-safe-upgrade` Claude agent for package-management work that must stay compatible across multiple target frameworks.
+Use the `umbrella-nuget-safe-upgrade` Claude agent for package-management work that must stay compatible across multiple target frameworks.
 
 ### Required behavior
 
 1. Read `nuget-upgrade-exclusions.json`.
-2. Use the generated `.claude\skills\nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1` (source: `.ai-shared\skills\nuget-safe-upgrade\scripts\`) instead of manually editing package versions.
+2. Use the generated `.claude\skills\umbrella-nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1` (source: `.ai-shared\skills\umbrella-nuget-safe-upgrade\scripts\`) instead of manually editing package versions.
 3. Preserve target-framework-specific version lines.
 4. Validate accepted candidates with restore and resolved-package inspection.
 5. Return successful, skipped, and blocked packages with clear next-step options.

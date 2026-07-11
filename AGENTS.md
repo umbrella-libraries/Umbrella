@@ -17,9 +17,9 @@ When upgrading NuGet packages:
 ## Entry points
 
 - Repo-wide Copilot guidance: `.github\copilot-instructions.md`
-- Copilot agent: `.github\agents\nuget-safe-upgrade.agent.md`
-- Copilot skill wrapper: `.github\skills\nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1`
-- Shared implementation: `.ai-shared\skills\nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1`
+- Copilot agent: `.github\agents\umbrella-nuget-safe-upgrade.agent.md`
+- Copilot skill wrapper: `.github\skills\umbrella-nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1`
+- Shared implementation: `.ai-shared\skills\umbrella-nuget-safe-upgrade\scripts\Invoke-NuGetSafeUpgrade.ps1`
 
 ## Skill and agent authoring
 

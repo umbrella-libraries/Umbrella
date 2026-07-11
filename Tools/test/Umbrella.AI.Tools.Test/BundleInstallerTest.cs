@@ -16,20 +16,20 @@ public class BundleInstallerTest
         var result = installer.Install(new Umbrella.AI.Tools.CommandOptions { TargetPath = workspace.RootPath });
 
         Assert.True(result.Success);
-        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "agents", "nuget-safe-upgrade.md")));
-        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "agents", "nuget-safe-upgrade.agent.md")));
-        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "agents", "dotnet-blazor-admin-crud-feature-agent.md")));
-        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "agents", "dotnet-blazor-admin-crud-feature-agent.agent.md")));
-        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "skills", "dotnet-scaffold-service", "SKILL.md")));
-        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "skills", "dotnet-scaffold-service", "SKILL.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "agents", "umbrella-nuget-safe-upgrade.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "agents", "umbrella-nuget-safe-upgrade.agent.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "agents", "umbrella-dotnet-blazor-admin-crud-feature-agent.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "agents", "umbrella-dotnet-blazor-admin-crud-feature-agent.agent.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "skills", "umbrella-dotnet-scaffold-service", "SKILL.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "skills", "umbrella-dotnet-scaffold-service", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".mcp.json")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, "nuget-upgrade-exclusions.json")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".ai-shared", "bundles", "umbrella", "manifest.json")));
 
-        string claudeSkill = File.ReadAllText(Path.Combine(workspace.RootPath, ".claude", "skills", "dotnet-add-ef-migration", "SKILL.md"));
-        string githubSkill = File.ReadAllText(Path.Combine(workspace.RootPath, ".github", "skills", "dotnet-add-ef-migration", "SKILL.md"));
-        Assert.Contains(@".claude\skills\dotnet-add-ef-migration", claudeSkill, StringComparison.Ordinal);
-        Assert.Contains(@".github\skills\dotnet-add-ef-migration", githubSkill, StringComparison.Ordinal);
+        string claudeSkill = File.ReadAllText(Path.Combine(workspace.RootPath, ".claude", "skills", "umbrella-dotnet-add-ef-migration", "SKILL.md"));
+        string githubSkill = File.ReadAllText(Path.Combine(workspace.RootPath, ".github", "skills", "umbrella-dotnet-add-ef-migration", "SKILL.md"));
+        Assert.Contains(@".claude\skills\umbrella-dotnet-add-ef-migration", claudeSkill, StringComparison.Ordinal);
+        Assert.Contains(@".github\skills\umbrella-dotnet-add-ef-migration", githubSkill, StringComparison.Ordinal);
         Assert.DoesNotContain("{{skill_dir}}", claudeSkill, StringComparison.Ordinal);
         Assert.DoesNotContain("{{skill_dir}}", githubSkill, StringComparison.Ordinal);
 
@@ -40,6 +40,10 @@ public class BundleInstallerTest
         Assert.NotNull(mcpServers["aspire"]);
         Assert.NotNull(mcpServers["playwright"]);
         Assert.Null(mcpServers["sql-mcp-server"]);
+        JsonObject legacyMcpServers = LoadMcpServers(Path.Combine(workspace.RootPath, ".mcp.json"));
+        Assert.NotNull(legacyMcpServers["aspire"]);
+        Assert.NotNull(legacyMcpServers["playwright"]);
+
     }
 
     [Fact]
@@ -105,7 +109,7 @@ public class BundleInstallerTest
         var result = installer.Remove(new Umbrella.AI.Tools.CommandOptions { TargetPath = workspace.RootPath });
 
         Assert.True(result.Success);
-        Assert.False(File.Exists(Path.Combine(workspace.RootPath, ".claude", "agents", "nuget-safe-upgrade.md")));
+        Assert.False(File.Exists(Path.Combine(workspace.RootPath, ".claude", "agents", "umbrella-nuget-safe-upgrade.md")));
         Assert.Contains("# User heading", File.ReadAllText(agentsPath), StringComparison.Ordinal);
         Assert.DoesNotContain("ai-bundle:umbrella", File.ReadAllText(agentsPath), StringComparison.Ordinal);
         JsonObject mcpRoot = JsonNode.Parse(File.ReadAllText(mcpPath))!.AsObject();
@@ -119,7 +123,7 @@ public class BundleInstallerTest
     {
         using var workspace = new TemporaryWorkspace();
         var installer = CreateInstaller();
-        string conflictingPath = Path.Combine(workspace.RootPath, ".github", "agents", "nuget-safe-upgrade.agent.md");
+        string conflictingPath = Path.Combine(workspace.RootPath, ".github", "agents", "umbrella-nuget-safe-upgrade.agent.md");
         Directory.CreateDirectory(Path.GetDirectoryName(conflictingPath)!);
         File.WriteAllText(conflictingPath, "owned by another bundle");
 
@@ -132,7 +136,7 @@ public class BundleInstallerTest
             installerPackageId = "Other",
             installerVersion = "1.0.0",
             installedAt = "2025-01-01T00:00:00+00:00",
-            managedFiles = new[] { new { path = ".github\\agents\\nuget-safe-upgrade.agent.md", hash = "ABC" } },
+            managedFiles = new[] { new { path = ".github\\agents\\umbrella-nuget-safe-upgrade.agent.md", hash = "ABC" } },
             managedBlocks = Array.Empty<object>(),
             managedMcpServers = Array.Empty<object>()
         };
@@ -253,6 +257,7 @@ public class BundleInstallerTest
     private static AiBundleInstaller CreateInstaller() => new(RepoRoot, "Umbrella.AI.Tools.Test", "1.0.0-test");
 
     private static JsonObject LoadServers(string path) => JsonNode.Parse(File.ReadAllText(path))!["servers"]!.AsObject();
+    private static JsonObject LoadMcpServers(string path) => JsonNode.Parse(File.ReadAllText(path))!["mcpServers"]!.AsObject();
 
     private static string GetRepoRoot()
     {
