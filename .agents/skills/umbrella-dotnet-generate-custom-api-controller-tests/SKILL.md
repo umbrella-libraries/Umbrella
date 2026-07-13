@@ -43,6 +43,8 @@ An action's contract is the **union** of:
 
 Worked example — a singleton-settings `GET` calling `ReadAsync(1, ..., enableAuthorizationChecks: false)` under `[Authorize(Policy = ...)]` yields `200`, `404` (only if the seed row can be absent), `401`, `403` (declarative only), `500` — and **no** `422`, since nothing is bound. Do not generate imperative-`403` or `422` tests for such an action.
 
+When a `404` requires temporarily removing a seeded singleton, snapshot the complete row, delete it inside a non-parallel database collection, and restore it in `finally` using `CancellationToken.None`. Preserve its original key; use repository-supported restoration or a tightly scoped `IDENTITY_INSERT` statement when the key is database-generated. Never leave the shared seed absent after the test.
+
 ## Variant B — deriving contracts from hand-rolled action bodies
 
 Enumerate the status-helper and `OperationResult`/`OperationResultFailure` calls in the action body — that enumeration *is* the contract. Apply these rules:
@@ -70,7 +72,7 @@ The action's contract is the union of: the composed operation's statuses, the en
 
 Use the per-status recipes from `umbrella-dotnet-generate-api-repo-controller-tests` — they describe mechanisms, not endpoints, and apply directly: seeded happy paths via a scoped `DbContext`, `401` anonymous (attribute-gated) vs in-action, `403` per identity class, `404` non-existent key, `409` stamp rotation asserting `code = ConcurrencyStampMismatch`, `400`/`422` per the resolved host state, optional `500` via throwing fake + non-`Development` host.
 
-Shared conventions: test class per controller in the SQL Server Testcontainers collection, `<Method>Async_<Scenario>_Returns<Status>` naming, `UmbrellaProblemDetails`/`UmbrellaValidationProblemDetails` assertion helpers:
+Shared conventions: test class per controller in the SQL Server Testcontainers collection, `<Method>Async_<Scenario>_Returns<Status>` naming, and the `Umbrella.Testing.AspNetCore.Http` problem-details assertion extensions:
 
 ```csharp
 [Collection(IndyRecordsSqlServerIntegrationTestCollection.Name)]
@@ -95,6 +97,9 @@ Read the `[HttpGet("...")]`/`[Route]` attributes for URLs — custom shapes mean
 - Satisfy earlier pipeline gates when targeting later codes (the helper/operation pipelines evaluate not-found → concurrency → hooks → authorization → save).
 - One assertion focus per test: status code, body shape, and the observable side effect that distinguishes the branch (anti-enumeration endpoints return the same status either way — assert the side effect via seeded state).
 - Keep tests independent with uniquely seeded data; do not weaken production authorization or bypass guards in production code — substitute at the DI layer in the factory only.
+- Put every created database row, temp file, blob, external-emulator resource, or mutated singleton behind `try`/`finally` and clean it with `CancellationToken.None`.
+- Restore ambient state such as `Thread.CurrentPrincipal` in `finally`; when repeated, prefer a small disposable scope helper rather than open-coded assignment.
+- Reuse application-local data builders for repeated domain graphs, but do not combine response assertions, identity request construction, and feature-specific upload requests in one generic helper.
 
 ## Validation
 

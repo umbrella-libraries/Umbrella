@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Umbrella.Testing.AspNetCore;
@@ -18,6 +20,7 @@ public abstract class UmbrellaWebApplicationFactory<TProgram> : WebApplicationFa
 		ArgumentNullException.ThrowIfNull(builder);
 
 		string environmentName = GetEnvironmentName();
+		string? applicationEnvironmentName = GetApplicationEnvironmentName();
 
 		if (!string.IsNullOrWhiteSpace(environmentName))
 			_ = builder.UseEnvironment(environmentName);
@@ -28,6 +31,7 @@ public abstract class UmbrellaWebApplicationFactory<TProgram> : WebApplicationFa
 
 		_ = builder.ConfigureServices(services =>
 		{
+			ConfigureApplicationEnvironment(services, applicationEnvironmentName);
 			ConfigureServices(services);
 			ConfigureAuthentication(services);
 		});
@@ -38,6 +42,19 @@ public abstract class UmbrellaWebApplicationFactory<TProgram> : WebApplicationFa
 	/// </summary>
 	/// <returns>The environment name. The default value is <c>Development</c>.</returns>
 	protected virtual string GetEnvironmentName() => "Development";
+
+	/// <summary>
+	/// Gets an optional environment name to expose through <see cref="IHostEnvironment"/> and
+	/// <see cref="IWebHostEnvironment"/> after application startup has been configured.
+	/// </summary>
+	/// <remarks>
+	/// Override this when startup must use one environment (for example, <c>Development</c> to avoid production-only
+	/// cloud dependencies) while application services such as controller exception filters must observe a different,
+	/// non-development environment. Returning <see langword="null"/> preserves the host environment configured by
+	/// <see cref="GetEnvironmentName"/>.
+	/// </remarks>
+	/// <returns>The application service environment name, or <see langword="null"/> to preserve the host environment.</returns>
+	protected virtual string? GetApplicationEnvironmentName() => null;
 
 	/// <summary>
 	/// Configures the underlying web host builder before services are configured.
@@ -81,4 +98,28 @@ public abstract class UmbrellaWebApplicationFactory<TProgram> : WebApplicationFa
 	/// </summary>
 	/// <param name="services">The service collection.</param>
 	protected abstract void ConfigureAuthentication(IServiceCollection services);
+
+	private static void ConfigureApplicationEnvironment(IServiceCollection services, string? applicationEnvironmentName)
+	{
+		if (string.IsNullOrWhiteSpace(applicationEnvironmentName))
+			return;
+
+		ServiceDescriptor? descriptor = services.LastOrDefault(x => x.ServiceType == typeof(IWebHostEnvironment));
+
+		if (descriptor?.ImplementationInstance is not IWebHostEnvironment webHostEnvironment)
+		{
+			throw new InvalidOperationException(
+				$"Cannot expose application environment '{applicationEnvironmentName}' because the registered {nameof(IWebHostEnvironment)} is not an implementation instance.");
+		}
+
+		if (string.Equals(webHostEnvironment.EnvironmentName, applicationEnvironmentName, StringComparison.Ordinal))
+			return;
+
+		var applicationEnvironment = new UmbrellaTestWebHostEnvironment(webHostEnvironment, applicationEnvironmentName);
+
+		_ = services.RemoveAll<IWebHostEnvironment>();
+		_ = services.RemoveAll<IHostEnvironment>();
+		_ = services.AddSingleton<IWebHostEnvironment>(applicationEnvironment);
+		_ = services.AddSingleton<IHostEnvironment>(applicationEnvironment);
+	}
 }

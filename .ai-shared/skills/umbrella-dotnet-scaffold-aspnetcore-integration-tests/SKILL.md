@@ -75,6 +75,7 @@ Create a test auth handler that:
 - uses the app's real default authenticate scheme where possible;
 - returns a `ClaimsPrincipal` with realistic default user id, name, roles, and required custom claims;
 - allows per-test overrides through request headers or a small client helper;
+- allows tests to explicitly omit optional or required application claims, not only replace their values;
 - supports unauthenticated requests for authorization tests.
 
 When controller response-code tests are in scope, the handler (or client helper) must be able to issue **three distinct identities** per entity under test:
@@ -84,6 +85,8 @@ When controller response-code tests are in scope, the handler (or client helper)
 - **denying** — an authenticated identity that passes `[Authorize]` but fails the entity's resource authorization handler (e.g. a non-owner user id), so imperative checks produce `403`.
 
 A single high-privilege default identity cannot exercise the `401`/`403` paths. When a resource handler distinguishes several identity classes (owner, account manager, admin role, …), the handler/helper must be able to construct a passing and a denying variant for each class, not just one pair overall.
+
+If the application calls `SignInManager.RefreshSignInAsync`, `SignInAsync`, `SignOutAsync`, or the equivalent `IAuthenticationService` operations, implement `IAuthenticationSignInHandler` on the test handler. Its test-only `SignInAsync` and `SignOutAsync` methods may return `Task.CompletedTask`, but must validate required inputs. Configure `DefaultSignInScheme` and `DefaultSignOutScheme` to the replaced application scheme. Do not add this interface when the application never performs those operations.
 
 For Identity-cookie apps, replace the application scheme handler rather than bypassing authorization:
 
@@ -95,6 +98,8 @@ services.PostConfigure<AuthenticationOptions>(options =>
 	options.DefaultForbidScheme = IdentityConstants.ApplicationScheme;
 	options.DefaultScheme = IdentityConstants.ApplicationScheme;
 
+	options.DefaultSignInScheme = IdentityConstants.ApplicationScheme;
+	options.DefaultSignOutScheme = IdentityConstants.ApplicationScheme;
 	if (options.SchemeMap.TryGetValue(IdentityConstants.ApplicationScheme, out AuthenticationSchemeBuilder? scheme))
 		scheme.HandlerType = typeof(TestAuthenticationHandler);
 	else
@@ -119,6 +124,7 @@ protected override void ConfigureWebHostBuilder(IWebHostBuilder builder)
 
 Rules:
 
+- Allow the configuration helper to accept an optional final `IEnumerable<KeyValuePair<string, string?>>` override layer so specialized factories can replace only the settings they own.
 - Provide inert values for all required startup options.
 - Override production-looking default connection strings/secrets.
 - Avoid user secrets and cloud resources.
@@ -131,7 +137,15 @@ When the test project will assert controller response codes (see `docs\api-base-
 
 - **Claims principal propagation** — the pipeline must call `UseUmbrellaPropagateClaimsPrincipal()` (or equivalent) so `HttpContext.User` flows to `Thread.CurrentPrincipal`. Without it, the imperative authorization checks in `UmbrellaRepositoryCoreDataService` throw and expected `403` responses surface as `500`s. If the production pipeline lacks it, flag this to the user rather than patching it only in tests — the production app has the same defect.
 - **Validation status code** — confirm the app calls `ConfigureUmbrellaApiBehaviorOptions()` / `ConfigureUmbrellaMvcBuilderOptions()` and record any `validationFailureStatusCode` override. Generated tests must assert the configured value (default `422`) for model binding/validation failures, and `400` for malformed JSON root errors. If the app never registers the Umbrella behavior options, all model-state failures are plain ASP.NET `400`s with `ValidationProblemDetails` bodies (not `UmbrellaValidationProblemDetails`) — flag this to the user and recommend adopting the config; otherwise tests must assert the plain-`400` contract instead.
-- **Environment name** — the base controllers' exception filters only catch when the host environment is not `Development`. Run the factory with a non-`Development` environment (e.g. `Production` or a dedicated `IntegrationTest` name, provided startup avoids production-only services) whenever `500` response shapes are asserted.
+- **Environment name** — the base controllers' exception filters only catch when the application environment is not `Development`. Prefer running the whole factory under a dedicated non-development name such as `IntegrationTest` when startup safely isolates external services. If startup must remain `Development` to avoid Key Vault, production Data Protection, Application Insights, or other real integrations, keep `GetEnvironmentName()` as `Development` and override `GetApplicationEnvironmentName()` so controllers and other injected services observe `IntegrationTest`:
+
+```csharp
+protected override string GetEnvironmentName() => "Development";
+
+protected override string? GetApplicationEnvironmentName() => "IntegrationTest";
+```
+
+Use this split-environment hook only after the readiness audit proves it is needed. Add factory tests that demonstrate startup used the safe environment and that both `IHostEnvironment` and `IWebHostEnvironment` resolve to the application environment. Do not generate a project-local `TestWebHostEnvironment` decorator when the referenced `Umbrella.Testing.AspNetCore` version provides this hook.
 - **Authorization policies** — the `CorePolicyNames.Create/Read/Update/Delete` policies (or the custom names configured on `UmbrellaRepositoryDataServiceOptions`) must be registered together with the entities' resource authorization handlers. Use `umbrella-dotnet-scaffold-auth-policy` and `umbrella-dotnet-scaffold-resource-auth-handler` if they are missing.
 
 ## Test logging
@@ -282,6 +296,14 @@ public sealed class <App>WebApplicationFactoryTests
 Avoid starting Docker in the default smoke test unless the user explicitly asks for a container smoke test.
 
 ## Validation
+
+Add focused factory self-tests for every non-default behavior the scaffold introduces:
+
+- the injected application environment when `GetApplicationEnvironmentName()` is overridden;
+- the effective database provider and connection source in the container factory;
+- each external-service replacement or emulator-backed provider the tested endpoints depend on;
+- authentication identities that exercise anonymous, passing, denying, and missing-claim paths;
+- sign-in/sign-out support when the application invokes those operations.
 
 Run:
 

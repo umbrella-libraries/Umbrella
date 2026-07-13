@@ -1,4 +1,6 @@
 using System.Net.Http;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -21,6 +23,22 @@ public sealed class UmbrellaLocalWebApplicationFactoryTests
 		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 		Assert.Equal("Smoke", content);
 		Assert.True(factory.ConfigureServicesCalled);
+	}
+
+	[Fact]
+	public async Task ApplicationEnvironmentCanDifferFromStartupEnvironment()
+	{
+		await using var factory = new SmokeSplitEnvironmentWebApplicationFactory();
+
+		using HttpClient client = factory.CreateClient();
+		using HttpResponseMessage response = await client.GetAsync("/", TestContext.Current.CancellationToken);
+		string content = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+		Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+		Assert.Equal("SmokeStartup", factory.StartupEnvironmentName);
+		Assert.Equal("SmokeApplication", content);
+		Assert.Equal("SmokeApplication", factory.Services.GetRequiredService<IWebHostEnvironment>().EnvironmentName);
+		Assert.Equal("SmokeApplication", factory.Services.GetRequiredService<IHostEnvironment>().EnvironmentName);
 	}
 
 	[Fact]
@@ -55,6 +73,27 @@ public sealed class UmbrellaLocalWebApplicationFactoryTests
 			base.ConfigureServices(services);
 
 			ConfigureServicesCalled = true;
+		}
+	}
+
+	private sealed class SmokeSplitEnvironmentWebApplicationFactory : UmbrellaLocalWebApplicationFactory<SmokeProgram>
+	{
+		public string? StartupEnvironmentName { get; private set; }
+
+		protected override string GetEnvironmentName() => "SmokeStartup";
+
+		protected override string? GetApplicationEnvironmentName() => "SmokeApplication";
+
+		protected override void ConfigureWebHostBuilder(IWebHostBuilder builder)
+		{
+			base.ConfigureWebHostBuilder(builder);
+
+			StartupEnvironmentName = builder.GetSetting(WebHostDefaults.EnvironmentKey);
+		}
+
+		protected override void ConfigureAuthentication(IServiceCollection services)
+		{
+			ArgumentNullException.ThrowIfNull(services);
 		}
 	}
 }

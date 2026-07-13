@@ -24,4 +24,6 @@ Read `docs\api-base-controller-endpoint-map.md` (Umbrella repository) when avail
 
 Only generate tests for status codes the contract audit marks testable; report excluded codes with reasons. Verify the host satisfies the response contract requirements (claims principal propagation, configured validation failure status code, non-Development environment for 500 shapes, registered policies and resource handlers) before generating authorization or validation tests.
 
+Reuse the `Umbrella.Testing.AspNetCore.Http` problem-details assertions. Require `try`/`finally` cleanup for every created or mutated resource, use `CancellationToken.None` during cleanup/restoration, and keep response assertions, identity request builders, feature-specific requests, and application test-data builders as separate concerns.
+
 Verify restore, build, and `dotnet test` for the touched test project. Report endpoints covered, codes tested and excluded per endpoint, Docker/Testcontainers requirements, and test run results.

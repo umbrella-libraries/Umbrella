@@ -73,7 +73,7 @@ public sealed class ArtistsControllerTests
 }
 ```
 
-Seed through a scoped `DbContext` from the factory, reuse the `UmbrellaProblemDetails`/`UmbrellaValidationProblemDetails` assertion helpers, and follow the shared naming convention `<Method>Async_<Scenario>_Returns<Status>`.
+Seed through a scoped `DbContext` from the factory, use the `Umbrella.Testing.AspNetCore.Http` problem-details assertion extensions described by the repository-controller generator, and follow the shared naming convention `<Method>Async_<Scenario>_Returns<Status>`.
 
 ## Rules
 
@@ -81,6 +81,8 @@ Seed through a scoped `DbContext` from the factory, reuse the `UmbrellaProblemDe
 - Assert the validation failure status and body per the host state resolved by the contract audit (Umbrella behavior options default → `422` + `UmbrellaValidationProblemDetails`; explicit `validationFailureStatusCode` → that code; not configured → `400` + plain ASP.NET `ValidationProblemDetails`, no separate malformed-JSON-root test). Never hard-code `422` without checking.
 - Satisfy earlier pipeline gates when targeting later ones (existing id + current stamp + valid model for a `PUT` `403`).
 - Keep tests independent with uniquely seeded data.
+- Put every created or mutated resource behind `try`/`finally`, and use `CancellationToken.None` for cleanup/restoration so test cancellation cannot contaminate later tests.
+- Reuse application-local test-data builders for repeated domain graphs while keeping response assertions, identity requests, and feature-specific request construction separate.
 - Do not weaken production authorization; use the denying identity.
 
 ## Validation
@@ -92,4 +94,4 @@ dotnet test "<TestProject>" --no-restore --no-build
 
 ## Output
 
-Report: endpoints covered, status codes tested per endpoint, codes excluded with reasons, the data service class audited, helpers added, and test run results.
+Report: endpoints covered, status codes tested per endpoint, codes excluded with reasons, the data service class audited, shared assertion APIs used or compatibility fallbacks added, and test run results.

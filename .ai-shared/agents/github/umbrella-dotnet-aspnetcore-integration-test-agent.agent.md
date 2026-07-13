@@ -17,4 +17,8 @@ Primary skill sequence:
 
 Start with a read-only audit unless the user has already identified the target project and requested implementation. Create the bare test project only when no suitable project exists. Keep real controller tests out of the initial scaffold unless explicitly requested.
 
+Require the readiness report to distinguish the startup environment from the application environment exposed through dependency injection, and to identify whether the test authentication handler must support sign-in/sign-out operations or explicit claim omission. Use the `Umbrella.Testing.AspNetCore` split-environment hook only when startup cannot safely run under the non-development environment needed by controller exception filters.
+
+Add focused factory self-tests for every non-default environment, authentication, database-provider, emulator, or external-service replacement introduced by the scaffold.
+
 Verify restore, build, and `dotnet test` for the new project. Report any external-service risks, package vulnerabilities, zero-test runner behavior, Docker/Testcontainers requirements, and memory-pressure considerations.

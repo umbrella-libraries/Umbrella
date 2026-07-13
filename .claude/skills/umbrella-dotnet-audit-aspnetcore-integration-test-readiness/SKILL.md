@@ -39,11 +39,15 @@ Capture:
 - user id claim type expected by code, commonly `ClaimTypes.NameIdentifier`;
 - app-specific claims required by controllers/resource handlers;
 - whether tests need an unauthenticated mode.
+- whether controllers or services call `SignInManager`, `IAuthenticationService.SignInAsync`, `SignOutAsync`, or `RefreshSignInAsync`;
+- which authorization paths require a claim to be absent, rather than merely set to a different value.
 
 Recommendation rules:
 
 - Prefer a test auth handler wired into the app's real default authenticate scheme so `[Authorize]`, policies, and `User` access behave normally.
 - Let tests override identity via request headers or a factory/client helper.
+- Let tests add, change, and explicitly omit application claims so missing-claim denial paths remain observable.
+- When application code signs in, signs out, or refreshes a sign-in, require the test handler to implement `IAuthenticationSignInHandler` and configure the real sign-in/sign-out scheme; authentication-only handlers fail after authorization succeeds.
 - Include defaults that represent a high-privilege but realistic user, not an anonymous bypass.
 - Do not remove authorization globally unless the user explicitly asks for smoke-only host tests.
 
@@ -74,6 +78,7 @@ List all required options and external services created during startup:
 - `builder.Configuration.Get<T>()` used before services are built;
 - Key Vault, App Insights, Data Protection, Blob Storage, email, AI clients, queues, service bus, health checks, HTTP clients, file systems, dynamic image providers.
 
+- every environment-name branch that enables production-only configuration, service registration, middleware, or health checks.
 For each item, classify it:
 
 - must be provided as inert test configuration;
@@ -94,7 +99,7 @@ When the goal includes testing controller response codes (see `docs\api-base-con
 
 - whether `Program.cs` (or an extension it calls) registers `UseUmbrellaPropagateClaimsPrincipal()` or otherwise assigns `Thread.CurrentPrincipal` — without it, imperative resource authorization checks in `UmbrellaRepositoryCoreDataService` throw and every expected `403` surfaces as a `500`;
 - whether the MVC setup calls `ConfigureUmbrellaApiBehaviorOptions()` / `ConfigureUmbrellaMvcBuilderOptions()` and whether it overrides `validationFailureStatusCode` — this determines whether model binding/validation failures return `422` (the default) or another code, and tests must assert the configured value;
-- which environment name the app runs under in tests — the base controllers' exception filters use `returnValue: !IsDevelopment`, so `500` `UmbrellaProblemDetails` shapes are only observable under a non-`Development` environment;
+- which environment name startup can safely use and which environment application services must observe — the base controllers' exception filters use `returnValue: !IsDevelopment`, so `500` `UmbrellaProblemDetails` shapes require a non-`Development` application environment even when startup must remain `Development` to avoid real cloud dependencies;
 - whether the `CorePolicyNames.Create/Read/Update/Delete` policies (or custom names configured on `UmbrellaRepositoryDataServiceOptions`) are registered, and which resource authorization handlers exist for the entities under test;
 - whether a test identity can be constructed that each resource handler denies — an always-succeeds handler makes imperative `403` untestable.
 
@@ -116,9 +121,10 @@ Return a short readiness report with:
 - server project and entry-point hook status;
 - authentication scheme and test auth strategy;
 - DbContext type, constructor shape, migrations assembly, and replacement notes;
+- sign-in/sign-out handler requirements and claim-omission capabilities;
 - required test config overrides;
 - external services and isolation risks;
-- proposed factory classes and collection names;
+- proposed factory classes, collection names, and startup/application environment strategy;
 - packages/project references to add;
 - response contract host facts (claims propagation, validation failure status code, environment name, policy/handler coverage) when controller response-code tests are in scope;
 - validation commands.

@@ -90,21 +90,17 @@ private async Task<Album> SeedAlbumAsync()
 
 ## Assertion helpers
 
-Generate (or reuse) helpers that deserialize `application/problem+json` bodies:
+Use the shared `Umbrella.Testing.AspNetCore.Http` assertion extensions rather than generating a project-local response assertion class:
 
 ```csharp
-private static async Task<UmbrellaProblemDetails> ReadProblemDetailsAsync(HttpResponseMessage response)
-{
-	Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+using Umbrella.Testing.AspNetCore.Http;
 
-	UmbrellaProblemDetails? problemDetails = await response.Content.ReadFromJsonAsync<UmbrellaProblemDetails>(TestContext.Current.CancellationToken);
-	Assert.NotNull(problemDetails);
-
-	return problemDetails;
-}
+UmbrellaProblemDetails problem = await response.AssertUmbrellaProblemDetailsAsync(expectedStatusCode, cancellationToken);
+UmbrellaValidationProblemDetails validation = await response.AssertUmbrellaValidationProblemDetailsAsync(expectedStatusCode, cancellationToken);
+UmbrellaProblemDetails conflict = await response.AssertConcurrencyStampMismatchAsync(cancellationToken);
 ```
 
-Use `UmbrellaValidationProblemDetails` for `400`/`422` responses. For the concurrency `409`, assert `problemDetails.Code` equals `HttpProblemCodes.ConcurrencyStampMismatch`.
+These helpers assert the status code, `application/problem+json` media type, deserialized status, validation errors, and concurrency code. Generate a local fallback only when the referenced `Umbrella.Testing.AspNetCore` version predates these extensions, and report that compatibility fallback.
 
 ## Rules
 
@@ -112,6 +108,9 @@ Use `UmbrellaValidationProblemDetails` for `400`/`422` responses. For the concur
 - Name tests `<Method>Async_<Scenario>_Returns<Status>` (e.g. `PutAsync_StaleConcurrencyStamp_Returns409`).
 - Satisfy every earlier pipeline gate when targeting a later one — `PUT` evaluates 404 → 409 (stamp) → hooks/400 → 403 → save, so a `403` test must use an existing id, the current stamp, and a valid model.
 - Keep tests independent: unique seeded data per test, no ordering assumptions.
+- Put every created database row, temp file, blob, or mutated singleton behind `try`/`finally`; cleanup must run even when an assertion fails.
+- Use `CancellationToken.None` for cleanup and restoration, never `TestContext.Current.CancellationToken`, because a cancelled test token otherwise leaves state that contaminates later tests. Make cleanup tolerate an already-deleted resource and restore any changed `Thread.CurrentPrincipal` in `finally`.
+- Reuse application-local test-data builders for repeated domain graphs, but keep response assertions, identity request construction, and feature-specific upload requests as separate concerns.
 - Do not weaken production authorization to make tests pass; use the denying/passing identities instead.
 
 ## Validation
@@ -125,4 +124,4 @@ Docker must be available for the Testcontainers collection.
 
 ## Output
 
-Report: endpoints covered, status codes tested per endpoint, codes excluded with reasons, helpers added, and test run results.
+Report: endpoints covered, status codes tested per endpoint, codes excluded with reasons, shared assertion APIs used or compatibility fallbacks added, and test run results.
