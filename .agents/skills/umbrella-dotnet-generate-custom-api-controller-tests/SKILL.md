@@ -72,7 +72,7 @@ The action's contract is the union of: the composed operation's statuses, the en
 
 Use the per-status recipes from `umbrella-dotnet-generate-api-repo-controller-tests` — they describe mechanisms, not endpoints, and apply directly: seeded happy paths via a scoped `DbContext`, `401` anonymous (attribute-gated) vs in-action, `403` per identity class, `404` non-existent key, `409` stamp rotation asserting `code = ConcurrencyStampMismatch`, `400`/`422` per the resolved host state, optional `500` via throwing fake + non-`Development` host.
 
-Shared conventions: test class per controller in the SQL Server Testcontainers collection, `<Method>Async_<Scenario>_Returns<Status>` naming, and the `Umbrella.Testing.AspNetCore.Http` problem-details assertion extensions:
+Shared conventions: test class per controller in the SQL Server Testcontainers collection, `<Method>Async_<Scenario>_Returns<Status>` naming, and the `Umbrella.Testing.AspNetCore.Http` problem-details assertion extensions. Use the plain ASP.NET validation helper when Umbrella behavior options are absent. Capture returned problem details when asserting their fields; otherwise assign the awaited result to `_` for analyzer-clean code:
 
 ```csharp
 [Collection(IndyRecordsSqlServerIntegrationTestCollection.Name)]
@@ -105,7 +105,7 @@ Read the `[HttpGet("...")]`/`[Route]` attributes for URLs — custom shapes mean
 
 ```powershell
 dotnet build "<TestProject>"
-dotnet test "<TestProject>" --no-restore --no-build
+dotnet test "<TestProject>" --no-restore --no-build --verbosity minimal
 ```
 
 Docker must be available for the Testcontainers collection.

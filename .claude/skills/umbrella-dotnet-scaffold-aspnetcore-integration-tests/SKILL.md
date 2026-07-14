@@ -91,23 +91,14 @@ If the application calls `SignInManager.RefreshSignInAsync`, `SignInAsync`, `Sig
 For Identity-cookie apps, replace the application scheme handler rather than bypassing authorization:
 
 ```csharp
-services.PostConfigure<AuthenticationOptions>(options =>
-{
-	options.DefaultAuthenticateScheme = IdentityConstants.ApplicationScheme;
-	options.DefaultChallengeScheme = IdentityConstants.ApplicationScheme;
-	options.DefaultForbidScheme = IdentityConstants.ApplicationScheme;
-	options.DefaultScheme = IdentityConstants.ApplicationScheme;
+using Umbrella.Testing.AspNetCore.Authentication;
 
-	options.DefaultSignInScheme = IdentityConstants.ApplicationScheme;
-	options.DefaultSignOutScheme = IdentityConstants.ApplicationScheme;
-	if (options.SchemeMap.TryGetValue(IdentityConstants.ApplicationScheme, out AuthenticationSchemeBuilder? scheme))
-		scheme.HandlerType = typeof(TestAuthenticationHandler);
-	else
-		options.AddScheme<TestAuthenticationHandler>(IdentityConstants.ApplicationScheme, displayName: null);
-});
+_ = services.ReplaceAuthenticationSchemeHandler<TestAuthenticationHandler>(
+	IdentityConstants.ApplicationScheme,
+	configureSignInAndSignOut: true);
 ```
 
-Only remove cookie post-configuration if cookie events or validation interfere with the test handler. Keep the change local to the factory.
+Pass `configureSignInAndSignOut: true` only when the test handler implements `IAuthenticationSignInHandler` and the application invokes sign-in or sign-out operations; otherwise omit the argument. Only remove cookie post-configuration if cookie events or validation interfere with the test handler. Keep that removal local to the factory.
 
 ## Test configuration
 
@@ -166,6 +157,8 @@ Create a sealed local factory:
 ```csharp
 public sealed class <App>WebApplicationFactory : UmbrellaLocalWebApplicationFactory<Program>
 {
+	protected override string? GetApplicationEnvironmentName() => "IntegrationTest";
+
 	protected override void ConfigureWebHostBuilder(IWebHostBuilder builder)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
@@ -175,12 +168,14 @@ public sealed class <App>WebApplicationFactory : UmbrellaLocalWebApplicationFact
 	protected override void ConfigureAuthentication(IServiceCollection services)
 	{
 		ArgumentNullException.ThrowIfNull(services);
-		ReplaceApplicationAuthenticationHandler(services);
+		_ = services.ReplaceAuthenticationSchemeHandler<TestAuthenticationHandler>(
+			IdentityConstants.ApplicationScheme,
+			configureSignInAndSignOut: true);
 	}
 }
 ```
 
-Use this for host/auth/routing tests that do not require database state.
+Use this for host/auth/routing tests that do not require database state. Omit `GetApplicationEnvironmentName()` when startup and injected application services can safely use the same environment. Omit `configureSignInAndSignOut: true` when the application does not invoke those operations.
 
 ## SQL Server/Azurite Testcontainers factory
 
@@ -189,6 +184,8 @@ Create a sealed SQL Server factory when the app uses SQL Server. The Umbrella ba
 ```csharp
 public sealed class <App>SqlServerWebApplicationFactory : UmbrellaSqlServerAzuriteWebApplicationFactory<Program, <App>DbContext>
 {
+	protected override string? GetApplicationEnvironmentName() => "IntegrationTest";
+
 	protected override void ConfigureWebHostBuilder(IWebHostBuilder builder)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
@@ -209,7 +206,9 @@ public sealed class <App>SqlServerWebApplicationFactory : UmbrellaSqlServerAzuri
 	protected override void ConfigureAuthentication(IServiceCollection services)
 	{
 		ArgumentNullException.ThrowIfNull(services);
-		<App>WebApplicationFactory.ReplaceApplicationAuthenticationHandler(services);
+		_ = services.ReplaceAuthenticationSchemeHandler<TestAuthenticationHandler>(
+			IdentityConstants.ApplicationScheme,
+			configureSignInAndSignOut: true);
 	}
 
 	protected override void ConfigureSqlServerOptions(SqlServerDbContextOptionsBuilder optionsBuilder)
@@ -310,8 +309,10 @@ Run:
 ```powershell
 dotnet restore "<TestProject>"
 dotnet build "<TestProject>" --no-restore
-dotnet test "<TestProject>" --no-restore --no-build
+dotnet test "<TestProject>" --no-restore --no-build --verbosity minimal
 ```
+
+For Microsoft Testing Platform projects, do not add legacy VSTest `--logger` arguments. Use the reporting options exposed by the installed MTP extensions and confirm them with `dotnet test --help`.
 
 If Docker/Testcontainers tests are included immediately, run them only when Docker is available and the user expects the container cost.
 

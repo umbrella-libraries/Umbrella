@@ -1,5 +1,6 @@
 using System.Net.Http;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Umbrella.AspNetCore.WebUtilities.Mvc;
@@ -49,6 +50,29 @@ public sealed class HttpResponseMessageAssertionExtensionsTests
 
 		UmbrellaValidationProblemDetails actual = await response.AssertUmbrellaValidationProblemDetailsAsync(
 			HttpStatusCode.UnprocessableEntity,
+			TestContext.Current.CancellationToken);
+
+		Assert.Equal(expected.Errors, actual.Errors);
+	}
+
+	[Fact]
+	public async Task AssertValidationProblemDetailsAsyncReturnsDeserializedBody()
+	{
+		var expected = new ValidationProblemDetails(new Dictionary<string, string[]>
+		{
+			["Name"] = ["The Name field is required."]
+		})
+		{
+			Status = StatusCodes.Status400BadRequest
+		};
+
+		using var response = new HttpResponseMessage(HttpStatusCode.BadRequest)
+		{
+			Content = CreateProblemDetailsContent(expected)
+		};
+
+		ValidationProblemDetails actual = await response.AssertValidationProblemDetailsAsync(
+			HttpStatusCode.BadRequest,
 			TestContext.Current.CancellationToken);
 
 		Assert.Equal(expected.Errors, actual.Errors);

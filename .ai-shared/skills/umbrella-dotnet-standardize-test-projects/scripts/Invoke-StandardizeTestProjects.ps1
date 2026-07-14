@@ -13,8 +13,8 @@ $ErrorActionPreference = 'Stop'
 $TestCondition = "'`$(IsTestProject)'=='true'"
 $RequiredGlobalTestRunner = 'Microsoft.Testing.Platform'
 $RequiredCentralPackages = [ordered]@{
-    'Microsoft.Testing.Extensions.CodeCoverage' = '18.8.0'
-    'Microsoft.Testing.Extensions.TrxReport' = '2.2.3'
+    'Microsoft.Testing.Extensions.CodeCoverage' = '18.9.0'
+    'Microsoft.Testing.Extensions.TrxReport' = '2.3.2'
     'Moq' = '4.20.72'
     'xunit.v3.mtp-v2' = '3.2.2'
 }
@@ -365,11 +365,96 @@ $($lines -join "`r`n")
     return Add-OrReplace-TestConditionBlock -Content $Content -ElementName 'PropertyGroup' -Block $block
 }
 
+function Get-PackageVersionParts {
+    param([string]$Version)
+
+    if ([string]::IsNullOrWhiteSpace($Version)) {
+        return $null
+    }
+
+    $match = [regex]::Match($Version.Trim(), '^(?<core>\d+(?:\.\d+){1,3})(?:-(?<prerelease>[0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$')
+    if (-not $match.Success) {
+        return $null
+    }
+
+    $numericParts = @($match.Groups['core'].Value.Split('.') | ForEach-Object { [int]$_ })
+    while ($numericParts.Count -lt 4) {
+        $numericParts += 0
+    }
+
+    return [pscustomobject]@{
+        NumericParts = $numericParts
+        Prerelease = $match.Groups['prerelease'].Value
+    }
+}
+
+function Test-PackageVersionAtLeast {
+    param(
+        [string]$CandidateVersion,
+        [string]$BaselineVersion
+    )
+
+    $candidate = Get-PackageVersionParts -Version $CandidateVersion
+    $baseline = Get-PackageVersionParts -Version $BaselineVersion
+
+    if ($null -eq $candidate -or $null -eq $baseline) {
+        return $true
+    }
+
+    for ($index = 0; $index -lt 4; $index++) {
+        if ($candidate.NumericParts[$index] -gt $baseline.NumericParts[$index]) {
+            return $true
+        }
+
+        if ($candidate.NumericParts[$index] -lt $baseline.NumericParts[$index]) {
+            return $false
+        }
+    }
+
+    $candidateIsPrerelease = -not [string]::IsNullOrWhiteSpace($candidate.Prerelease)
+    $baselineIsPrerelease = -not [string]::IsNullOrWhiteSpace($baseline.Prerelease)
+
+    if ($candidateIsPrerelease -ne $baselineIsPrerelease) {
+        return -not $candidateIsPrerelease
+    }
+
+    if (-not $candidateIsPrerelease) {
+        return $true
+    }
+
+    return [string]::Compare($candidate.Prerelease, $baseline.Prerelease, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+}
+
+function Get-CentralPackageVersion {
+    param(
+        [string]$Content,
+        [string]$PackageId
+    )
+
+    foreach ($block in @(Get-TestConditionBlocks -Content $Content -ElementName 'ItemGroup')) {
+        $match = [regex]::Match($block, "<PackageReference\s+[^>]*Include\s*=\s*`"$([regex]::Escape($PackageId))`"[^>]*Version\s*=\s*`"([^`"]+)`"[^>]*/>")
+        if ($match.Success) {
+            return $match.Groups[1].Value
+        }
+    }
+
+    return $null
+}
+
 function Set-DirectoryPackagesPropsContent {
     param([string]$Content)
 
     $lines = foreach ($entry in $RequiredCentralPackages.GetEnumerator()) {
-        "    <PackageReference Include=`"$($entry.Key)`" Version=`"$($entry.Value)`" />"
+        $existingVersion = Get-CentralPackageVersion -Content $Content -PackageId $entry.Key
+        $selectedVersion = if (-not [string]::IsNullOrWhiteSpace($existingVersion) -and
+            (Test-PackageVersionAtLeast -CandidateVersion $existingVersion -BaselineVersion $entry.Value)) {
+            $existingVersion
+        }
+        else {
+            $entry.Value
+        }
+
+        "    <PackageReference Include=`"$($entry.Key)`" Version=`"$selectedVersion`" />"
     }
 
     $block = @"

@@ -73,7 +73,7 @@ public sealed class ArtistsControllerTests
 }
 ```
 
-Seed through a scoped `DbContext` from the factory, use the `Umbrella.Testing.AspNetCore.Http` problem-details assertion extensions described by the repository-controller generator, and follow the shared naming convention `<Method>Async_<Scenario>_Returns<Status>`.
+Seed through a scoped `DbContext` from the factory, use the `Umbrella.Testing.AspNetCore.Http` problem-details assertion extensions described by the repository-controller generator (including the plain ASP.NET validation helper when Umbrella behavior options are absent), and follow the shared naming convention `<Method>Async_<Scenario>_Returns<Status>`. Capture returned problem details when asserting their fields; otherwise assign the awaited result to `_` for analyzer-clean code.
 
 ## Rules
 
@@ -89,7 +89,7 @@ Seed through a scoped `DbContext` from the factory, use the `Umbrella.Testing.As
 
 ```powershell
 dotnet build "<TestProject>"
-dotnet test "<TestProject>" --no-restore --no-build
+dotnet test "<TestProject>" --no-restore --no-build --verbosity minimal
 ```
 
 ## Output

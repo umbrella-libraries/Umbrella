@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Mvc;
 using Umbrella.AspNetCore.WebUtilities.Mvc;
 using Umbrella.Utilities.Http.Constants;
 using Xunit;
@@ -57,6 +58,33 @@ public static class HttpResponseMessageAssertionExtensions
 		Assert.Equal(ProblemDetailsMediaType, response.Content.Headers.ContentType?.MediaType);
 
 		UmbrellaValidationProblemDetails? problemDetails = await response.Content.ReadFromJsonAsync<UmbrellaValidationProblemDetails>(cancellationToken);
+
+		Assert.NotNull(problemDetails);
+		Assert.Equal((int)expectedStatusCode, problemDetails.Status);
+		Assert.NotEmpty(problemDetails.Errors);
+
+		return problemDetails;
+	}
+
+	/// <summary>
+	/// Asserts that the response contains a plain ASP.NET Core <see cref="ValidationProblemDetails"/> body with the
+	/// expected status code and at least one validation error.
+	/// </summary>
+	/// <param name="response">The response to assert.</param>
+	/// <param name="expectedStatusCode">The expected HTTP status code.</param>
+	/// <param name="cancellationToken">The cancellation token used when reading the response body.</param>
+	/// <returns>The deserialized validation problem details.</returns>
+	public static async Task<ValidationProblemDetails> AssertValidationProblemDetailsAsync(
+		this HttpResponseMessage response,
+		HttpStatusCode expectedStatusCode,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(response);
+
+		Assert.Equal(expectedStatusCode, response.StatusCode);
+		Assert.Equal(ProblemDetailsMediaType, response.Content.Headers.ContentType?.MediaType);
+
+		ValidationProblemDetails? problemDetails = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(cancellationToken);
 
 		Assert.NotNull(problemDetails);
 		Assert.Equal((int)expectedStatusCode, problemDetails.Status);

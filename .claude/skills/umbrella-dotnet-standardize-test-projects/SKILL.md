@@ -52,7 +52,7 @@ Central files should provide:
 - `global.json`: `"test": { "runner": "Microsoft.Testing.Platform" }` so .NET 10+ `dotnet test` uses the Microsoft Testing Platform runner path.
 - `Directory.Build.props`: `<Using Include="Xunit" />` in an `ItemGroup` conditioned on `IsTestProject=true`.
 - `Directory.Build.targets`: test-only `OutputType`, `IsPackable`, `NoWarn`, `WarningsAsErrors`, `PreserveCompilationContext`, and `UseMicrosoftTestingPlatformRunner`.
-- `Directory.Packages.props`: shared test package injection for `Microsoft.Testing.Extensions.CodeCoverage`, `Microsoft.Testing.Extensions.TrxReport`, `Moq`, and `xunit.v3.mtp-v2`.
+- `Directory.Packages.props`: shared test package injection for `Microsoft.Testing.Extensions.CodeCoverage`, `Microsoft.Testing.Extensions.TrxReport`, `Moq`, and `xunit.v3.mtp-v2`. The script treats its versions as minimum baselines: it upgrades older explicit versions and preserves newer compatible explicit versions.
 
 Runnable test projects should keep only project-specific configuration:
 
@@ -67,6 +67,7 @@ Helper projects under test folders should not be runnable tests. Use `<IsTestPro
 
 - Do not rename `.Tests` projects automatically. Report plural naming drift so the caller can perform a deliberate project/file/solution rename.
 - Do not remove project-specific packages such as `Xunit.v3.Priority`, `Microsoft.AspNetCore.Mvc.Testing`, Testcontainers packages, user-secrets packages, or provider-specific test dependencies.
+- Never downgrade a newer explicit shared test-package version merely to match the script baseline.
 - Do not run `Apply` in a dirty repo without first reviewing unrelated user changes.
 - After `Apply`, run:
 
@@ -74,6 +75,8 @@ Helper projects under test folders should not be runnable tests. Use `<IsTestPro
 dotnet restore "<SolutionFile>"
 dotnet test "<SolutionFile>" --no-restore --verbosity minimal
 ```
+
+Do not add legacy VSTest `--logger` arguments to Microsoft Testing Platform invocations. Use the reporting options exposed by the installed MTP extensions and confirm them with `dotnet test --help`.
 
 ## Output
 

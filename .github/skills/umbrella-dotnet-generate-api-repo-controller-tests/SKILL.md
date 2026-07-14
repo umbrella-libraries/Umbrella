@@ -97,10 +97,11 @@ using Umbrella.Testing.AspNetCore.Http;
 
 UmbrellaProblemDetails problem = await response.AssertUmbrellaProblemDetailsAsync(expectedStatusCode, cancellationToken);
 UmbrellaValidationProblemDetails validation = await response.AssertUmbrellaValidationProblemDetailsAsync(expectedStatusCode, cancellationToken);
+ValidationProblemDetails plainValidation = await response.AssertValidationProblemDetailsAsync(expectedStatusCode, cancellationToken);
 UmbrellaProblemDetails conflict = await response.AssertConcurrencyStampMismatchAsync(cancellationToken);
 ```
 
-These helpers assert the status code, `application/problem+json` media type, deserialized status, validation errors, and concurrency code. Generate a local fallback only when the referenced `Umbrella.Testing.AspNetCore` version predates these extensions, and report that compatibility fallback.
+Use `AssertValidationProblemDetailsAsync` only for the plain ASP.NET validation contract produced when Umbrella API behavior options are absent. These helpers return the deserialized body for additional assertions; assign an unused result to `_` (for example, `_ = await response.AssertUmbrellaProblemDetailsAsync(...)`) so strict analyzer configurations do not raise `IDE0058`. Generate a local fallback only when the referenced `Umbrella.Testing.AspNetCore` version predates these extensions, and report that compatibility fallback.
 
 ## Rules
 
@@ -117,7 +118,7 @@ These helpers assert the status code, `application/problem+json` media type, des
 
 ```powershell
 dotnet build "<TestProject>"
-dotnet test "<TestProject>" --no-restore --no-build
+dotnet test "<TestProject>" --no-restore --no-build --verbosity minimal
 ```
 
 Docker must be available for the Testcontainers collection.
