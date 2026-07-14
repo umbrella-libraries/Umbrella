@@ -45,13 +45,19 @@ public class PrimitiveComparisonAnalyzer : DiagnosticAnalyzer
 	private static void AnalyzeBinaryExpression(SyntaxNodeAnalysisContext context)
 	{
 		var binaryExpression = (BinaryExpressionSyntax)context.Node;
+		var leftConstantValue = context.SemanticModel.GetConstantValue(binaryExpression.Left, context.CancellationToken);
+		var rightConstantValue = context.SemanticModel.GetConstantValue(binaryExpression.Right, context.CancellationToken);
 		var leftType = context.SemanticModel.GetTypeInfo(binaryExpression.Left).Type;
 		var rightType = context.SemanticModel.GetTypeInfo(binaryExpression.Right).Type;
 
-		if (leftType != null && rightType != null &&
+		if ((leftConstantValue.HasValue || rightConstantValue.HasValue) &&
+			leftType != null && rightType != null &&
 			(leftType.IsValueType || leftType.TypeKind == TypeKind.Enum) &&
 			SymbolEqualityComparer.Default.Equals(leftType, rightType))
 		{
+			if (ExpressionTreeAnalysis.IsWithinExpressionTree(binaryExpression, context))
+				return;
+
 			var diagnostic = Diagnostic.Create(Rule, binaryExpression.GetLocation());
 			context.ReportDiagnostic(diagnostic);
 		}

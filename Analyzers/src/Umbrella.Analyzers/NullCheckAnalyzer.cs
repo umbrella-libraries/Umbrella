@@ -49,6 +49,9 @@ public class NullCheckAnalyzer : DiagnosticAnalyzer
 		if (binaryExpression.Left.IsKind(SyntaxKind.NullLiteralExpression) ||
 			binaryExpression.Right.IsKind(SyntaxKind.NullLiteralExpression))
 		{
+			if (ExpressionTreeAnalysis.IsWithinExpressionTree(binaryExpression, context))
+				return;
+
 			var diagnostic = Diagnostic.Create(Rule, binaryExpression.GetLocation());
 			context.ReportDiagnostic(diagnostic);
 		}
