@@ -301,6 +301,8 @@ public class DynamicImageMiddleware : IDisposable
 	{
 		bool useVersionedPath = enableUrlFingerprinting && !string.IsNullOrWhiteSpace(versionToken);
 
+		// Focal points remain in the original query string so their raw values are preserved when constructing the redirect location.
+		// Including them here would cause GenerateVirtualPath to regenerate and duplicate them when the query string is appended.
 		return new(
 			options.SourcePath,
 			options.Width,
@@ -309,9 +311,7 @@ public class DynamicImageMiddleware : IDisposable
 			options.Format,
 			options.FilterQuality,
 			options.QualityRequest,
-			options.FocalPointX,
-			options.FocalPointY,
-			useVersionedPath ? versionToken : null);
+			versionToken: useVersionedPath ? versionToken : null);
 	}
 
 	private bool TryRedirectToCanonicalUrl(HttpContext context, in DynamicImageOptions requestedImageOptions, string? versionToken)
@@ -334,6 +334,7 @@ public class DynamicImageMiddleware : IDisposable
 
 		DynamicImageOptions canonicalImageOptions = CreateCanonicalImageOptions(requestedImageOptions, _options.EnableUrlFingerprinting, versionToken);
 		string location = _dynamicImageUtility.GenerateVirtualPath(_options.DynamicImagePathPrefix, canonicalImageOptions).TrimStart('~');
+		location += context.Request.QueryString;
 
 		if (context.Request.PathBase.HasValue)
 			location = context.Request.PathBase + location;

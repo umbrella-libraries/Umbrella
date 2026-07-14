@@ -124,12 +124,49 @@ public class DynamicImageMiddlewareTest
 		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Once);
 	}
 
-	private static DynamicImageMiddleware CreateMiddleware(DynamicImageMiddlewareOptions options)
+	[Fact]
+	public async Task InvokeAsync_RedirectsToFingerprintedUrl_PreservingRawQueryString()
+	{
+		DateTimeOffset lastModified = new(2026, 7, 14, 12, 0, 0, TimeSpan.Zero);
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		var file = new Mock<IUmbrellaFileInfo>(MockBehavior.Strict);
+		file.SetupGet(x => x.LastModified).Returns(lastModified);
+		file.SetupGet(x => x.Length).Returns(123L);
+		fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync(file.Object);
+		var headerValueUtility = new Mock<IHttpHeaderValueUtility>(MockBehavior.Strict);
+		headerValueUtility.Setup(x => x.CreateLastModifiedHeaderValue(lastModified)).Returns("Mon, 14 Jul 2026 12:00:00 GMT");
+		headerValueUtility.Setup(x => x.CreateETagHeaderValue(lastModified, 123L)).Returns("\"abc123\"");
+		DynamicImageMiddleware middleware = CreateMiddleware(CreateOptions(fileProvider.Object), headerValueUtility.Object);
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/images/test.jpg?fpx=.25&fpy=.75&filter=first&filter=&encoded=%2Fimages%2Fhello%20world&flag");
+
+		await middleware.InvokeAsync(context);
+
+		Assert.Equal(StatusCodes.Status301MovedPermanently, context.Response.StatusCode);
+		Assert.Equal($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/{DynamicImageConstants.VersionTokenPathSegmentPrefix}abc123/images/test.jpg?fpx=.25&fpy=.75&filter=first&filter=&encoded=%2Fimages%2Fhello%20world&flag", context.Response.Headers.Location);
+	}
+
+	[Fact]
+	public async Task InvokeAsync_RedirectsToNonFingerprintedUrl_WithoutTrailingQueryString()
+	{
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		var file = new Mock<IUmbrellaFileInfo>(MockBehavior.Strict);
+		file.SetupGet(x => x.LastModified).Returns((DateTimeOffset?)null);
+		fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync(file.Object);
+		DynamicImageMiddleware middleware = CreateMiddleware(CreateOptions(fileProvider.Object));
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/{DynamicImageConstants.VersionTokenPathSegmentPrefix}abc123/images/test.jpg");
+
+		await middleware.InvokeAsync(context);
+
+		Assert.Equal(StatusCodes.Status301MovedPermanently, context.Response.StatusCode);
+		Assert.Equal($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg", context.Response.Headers.Location);
+	}
+
+	private static DynamicImageMiddleware CreateMiddleware(DynamicImageMiddlewareOptions options, IHttpHeaderValueUtility? headerValueUtility = null)
 	{
 		RequestDelegate next = _ => Task.CompletedTask;
 
 		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
-		var headerValueUtility = new Mock<IHttpHeaderValueUtility>(MockBehavior.Strict);
+		var defaultHeaderValueUtility = new Mock<IHttpHeaderValueUtility>(MockBehavior.Strict);
 		IMimeTypeUtility mimeTypeUtility = CoreUtilitiesMocks.CreateMimeTypeUtility((".jpg", "image/jpeg"), (".png", "image/png"));
 
 		return new DynamicImageMiddleware(
@@ -137,7 +174,7 @@ public class DynamicImageMiddlewareTest
 			CoreUtilitiesMocks.CreateLogger<DynamicImageMiddleware>(),
 			new DynamicImageUtility(CoreUtilitiesMocks.CreateLogger<DynamicImageUtility>()),
 			resizer.Object,
-			headerValueUtility.Object,
+			headerValueUtility ?? defaultHeaderValueUtility.Object,
 			mimeTypeUtility,
 			options);
 	}
