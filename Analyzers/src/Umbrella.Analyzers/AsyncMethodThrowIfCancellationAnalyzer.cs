@@ -7,8 +7,8 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Umbrella.Analyzers;
 
 /// <summary>
-/// An analyzer that checks if async methods with a CancellationToken parameter call `ThrowIfCancellationRequested` as the first line of the method body.
-/// This ensures that cancellation requests are handled properly in asynchronous methods at the earliest opportunity.
+/// An analyzer that checks if eligible async methods with the canonical CancellationToken parameter call
+/// <c>ThrowIfCancellationRequested</c> as the first statement of the method body.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class AsyncMethodThrowIfCancellationAnalyzer : DiagnosticAnalyzer
@@ -40,36 +40,40 @@ public class AsyncMethodThrowIfCancellationAnalyzer : DiagnosticAnalyzer
 
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 		context.EnableConcurrentExecution();
-		context.RegisterSyntaxNodeAction(AnalyzeMethod, SyntaxKind.MethodDeclaration);
+		context.RegisterCompilationStartAction(static compilationContext =>
+		{
+			var analysis = new AsyncMethodCancellationAnalysis(compilationContext.Compilation);
+			compilationContext.RegisterSyntaxNodeAction(
+				context => AnalyzeMethod(context, analysis),
+				SyntaxKind.MethodDeclaration);
+		});
 	}
 
-	private static void AnalyzeMethod(SyntaxNodeAnalysisContext context)
+	private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, AsyncMethodCancellationAnalysis analysis)
 	{
 		var methodDeclaration = (MethodDeclarationSyntax)context.Node;
+		var methodSymbol = context.SemanticModel.GetDeclaredSymbol(methodDeclaration, context.CancellationToken);
 
-		if (!methodDeclaration.Modifiers.Any(SyntaxKind.AsyncKeyword))
+		if (methodSymbol is null || !analysis.IsEligible(methodSymbol))
 			return;
 
-		var cancellationTokenParameter = methodDeclaration.ParameterList.Parameters
-			.FirstOrDefault(p => p.Type is IdentifierNameSyntax type && type.Identifier.Text == "CancellationToken");
+		var cancellationTokenParameter = analysis.GetCanonicalCancellationTokenParameter(methodSymbol);
 
-		if (cancellationTokenParameter == null)
+		if (cancellationTokenParameter is null)
 			return;
 
-		var body = methodDeclaration.Body;
-		if (body == null || body.Statements.Count == 0)
-			return;
+		var firstStatement = methodDeclaration.Body?.Statements.FirstOrDefault();
 
-		var firstStatement = body.Statements[0];
-		if (firstStatement is ExpressionStatementSyntax expressionStatement &&
-			expressionStatement.Expression is InvocationExpressionSyntax invocation &&
-			invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-			memberAccess.Name.Identifier.Text == "ThrowIfCancellationRequested")
+		if (firstStatement is not null &&
+			analysis.IsThrowIfCancellationRequestedCall(
+				firstStatement,
+				context.SemanticModel,
+				cancellationTokenParameter,
+				context.CancellationToken))
 		{
 			return;
 		}
 
-		var diagnostic = Diagnostic.Create(Rule, methodDeclaration.Identifier.GetLocation(), methodDeclaration.Identifier.Text);
-		context.ReportDiagnostic(diagnostic);
+		context.ReportDiagnostic(Diagnostic.Create(Rule, methodDeclaration.Identifier.GetLocation(), methodDeclaration.Identifier.Text));
 	}
 }

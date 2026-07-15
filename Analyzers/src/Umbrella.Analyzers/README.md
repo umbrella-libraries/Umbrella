@@ -17,7 +17,7 @@ Most rules are configured with **Error** severity (compile blocking); UA015, UA0
 | UA001 | Use pattern matching for null checks                                  | Enforces `is null` / `is not null` instead of `== null` / `!= null`.                                           |
 | UA002 | Use pattern matching for primitive and enum comparisons               | Enforces `is` / `is not` instead of `==` / `!=` for primitive & enum constants.                                |
 | UA003 | Async methods should have a CancellationToken parameter               | Requires eligible public async Task / ValueTask methods to declare exactly `CancellationToken cancellationToken = default`. |
-| UA004 | Async methods with CancellationToken should call ThrowIfCancellationRequested | Ensures the first statement calls `cancellationToken.ThrowIfCancellationRequested()`.                |
+| UA004 | Async methods with CancellationToken should call ThrowIfCancellationRequested | For UA003-eligible methods with the canonical token parameter, requires the first statement to call `cancellationToken.ThrowIfCancellationRequested()`. |
 | UA005 | Collection parameters should use IEnumerable<T>                       | Requires collection-like parameters to use `IEnumerable<T>` rather than concrete or more specific collection types. |
 | UA006 | Collection return types should be IReadOnlyCollection<T>              | Requires methods returning collections to return `IReadOnlyCollection<T>` instead of concrete mutable types.       |
 | UA007 | Collection return types must be non-nullable                          | Ensures collection return types are not declared nullable (for example avoid `IEnumerable<T>?`).                  |
