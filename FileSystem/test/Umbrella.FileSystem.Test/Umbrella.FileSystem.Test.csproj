@@ -15,7 +15,7 @@
 	<ItemGroup>
 		<PackageReference Include="Azure.Identity" Version="1.21.0" />
 		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.26" />
-		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.9" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.10" />
 		<PackageReference Include="Xunit.v3.Priority" Version="1.1.18" />
 	</ItemGroup>
 
