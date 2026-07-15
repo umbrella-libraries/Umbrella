@@ -5,7 +5,7 @@ This directory documents the shared on-disk contract used by installer tools tha
 ## Core rules
 
 1. Each installed bundle must have a stable namespaced `bundleId`.
-2. Each tool may only update or remove files, managed doc blocks, and MCP server entries that are recorded in its own manifest.
+2. Each tool may only update or remove files, managed doc blocks, MCP server entries, and Codex MCP blocks that are recorded in its own manifest.
 3. Shared root docs are composed from bundle-specific managed blocks rather than replaced wholesale.
 4. `.mcp.json` is merged by server entry ownership rather than overwritten wholesale.
 5. Collision detection must block changes that would overwrite content owned by another bundle unless the user explicitly forces a takeover.
@@ -13,7 +13,8 @@ This directory documents the shared on-disk contract used by installer tools tha
 ## Source-of-truth files
 
 - Bundle block fragments live under `.ai-shared\bundles\<bundle-id>\blocks\`.
-- Bundle MCP templates live under `.ai-shared\bundles\<bundle-id>\mcp\`.
+- A bundle definition may identify a canonical root `.mcp.json`; its `servers` object is the only editable MCP source.
+- Compatibility `mcpServers` entries and namespaced `.codex\config.toml` MCP blocks are generated from that canonical `servers` object.
 - Bundle manifests are written to target repos under `.ai-shared\bundles\<bundle-id>\manifest.json`.
 - The manifest schema for installed bundles is defined in `bundle-manifest.schema.json`.
 
@@ -25,3 +26,10 @@ Managed blocks in shared docs use namespaced markers:
 - `<!-- ai-bundle:<bundle-id>:end -->`
 
 Anything outside those markers remains user-owned.
+
+Managed Codex MCP blocks use TOML comments as namespaced markers:
+
+- `# ai-bundle:<bundle-id>:codex-mcp:start`
+- `# ai-bundle:<bundle-id>:codex-mcp:end`
+
+Unrelated TOML outside those markers remains user-owned.

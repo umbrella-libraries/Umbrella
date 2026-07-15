@@ -27,5 +27,6 @@ When upgrading NuGet packages:
 
 - Edit skill files in `.ai-shared\skills\<name>\SKILL.md`
 - Edit agent files in `.ai-shared\agents\claude\` or `.ai-shared\agents\github\`
-- Run `umbrella-ai sync` to regenerate `.claude\skills\`, `.github\skills\`, `.claude\agents\`, and `.github\agents\`
+- Define MCP servers once in the root `.mcp.json` `servers` object; do not edit generated `mcpServers` or `.codex\config.toml` entries directly
+- Run `umbrella-ai sync` to regenerate adapters, compatibility MCP entries, and Codex MCP configuration
 - Commit both the canonical source and the regenerated files

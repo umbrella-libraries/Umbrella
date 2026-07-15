@@ -1,0 +1,36 @@
+# ai-bundle:umbrella:codex-mcp:start
+[mcp_servers."aspire"]
+"command" = "aspire"
+"args" = ["agent", "mcp"]
+
+[mcp_servers."playwright"]
+"command" = "npx"
+"args" = ["-y", "@playwright/mcp@latest"]
+
+[mcp_servers."microsoft-learn"]
+"url" = "https://learn.microsoft.com/api/mcp"
+
+[mcp_servers."ado-remote-mcp"]
+"url" = "https://mcp.dev.azure.com/"
+"http_headers" = { "X-MCP-Readonly" = "true", "X-MCP-Toolsets" = "repos,wiki,wit,pipelines" }
+
+[mcp_servers."ado-zinofi"]
+"command" = "npx"
+"args" = ["-y", "@azure-devops/mcp", "zinofi", "--authentication", "envvar"]
+
+[mcp_servers."ado-remarkablexcp"]
+"command" = "npx"
+"args" = ["-y", "@azure-devops/mcp", "remarkablexcp", "--authentication", "envvar"]
+
+[mcp_servers."chrome-devtools"]
+"command" = "npx"
+"args" = ["-y", "chrome-devtools-mcp@latest"]
+
+[mcp_servers."nuget"]
+"command" = "dnx"
+"args" = ["NuGet.Mcp.Server", "--source", "https://api.nuget.org/v3/index.json", "--yes"]
+
+[mcp_servers."azure"]
+"command" = "npx"
+"args" = ["-y", "@azure/mcp@latest", "server", "start"]
+# ai-bundle:umbrella:codex-mcp:end

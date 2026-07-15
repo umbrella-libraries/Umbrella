@@ -11,7 +11,8 @@
     "installedAt",
     "managedFiles",
     "managedBlocks",
-    "managedMcpServers"
+    "managedMcpServers",
+    "managedCodexMcp"
   ],
   "properties": {
     "bundleId": {
@@ -47,6 +48,12 @@
       "items": {
         "$ref": "#/$defs/nameHashRecord"
       }
+    },
+    "managedCodexMcp": {
+      "oneOf": [
+        { "$ref": "#/$defs/pathHashRecord" },
+        { "type": "null" }
+      ]
     }
   },
   "$defs": {

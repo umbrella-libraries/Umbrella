@@ -53,6 +53,6 @@
       "sourcePath": ".ai-shared\\bundles\\umbrella\\blocks\\copilot-instructions.block.md"
     }
   ],
-  "mcpTemplatePath": ".ai-shared\\bundles\\umbrella\\mcp\\mcp.template.json",
+  "mcpSourcePath": ".mcp.json",
   "exclusionsStarterPath": ".ai-shared\\bundles\\umbrella\\templates\\nuget-upgrade-exclusions.starter.json"
 }

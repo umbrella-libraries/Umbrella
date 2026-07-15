@@ -34,7 +34,7 @@ public sealed class Main(AiBundleInstaller installer)
 
         var cleanEmptyMcpOption = new Option<bool>("--clean-empty-mcp")
         {
-            Description = "When removing, delete .mcp.json if it becomes empty."
+            Description = "When removing, delete empty .mcp.json and .codex/config.toml files."
         };
 
         var rootCommand = new RootCommand("The dotnet tool used to install and manage Umbrella AI skills and agents bundles.");
@@ -87,7 +87,7 @@ public sealed class Main(AiBundleInstaller installer)
             return CommandPrinter.Print(installer.Remove(options));
         });
 
-        var syncCommand = new Command("sync", "Regenerate adapter directories (.claude/skills, .github/skills, etc.) from .ai-shared sources in this repository.")
+        var syncCommand = new Command("sync", "Regenerate adapters, .mcp.json compatibility entries, and Codex MCP config from repository sources.")
         {
             rootDirOption
         };

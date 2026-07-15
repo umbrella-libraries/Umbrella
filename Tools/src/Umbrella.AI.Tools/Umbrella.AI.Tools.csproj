@@ -15,6 +15,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
     <PackageReference Include="System.CommandLine" Version="2.0.9" />
+    <PackageReference Include="Tomlyn" Version="2.10.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,6 +24,14 @@
 
   <ItemGroup>
     <None Include="..\..\..\.ai-shared\**\*" Exclude="..\..\..\.ai-shared\**\bin\**;..\..\..\.ai-shared\**\obj\**" Link="tool-assets\.ai-shared\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+      <Pack>false</Pack>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\.mcp.json" Link="tool-assets\.mcp.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <CopyToPublishDirectory>Always</CopyToPublishDirectory>
       <Pack>false</Pack>

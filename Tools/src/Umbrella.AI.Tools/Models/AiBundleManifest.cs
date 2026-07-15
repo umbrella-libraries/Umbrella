@@ -27,6 +27,9 @@ public sealed class AiBundleManifest
 
     [JsonPropertyName("managedMcpServers")]
     public List<NameHashRecord> ManagedMcpServers { get; set; } = [];
+
+    [JsonPropertyName("managedCodexMcp")]
+    public PathHashRecord? ManagedCodexMcp { get; set; }
 }
 
 public sealed class PathHashRecord

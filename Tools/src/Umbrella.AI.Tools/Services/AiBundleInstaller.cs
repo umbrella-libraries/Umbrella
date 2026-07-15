@@ -86,9 +86,70 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         }
 
         string manifestPath = GetManifestPath(repoRoot, bundle.BundleId);
-        if (File.Exists(manifestPath))
+        AiBundleManifest? manifest = File.Exists(manifestPath) ? LoadManifest(manifestPath) : null;
+
+        if (!string.IsNullOrWhiteSpace(bundle.McpSourcePath))
         {
-            AiBundleManifest manifest = LoadManifest(manifestPath)!;
+            string mcpPath = Path.Combine(repoRoot, NormalizePath(bundle.McpSourcePath));
+            JsonObject? mcpRoot = LoadMcpRoot(mcpPath);
+
+            if (mcpRoot is null)
+            {
+                return Failure($"Could not locate MCP source '{NormalizePath(bundle.McpSourcePath)}' at repository root '{repoRoot}'.");
+            }
+
+            if (mcpRoot["servers"] is not JsonObject sourceServers)
+            {
+                return Failure(
+                    $"MCP source '{NormalizePath(bundle.McpSourcePath)}' must contain a root 'servers' object. "
+                    + "Edit that object and run sync to regenerate compatibility outputs.");
+            }
+
+            JsonObject managedServers = sourceServers.DeepClone().AsObject();
+
+            string codexPath = Path.Combine(repoRoot, NormalizePath(CodexMcpConfigManager.RelativePath));
+            string existingCodexConfig = File.Exists(codexPath) ? File.ReadAllText(codexPath) : string.Empty;
+
+            if (!CodexMcpConfigManager.TryBuildUpdatedConfig(existingCodexConfig, bundle.BundleId, managedServers,
+                expectedManagedHash: null, force: false, allowUntrackedManagedBlockReplacement: true,
+                out string updatedCodexConfig, out List<string> codexConflicts))
+            {
+                result.Success = false;
+                result.Conflicts.AddRange(codexConflicts);
+                return result;
+            }
+
+            JsonObject legacyServers = GetOrCreateMcpServers(mcpRoot);
+            legacyServers.Clear();
+
+            foreach ((string serverName, JsonNode? serverNode) in managedServers)
+            {
+                legacyServers[serverName] = serverNode?.DeepClone();
+            }
+
+            SaveMcpJson(mcpPath, mcpRoot);
+            Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
+            File.WriteAllText(codexPath, updatedCodexConfig);
+            result.Messages.Add($"Generated: {CodexMcpConfigManager.RelativePath}");
+            result.Messages.Add("Synchronized generated mcpServers compatibility entries in .mcp.json.");
+
+            if (manifest is not null)
+            {
+                manifest.ManagedMcpServers =
+                [
+                    .. managedServers.Select(x => new NameHashRecord { Name = x.Key, Hash = HashUtility.ComputeJsonHash(x.Value!) })
+                ];
+                string managedCodexContent = CodexMcpConfigManager.RenderManagedContent(managedServers);
+                manifest.ManagedCodexMcp = new PathHashRecord
+                {
+                    Path = CodexMcpConfigManager.RelativePath,
+                    Hash = CodexMcpConfigManager.ComputeManagedHash(managedCodexContent)
+                };
+            }
+        }
+
+        if (manifest is not null)
+        {
             foreach (PathHashRecord record in manifest.ManagedFiles)
             {
                 string targetPath = Path.Combine(repoRoot, NormalizePath(record.Path));
@@ -356,11 +417,32 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             }
         }
 
+        int healthyCodexConfigs = 0;
+        int driftedCodexConfigs = 0;
+
+        if (manifest.ManagedCodexMcp is not null)
+        {
+            string codexPath = Path.Combine(targetRoot, NormalizePath(manifest.ManagedCodexMcp.Path));
+            string codexContent = File.Exists(codexPath) ? File.ReadAllText(codexPath) : string.Empty;
+
+            if (CodexMcpConfigManager.TryGetManagedContent(codexContent, bundle.BundleId, out string? managedContent)
+                && CodexMcpConfigManager.ComputeManagedHash(managedContent!) == manifest.ManagedCodexMcp.Hash)
+            {
+                healthyCodexConfigs++;
+            }
+            else
+            {
+                driftedCodexConfigs++;
+                result.Conflicts.Add($"Managed Codex MCP config drifted: {manifest.ManagedCodexMcp.Path}");
+            }
+        }
+
         result.Messages.Add($"Bundle: {bundle.BundleId}");
         result.Messages.Add($"Manifest: {manifestPath}");
         result.Messages.Add($"Files healthy: {healthyFiles}, drifted: {driftedFiles}");
         result.Messages.Add($"Managed blocks healthy: {healthyBlocks}, drifted: {driftedBlocks}");
         result.Messages.Add($"Owned MCP servers healthy: {healthyServers}, drifted: {driftedServers}");
+        result.Messages.Add($"Codex MCP configs healthy: {healthyCodexConfigs}, drifted: {driftedCodexConfigs}");
         result.Success = result.Conflicts.Count == 0;
         return result;
     }
@@ -406,6 +488,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         string mcpPath = Path.Combine(targetRoot, ".mcp.json");
         JsonObject? mcpRoot = LoadMcpRoot(mcpPath);
         JsonObject? servers = mcpRoot is null ? null : GetOrCreateServers(mcpRoot);
+        JsonObject? legacyServers = mcpRoot is null ? null : GetOrCreateMcpServers(mcpRoot);
 
         foreach (NameHashRecord record in manifest.ManagedMcpServers)
         {
@@ -415,6 +498,17 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             {
                 result.Conflicts.Add($"Managed MCP server was modified: {record.Name}");
             }
+        }
+
+        string codexPath = Path.Combine(targetRoot, NormalizePath(manifest.ManagedCodexMcp?.Path ?? CodexMcpConfigManager.RelativePath));
+        string codexContent = File.Exists(codexPath) ? File.ReadAllText(codexPath) : string.Empty;
+
+        if (manifest.ManagedCodexMcp is not null
+            && !options.Force
+            && (!CodexMcpConfigManager.TryGetManagedContent(codexContent, bundle.BundleId, out string? managedCodexContent)
+                || CodexMcpConfigManager.ComputeManagedHash(managedCodexContent!) != manifest.ManagedCodexMcp.Hash))
+        {
+            result.Conflicts.Add($"Managed Codex MCP config was modified or removed: {manifest.ManagedCodexMcp.Path}");
         }
 
         if (result.Conflicts.Count > 0)
@@ -451,10 +545,11 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             foreach (NameHashRecord record in manifest.ManagedMcpServers)
             {
                 _ = servers.Remove(record.Name);
+                _ = legacyServers?.Remove(record.Name);
                 result.Messages.Add($"Removed MCP server: {record.Name}");
             }
 
-            if (servers.Count == 0 && options.CleanEmptyMcp)
+            if (servers.Count == 0 && (legacyServers?.Count ?? 0) == 0 && options.CleanEmptyMcp)
             {
                 File.Delete(mcpPath);
                 result.Messages.Add("Removed .mcp.json because it became empty.");
@@ -463,6 +558,23 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             {
                 SaveMcpJson(mcpPath, mcpRoot!);
             }
+        }
+
+        if (manifest.ManagedCodexMcp is not null && File.Exists(codexPath))
+        {
+            string updatedCodexContent = CodexMcpConfigManager.RemoveManagedBlock(codexContent, bundle.BundleId);
+
+            if (string.IsNullOrWhiteSpace(updatedCodexContent) && options.CleanEmptyMcp)
+            {
+                File.Delete(codexPath);
+                CleanupEmptyDirectories(Path.GetDirectoryName(codexPath), targetRoot);
+            }
+            else
+            {
+                File.WriteAllText(codexPath, updatedCodexContent);
+            }
+
+            result.Messages.Add($"Removed Codex MCP config: {manifest.ManagedCodexMcp.Path}");
         }
 
         if (File.Exists(manifestPath))
@@ -498,11 +610,22 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             .ToList();
 
         Dictionary<string, ManagedFileEntry> sourceFiles = EnumerateAllManagedFiles(bundle);
+        JsonObject sourceServers = LoadSourceServers(bundle.McpSourcePath);
         var result = new OperationResult();
 
         ValidateManagedFiles(targetRoot, sourceFiles, currentManifest, otherManifests, options, result);
         ValidateManagedBlocks(targetRoot, bundle, currentManifest, options, result);
-        ValidateManagedMcp(targetRoot, bundle, currentManifest, otherManifests, options, result);
+        ValidateManagedMcp(targetRoot, sourceServers, currentManifest, otherManifests, options, result);
+
+        string targetCodexPath = Path.Combine(targetRoot, NormalizePath(CodexMcpConfigManager.RelativePath));
+        string existingCodexConfig = File.Exists(targetCodexPath) ? File.ReadAllText(targetCodexPath) : string.Empty;
+
+        if (!CodexMcpConfigManager.TryBuildUpdatedConfig(existingCodexConfig, bundle.BundleId, sourceServers,
+            currentManifest?.ManagedCodexMcp?.Hash, options.Force, allowUntrackedManagedBlockReplacement: false,
+            out string updatedCodexConfig, out List<string> codexConflicts))
+        {
+            result.Conflicts.AddRange(codexConflicts);
+        }
 
         if (result.Conflicts.Count > 0)
         {
@@ -546,13 +669,22 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             result.Messages.Add($"Managed doc block {operationName}ed: {NormalizePath(block.TargetPath)}");
         }
 
-        JsonObject templateServers = LoadTemplateServers(bundle.McpTemplatePath);
         string targetMcpPath = Path.Combine(targetRoot, ".mcp.json");
         JsonObject targetMcpRoot = LoadMcpRoot(targetMcpPath) ?? [];
         JsonObject targetServers = GetOrCreateServers(targetMcpRoot);
         JsonObject targetMcpServers = GetOrCreateMcpServers(targetMcpRoot);
 
-        foreach ((string serverName, JsonNode? serverNode) in templateServers)
+        if (currentManifest is not null)
+        {
+            foreach (NameHashRecord staleServer in currentManifest.ManagedMcpServers.Where(x => !sourceServers.ContainsKey(x.Name)))
+            {
+                _ = targetServers.Remove(staleServer.Name);
+                _ = targetMcpServers.Remove(staleServer.Name);
+                result.Messages.Add($"Removed obsolete managed MCP server: {staleServer.Name}");
+            }
+        }
+
+        foreach ((string serverName, JsonNode? serverNode) in sourceServers)
         {
             if (serverNode is null)
             {
@@ -566,6 +698,12 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         }
 
         SaveMcpJson(targetMcpPath, targetMcpRoot);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(targetCodexPath)!);
+        File.WriteAllText(targetCodexPath, updatedCodexConfig);
+        string codexManagedContent = CodexMcpConfigManager.RenderManagedContent(sourceServers);
+        newManifest.ManagedCodexMcp = new PathHashRecord { Path = CodexMcpConfigManager.RelativePath, Hash = CodexMcpConfigManager.ComputeManagedHash(codexManagedContent) };
+        result.Messages.Add($"Managed Codex MCP config {operationName}ed: {CodexMcpConfigManager.RelativePath}");
 
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(newManifest, _serializerOptions));
@@ -673,10 +811,9 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         }
     }
 
-    private void ValidateManagedMcp(string targetRoot, AiBundleDefinition bundle, AiBundleManifest? currentManifest, List<AiBundleManifest> otherManifests, CommandOptions options, OperationResult result)
+    private static void ValidateManagedMcp(string targetRoot, JsonObject sourceServers, AiBundleManifest? currentManifest, List<AiBundleManifest> otherManifests, CommandOptions options, OperationResult result)
     {
         string mcpPath = Path.Combine(targetRoot, ".mcp.json");
-        JsonObject templateServers = LoadTemplateServers(bundle.McpTemplatePath);
         JsonObject? mcpRoot = LoadMcpRoot(mcpPath);
         JsonObject? targetServers = mcpRoot is null ? null : GetOrCreateServers(mcpRoot);
 
@@ -685,7 +822,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             return;
         }
 
-        foreach ((string serverName, JsonNode? templateNode) in templateServers)
+        foreach ((string serverName, JsonNode? templateNode) in sourceServers)
         {
             if (templateNode is null)
             {
@@ -722,6 +859,23 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             if (!options.Force && existingHash != HashUtility.ComputeJsonHash(templateNode))
             {
                 result.Conflicts.Add($"Unowned MCP server already exists: {serverName}");
+            }
+        }
+
+        if (currentManifest is null)
+        {
+            return;
+        }
+
+        foreach (NameHashRecord staleRecord in currentManifest.ManagedMcpServers.Where(x => !sourceServers.ContainsKey(x.Name)))
+        {
+            JsonNode? existingNode = targetServers[staleRecord.Name];
+
+            if (existingNode is not null
+                && !options.Force
+                && HashUtility.ComputeJsonHash(existingNode) != staleRecord.Hash)
+            {
+                result.Conflicts.Add($"Managed MCP server was modified: {staleRecord.Name}");
             }
         }
     }
@@ -913,12 +1067,19 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         File.WriteAllText(targetPath, updated + Environment.NewLine);
     }
 
-    private JsonObject LoadTemplateServers(string relativePath)
+    private JsonObject LoadSourceServers(string relativePath)
     {
         JsonNode node = JsonNode.Parse(File.ReadAllText(ResolveAssetPath(relativePath)))
-            ?? throw new InvalidOperationException($"Failed to parse MCP template: {relativePath}");
+            ?? throw new InvalidOperationException($"Failed to parse MCP source: {relativePath}");
 
-        return GetOrCreateServers(node.AsObject());
+        JsonObject root = node.AsObject();
+
+        if (root["servers"] is not JsonObject servers)
+        {
+            throw new InvalidOperationException($"MCP source '{relativePath}' must define a 'servers' object.");
+        }
+
+        return servers;
     }
 
     private static JsonObject? LoadMcpRoot(string mcpPath)

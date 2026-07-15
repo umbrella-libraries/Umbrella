@@ -23,6 +23,7 @@ public class BundleInstallerTest
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "skills", "umbrella-dotnet-scaffold-service", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "skills", "umbrella-dotnet-scaffold-service", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".mcp.json")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".codex", "config.toml")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, "nuget-upgrade-exclusions.json")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".ai-shared", "bundles", "umbrella", "manifest.json")));
 
@@ -54,7 +55,12 @@ public class BundleInstallerTest
         JsonObject legacyMcpServers = LoadMcpServers(Path.Combine(workspace.RootPath, ".mcp.json"));
         Assert.NotNull(legacyMcpServers["aspire"]);
         Assert.NotNull(legacyMcpServers["playwright"]);
-
+        string codexConfig = File.ReadAllText(Path.Combine(workspace.RootPath, ".codex", "config.toml"));
+        Assert.Contains("# ai-bundle:umbrella:codex-mcp:start", codexConfig, StringComparison.Ordinal);
+        Assert.Contains("[mcp_servers.\"aspire\"]", codexConfig, StringComparison.Ordinal);
+        Assert.Contains("[mcp_servers.\"ado-remote-mcp\"]", codexConfig, StringComparison.Ordinal);
+        Assert.Contains("\"http_headers\" =", codexConfig, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"type\" =", codexConfig, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -65,10 +71,14 @@ public class BundleInstallerTest
         string agentsPath = Path.Combine(workspace.RootPath, "AGENTS.md");
         string mcpPath = Path.Combine(workspace.RootPath, ".mcp.json");
         string exclusionsPath = Path.Combine(workspace.RootPath, "nuget-upgrade-exclusions.json");
+        string codexPath = Path.Combine(workspace.RootPath, ".codex", "config.toml");
+        const string unrelatedCodexConfig = "model = \"gpt-5\"\r\n\r\n[projects.\"D:\\\\work\"]\r\ntrust_level = \"trusted\"\r\n";
 
         File.WriteAllText(agentsPath, "# Custom agent guidance\n\nUser-owned intro.");
         File.WriteAllText(exclusionsPath, "{\"packages\":[\"Contoso\"]}");
         File.WriteAllText(mcpPath, "{\"version\":1,\"inputs\":{\"token\":{\"type\":\"promptString\"}},\"servers\":{\"existing\":{\"type\":\"stdio\",\"command\":\"custom\"}}}");
+        Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
+        File.WriteAllText(codexPath, unrelatedCodexConfig);
 
         var result = installer.Install(new Umbrella.AI.Tools.CommandOptions { TargetPath = workspace.RootPath });
 
@@ -95,6 +105,9 @@ public class BundleInstallerTest
         JsonObject mcpRoot = JsonNode.Parse(File.ReadAllText(mcpPath))!.AsObject();
         Assert.Equal(1, mcpRoot["version"]!.GetValue<int>());
         Assert.NotNull(mcpRoot["inputs"]);
+        string codexConfig = File.ReadAllText(codexPath);
+        Assert.StartsWith(unrelatedCodexConfig, codexConfig, StringComparison.Ordinal);
+        Assert.Contains("# ai-bundle:umbrella:codex-mcp:start", codexConfig, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -117,15 +130,37 @@ public class BundleInstallerTest
     }
 
     [Fact]
+    public void UpdateBlocksWhenManagedCodexMcpConfigHasDrifted()
+    {
+        using var workspace = new TemporaryWorkspace();
+        var installer = CreateInstaller();
+
+        Assert.True(installer.Install(new Umbrella.AI.Tools.CommandOptions { TargetPath = workspace.RootPath }).Success);
+
+        string codexPath = Path.Combine(workspace.RootPath, ".codex", "config.toml");
+        string codexConfig = File.ReadAllText(codexPath).Replace("\"aspire\"", "\"changed\"", StringComparison.Ordinal);
+        File.WriteAllText(codexPath, codexConfig);
+
+        var result = installer.Update(new Umbrella.AI.Tools.CommandOptions { TargetPath = workspace.RootPath });
+
+        Assert.False(result.Success);
+        Assert.Contains(result.Conflicts, x => x.Contains("Codex", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void RemovePreservesUnownedContent()
     {
         using var workspace = new TemporaryWorkspace();
         var installer = CreateInstaller();
         string agentsPath = Path.Combine(workspace.RootPath, "AGENTS.md");
         string mcpPath = Path.Combine(workspace.RootPath, ".mcp.json");
+        string codexPath = Path.Combine(workspace.RootPath, ".codex", "config.toml");
+        const string unrelatedCodexConfig = "model = \"gpt-5\"\n";
 
         File.WriteAllText(agentsPath, "# User heading");
         File.WriteAllText(mcpPath, "{\"version\":1,\"servers\":{\"existing\":{\"type\":\"stdio\",\"command\":\"custom\"}}}");
+        Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
+        File.WriteAllText(codexPath, unrelatedCodexConfig);
         Assert.True(installer.Install(new Umbrella.AI.Tools.CommandOptions { TargetPath = workspace.RootPath }).Success);
 
         var result = installer.Remove(new Umbrella.AI.Tools.CommandOptions { TargetPath = workspace.RootPath });
@@ -138,6 +173,9 @@ public class BundleInstallerTest
         Assert.Equal(1, mcpRoot["version"]!.GetValue<int>());
         Assert.NotNull(LoadServers(mcpPath)["existing"]);
         Assert.Null(LoadServers(mcpPath)["aspire"]);
+        string codexConfig = File.ReadAllText(codexPath);
+        Assert.StartsWith(unrelatedCodexConfig, codexConfig, StringComparison.Ordinal);
+        Assert.DoesNotContain("ai-bundle:umbrella:codex-mcp", codexConfig, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -240,7 +278,53 @@ public class BundleInstallerTest
         Assert.Contains(result.Messages, x => x.StartsWith("Unchanged:", StringComparison.Ordinal));
     }
 
-    private static void CreateSyncWorkspace(string root)
+    [Fact]
+    public void SyncGeneratesCompatibilityMcpAndCodexConfigFromCanonicalServers()
+    {
+        using var workspace = new TemporaryWorkspace();
+        CreateSyncWorkspace(workspace.RootPath, includeMcp: true);
+        var installer = CreateInstaller();
+        string codexPath = Path.Combine(workspace.RootPath, ".codex", "config.toml");
+        const string unrelatedCodexConfig = "model = \"gpt-5\"\r\n";
+        Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
+        File.WriteAllText(codexPath, unrelatedCodexConfig);
+
+        var firstResult = installer.Sync(workspace.RootPath);
+
+        Assert.True(firstResult.Success);
+        string mcpPath = Path.Combine(workspace.RootPath, ".mcp.json");
+        Assert.True(JsonNode.DeepEquals(LoadServers(mcpPath), LoadMcpServers(mcpPath)));
+        Assert.Null(LoadMcpServers(mcpPath)["stale"]);
+        string firstCodexConfig = File.ReadAllText(codexPath);
+        Assert.StartsWith(unrelatedCodexConfig, firstCodexConfig, StringComparison.Ordinal);
+        Assert.Contains("[mcp_servers.\"sample\"]", firstCodexConfig, StringComparison.Ordinal);
+
+        JsonObject mcpRoot = JsonNode.Parse(File.ReadAllText(mcpPath))!.AsObject();
+        mcpRoot["servers"] = new JsonObject
+        {
+            ["replacement"] = new JsonObject
+            {
+                ["type"] = "http",
+                ["url"] = "https://example.test/mcp",
+                ["headers"] = new JsonObject { ["X-Test"] = "value" }
+            }
+        };
+        File.WriteAllText(mcpPath, mcpRoot.ToJsonString());
+
+        var secondResult = installer.Sync(workspace.RootPath);
+
+        Assert.True(secondResult.Success);
+        Assert.True(JsonNode.DeepEquals(LoadServers(mcpPath), LoadMcpServers(mcpPath)));
+        Assert.Null(LoadMcpServers(mcpPath)["sample"]);
+        Assert.NotNull(LoadMcpServers(mcpPath)["replacement"]);
+        string secondCodexConfig = File.ReadAllText(codexPath);
+        Assert.StartsWith(unrelatedCodexConfig, secondCodexConfig, StringComparison.Ordinal);
+        Assert.DoesNotContain("[mcp_servers.\"sample\"]", secondCodexConfig, StringComparison.Ordinal);
+        Assert.Contains("[mcp_servers.\"replacement\"]", secondCodexConfig, StringComparison.Ordinal);
+        Assert.Contains("\"http_headers\" = { \"X-Test\" = \"value\" }", secondCodexConfig, StringComparison.Ordinal);
+    }
+
+    private static void CreateSyncWorkspace(string root, bool includeMcp = false)
     {
         string skillDir = Path.Combine(root, ".ai-shared", "skills", "sample-skill");
         Directory.CreateDirectory(skillDir);
@@ -274,6 +358,24 @@ public class BundleInstallerTest
           ]
         }
         """);
+
+        if (includeMcp)
+        {
+            string bundlePath = Path.Combine(bundleDir, "bundle.json");
+            JsonObject bundle = JsonNode.Parse(File.ReadAllText(bundlePath))!.AsObject();
+            bundle["mcpSourcePath"] = ".mcp.json";
+            File.WriteAllText(bundlePath, bundle.ToJsonString());
+            File.WriteAllText(Path.Combine(root, ".mcp.json"), """
+            {
+              "servers": {
+                "sample": { "type": "stdio", "command": "sample" }
+              },
+              "mcpServers": {
+                "stale": { "type": "stdio", "command": "stale" }
+              }
+            }
+            """);
+        }
     }
 
     private static AiBundleInstaller CreateInstaller() => new(RepoRoot, "Umbrella.AI.Tools.Test", "1.0.0-test");

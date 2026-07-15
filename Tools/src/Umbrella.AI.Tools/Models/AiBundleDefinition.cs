@@ -22,8 +22,8 @@ public sealed class AiBundleDefinition
     [JsonPropertyName("managedBlocks")]
     public List<ManagedBlockDefinition> ManagedBlocks { get; set; } = [];
 
-    [JsonPropertyName("mcpTemplatePath")]
-    public string McpTemplatePath { get; set; } = "";
+    [JsonPropertyName("mcpSourcePath")]
+    public string McpSourcePath { get; set; } = "";
 
     [JsonPropertyName("exclusionsStarterPath")]
     public string ExclusionsStarterPath { get; set; } = "";
