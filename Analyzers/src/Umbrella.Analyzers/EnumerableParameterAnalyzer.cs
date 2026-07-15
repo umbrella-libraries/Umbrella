@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Umbrella.Analyzers;
 
 /// <summary>
-/// An analyzer that checks if collection-like method parameters are specified as <see cref="IEnumerable{T}" /> instead of concrete or more specific collection types.
+/// An analyzer that checks if collection-like parameters on changeable public methods use read-only collection types.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class EnumerableParameterAnalyzer : DiagnosticAnalyzer
@@ -20,8 +20,8 @@ public class EnumerableParameterAnalyzer : DiagnosticAnalyzer
 	/// </summary>
 	public static readonly DiagnosticDescriptor Rule = new(
 		DiagnosticId,
-		"Method parameters should use IEnumerable<T>",
-		"Parameter '{0}' should be specified as IEnumerable<T> instead of {1}",
+		"Method parameters should use read-only collection types",
+		"Parameter '{0}' should use a read-only collection type instead of {1}",
 		"CodeStyle",
 		DiagnosticSeverity.Error,
 		isEnabledByDefault: true);
@@ -37,29 +37,42 @@ public class EnumerableParameterAnalyzer : DiagnosticAnalyzer
 
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 		context.EnableConcurrentExecution();
-		context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
+		context.RegisterCompilationStartAction(static compilationContext =>
+		{
+			var methodAnalysis = new ChangeablePublicMethodAnalysis(compilationContext.Compilation);
+			var collectionAnalysis = new CollectionTypeAnalysis(compilationContext.Compilation);
+			compilationContext.RegisterSymbolAction(
+				context => AnalyzeMethod(context, methodAnalysis, collectionAnalysis),
+				SymbolKind.Method);
+		});
 	}
 
-	private static void AnalyzeMethod(SymbolAnalysisContext context)
+	private static void AnalyzeMethod(
+		SymbolAnalysisContext context,
+		ChangeablePublicMethodAnalysis methodAnalysis,
+		CollectionTypeAnalysis collectionAnalysis)
 	{
 		var methodSymbol = (IMethodSymbol)context.Symbol;
 
+		if (!methodAnalysis.IsEligible(methodSymbol))
+			return;
+
 		foreach (var parameter in methodSymbol.Parameters)
 		{
-			// params arrays must stay as arrays — IEnumerable<T> cannot use params
-			if (parameter.IsParams)
+			if (parameter.IsParams || collectionAnalysis.IsAllowedExpressionArray(parameter.Type))
 				continue;
 
-			var parameterType = parameter.Type;
-
-			if (!parameterType.IsCollectionType())
-				continue;
-
-			if (parameterType.OriginalDefinition.ToDisplayString() is not "System.Collections.Generic.IEnumerable<T>")
+			if (!collectionAnalysis.IsCollectionType(parameter.Type) ||
+				collectionAnalysis.IsReadOnlyCollectionType(parameter.Type))
 			{
-				var diagnostic = Diagnostic.Create(Rule, parameter.Locations[0], parameter.Name, parameterType.ToDisplayString());
-				context.ReportDiagnostic(diagnostic);
+				continue;
 			}
+
+			context.ReportDiagnostic(Diagnostic.Create(
+				Rule,
+				parameter.Locations[0],
+				parameter.Name,
+				parameter.Type.ToDisplayString()));
 		}
 	}
 }

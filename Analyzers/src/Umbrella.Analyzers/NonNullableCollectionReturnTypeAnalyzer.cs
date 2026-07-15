@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Umbrella.Analyzers;
 
 /// <summary>
-/// An analyzer that checks if method return types are collections and if so that they are non-nullable.
+/// An analyzer that checks if collection payloads returned by changeable public methods are non-nullable.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class NonNullableCollectionReturnTypeAnalyzer : DiagnosticAnalyzer
@@ -37,56 +37,36 @@ public class NonNullableCollectionReturnTypeAnalyzer : DiagnosticAnalyzer
 
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 		context.EnableConcurrentExecution();
-		context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
+		context.RegisterCompilationStartAction(static compilationContext =>
+		{
+			var methodAnalysis = new ChangeablePublicMethodAnalysis(compilationContext.Compilation);
+			var collectionAnalysis = new CollectionTypeAnalysis(compilationContext.Compilation);
+			compilationContext.RegisterSymbolAction(
+				context => AnalyzeMethod(context, methodAnalysis, collectionAnalysis),
+				SymbolKind.Method);
+		});
 	}
 
-	private static void AnalyzeMethod(SymbolAnalysisContext context)
+	private static void AnalyzeMethod(
+		SymbolAnalysisContext context,
+		ChangeablePublicMethodAnalysis methodAnalysis,
+		CollectionTypeAnalysis collectionAnalysis)
 	{
 		var methodSymbol = (IMethodSymbol)context.Symbol;
-		var returnType = methodSymbol.ReturnType;
 
-		// Check for Task<T> or ValueTask<T>
-		if (returnType is INamedTypeSymbol namedType && namedType.IsGenericType &&
-			(namedType.Name == "Task" || namedType.Name == "ValueTask"))
-		{
-			returnType = namedType.TypeArguments[0];
-		}
-
-		// Check for tuples (language tuples or System.Tuple<T>)
-		if (returnType is INamedTypeSymbol tupleType && tupleType.IsTupleType)
-		{
-			foreach (var element in tupleType.TupleElements)
-			{
-				CheckCollectionTypeIsNotNull(context, methodSymbol, element.Type);
-			}
-
+		if (!methodAnalysis.IsEligible(methodSymbol))
 			return;
-		}
 
-		if (returnType.OriginalDefinition.ToDisplayString().StartsWith("System.Tuple", StringComparison.Ordinal))
+		foreach (var returnType in collectionAnalysis.GetCollectionPayloadTypes(methodSymbol.ReturnType))
 		{
-			foreach (var typeArgument in ((INamedTypeSymbol)returnType).TypeArguments)
-			{
-				CheckCollectionTypeIsNotNull(context, methodSymbol, typeArgument);
-			}
+			if (returnType.NullableAnnotation != NullableAnnotation.Annotated)
+				continue;
 
-			return;
-		}
-
-		// Check if the return type is a non-null collection
-		CheckCollectionTypeIsNotNull(context, methodSymbol, returnType);
-	}
-
-	private static void CheckCollectionTypeIsNotNull(SymbolAnalysisContext context, IMethodSymbol methodSymbol, ITypeSymbol type)
-	{
-		if (type.AllInterfaces.Any(i => i.OriginalDefinition.ToDisplayString() == "System.Collections.IEnumerable"))
-		{
-			// Ensure the collection type is not null
-			if (!type.NullableAnnotation.HasFlag(NullableAnnotation.NotAnnotated))
-			{
-				var diagnostic = Diagnostic.Create(Rule, methodSymbol.Locations[0], methodSymbol.Name, type.ToDisplayString());
-				context.ReportDiagnostic(diagnostic);
-			}
+			context.ReportDiagnostic(Diagnostic.Create(
+				Rule,
+				methodSymbol.Locations[0],
+				methodSymbol.Name,
+				returnType.ToDisplayString()));
 		}
 	}
 }

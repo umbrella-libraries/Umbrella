@@ -18,9 +18,9 @@ Most rules are configured with **Error** severity (compile blocking); UA015, UA0
 | UA002 | Use pattern matching for primitive and enum comparisons               | Enforces `is` / `is not` instead of `==` / `!=` for primitive & enum constants.                                |
 | UA003 | Async methods should have a CancellationToken parameter               | Requires eligible public async Task / ValueTask methods to declare exactly `CancellationToken cancellationToken = default`. |
 | UA004 | Async methods with CancellationToken should call ThrowIfCancellationRequested | For UA003-eligible methods with the canonical token parameter, requires the first statement to call `cancellationToken.ThrowIfCancellationRequested()`. |
-| UA005 | Collection parameters should use IEnumerable<T>                       | Requires collection-like parameters to use `IEnumerable<T>` rather than concrete or more specific collection types. |
-| UA006 | Collection return types should be IReadOnlyCollection<T>              | Requires methods returning collections to return `IReadOnlyCollection<T>` instead of concrete mutable types.       |
-| UA007 | Collection return types must be non-nullable                          | Ensures collection return types are not declared nullable (for example avoid `IEnumerable<T>?`).                  |
+| UA005 | Collection parameters should use read-only collection types            | Requires mutable collection parameters on changeable public methods to use a read-only contract, with FilterExpression/SortExpression array exceptions. |
+| UA006 | Collection return types should be read-only                           | Requires direct or generically wrapped collection payloads on changeable public methods to use read-only types. |
+| UA007 | Collection return types must be non-nullable                          | Ensures direct or generically wrapped collection payloads on changeable public methods are not nullable. |
 | UA008 | Public methods must be wrapped in try...catch                         | Enforces a top-level try/catch (with optional structured logging) in public methods.                          |
 | UA009 | Parameter validation must precede first try and never be inside try   | Guard / Throw helper / direct Argument* throws must appear before the first try and not inside any try block.|
 | UA010 | Primary constructors are not allowed                                  | Forbids primary constructors on non-record classes / structs (`class C(int x)` / `struct S(int x)`).          |

@@ -1,13 +1,11 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Umbrella.Analyzers;
 
 /// <summary>
-/// An analyzer that checks if methods return types implement <see cref="IReadOnlyCollection{T}" />
-/// and ensures that methods returning collections use <see cref="IReadOnlyCollection{T}" /> instead of concrete collection types.
-/// Additionally, it ensures that tuples (both language tuples and <see cref="Tuple{T}" />) are not used as return types.
+/// An analyzer that checks if collection payloads returned by changeable public methods use read-only collection types.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class ReadOnlyCollectionReturnTypeAnalyzer : DiagnosticAnalyzer
@@ -22,8 +20,8 @@ public class ReadOnlyCollectionReturnTypeAnalyzer : DiagnosticAnalyzer
 	/// </summary>
 	public static readonly DiagnosticDescriptor Rule = new(
 		DiagnosticId,
-		"Method return types should use IReadOnlyCollection<T>",
-		"Method '{0}' should return IReadOnlyCollection<T> instead of {1}",
+		"Method return types should use read-only collection types",
+		"Method '{0}' should return a read-only collection type instead of {1}",
 		"CodeStyle",
 		DiagnosticSeverity.Error,
 		isEnabledByDefault: true);
@@ -39,57 +37,38 @@ public class ReadOnlyCollectionReturnTypeAnalyzer : DiagnosticAnalyzer
 
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 		context.EnableConcurrentExecution();
-		context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
+		context.RegisterCompilationStartAction(static compilationContext =>
+		{
+			var methodAnalysis = new ChangeablePublicMethodAnalysis(compilationContext.Compilation);
+			var collectionAnalysis = new CollectionTypeAnalysis(compilationContext.Compilation);
+			compilationContext.RegisterSymbolAction(
+				context => AnalyzeMethod(context, methodAnalysis, collectionAnalysis),
+				SymbolKind.Method);
+		});
 	}
 
-	private static void AnalyzeMethod(SymbolAnalysisContext context)
+	private static void AnalyzeMethod(
+		SymbolAnalysisContext context,
+		ChangeablePublicMethodAnalysis methodAnalysis,
+		CollectionTypeAnalysis collectionAnalysis)
 	{
 		var methodSymbol = (IMethodSymbol)context.Symbol;
-		var returnType = methodSymbol.ReturnType;
 
-		List<ITypeSymbol> lstReturnTypeToCheck = [];
+		if (!methodAnalysis.IsEligible(methodSymbol))
+			return;
 
-		// Check for Task<T> or ValueTask<T>
-		if (returnType is INamedTypeSymbol namedType && namedType.IsGenericType &&
-			(namedType.Name == "Task" || namedType.Name == "ValueTask"))
+		foreach (var returnType in collectionAnalysis.GetCollectionPayloadTypes(methodSymbol.ReturnType))
 		{
-			lstReturnTypeToCheck.Add(namedType.TypeArguments[0]);
-		}
-		else if (returnType is INamedTypeSymbol tupleType && tupleType.IsTupleType)
-		{
-			lstReturnTypeToCheck.AddRange(tupleType.TupleElements.Select(e => e.Type));
-		}
-		else if (returnType is INamedTypeSymbol tupleSymbol && tupleSymbol.OriginalDefinition.ToDisplayString().StartsWith("System.Tuple", StringComparison.Ordinal))
-		{
-			lstReturnTypeToCheck.AddRange(tupleSymbol.TypeArguments);
-		}
-		else
-		{
-			lstReturnTypeToCheck.Add(returnType);
-		}
-
-		foreach (var type in lstReturnTypeToCheck)
-		{
-			// Check if the type is a collection type
-			if (!type.IsCollectionType())
+			if (collectionAnalysis.IsReadOnlyCollectionType(returnType))
 				continue;
 
-			// Get the display string once
-			string returnTypeDisplay = type.ToDisplayString();
-
-			// Check if the return type is IReadOnlyCollection<T>
-			if (type.OriginalDefinition.ToDisplayString() != "System.Collections.Generic.IReadOnlyCollection<T>")
-			{
-				ReportDiagnostic(context, methodSymbol, returnTypeDisplay);
-				return;
-			}
+			context.ReportDiagnostic(Diagnostic.Create(
+				Rule,
+				methodSymbol.Locations[0],
+				methodSymbol.Name,
+				returnType.ToDisplayString()));
+			return;
 		}
-	}
-
-	private static void ReportDiagnostic(SymbolAnalysisContext context, IMethodSymbol methodSymbol, string returnTypeDisplay)
-	{
-		var diagnostic = Diagnostic.Create(Rule, methodSymbol.Locations[0], methodSymbol.Name, returnTypeDisplay);
-		context.ReportDiagnostic(diagnostic);
 	}
 }
 

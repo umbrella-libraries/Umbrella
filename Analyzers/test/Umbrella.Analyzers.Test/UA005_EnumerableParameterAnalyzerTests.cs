@@ -18,11 +18,10 @@ public class UA005_EnumerableParameterAnalyzerTests : AnalyzerTestBase<Enumerabl
 	}
 
 	[Fact]
-	public async Task IReadOnlyCollectionParameter_ShouldTriggerDiagnostic()
+	public async Task IReadOnlyCollectionParameter_ShouldNotTriggerDiagnostic()
 	{
 		const string source = @"using System.Collections.Generic; public class TestClass { public void M(IReadOnlyCollection<int> items) { } }";
-		var expected = Diagnostic(EnumerableParameterAnalyzer.Rule, 1, 99, "items", "System.Collections.Generic.IReadOnlyCollection<int>");
-		await VerifyAnalyzerAsync(source, expected);
+		await VerifyNoDiagnosticsAsync(source);
 	}
 
 	[Fact]
