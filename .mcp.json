@@ -37,7 +37,10 @@
         "zinofi",
         "--authentication",
         "envvar"
-      ]
+      ],
+      "env": {
+        "ADO_MCP_AUTH_TOKEN": "${ZINOFI_ADO_PAT}"
+      }
     },
     "ado-remarkablexcp": {
       "type": "stdio",
@@ -48,7 +51,10 @@
         "remarkablexcp",
         "--authentication",
         "envvar"
-      ]
+      ],
+      "env": {
+        "ADO_MCP_AUTH_TOKEN": "${REMARKABLEXCP_ADO_PAT}"
+      }
     },
     "chrome-devtools": {
       "type": "stdio",
@@ -117,7 +123,10 @@
         "zinofi",
         "--authentication",
         "envvar"
-      ]
+      ],
+      "env": {
+        "ADO_MCP_AUTH_TOKEN": "${ZINOFI_ADO_PAT}"
+      }
     },
     "ado-remarkablexcp": {
       "type": "stdio",
@@ -128,7 +137,10 @@
         "remarkablexcp",
         "--authentication",
         "envvar"
-      ]
+      ],
+      "env": {
+        "ADO_MCP_AUTH_TOKEN": "${REMARKABLEXCP_ADO_PAT}"
+      }
     },
     "chrome-devtools": {
       "type": "stdio",

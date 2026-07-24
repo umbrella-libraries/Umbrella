@@ -17,10 +17,12 @@
 [mcp_servers."ado-zinofi"]
 "command" = "npx"
 "args" = ["-y", "@azure-devops/mcp", "zinofi", "--authentication", "envvar"]
+"env" = { "ADO_MCP_AUTH_TOKEN" = "${ZINOFI_ADO_PAT}" }
 
 [mcp_servers."ado-remarkablexcp"]
 "command" = "npx"
 "args" = ["-y", "@azure-devops/mcp", "remarkablexcp", "--authentication", "envvar"]
+"env" = { "ADO_MCP_AUTH_TOKEN" = "${REMARKABLEXCP_ADO_PAT}" }
 
 [mcp_servers."chrome-devtools"]
 "command" = "npx"
