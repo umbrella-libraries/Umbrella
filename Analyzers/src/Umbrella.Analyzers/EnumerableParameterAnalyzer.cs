@@ -59,8 +59,13 @@ public class EnumerableParameterAnalyzer : DiagnosticAnalyzer
 
 		foreach (var parameter in methodSymbol.Parameters)
 		{
-			if (parameter.IsParams || collectionAnalysis.IsAllowedExpressionArray(parameter.Type))
+			if (parameter.IsParams ||
+				collectionAnalysis.IsAllowedExpressionArray(parameter.Type) ||
+				CollectionTypeAnalysis.IsBinaryBuffer(parameter.Type) ||
+				collectionAnalysis.IsServiceCollectionContract(parameter.Type))
+			{
 				continue;
+			}
 
 			if (!collectionAnalysis.IsCollectionType(parameter.Type) ||
 				collectionAnalysis.IsReadOnlyCollectionType(parameter.Type))

@@ -6,6 +6,7 @@ namespace Umbrella.Analyzers;
 internal sealed class CollectionTypeAnalysis
 {
 	private const string FilterExpressionMetadataName = "Umbrella.Utilities.Data.Filtering.FilterExpression`1";
+	private const string ServiceCollectionMetadataName = "Microsoft.Extensions.DependencyInjection.IServiceCollection";
 	private const string SortExpressionMetadataName = "Umbrella.Utilities.Data.Sorting.SortExpression`1";
 
 	private static readonly ImmutableArray<string> _enumerableContractMetadataNames =
@@ -47,6 +48,7 @@ internal sealed class CollectionTypeAnalysis
 	private readonly ImmutableArray<INamedTypeSymbol> _mutableContracts;
 	private readonly ImmutableArray<INamedTypeSymbol> _knownReadOnlyConcreteTypes;
 	private readonly INamedTypeSymbol? _filterExpressionType;
+	private readonly INamedTypeSymbol? _serviceCollectionType;
 	private readonly INamedTypeSymbol? _sortExpressionType;
 
 	internal CollectionTypeAnalysis(Compilation compilation)
@@ -55,6 +57,7 @@ internal sealed class CollectionTypeAnalysis
 		_mutableContracts = ResolveTypes(compilation, _mutableContractMetadataNames);
 		_knownReadOnlyConcreteTypes = ResolveTypes(compilation, _knownReadOnlyConcreteTypeMetadataNames);
 		_filterExpressionType = compilation.GetTypeByMetadataName(FilterExpressionMetadataName);
+		_serviceCollectionType = compilation.GetTypeByMetadataName(ServiceCollectionMetadataName);
 		_sortExpressionType = compilation.GetTypeByMetadataName(SortExpressionMetadataName);
 	}
 
@@ -102,6 +105,18 @@ internal sealed class CollectionTypeAnalysis
 		return SymbolEqualityComparer.Default.Equals(elementDefinition, _filterExpressionType) ||
 			SymbolEqualityComparer.Default.Equals(elementDefinition, _sortExpressionType);
 	}
+
+	internal static bool IsBinaryBuffer(ITypeSymbol type) =>
+		type is IArrayTypeSymbol
+		{
+			Rank: 1,
+			IsSZArray: true,
+			ElementType.SpecialType: SpecialType.System_Byte
+		};
+
+	internal bool IsServiceCollectionContract(ITypeSymbol type) =>
+		type is INamedTypeSymbol namedType &&
+		SymbolEqualityComparer.Default.Equals(namedType.OriginalDefinition, _serviceCollectionType);
 
 	internal ImmutableArray<ITypeSymbol> GetCollectionPayloadTypes(ITypeSymbol type)
 	{

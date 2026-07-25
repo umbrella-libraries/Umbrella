@@ -59,8 +59,12 @@ public class ReadOnlyCollectionReturnTypeAnalyzer : DiagnosticAnalyzer
 
 		foreach (var returnType in collectionAnalysis.GetCollectionPayloadTypes(methodSymbol.ReturnType))
 		{
-			if (collectionAnalysis.IsReadOnlyCollectionType(returnType))
+			if (collectionAnalysis.IsReadOnlyCollectionType(returnType) ||
+				CollectionTypeAnalysis.IsBinaryBuffer(returnType) ||
+				collectionAnalysis.IsServiceCollectionContract(returnType))
+			{
 				continue;
+			}
 
 			context.ReportDiagnostic(Diagnostic.Create(
 				Rule,

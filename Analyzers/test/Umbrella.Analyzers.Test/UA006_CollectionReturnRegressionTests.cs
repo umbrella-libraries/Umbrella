@@ -57,6 +57,80 @@ public class UA006_CollectionReturnRegressionTests : AnalyzerTestBase<ReadOnlyCo
 	}
 
 	[Fact]
+	public async Task DirectAndWrappedByteArrayReturns_ShouldNotTriggerDiagnostic()
+	{
+		const string source = "using System.Threading.Tasks; public abstract class TestClass { public abstract byte[] Direct(); public abstract Task<byte[]> Wrapped(); }";
+
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task JaggedAndMultidimensionalByteArrayReturns_ShouldTriggerDiagnostics()
+	{
+		const string source = "public abstract class TestClass { public abstract byte[][] Jagged(); public abstract byte[,] Multidimensional(); }";
+
+		await VerifyAnalyzerAsync(
+			source,
+			ExpectedAt(source, "Jagged", "byte[][]"),
+			ExpectedAt(source, "Multidimensional", "byte[*,*]"));
+	}
+
+	[Fact]
+	public async Task DirectWrappedAndExtensionBlockServiceCollectionReturns_ShouldNotTriggerDiagnostic()
+	{
+		const string source = """
+			using System.Threading.Tasks;
+
+			namespace Microsoft.Extensions.DependencyInjection
+			{
+				public sealed class ServiceDescriptor
+				{
+				}
+
+				public interface IServiceCollection : System.Collections.Generic.IList<ServiceDescriptor>
+				{
+				}
+			}
+
+			public abstract class TestClass
+			{
+				public abstract Microsoft.Extensions.DependencyInjection.IServiceCollection Direct();
+				public abstract Task<Microsoft.Extensions.DependencyInjection.IServiceCollection> Wrapped();
+			}
+
+			public static class ServiceCollectionExtensions
+			{
+				extension(Microsoft.Extensions.DependencyInjection.IServiceCollection services)
+				{
+					public Microsoft.Extensions.DependencyInjection.IServiceCollection AddFeature() => services;
+				}
+			}
+			""";
+
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task UnrelatedServiceCollectionReturn_ShouldTriggerDiagnostic()
+	{
+		const string source = """
+			namespace Custom
+			{
+				public interface IServiceCollection : System.Collections.Generic.IList<int>
+				{
+				}
+			}
+
+			public abstract class TestClass
+			{
+				public abstract Custom.IServiceCollection M();
+			}
+			""";
+
+		await VerifyAnalyzerAsync(source, ExpectedAt(source, "M", "Custom.IServiceCollection"));
+	}
+
+	[Fact]
 	public async Task RecursivelyWrappedMutableCollectionReturn_ShouldTriggerDiagnostic()
 	{
 		const string source = "using System.Collections.Generic; using System.Threading.Tasks; public sealed record Result<T>(T Value); public abstract class TestClass { public abstract Task<Result<List<int>>> M(); }";

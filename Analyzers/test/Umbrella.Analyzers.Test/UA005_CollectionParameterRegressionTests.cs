@@ -91,6 +91,72 @@ public class UA005_CollectionParameterRegressionTests : AnalyzerTestBase<Enumera
 	}
 
 	[Fact]
+	public async Task ByteArrayParameters_ShouldNotTriggerDiagnostic()
+	{
+		const string source = "public class TestClass { public void M(byte[] bytes, byte[]? nullableBytes) { } }";
+
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task JaggedAndMultidimensionalByteArrayParameters_ShouldTriggerDiagnostics()
+	{
+		const string source = "public class TestClass { public void M(byte[][] jaggedBytes, byte[,] multidimensionalBytes) { } }";
+
+		await VerifyAnalyzerAsync(
+			source,
+			ExpectedAt(source, "jaggedBytes", "byte[][]"),
+			ExpectedAt(source, "multidimensionalBytes", "byte[*,*]"));
+	}
+
+	[Fact]
+	public async Task ServiceCollectionParameter_ShouldNotTriggerDiagnostic()
+	{
+		const string source = """
+			namespace Microsoft.Extensions.DependencyInjection
+			{
+				public sealed class ServiceDescriptor
+				{
+				}
+
+				public interface IServiceCollection : System.Collections.Generic.IList<ServiceDescriptor>
+				{
+				}
+			}
+
+			public static class ServiceCollectionExtensions
+			{
+				public static Microsoft.Extensions.DependencyInjection.IServiceCollection AddFeature(
+					this Microsoft.Extensions.DependencyInjection.IServiceCollection services) => services;
+			}
+			""";
+
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task UnrelatedServiceCollectionParameter_ShouldTriggerDiagnostic()
+	{
+		const string source = """
+			namespace Custom
+			{
+				public interface IServiceCollection : System.Collections.Generic.IList<int>
+				{
+				}
+			}
+
+			public class TestClass
+			{
+				public void M(Custom.IServiceCollection services)
+				{
+				}
+			}
+			""";
+
+		await VerifyAnalyzerAsync(source, ExpectedAt(source, "services", "Custom.IServiceCollection"));
+	}
+
+	[Fact]
 	public async Task FilterAndSortExpressionArrays_ShouldNotTriggerDiagnostic()
 	{
 		const string source = """
