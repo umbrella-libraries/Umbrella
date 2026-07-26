@@ -18,7 +18,7 @@ namespace Umbrella.Analyzers;
 /// <item><description>UMS001: Model types must be records for better immutability guarantees</description></item>
 /// <item><description>UMS002: Model properties must use the 'required' keyword for initialization safety</description></item>
 /// <item><description>UMS003: Model properties must have getter and be init-only to prevent mutation</description></item>
-/// <item><description>UMS004: Collection properties must use <see cref="IReadOnlyCollection{T}" /> for immutability</description></item>
+/// <item><description>UA014: Collection properties must use a read-only collection type</description></item>
 /// </list>
 /// <para>
 /// The analyzer targets types with names ending in: Model, ModelBase, ViewModel, ViewModelBase, or QueryResult.
@@ -79,20 +79,20 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		description: "Per Umbrella standards, properties in model types should have a getter and be init-only.");
 
 	/// <summary>
-	/// Diagnostic rule that requires collection properties to use <see cref="IReadOnlyCollection{T}" />
+	/// Diagnostic rule that requires collection properties to use a read-only collection type.
 	/// </summary>
 	/// <remarks>
-	/// Using IReadOnlyCollection&lt;T&gt; prevents external code from modifying the collection
-	/// contents, maintaining immutability and preventing unintended side effects.
+	/// Using a read-only collection contract prevents external code from modifying the collection
+	/// contents through the model, maintaining immutability and preventing unintended side effects.
 	/// </remarks>
 	public static readonly DiagnosticDescriptor CollectionsMustBeReadOnlyRule = new(
 		id: "UA014",
-		title: "Collection properties must use IReadOnlyCollection<T>",
-		messageFormat: "Collection property '{0}' in model type '{1}' should be of type IReadOnlyCollection<T>",
+		title: "Collection properties must use a read-only collection type",
+		messageFormat: "Collection property '{0}' in model type '{1}' should use a read-only collection type",
 		category: "UmbrellaModelStandards",
 		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true,
-		description: "Per Umbrella standards, collection properties in model types should use IReadOnlyCollection<T> for better immutability.");
+		description: "Per Umbrella standards, collection properties in model types should expose a read-only collection contract or a recognized immutable collection type.");
 
 	/// <summary>
 	/// Diagnostic rule that requires model types with mutable string properties to implement <c>IUmbrellaTrimmable</c>.
@@ -124,13 +124,14 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			INamedTypeSymbol? razorPageModelSymbol = startContext.Compilation.GetTypeByMetadataName(
 				"Microsoft.AspNetCore.Mvc.RazorPages.PageModel");
 			INamedTypeSymbol? trimmableSymbol = startContext.Compilation.GetTypeByMetadataName("Umbrella.Utilities.Text.IUmbrellaTrimmable");
+			var collectionAnalysis = new CollectionTypeAnalysis(startContext.Compilation);
 
 			startContext.RegisterSyntaxNodeAction(
 				ctx => AnalyzeTypeDeclaration(ctx, razorPageModelSymbol),
 				SyntaxKind.ClassDeclaration,
 				SyntaxKind.RecordDeclaration);
 			startContext.RegisterSyntaxNodeAction(
-				ctx => AnalyzePropertyDeclaration(ctx, razorPageModelSymbol),
+				ctx => AnalyzePropertyDeclaration(ctx, razorPageModelSymbol, collectionAnalysis),
 				SyntaxKind.PropertyDeclaration);
 
 			if (trimmableSymbol is null)
@@ -165,7 +166,8 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 
 	private static void AnalyzePropertyDeclaration(
 		SyntaxNodeAnalysisContext context,
-		INamedTypeSymbol? razorPageModelSymbol)
+		INamedTypeSymbol? razorPageModelSymbol,
+		CollectionTypeAnalysis collectionAnalysis)
 	{
 		var propertyDecl = (PropertyDeclarationSyntax)context.Node;
 
@@ -204,7 +206,9 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		}
 
 		var propertyType = context.SemanticModel.GetTypeInfo(propertyDecl.Type).Type;
-		if (propertyType != null && IsCollectionType(propertyType) && !IsReadOnlyCollectionType(propertyType) &&
+		if (propertyType != null &&
+			collectionAnalysis.IsCollectionType(propertyType) &&
+			!collectionAnalysis.IsReadOnlyCollectionType(propertyType) &&
 			!HasOptOutAttribute(propertyDecl, context.SemanticModel, "UmbrellaAllowMutableCollectionAttribute"))
 		{
 			var diagnostic = Diagnostic.Create(CollectionsMustBeReadOnlyRule, propertyDecl.Identifier.GetLocation(),
@@ -325,21 +329,4 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 
 		return false;
 	}
-
-	private static bool IsCollectionType(ITypeSymbol type)
-	{
-		if (type.SpecialType == SpecialType.System_String)
-			return false;
-
-		foreach (var interfaceType in type.AllInterfaces)
-		{
-			if (interfaceType.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>")
-				return true;
-		}
-
-		return false;
-	}
-
-	private static bool IsReadOnlyCollectionType(ITypeSymbol type) =>
-		type.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IReadOnlyCollection<T>";
 }

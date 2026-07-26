@@ -85,7 +85,7 @@ public sealed class UmbrellaAllowLateInitializationAttribute : UmbrellaAllowOpti
 
 /// <summary>
 /// Indicates that a collection property can use a mutable collection type
-/// instead of <see cref="IReadOnlyCollection{T}"/>, which is normally required by Umbrella model standards.
+/// instead of the read-only collection contract normally required by Umbrella model standards.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property)]
 public sealed class UmbrellaAllowMutableCollectionAttribute : Attribute

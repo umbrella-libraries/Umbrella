@@ -18,7 +18,7 @@ UA010 | CodeStyle | Error | PrimaryConstructorUsageAnalyzer
 UA011 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model/QueryResult types must be records; ASP.NET Core Razor Pages PageModel descendants are excluded
 UA012 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model properties must use required
 UA013 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model properties must use { get; init; }
-UA014 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model collection properties must use IReadOnlyCollection&lt;T&gt;
+UA014 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model collection properties must expose a read-only contract or recognized immutable collection type
 UA015 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — model classes and records with public mutable string properties must implement IUmbrellaTrimmable
 UA017 | UmbrellaApiStandards | Warning | UmbrellaApiStandardsAnalyzer — UmbrellaApiController subclasses must use generic or non-generic [UmbrellaProducesResponseType] attributes instead of raw ASP.NET Core response type attributes
 UA018 | UmbrellaSecurity | Error | AuthorizationHandlerAnalyzer — authorization handlers must approve successful cases and must not call context.Fail()

@@ -27,7 +27,7 @@ Most rules are configured with **Error** severity (compile blocking); UA015, UA0
 | UA011 | Model types must be records                                           | Types named `*Model`, `*ViewModel`, `*ModelBase`, `*ViewModelBase`, or `*QueryResult` must be declared as `record`. Nested UI-state and paginated models remain eligible; ASP.NET Core Razor Pages `PageModel` descendants are excluded from the model standards rules. |
 | UA012 | Model properties must use the required keyword                        | Properties on model/QueryResult types must use the `required` modifier.                                       |
 | UA013 | Model properties must have getter and be init-only                    | Properties on model/QueryResult types must use `{ get; init; }` accessors.                                    |
-| UA014 | Collection properties must use IReadOnlyCollection\<T\>               | Collection properties on model/QueryResult types must be typed as `IReadOnlyCollection<T>`.                   |
+| UA014 | Collection properties must use read-only collection types             | Collection properties on model/QueryResult types must expose a read-only collection contract or a recognized immutable collection type. |
 | UA015 | Models with mutable string properties must implement IUmbrellaTrimmable | When `IUmbrellaTrimmable` is present in the compilation, model classes and records with public instance `string` properties that have a non-init setter must implement the interface. Inherited mutable string properties are included. Partial types can use source generation; non-partial types can provide the implementation manually. |
 | UA017 | Use [UmbrellaProducesResponseType] instead of [ProducesResponseType]  | Controller classes and public MVC action candidates on `UmbrellaApiController` descendants must use the generic or non-generic `[UmbrellaProducesResponseType]` attribute rather than raw ASP.NET Core response type attributes. Generated, static, non-public, generic, `[NonAction]`, and `[NonController]` code is excluded. |
 | UA018 | Authorization handlers must not call context.Fail()                   | Authorization handlers must call `context.Succeed(requirement)` only for approved cases and otherwise leave the requirement unsatisfied so another handler can still approve it. |
@@ -44,7 +44,7 @@ When a justified exception is needed, apply one of these attributes (all require
 | `[UmbrellaAllowOptionalProperty("reason")]` | Allows a property without `required` (UA012) |
 | `[UmbrellaAllowLateInitialization("reason")]` | Like above, but signals the property is set post-construction |
 | `[UmbrellaAllowMutableProperty("reason")]` | Allows a `set` accessor instead of `init` (UA013) |
-| `[UmbrellaAllowMutableCollection("reason")]` | Allows a mutable collection type instead of `IReadOnlyCollection<T>` (UA014) |
+| `[UmbrellaAllowMutableCollection("reason")]` | Allows a mutable collection property when mutation is genuinely required (UA014) |
 
 ### Severity
 UA001–UA014, UA018, UA020, and UA021 emit diagnostics as `Error` so builds fail until issues are resolved. UA015, UA017, and UA019 emit as `Warning` — they flag structural issues but do not block the build by default. Adjust severities via ruleset / .editorconfig if you need a different adoption path.
