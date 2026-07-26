@@ -119,28 +119,38 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 		context.EnableConcurrentExecution();
 
-		context.RegisterSyntaxNodeAction(AnalyzeTypeDeclaration, SyntaxKind.ClassDeclaration, SyntaxKind.RecordDeclaration);
-		context.RegisterSyntaxNodeAction(AnalyzePropertyDeclaration, SyntaxKind.PropertyDeclaration);
-
 		context.RegisterCompilationStartAction(startContext =>
 		{
+			INamedTypeSymbol? razorPageModelSymbol = startContext.Compilation.GetTypeByMetadataName(
+				"Microsoft.AspNetCore.Mvc.RazorPages.PageModel");
 			INamedTypeSymbol? trimmableSymbol = startContext.Compilation.GetTypeByMetadataName("Umbrella.Utilities.Text.IUmbrellaTrimmable");
+
+			startContext.RegisterSyntaxNodeAction(
+				ctx => AnalyzeTypeDeclaration(ctx, razorPageModelSymbol),
+				SyntaxKind.ClassDeclaration,
+				SyntaxKind.RecordDeclaration);
+			startContext.RegisterSyntaxNodeAction(
+				ctx => AnalyzePropertyDeclaration(ctx, razorPageModelSymbol),
+				SyntaxKind.PropertyDeclaration);
+
 			if (trimmableSymbol is null)
 				return;
 
 			startContext.RegisterSyntaxNodeAction(
-				ctx => AnalyzeModelForTrimmingRequirements(ctx, trimmableSymbol),
+				ctx => AnalyzeModelForTrimmingRequirements(ctx, trimmableSymbol, razorPageModelSymbol),
 				SyntaxKind.ClassDeclaration,
 				SyntaxKind.RecordDeclaration);
 		});
 	}
 
-	private void AnalyzeTypeDeclaration(SyntaxNodeAnalysisContext context)
+	private static void AnalyzeTypeDeclaration(
+		SyntaxNodeAnalysisContext context,
+		INamedTypeSymbol? razorPageModelSymbol)
 	{
 		if (context.Node is not TypeDeclarationSyntax typeDecl)
 			return;
 
-		if (!IsModelType(typeDecl.Identifier.Text))
+		if (!IsApplicableModelType(typeDecl, context.SemanticModel, razorPageModelSymbol))
 			return;
 
 		if (HasOptOutAttribute(typeDecl, context.SemanticModel, "UmbrellaExcludeFromModelStandardsAttribute"))
@@ -153,13 +163,18 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		}
 	}
 
-	private void AnalyzePropertyDeclaration(SyntaxNodeAnalysisContext context)
+	private static void AnalyzePropertyDeclaration(
+		SyntaxNodeAnalysisContext context,
+		INamedTypeSymbol? razorPageModelSymbol)
 	{
 		var propertyDecl = (PropertyDeclarationSyntax)context.Node;
 
 		var typeDecl = propertyDecl.FirstAncestorOrSelf<TypeDeclarationSyntax>();
-		if (typeDecl == null || !IsModelType(typeDecl.Identifier.Text))
+		if (typeDecl is null ||
+			!IsApplicableModelType(typeDecl, context.SemanticModel, razorPageModelSymbol))
+		{
 			return;
+		}
 
 		if (HasOptOutAttribute(typeDecl, context.SemanticModel, "UmbrellaExcludeFromModelStandardsAttribute"))
 			return;
@@ -198,11 +213,14 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		}
 	}
 
-	private static void AnalyzeModelForTrimmingRequirements(SyntaxNodeAnalysisContext context, INamedTypeSymbol trimmableSymbol)
+	private static void AnalyzeModelForTrimmingRequirements(
+		SyntaxNodeAnalysisContext context,
+		INamedTypeSymbol trimmableSymbol,
+		INamedTypeSymbol? razorPageModelSymbol)
 	{
 		var typeDecl = (TypeDeclarationSyntax)context.Node;
 
-		if (!IsModelType(typeDecl.Identifier.Text))
+		if (!IsApplicableModelType(typeDecl, context.SemanticModel, razorPageModelSymbol))
 			return;
 
 		if (HasOptOutAttribute(typeDecl, context.SemanticModel, "UmbrellaExcludeFromModelStandardsAttribute"))
@@ -253,6 +271,31 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			   typeName.EndsWith("ViewModel", StringComparison.Ordinal) ||
 			   typeName.EndsWith("ViewModelBase", StringComparison.Ordinal) ||
 			   typeName.EndsWith("QueryResult", StringComparison.Ordinal);
+	}
+
+	private static bool IsApplicableModelType(
+		TypeDeclarationSyntax typeDeclaration,
+		SemanticModel semanticModel,
+		INamedTypeSymbol? razorPageModelSymbol)
+	{
+		if (!IsModelType(typeDeclaration.Identifier.Text))
+			return false;
+
+		if (razorPageModelSymbol is null ||
+			semanticModel.GetDeclaredSymbol(typeDeclaration) is not INamedTypeSymbol typeSymbol)
+		{
+			return true;
+		}
+
+		for (INamedTypeSymbol? currentType = typeSymbol;
+			currentType is not null;
+			currentType = currentType.BaseType)
+		{
+			if (SymbolEqualityComparer.Default.Equals(currentType, razorPageModelSymbol))
+				return false;
+		}
+
+		return true;
 	}
 
 	private static bool HasRequiredModifier(PropertyDeclarationSyntax property) =>

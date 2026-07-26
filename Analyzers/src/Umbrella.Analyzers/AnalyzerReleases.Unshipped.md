@@ -15,7 +15,7 @@ UA007 | CodeStyle | Error | NonNullableCollectionReturnTypeAnalyzer
 UA008 | CodeStyle | Error | PublicMethodTryCatchAnalyzer — logger-owning operational methods require state-aware exception handling; bodyless/generated mappings and [DoesNotReturn] control-flow methods are excluded while developer-authored mapper bodies remain eligible
 UA009 | CodeStyle | Error | ParameterValidationPlacementAnalyzer
 UA010 | CodeStyle | Error | PrimaryConstructorUsageAnalyzer
-UA011 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model/QueryResult types must be records
+UA011 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model/QueryResult types must be records; ASP.NET Core Razor Pages PageModel descendants are excluded
 UA012 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model properties must use required
 UA013 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model properties must use { get; init; }
 UA014 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model collection properties must use IReadOnlyCollection&lt;T&gt;

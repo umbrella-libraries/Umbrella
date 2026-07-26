@@ -90,4 +90,96 @@ public record SlimCareerQueryResult
 }";
 		await VerifyNoDiagnosticsAsync(source);
 	}
+
+	[Fact]
+	public async Task RazorPageModelDescendant_ShouldNotTriggerModelStandardsDiagnostics()
+	{
+		const string source = """
+namespace Microsoft.AspNetCore.Mvc.RazorPages
+{
+	public abstract class PageModel
+	{
+	}
+}
+
+namespace TestProject
+{
+	using Microsoft.AspNetCore.Mvc.RazorPages;
+
+	public abstract class ApplicationPageModel : PageModel
+	{
+		public string MutableValue { get; set; } = "";
+	}
+
+	public sealed class AccountPageModel : ApplicationPageModel
+	{
+		public string AnotherMutableValue { get; set; } = "";
+	}
+}
+""";
+
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task SimilarlyNamedNonRazorPageBase_ShouldNotBeExcluded()
+	{
+		const string source = """
+namespace Contoso
+{
+	public abstract class PageModel
+	{
+	}
+}
+
+namespace TestProject
+{
+	public class AccountModel : Contoso.PageModel
+	{
+	}
+}
+""";
+
+		await VerifyAnalyzerAsync(
+			source,
+			Diagnostic(UmbrellaModelStandardsAnalyzer.ModelMustBeRecordRule, 3, 24, "PageModel"),
+			Diagnostic(UmbrellaModelStandardsAnalyzer.ModelMustBeRecordRule, 10, 15, "AccountModel"));
+	}
+
+	[Fact]
+	public async Task NestedUiStateModel_ShouldTriggerDiagnostic()
+	{
+		const string source = """
+namespace TestProject;
+
+public class QuizPage
+{
+	protected class QuizQuestionModel
+	{
+	}
+}
+""";
+
+		await VerifyAnalyzerAsync(
+			source,
+			Diagnostic(UmbrellaModelStandardsAnalyzer.ModelMustBeRecordRule, 5, 18, "QuizQuestionModel"));
+	}
+
+	[Fact]
+	public async Task PaginatedModelClass_ShouldTriggerDiagnostic()
+	{
+		const string source = """
+namespace TestProject;
+
+public abstract record PaginatedResult<T>;
+
+public class PaginatedUserModel : PaginatedResult<string>
+{
+}
+""";
+
+		await VerifyAnalyzerAsync(
+			source,
+			Diagnostic(UmbrellaModelStandardsAnalyzer.ModelMustBeRecordRule, 5, 14, "PaginatedUserModel"));
+	}
 }
