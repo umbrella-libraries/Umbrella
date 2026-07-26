@@ -22,7 +22,7 @@ UA014 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — mode
 UA015 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — model records must be partial when IUmbrellaTrimmable is present
 UA016 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — Create/Update model records with string properties must implement IUmbrellaTrimmable
 UA017 | UmbrellaApiStandards | Warning | UmbrellaApiStandardsAnalyzer — UmbrellaApiController subclasses must use generic or non-generic [UmbrellaProducesResponseType] attributes instead of raw ASP.NET Core response type attributes
-UA018 | UmbrellaSecurity | Error | AuthorizationHandlerAnalyzer — context.Fail() must not be called in HandleRequirementAsync
+UA018 | UmbrellaSecurity | Error | AuthorizationHandlerAnalyzer — authorization handlers must approve successful cases and must not call context.Fail()
 UA019 | Architecture | Warning | ControllerEndpointOverrideAnalyzer — overrides of public HTTP endpoints declared by Umbrella generic controller families must call the exact overridden base endpoint on every normal return path or use [NonAction]
 UA020 | DataAccess | Error | EntityQueryParameterAnalyzer — entity types must not be used as parameters to query/lookup methods
 UA021 | CodeStyle | Error | PublicMethodLoggerAnalyzer — types with public operational instance methods must provide an accessible ILogger
