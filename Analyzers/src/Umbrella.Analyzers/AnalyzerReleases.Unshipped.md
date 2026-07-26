@@ -21,7 +21,7 @@ UA013 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — mode
 UA014 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — model collection properties must use IReadOnlyCollection&lt;T&gt;
 UA015 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — model records must be partial when IUmbrellaTrimmable is present
 UA016 | UmbrellaModelStandards | Warning | UmbrellaModelStandardsAnalyzer — Create/Update model records with string properties must implement IUmbrellaTrimmable
-UA017 | UmbrellaApiStandards | Warning | UmbrellaApiStandardsAnalyzer — UmbrellaApiController subclasses must use [UmbrellaProducesResponseType] instead of [ProducesResponseType]
+UA017 | UmbrellaApiStandards | Warning | UmbrellaApiStandardsAnalyzer — UmbrellaApiController subclasses must use generic or non-generic [UmbrellaProducesResponseType] attributes instead of raw ASP.NET Core response type attributes
 UA018 | UmbrellaSecurity | Error | AuthorizationHandlerAnalyzer — context.Fail() must not be called in HandleRequirementAsync
 UA019 | Architecture | Warning | ControllerEndpointOverrideAnalyzer — controller CRUD endpoint overrides must call base method or be suppressed with [NonAction]
 UA020 | DataAccess | Error | EntityQueryParameterAnalyzer — entity types must not be used as parameters to query/lookup methods
