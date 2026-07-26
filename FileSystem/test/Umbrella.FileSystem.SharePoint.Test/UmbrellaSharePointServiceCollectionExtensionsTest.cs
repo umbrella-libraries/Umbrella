@@ -28,9 +28,9 @@ public class UmbrellaSharePointServiceCollectionExtensionsTest
 		IUmbrellaFileStorageProvider defaultProvider = serviceProvider.GetRequiredService<IUmbrellaFileStorageProvider>();
 		IUmbrellaFileStorageProviderOptions providerOptions = serviceProvider.GetRequiredService<IUmbrellaFileStorageProviderOptions>();
 
-		Assert.IsType<UmbrellaSharePointFileStorageProvider>(sharePointProvider);
+		_ = Assert.IsType<UmbrellaSharePointFileStorageProvider>(sharePointProvider);
 		Assert.Same(sharePointProvider, defaultProvider);
-		Assert.IsType<UmbrellaSharePointFileStorageProviderOptions>(providerOptions);
+		_ = Assert.IsType<UmbrellaSharePointFileStorageProviderOptions>(providerOptions);
 	}
 
 	private sealed class FakeTokenCredential : TokenCredential

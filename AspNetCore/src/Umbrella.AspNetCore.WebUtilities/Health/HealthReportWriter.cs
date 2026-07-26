@@ -17,6 +17,9 @@ public static class HealthReportWriter
 	/// <returns>The task object representing the asynchronous operation.</returns>
 	public static Task WriteResponseAsJsonAsync(HttpContext context, HealthReport healthReport)
 	{
+		ArgumentNullException.ThrowIfNull(context);
+		ArgumentNullException.ThrowIfNull(healthReport);
+
 		context.Response.ContentType = "application/json; charset=utf-8";
 
 		var report = new HealthReportModel(

@@ -18,6 +18,9 @@ public static class UrlHelperExtensions
 	/// <returns>The generated URL.</returns>
 	public static string RouteWebApiUrl(this UrlHelper helper, string controller, IDictionary<string, object>? values = null, string routeName = "DefaultApi")
 	{
+		if (helper is null)
+			throw new ArgumentNullException(nameof(helper));
+
 		values ??= new Dictionary<string, object>();
 
 		values.Add("httproute", "");

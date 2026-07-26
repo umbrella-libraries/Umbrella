@@ -52,6 +52,10 @@ public readonly struct RequestNotificationHandlerExclusion : IEquatable<RequestN
 	public bool Equals(RequestNotificationHandlerExclusion other) => Path == other.Path && EqualityComparer<HttpMethod>.Default.Equals(Method, other.Method);
 
 	/// <inheritdoc />
+#if NET8_0_OR_GREATER
+	public override int GetHashCode() => HashCode.Combine(Path, Method);
+#else
+#pragma warning disable IDE0070 // HashCode.Combine is unavailable on the legacy target frameworks.
 	public override int GetHashCode()
 	{
 		int hashCode = -1266948330;
@@ -59,6 +63,8 @@ public readonly struct RequestNotificationHandlerExclusion : IEquatable<RequestN
 		hashCode = (hashCode * -1521134295) + EqualityComparer<HttpMethod>.Default.GetHashCode(Method);
 		return hashCode;
 	}
+#pragma warning restore IDE0070
+#endif
 
 	/// <summary>
 	/// Implements the operator ==.

@@ -13,6 +13,13 @@ public class UmbrellaFileSystemException : UmbrellaException
 	/// <summary>
 	/// Initializes a new instance of the <see cref="UmbrellaFileSystemException"/> class.
 	/// </summary>
+	public UmbrellaFileSystemException()
+	{
+	}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="UmbrellaFileSystemException"/> class.
+	/// </summary>
 	/// <param name="message">The message that describes the error.</param>
 	public UmbrellaFileSystemException(string message)
 		: base(message)

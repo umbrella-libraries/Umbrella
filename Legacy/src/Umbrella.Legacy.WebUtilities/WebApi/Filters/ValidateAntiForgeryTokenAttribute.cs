@@ -13,6 +13,9 @@ public sealed class ValidateAntiForgeryTokenAttribute : ActionFilterAttribute
 	/// <inheritdoc/>
 	public override void OnActionExecuting(System.Web.Http.Controllers.HttpActionContext actionContext)
 	{
+		if (actionContext is null)
+			throw new ArgumentNullException(nameof(actionContext));
+
 		string cookieToken = "";
 		string formToken = "";
 

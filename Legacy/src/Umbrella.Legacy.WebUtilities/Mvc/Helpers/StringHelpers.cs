@@ -16,5 +16,10 @@ public static class StringHelpers
 	/// <param name="value">The value.</param>
 	/// <returns>The updated HTML.</returns>
 	public static IHtmlString Nl2Br(this HtmlHelper helper, string value)
-		=> helper.Raw(value.NormalizeNewLines().Replace("\r\n", "<br />"));
+	{
+		if (helper is null)
+			throw new ArgumentNullException(nameof(helper));
+
+		return helper.Raw(value.NormalizeNewLines().Replace("\r\n", "<br />"));
+	}
 }

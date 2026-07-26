@@ -41,8 +41,10 @@ public class UmbrellaException : Exception
 	/// </summary>
 	/// <param name="info">The <see cref="T:System.Runtime.Serialization.SerializationInfo"></see> that holds the serialized object data about the exception being thrown.</param>
 	/// <param name="context">The <see cref="T:System.Runtime.Serialization.StreamingContext"></see> that contains contextual information about the source or destination.</param>
+#pragma warning disable SYSLIB0051 // Retained for binary compatibility with existing serialized exceptions.
 	protected UmbrellaException(SerializationInfo info, StreamingContext context)
 		: base(info, context)
 	{
 	}
+#pragma warning restore SYSLIB0051
 }

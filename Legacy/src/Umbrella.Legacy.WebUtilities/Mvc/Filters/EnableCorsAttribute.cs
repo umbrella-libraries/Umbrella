@@ -43,6 +43,9 @@ public sealed class EnableCorsAttribute : ActionFilterAttribute
 	/// <inheritdoc />
 	public override void OnActionExecuting(ActionExecutingContext filterContext)
 	{
+		if (filterContext is null)
+			throw new ArgumentNullException(nameof(filterContext));
+
 		var response = filterContext.RequestContext.HttpContext.Response;
 
 		void TryAddStringHeader(string name, string? value)

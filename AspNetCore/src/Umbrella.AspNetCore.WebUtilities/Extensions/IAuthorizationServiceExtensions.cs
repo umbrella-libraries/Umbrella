@@ -21,6 +21,8 @@ public static class IAuthorizationServiceExtensions
 	public static async Task<bool> AuthorizeAllAsync<TResource>(this IAuthorizationService authorizationService, ClaimsPrincipal user, IEnumerable<TResource> resources, string policyName, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		ArgumentNullException.ThrowIfNull(authorizationService);
+		ArgumentNullException.ThrowIfNull(resources);
 
 		foreach (var item in resources)
 		{

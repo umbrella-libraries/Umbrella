@@ -469,7 +469,7 @@ public class UmbrellaDialogService : IUmbrellaDialogService
 
 		var result = (TResult)await instance.Result;
 
-		_active.Remove(entry);
+		_ = _active.Remove(entry);
 		OnChanged?.Invoke(this, EventArgs.Empty);
 
 		return result;

@@ -37,6 +37,8 @@ public class ApiExceptionMiddleware
 	/// <param name="context">The current <see cref="HttpContext"/>.</param>
 	public async Task InvokeAsync(HttpContext context)
 	{
+		ArgumentNullException.ThrowIfNull(context);
+
 		try
 		{
 			await _next(context);

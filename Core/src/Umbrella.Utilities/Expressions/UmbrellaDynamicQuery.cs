@@ -22,7 +22,11 @@ public static class UmbrellaDynamicQuery
 	{
 		Guard.IsNotNullOrWhiteSpace(selector, nameof(selector));
 
+#if NET5_0_OR_GREATER
+		if (!Enum.IsDefined(comparer))
+#else
 		if (!Enum.IsDefined(typeof(UmbrellaDynamicCompare), comparer))
+#endif
 			throw new ArgumentOutOfRangeException(nameof(comparer));
 
 		var target = Expression.Parameter(typeof(T));

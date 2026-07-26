@@ -27,7 +27,11 @@ public static class UmbrellaDynamicExpression
 		Guard.IsNotNull(target, nameof(target));
 		Guard.IsNotNullOrWhiteSpace(selector, nameof(selector));
 
+#if NET5_0_OR_GREATER
+		if (!Enum.IsDefined(comparer))
+#else
 		if (!Enum.IsDefined(typeof(UmbrellaDynamicCompare), comparer))
+#endif
 			throw new ArgumentOutOfRangeException(nameof(comparer));
 
 		var memberAccess = CreateMemberAccess(target, selector) ?? throw new InvalidOperationException("The memberAccess is null.");

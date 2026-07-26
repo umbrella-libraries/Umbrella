@@ -16,5 +16,11 @@ public class IEntityKeyComparer<TEntityKey> : IEqualityComparer<IEntity<TEntityK
 	public bool Equals(IEntity<TEntityKey>? x, IEntity<TEntityKey>? y) => x is null && y is null || (x is not null and not 0 && y is not null and not 0 && x.Id.Equals(y.Id));
 
 	/// <inheritdoc />
-	public int GetHashCode(IEntity<TEntityKey> obj) => obj.Id.GetHashCode();
+	public int GetHashCode(IEntity<TEntityKey> obj)
+	{
+		if (obj is null)
+			throw new ArgumentNullException(nameof(obj));
+
+		return obj.Id.GetHashCode();
+	}
 }

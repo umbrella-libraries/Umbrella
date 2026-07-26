@@ -307,6 +307,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		// Copying between file providers of different types should not be permitted. Might be possible in future.
+		Guard.IsNotNull(destinationFile);
 		Guard.IsOfType<UmbrellaAzureBlobFileInfo>(destinationFile);
 
 		try

@@ -42,7 +42,7 @@ public class UmbrellaDataverseFileStorageProviderOptionsTest
 		var options = BuildValidOptions();
 		options.DataverseClient = null!;
 
-		Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
+		_ = Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
 	}
 
 	[Theory]
@@ -54,7 +54,7 @@ public class UmbrellaDataverseFileStorageProviderOptionsTest
 		var options = BuildValidOptions();
 		options.TableName = value!;
 
-		Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
+		_ = Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
 	}
 
 	[Theory]
@@ -66,7 +66,7 @@ public class UmbrellaDataverseFileStorageProviderOptionsTest
 		var options = BuildValidOptions();
 		options.IdColumnName = value!;
 
-		Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
+		_ = Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
 	}
 
 	[Theory]
@@ -78,7 +78,7 @@ public class UmbrellaDataverseFileStorageProviderOptionsTest
 		var options = BuildValidOptions();
 		options.DataColumnName = value!;
 
-		Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
+		_ = Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
 	}
 
 	[Theory]
@@ -90,7 +90,7 @@ public class UmbrellaDataverseFileStorageProviderOptionsTest
 		var options = BuildValidOptions();
 		options.FileNameColumnName = value!;
 
-		Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
+		_ = Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
 	}
 
 	[Fact]
@@ -104,7 +104,7 @@ public class UmbrellaDataverseFileStorageProviderOptionsTest
 			LookupTableName = null, // missing
 		};
 
-		Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
+		_ = Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
 	}
 
 	[Fact]
@@ -118,7 +118,7 @@ public class UmbrellaDataverseFileStorageProviderOptionsTest
 			LookupTableName = null, // missing
 		};
 
-		Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
+		_ = Assert.IsAssignableFrom<ArgumentException>(Record.Exception(options.Validate));
 	}
 
 	[Fact]

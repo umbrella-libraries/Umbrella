@@ -86,7 +86,12 @@ public static class UmbrellaStatics
 	/// <param name="value">The value.</param>
 	/// <param name="useCamelCasingRules">if set to <see langword="true"/>, camel case will be used for property names.</param>
 	/// <returns>The JSON string.</returns>
-	public static string DefaultSerialize(object value, bool useCamelCasingRules) => JsonSerializer.Serialize(value, value.GetType(), useCamelCasingRules ? _camelCaseOptions : _defaultOptions);
+	public static string DefaultSerialize(object value, bool useCamelCasingRules)
+	{
+		Guard.IsNotNull(value);
+
+		return JsonSerializer.Serialize(value, value.GetType(), useCamelCasingRules ? _camelCaseOptions : _defaultOptions);
+	}
 
 	/// <summary>
 	/// Deserializes the JSON to the specified type <paramref name="type"/>.

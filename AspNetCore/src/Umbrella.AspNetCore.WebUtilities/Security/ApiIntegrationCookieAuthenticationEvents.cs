@@ -41,6 +41,8 @@ public class ApiIntegrationCookieAuthenticationEvents : CookieAuthenticationEven
 	/// <inheritdoc />
 	public override Task RedirectToLogin(RedirectContext<CookieAuthenticationOptions> context)
 	{
+		ArgumentNullException.ThrowIfNull(context);
+
 		try
 		{
 			if (Options.ApiPathPrefixes.Any(x => context.Request.Path.StartsWithSegments(x, StringComparison.OrdinalIgnoreCase)) && context.Response.StatusCode is StatusCodes.Status200OK)
@@ -63,6 +65,8 @@ public class ApiIntegrationCookieAuthenticationEvents : CookieAuthenticationEven
 	/// <inheritdoc />
 	public override Task RedirectToAccessDenied(RedirectContext<CookieAuthenticationOptions> context)
 	{
+		ArgumentNullException.ThrowIfNull(context);
+
 		try
 		{
 			if (Options.ApiPathPrefixes.Any(x => context.Request.Path.StartsWithSegments(x, StringComparison.OrdinalIgnoreCase)) && context.Response.StatusCode is StatusCodes.Status200OK)

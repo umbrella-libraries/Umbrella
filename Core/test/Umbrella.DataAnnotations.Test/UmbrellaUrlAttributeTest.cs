@@ -3,13 +3,13 @@ namespace Umbrella.DataAnnotations.Test;
 
 public class UmbrellaUrlAttributeTest
 {
-	private class ModelNoSchemaRequired : ValidationModelBase<UmbrellaUrlAttribute>
+	private sealed class ModelNoSchemaRequired : ValidationModelBase<UmbrellaUrlAttribute>
 	{
 		[UmbrellaUrl]
 		public string? Value { get; set; }
 	}
 
-	private class ModelSchemaRequired : ValidationModelBase<UmbrellaUrlAttribute>
+	private sealed class ModelSchemaRequired : ValidationModelBase<UmbrellaUrlAttribute>
 	{
 		[UmbrellaUrl(true)]
 		public string? Value { get; set; }

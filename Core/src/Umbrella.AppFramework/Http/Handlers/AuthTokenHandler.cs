@@ -26,6 +26,8 @@ public class AuthTokenHandler : DelegatingHandler
 	protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		if (request is null)
+			throw new ArgumentNullException(nameof(request));
 
 		string? token = await _tokenStorageService.GetTokenAsync().ConfigureAwait(false);
 

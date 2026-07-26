@@ -25,6 +25,13 @@ public static class ApplicationInsightsLoggerFactoryExtensions
 		bool trackExceptionsAsExceptionTelemetry = true,
 		bool includeEventId = false)
 	{
+#if NET8_0_OR_GREATER
+		ArgumentNullException.ThrowIfNull(factory);
+#else
+		if (factory is null)
+			throw new ArgumentNullException(nameof(factory));
+#endif
+
 #pragma warning disable CA2000 // Dispose objects before losing scope
 		factory.AddProvider(new ApplicationInsightsLoggerProvider(telemetryClient, minLevel, trackExceptionsAsExceptionTelemetry, includeEventId));
 #pragma warning restore CA2000 // Dispose objects before losing scope

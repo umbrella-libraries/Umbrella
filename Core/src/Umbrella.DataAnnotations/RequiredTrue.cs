@@ -7,5 +7,14 @@ public sealed class RequiredTrueAttribute : ValidationAttribute
 {
 	/// <inheritdoc />
 	protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
-		=> value is true ? ValidationResult.Success : new ValidationResult(FormatErrorMessage(validationContext.DisplayName), !string.IsNullOrWhiteSpace(validationContext.MemberName) ? [validationContext!.MemberName] : Array.Empty<string>());
+	{
+		if (value is true)
+			return ValidationResult.Success;
+
+		string? memberName = validationContext?.MemberName;
+
+		return new ValidationResult(
+			FormatErrorMessage(validationContext?.DisplayName ?? string.Empty),
+			!string.IsNullOrWhiteSpace(memberName) ? [memberName!] : Array.Empty<string>());
+	}
 }

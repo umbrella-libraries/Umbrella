@@ -12,14 +12,14 @@ namespace Umbrella.DynamicImage.Abstractions;
 /// Contains utility methods for common operations performed by the Dynamic Image infrastructure.
 /// </summary>
 /// <seealso cref="IDynamicImageUtility" />
-public class DynamicImageUtility : IDynamicImageUtility
+public partial class DynamicImageUtility : IDynamicImageUtility
 {
 	private const string VirtualPathFormat = "~/{0}/{1}/{2}/{3}/{4}/{5}";
 	private const string VersionedVirtualPathFormat = "~/{0}/{1}/{2}/{3}/{4}/{5}/{6}";
 
 	private static readonly (DynamicImageParseUrlResult, DynamicImageOptions) _invalidParseUrlResult = (DynamicImageParseUrlResult.Invalid, default);
 	private static readonly (DynamicImageParseUrlResult, DynamicImageOptions) _skipParseUrlResult = (DynamicImageParseUrlResult.Skip, default);
-	private static readonly Regex _densityRegex = new("@([0-9]*)x$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+	private static readonly Regex _densityRegex = CreateDensityRegex();
 	private static readonly char[] _segmentSeparatorArray = ['/'];
 
 	/// <summary>
@@ -341,4 +341,11 @@ public class DynamicImageUtility : IDynamicImageUtility
 
 		return !string.IsNullOrWhiteSpace(versionToken);
 	}
+
+#if NET7_0_OR_GREATER
+	[GeneratedRegex("@([0-9]*)x$", RegexOptions.IgnoreCase)]
+	private static partial Regex CreateDensityRegex();
+#else
+	private static Regex CreateDensityRegex() => new("@([0-9]*)x$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+#endif
 }

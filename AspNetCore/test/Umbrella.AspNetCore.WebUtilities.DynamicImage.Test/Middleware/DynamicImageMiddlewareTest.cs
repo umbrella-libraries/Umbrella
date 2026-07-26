@@ -42,7 +42,7 @@ public class DynamicImageMiddlewareTest
 	public async Task InvokeAsync_AllowsRequest_WhenVariantsAddedViaHelper()
 	{
 		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
-		fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync((IUmbrellaFileInfo?)null);
+		_ = fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync((IUmbrellaFileInfo?)null);
 		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
 		_ = options.AddAllowedVariants(
 		[
@@ -108,7 +108,7 @@ public class DynamicImageMiddlewareTest
 	public async Task InvokeAsync_AllowsRuntimeFocalPoints_WhenWhitelistVariantMatches()
 	{
 		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
-		fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync((IUmbrellaFileInfo?)null);
+		_ = fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync((IUmbrellaFileInfo?)null);
 		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
 		options.EnableValidation = true;
 		options.AllowedVariants =
@@ -130,12 +130,12 @@ public class DynamicImageMiddlewareTest
 		DateTimeOffset lastModified = new(2026, 7, 14, 12, 0, 0, TimeSpan.Zero);
 		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
 		var file = new Mock<IUmbrellaFileInfo>(MockBehavior.Strict);
-		file.SetupGet(x => x.LastModified).Returns(lastModified);
-		file.SetupGet(x => x.Length).Returns(123L);
-		fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync(file.Object);
+		_ = file.SetupGet(x => x.LastModified).Returns(lastModified);
+		_ = file.SetupGet(x => x.Length).Returns(123L);
+		_ = fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync(file.Object);
 		var headerValueUtility = new Mock<IHttpHeaderValueUtility>(MockBehavior.Strict);
-		headerValueUtility.Setup(x => x.CreateLastModifiedHeaderValue(lastModified)).Returns("Mon, 14 Jul 2026 12:00:00 GMT");
-		headerValueUtility.Setup(x => x.CreateETagHeaderValue(lastModified, 123L)).Returns("\"abc123\"");
+		_ = headerValueUtility.Setup(x => x.CreateLastModifiedHeaderValue(lastModified)).Returns("Mon, 14 Jul 2026 12:00:00 GMT");
+		_ = headerValueUtility.Setup(x => x.CreateETagHeaderValue(lastModified, 123L)).Returns("\"abc123\"");
 		DynamicImageMiddleware middleware = CreateMiddleware(CreateOptions(fileProvider.Object), headerValueUtility.Object);
 		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/images/test.jpg?fpx=.25&fpy=.75&filter=first&filter=&encoded=%2Fimages%2Fhello%20world&flag");
 
@@ -150,8 +150,8 @@ public class DynamicImageMiddlewareTest
 	{
 		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
 		var file = new Mock<IUmbrellaFileInfo>(MockBehavior.Strict);
-		file.SetupGet(x => x.LastModified).Returns((DateTimeOffset?)null);
-		fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync(file.Object);
+		_ = file.SetupGet(x => x.LastModified).Returns((DateTimeOffset?)null);
+		_ = fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync(file.Object);
 		DynamicImageMiddleware middleware = CreateMiddleware(CreateOptions(fileProvider.Object));
 		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/{DynamicImageConstants.VersionTokenPathSegmentPrefix}abc123/images/test.jpg");
 

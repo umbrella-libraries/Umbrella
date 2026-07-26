@@ -40,6 +40,8 @@ public class DisabledInputTagHelper : TagHelper
 	/// <inheritdoc />
 	public override void Process(TagHelperContext context, TagHelperOutput output)
 	{
+		ArgumentNullException.ThrowIfNull(output);
+
 		try
 		{
 			if (Disabled)

@@ -14,7 +14,13 @@ public static class ClaimPrincipalExtensions
 	/// </summary>
 	/// <param name="principal">The principal.</param>
 	/// <returns>The file access token, if it exists; otherwise <see langword="null"/>.</returns>
-	public static string? GetFileAccessToken(this ClaimsPrincipal principal) => principal.FindFirst(UmbrellaAppClaimType.FileAccessToken)?.Value;
+	public static string? GetFileAccessToken(this ClaimsPrincipal principal)
+	{
+		if (principal is null)
+			throw new ArgumentNullException(nameof(principal));
+
+		return principal.FindFirst(UmbrellaAppClaimType.FileAccessToken)?.Value;
+	}
 
 	/// <summary>
 	/// Gets the refresh token expiration <see cref="DateTime"/> from the claims of the
@@ -24,6 +30,9 @@ public static class ClaimPrincipalExtensions
 	/// <returns>The token expiration if it exists; otherwise <see langword="null"/>.</returns>
 	public static DateTime? GetRefreshTokenExpiration(this ClaimsPrincipal principal)
 	{
+		if (principal is null)
+			throw new ArgumentNullException(nameof(principal));
+
 		string? strExpiration = principal.FindFirst(UmbrellaAppClaimType.RefreshTokenExpiration)?.Value;
 
 		return DateTime.TryParse(strExpiration, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out DateTime result)
@@ -45,6 +54,9 @@ public static class ClaimPrincipalExtensions
 	public static TAppRole GetPrimaryRole<TAppRole>(this ClaimsPrincipal principal)
 		where TAppRole : struct, Enum
 	{
+		if (principal is null)
+			throw new ArgumentNullException(nameof(principal));
+
 		string? value = principal.FindFirst(UmbrellaAppClaimType.PrimaryRole)?.Value;
 
 		if (string.IsNullOrWhiteSpace(value))

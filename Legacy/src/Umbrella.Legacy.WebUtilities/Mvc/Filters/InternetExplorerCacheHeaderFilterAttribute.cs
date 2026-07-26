@@ -14,6 +14,9 @@ public sealed class InternetExplorerCacheHeaderFilterAttribute : ActionFilterAtt
 	/// <inheritdoc />
 	public override void OnResultExecuted(ResultExecutedContext filterContext)
 	{
+		if (filterContext is null)
+			throw new ArgumentNullException(nameof(filterContext));
+
 		var response = filterContext.HttpContext.Response;
 
 		if (response.IsSuccessStatusCode())

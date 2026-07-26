@@ -35,6 +35,9 @@ public static class ImageHelpers
 	/// <returns>The generated <see cref="ResponsiveImageTag"/>.</returns>
 	public static ResponsiveImageTag ResponsiveImage(this HtmlHelper helper, string path, string altText, IDictionary<string, object>? htmlAttributes)
 	{
+		if (helper is null)
+			throw new ArgumentNullException(nameof(helper));
+
 		var urlHelper = new UrlHelper(helper.ViewContext.RequestContext);
 
 		return new ResponsiveImageTag(path, altText, htmlAttributes, urlHelper.Content);

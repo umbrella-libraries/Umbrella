@@ -29,7 +29,7 @@ public abstract class DataExpressionDescriptorModelBinder<TDescriptor> : DataExp
 	/// <inheritdoc />
 	protected override (object? modelResult, IReadOnlyCollection<TDescriptor> unmatchedItems) TransformDescriptors(Type underlyingOrModelType, IEnumerable<TDescriptor> descriptors) => descriptors switch
 	{
-		TDescriptor[] _ => (descriptors.Cast<TDescriptor>().ToArray(), Array.Empty<TDescriptor>()),
+		TDescriptor[] => (descriptors.Cast<TDescriptor>().ToArray(), Array.Empty<TDescriptor>()),
 		_ => (descriptors.Cast<TDescriptor>().ToList(), Array.Empty<TDescriptor>())
 	};
 }

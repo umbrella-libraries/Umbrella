@@ -16,7 +16,12 @@ public static class UrlHelperExtensions
 	/// <param name="contentPath">The content path.</param>
 	/// <returns></returns>
 	public static string ContentLower(this UrlHelper helper, string contentPath)
-		=> helper.Content(contentPath).ToLowerInvariant();
+	{
+		if (helper is null)
+			throw new ArgumentNullException(nameof(helper));
+
+		return helper.Content(contentPath).ToLowerInvariant();
+	}
 
 	/// <summary>
 	/// Converts the relative content path to an absolute URL.
@@ -28,7 +33,12 @@ public static class UrlHelperExtensions
 	/// <param name="portOverride">The port override.</param>
 	/// <returns>The absolute URL.</returns>
 	public static string ContentAbsolute(this UrlHelper helper, string contentPath, string? schemeOverride = null, string? hostOverride = null, int portOverride = 0)
-		=> contentPath.ToAbsoluteUrl(helper.RequestContext.HttpContext.Request.Url, schemeOverride, hostOverride, portOverride);
+	{
+		if (helper is null)
+			throw new ArgumentNullException(nameof(helper));
+
+		return contentPath.ToAbsoluteUrl(helper.RequestContext.HttpContext.Request.Url, schemeOverride, hostOverride, portOverride);
+	}
 
 	/// <summary>
 	/// Converts the relative content path to an absolute URL and then converts it to lowercase using

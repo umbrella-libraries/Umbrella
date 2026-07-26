@@ -10,7 +10,7 @@ namespace Umbrella.AspNetCore.DataAnnotations;
 /// is to enable client-side validation using the default validation mechanism built into ASP.NET Core.
 /// </summary>
 /// <seealso cref="IValidationAttributeAdapterProvider" />
-internal class UmbrellaValidationAttributeAdapterProvider : IValidationAttributeAdapterProvider
+internal sealed class UmbrellaValidationAttributeAdapterProvider : IValidationAttributeAdapterProvider
 {
 	#region Private Members
 	private readonly ValidationAttributeAdapterProvider _mvcFrameworkImplementation = new();

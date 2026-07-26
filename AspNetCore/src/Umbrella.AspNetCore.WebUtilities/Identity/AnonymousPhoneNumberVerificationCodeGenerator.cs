@@ -33,6 +33,8 @@ public class AnonymousPhoneNumberVerificationCodeGenerator<TUserManager, TUser, 
 		TUserManager userManager,
 		AnonymousPhoneNumberVerificationCodeGeneratorOptions options)
 	{
+		ArgumentNullException.ThrowIfNull(options);
+
 		_logger = logger;
 		_userManager = userManager;
 

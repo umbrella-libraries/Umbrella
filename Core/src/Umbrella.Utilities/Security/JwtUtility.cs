@@ -25,6 +25,8 @@ public class JwtUtility : IJwtUtility
 	/// <inheritdoc />
 	public IReadOnlyCollection<Claim> ParseClaimsFromJwt(string jwt, string roleClaimType = ClaimTypes.Role)
 	{
+		CommunityToolkit.Diagnostics.Guard.IsNotNull(jwt);
+
 		try
 		{
 			var claims = new List<Claim>();

@@ -10,7 +10,7 @@ namespace Umbrella.DataAccess.Abstractions;
 /// <typeparam name="TEntity">The type of the entity.</typeparam>
 public class IncludeMap<TEntity>
 {
-	private class IncludeMapExpressionEqualityComparer : EqualityComparer<Expression<Func<TEntity, object?>>>
+	private sealed class IncludeMapExpressionEqualityComparer : EqualityComparer<Expression<Func<TEntity, object?>>>
 	{
 		public override bool Equals(Expression<Func<TEntity, object?>>? x, Expression<Func<TEntity, object?>>? y)
 		{

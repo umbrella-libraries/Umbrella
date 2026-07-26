@@ -18,6 +18,8 @@ public abstract class DataExpressionModelBinderProvider<TModelBinder> : IModelBi
 	/// <inheritdoc />
 	public IModelBinder? GetBinder(ModelBinderProviderContext context)
 	{
+		ArgumentNullException.ThrowIfNull(context);
+
 		Type underlyingModelType = context.Metadata.UnderlyingOrModelType;
 
 		if (underlyingModelType.IsGenericType)

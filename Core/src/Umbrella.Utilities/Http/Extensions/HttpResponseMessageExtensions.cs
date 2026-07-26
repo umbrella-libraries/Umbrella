@@ -20,6 +20,7 @@ public static class HttpResponseMessageExtensions
 	public static async ValueTask LogResponseMessageDetailsAsync(this HttpResponseMessage responseMessage, ILogger logger, LogLevel logLevel, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		CommunityToolkit.Diagnostics.Guard.IsNotNull(responseMessage);
 
 		string? requestUri = responseMessage.RequestMessage?.RequestUri?.ToString();
 

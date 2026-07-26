@@ -16,6 +16,9 @@ public static class IEnumerableValidationResultExtensions
 	/// <returns></returns>
 	public static ModelStateDictionary ToModelStateDictionary(this IEnumerable<ValidationResult> validationResults)
 	{
+		if (validationResults is null)
+			throw new ArgumentNullException(nameof(validationResults));
+
 		var dictionary = new ModelStateDictionary();
 
 		foreach (var item in validationResults)

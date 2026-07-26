@@ -11,6 +11,13 @@ namespace Umbrella.FileSystem.Abstractions;
 public sealed class UmbrellaFileAccessDeniedException : UmbrellaFileSystemException
 {
 	/// <summary>
+	/// Initializes a new instance of the <see cref="UmbrellaFileAccessDeniedException"/> class.
+	/// </summary>
+	public UmbrellaFileAccessDeniedException()
+	{
+	}
+
+	/// <summary>
 	/// Gets the subpath.
 	/// </summary>
 	public string? Subpath { get; }

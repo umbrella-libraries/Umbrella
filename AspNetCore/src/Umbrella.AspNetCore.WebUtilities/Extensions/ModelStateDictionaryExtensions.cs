@@ -16,6 +16,9 @@ public static class ModelStateDictionaryExtensions
 	/// <param name="validationResults">The validation results.</param>
 	public static void AddValidationResults(this ModelStateDictionary modelState, IEnumerable<ValidationResult> validationResults)
 	{
+		ArgumentNullException.ThrowIfNull(modelState);
+		ArgumentNullException.ThrowIfNull(validationResults);
+
 		foreach (var item in validationResults)
 		{
 			var memberNames = item.MemberNames?.ToList();

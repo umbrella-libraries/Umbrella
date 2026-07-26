@@ -6,7 +6,7 @@ namespace Umbrella.DataAnnotations.RegularExpressions;
 /// <summary>
 /// Contains regular expressions for validating phone numbers.
 /// </summary>
-public static class PhoneRegularExpressions
+public static partial class PhoneRegularExpressions
 {
 	/// <summary>
 	/// A regular expression used to validate UK mobile numbers.
@@ -23,10 +23,22 @@ public static class PhoneRegularExpressions
 	/// <summary>
 	/// A regular expression used to validate UK mobile numbers.
 	/// </summary>
-	public static Regex UKMobileRegex { get; } = new(UKMobileRegexString, RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+	public static Regex UKMobileRegex { get; } = CreateUKMobileRegex();
 
 	/// <summary>
 	/// A regular expression used to validate UK phone numbers.
 	/// </summary>
-	public static Regex UKPhoneRegex { get; } = new(UKPhoneRegexString, RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+	public static Regex UKPhoneRegex { get; } = CreateUKPhoneRegex();
+
+#if NET8_0_OR_GREATER
+	[GeneratedRegex(UKMobileRegexString, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+	private static partial Regex CreateUKMobileRegex();
+
+	[GeneratedRegex(UKPhoneRegexString, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+	private static partial Regex CreateUKPhoneRegex();
+#else
+	private static Regex CreateUKMobileRegex() => new(UKMobileRegexString, RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+	private static Regex CreateUKPhoneRegex() => new(UKPhoneRegexString, RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+#endif
 }

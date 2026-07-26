@@ -63,7 +63,7 @@ public static class StringBuilderExtensions
 		int length = value.Length;
 		int num2 = sb.Length - length + 1;
 
-		if (ignoreCase == false)
+		if (!ignoreCase)
 		{
 			for (int i = startIndex; i < num2; i++)
 			{
@@ -207,6 +207,9 @@ public static class StringBuilderExtensions
 	/// <returns><see langword="true"/> if the specified <paramref name="sb"/> starts with <paramref name="test"/>; otherwise, <see langword="false"/>.</returns>
 	public static bool StartsWith(this StringBuilder sb, string test, StringComparison comparison)
 	{
+		Guard.IsNotNull(sb);
+		Guard.IsNotNull(test);
+
 		if (sb.Length < test.Length)
 			return false;
 
@@ -240,6 +243,9 @@ public static class StringBuilderExtensions
 	/// <returns><see langword="true"/> if the specified <paramref name="sb"/> ends with <paramref name="test"/>; otherwise, <see langword="false"/>.</returns>
 	public static bool EndsWith(this StringBuilder sb, string test, StringComparison comparison)
 	{
+		Guard.IsNotNull(sb);
+		Guard.IsNotNull(test);
+
 		if (sb.Length < test.Length)
 			return false;
 
@@ -256,6 +262,8 @@ public static class StringBuilderExtensions
 	/// <returns>The same instance as specified by <paramref name="value"/>.</returns>
 	public static StringBuilder ConvertHtmlBrTagsToReplacement(this StringBuilder value, string replacement)
 	{
+		Guard.IsNotNull(value);
+
 		// TODO: Use a Regex here to cope with multiple whitespaces better
 		_ = value.Replace("</br>", "")
 			.Replace("<br>", replacement)
@@ -275,6 +283,8 @@ public static class StringBuilderExtensions
 	/// <returns>The same instance as specified by <paramref name="builder"/>.</returns>
 	public static StringBuilder AppendLineWithTabIndent(this StringBuilder builder, string value, int tabCount)
 	{
+		Guard.IsNotNull(builder);
+
 		string tabs = _tabDictionary.GetOrAdd(tabCount, x => string.Join("", CreateTabArray(x)));
 
 #if NET6_0_OR_GREATER
@@ -289,14 +299,24 @@ public static class StringBuilderExtensions
 	/// </summary>
 	/// <param name="builder">The builder.</param>
 	/// <returns>The same instance of the <see cref="StringBuilder"/> with the preambles removed.</returns>
-	public static StringBuilder RemovePreambles(this StringBuilder builder) => builder.Replace(_preambleString, null);
+	public static StringBuilder RemovePreambles(this StringBuilder builder)
+	{
+		Guard.IsNotNull(builder);
+
+		return builder.Replace(_preambleString, null);
+	}
 
 	/// <summary>
 	/// Normalizes new line characters to ensure consistency between Windows and Unix platforms.
 	/// </summary>
 	/// <param name="builder">The builder.</param>
 	/// <returns>The same instance of the <see cref="StringBuilder"/> with the newlines normalized.</returns>
-	public static StringBuilder NormalizeNewLines(this StringBuilder builder) => builder.Replace("\r\n", "\n").Replace("\n", "\r\n");
+	public static StringBuilder NormalizeNewLines(this StringBuilder builder)
+	{
+		Guard.IsNotNull(builder);
+
+		return builder.Replace("\r\n", "\n").Replace("\n", "\r\n");
+	}
 
 	/// <summary>
 	/// Reduces the whitespace in the specified <paramref name="builder"/> by replacing multiple whitespace
@@ -306,6 +326,8 @@ public static class StringBuilderExtensions
 	/// <returns>The same instance of the <see cref="StringBuilder"/> with reduced whitespace.</returns>
 	public static StringBuilder ReduceWhitespace(this StringBuilder builder)
 	{
+		Guard.IsNotNull(builder);
+
 		StringBuilder? newString = new();
 
 		bool previousIsWhitespace = false;

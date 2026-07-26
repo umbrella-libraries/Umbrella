@@ -19,6 +19,9 @@ public static class Log4NetExtensions
 	[Obsolete("Use the overload that accepts ILoggingBuilder instead.")]
 	public static ILoggerFactory AddUmbrellaLog4Net(this ILoggerFactory loggerFactory, string contentRootPath, string configFileRelativePath)
 	{
+		if (loggerFactory is null)
+			throw new ArgumentNullException(nameof(loggerFactory));
+
 #pragma warning disable CA2000 // Dispose objects before losing scope
 		loggerFactory.AddProvider(new Log4NetProvider(contentRootPath, configFileRelativePath));
 #pragma warning restore CA2000 // Dispose objects before losing scope
@@ -36,6 +39,9 @@ public static class Log4NetExtensions
 	/// <returns>The instance of <see cref="ILoggingBuilder"/> with the log4net provider added to it.</returns>
 	public static ILoggingBuilder AddUmbrellaLog4Net(this ILoggingBuilder loggingBuilder, string contentRootPath, string configFileRelativePath)
 	{
+		if (loggingBuilder is null)
+			throw new ArgumentNullException(nameof(loggingBuilder));
+
 #pragma warning disable CA2000 // Dispose objects before losing scope
 		_ = loggingBuilder.AddProvider(new Log4NetProvider(contentRootPath, configFileRelativePath));
 #pragma warning restore CA2000 // Dispose objects before losing scope

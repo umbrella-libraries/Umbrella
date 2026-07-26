@@ -52,6 +52,8 @@ public abstract class DynamicImagePhysicalCache<TFileProvider> : DynamicImageCac
 	/// <inheritdoc />
 	public virtual async Task AddAsync(DynamicImageItem dynamicImage, CancellationToken cancellationToken = default)
 	{
+		CommunityToolkit.Diagnostics.Guard.IsNotNull(dynamicImage);
+
 		try
 		{
 			cancellationToken.ThrowIfCancellationRequested();

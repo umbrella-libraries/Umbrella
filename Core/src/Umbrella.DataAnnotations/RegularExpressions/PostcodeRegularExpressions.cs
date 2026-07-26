@@ -6,7 +6,7 @@ namespace Umbrella.DataAnnotations.RegularExpressions;
 /// <summary>
 /// Contains regular expressions for validating postcodes.
 /// </summary>
-public static class PostcodeRegularExpressions
+public static partial class PostcodeRegularExpressions
 {
 	/// <summary>
 	/// A regular expression used to validate UK postcodes.
@@ -23,10 +23,22 @@ public static class PostcodeRegularExpressions
 	/// <summary>
 	/// A regular expression used to validate UK postcodes.
 	/// </summary>
-	public static readonly Regex UKPostcodeRegex = new(UKPostcodeRegexString, RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+	public static readonly Regex UKPostcodeRegex = CreateUKPostcodeRegex();
 
 	/// <summary>
 	/// A regular expression used to partially validate UK postcodes, i.e. just the first part.
 	/// </summary>
-	public static readonly Regex UKPartialPostcodeRegex = new(UKPartialPostcodeRegexString, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+	public static readonly Regex UKPartialPostcodeRegex = CreateUKPartialPostcodeRegex();
+
+#if NET8_0_OR_GREATER
+	[GeneratedRegex(UKPostcodeRegexString, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+	private static partial Regex CreateUKPostcodeRegex();
+
+	[GeneratedRegex(UKPartialPostcodeRegexString, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+	private static partial Regex CreateUKPartialPostcodeRegex();
+#else
+	private static Regex CreateUKPostcodeRegex() => new(UKPostcodeRegexString, RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+	private static Regex CreateUKPartialPostcodeRegex() => new(UKPartialPostcodeRegexString, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+#endif
 }

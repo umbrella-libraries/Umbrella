@@ -45,6 +45,9 @@ public class FileSystemMiddleware : OwinMiddleware
 	/// <param name="context">The current <see cref="IOwinContext"/>.</param>
 	public override async Task Invoke(IOwinContext context)
 	{
+		if (context is null)
+			throw new ArgumentNullException(nameof(context));
+
 		context.Request.CallCancelled.ThrowIfCancellationRequested();
 
 		try

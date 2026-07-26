@@ -32,6 +32,9 @@ public static class AntiForgeryHelper
 	/// <returns>The token.</returns>
 	public static string GetAntiForgeryTokenValue(this IOwinContext context)
 	{
+		if (context is null)
+			throw new ArgumentNullException(nameof(context));
+
 		string value = context.Request.Cookies["_RequestVerificationToken"];
 
 		AntiForgery.GetTokens(value, out string cookieToken, out string formToken);

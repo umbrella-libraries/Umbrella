@@ -14,13 +14,13 @@ namespace Umbrella.FileSystem.Abstractions;
 /// </summary>
 /// <typeparam name="TFileInfo">The type of the file information.</typeparam>
 /// <typeparam name="TOptions">The type of the options.</typeparam>
-public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
+public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 	where TFileInfo : IUmbrellaFileInfo
 	where TOptions : UmbrellaFileStorageProviderOptionsBase
 {
 	#region Private Static Members
 	private static readonly char[] _subpathTrimCharacters = [' ', '\\', '/', '~', ' '];
-	private static readonly Regex _multipleSlashSelector = new("/+", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+	private static readonly Regex _multipleSlashSelector = CreateMultipleSlashSelector();
 	#endregion
 
 	#region Protected Properties
@@ -190,7 +190,7 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 				? throw new UmbrellaFileNotFoundException(sourceSubpath)
 				: await sourceFile.CopyAsync(destinationSubpath, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceSubpath, destinationSubpath }) && (exc is UmbrellaFileNotFoundException) == false)
+		catch (Exception exc) when (Logger.WriteError(exc, new { sourceSubpath, destinationSubpath }) && exc is not UmbrellaFileNotFoundException)
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -212,7 +212,7 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 				? throw new UmbrellaFileNotFoundException(destinationSubpath)
 				: await sourceFile.CopyAsync(destinationFile, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceFile, destinationSubpath }) && (exc is UmbrellaFileNotFoundException) == false)
+		catch (Exception exc) when (Logger.WriteError(exc, new { sourceFile, destinationSubpath }) && exc is not UmbrellaFileNotFoundException)
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -230,7 +230,7 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 		{
 			return await sourceFile.CopyAsync(destinationFile, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceFile, destinationFile }) && (exc is UmbrellaFileNotFoundException) == false)
+		catch (Exception exc) when (Logger.WriteError(exc, new { sourceFile, destinationFile }) && exc is not UmbrellaFileNotFoundException)
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -251,7 +251,7 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 				? throw new UmbrellaFileNotFoundException(sourceSubpath)
 				: await sourceFile.MoveAsync(destinationSubpath, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceSubpath, destinationSubpath }) && (exc is UmbrellaFileNotFoundException) == false)
+		catch (Exception exc) when (Logger.WriteError(exc, new { sourceSubpath, destinationSubpath }) && exc is not UmbrellaFileNotFoundException)
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -273,7 +273,7 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 				? throw new UmbrellaFileNotFoundException(destinationSubpath)
 				: await sourceFile.MoveAsync(destinationFile, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceFile, destinationSubpath }) && (exc is UmbrellaFileNotFoundException) == false)
+		catch (Exception exc) when (Logger.WriteError(exc, new { sourceFile, destinationSubpath }) && exc is not UmbrellaFileNotFoundException)
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -291,7 +291,7 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 		{
 			return await sourceFile.MoveAsync(destinationFile, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceFile, destinationFile }) && (exc is UmbrellaFileNotFoundException) == false)
+		catch (Exception exc) when (Logger.WriteError(exc, new { sourceFile, destinationFile }) && exc is not UmbrellaFileNotFoundException)
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -444,6 +444,13 @@ public abstract class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 	/// <returns>An awaitable Task that returns the file.</returns>
 	protected abstract Task<IUmbrellaFileInfo?> GetFileAsync(string subpath, bool isNew, CancellationToken cancellationToken);
 	#endregion
+
+#if NET7_0_OR_GREATER
+	[GeneratedRegex("/+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+	private static partial Regex CreateMultipleSlashSelector();
+#else
+	private static Regex CreateMultipleSlashSelector() => new("/+", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+#endif
 }
 
 /// <summary>

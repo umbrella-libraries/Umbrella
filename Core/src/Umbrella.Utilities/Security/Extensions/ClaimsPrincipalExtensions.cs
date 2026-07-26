@@ -2,6 +2,7 @@
 using System.Globalization;
 using System.Security.Claims;
 using System.Text;
+using CommunityToolkit.Diagnostics;
 using Umbrella.Utilities.Exceptions;
 using Umbrella.Utilities.Extensions;
 using Umbrella.Utilities.TypeConverters;
@@ -20,7 +21,11 @@ public static class ClaimsPrincipalExtensions
 	/// <param name="roleClaimType">Type of the role claim.</param>
 	/// <returns>The collection of roles.</returns>
 	public static IReadOnlyCollection<string> GetRoleNames(this ClaimsPrincipal principal, string roleClaimType = ClaimTypes.Role)
-		=> principal.Claims.Where(x => x.Type == roleClaimType).Select(x => x.Value).ToArray();
+	{
+		Guard.IsNotNull(principal);
+
+		return principal.Claims.Where(x => x.Type == roleClaimType).Select(x => x.Value).ToArray();
+	}
 
 	/// <summary>
 	/// Gets the full name.
@@ -31,6 +36,8 @@ public static class ClaimsPrincipalExtensions
 	/// <returns>The full name.</returns>
 	public static string? GetFullName(this ClaimsPrincipal principal, string givenNameClaimType = ClaimTypes.GivenName, string surnameClaimType = ClaimTypes.Surname)
 	{
+		Guard.IsNotNull(principal);
+
 		string? firstName = principal.FindFirst(givenNameClaimType)?.Value;
 		string? lastName = principal.FindFirst(surnameClaimType)?.Value;
 
@@ -46,7 +53,12 @@ public static class ClaimsPrincipalExtensions
 	/// <param name="principal">The principal.</param>
 	/// <param name="givenNameClaimType">Type of the given name claim.</param>
 	/// <returns>The first name.</returns>
-	public static string? GetFirstName(this ClaimsPrincipal principal, string givenNameClaimType = ClaimTypes.GivenName) => principal.FindFirst(givenNameClaimType)?.Value;
+	public static string? GetFirstName(this ClaimsPrincipal principal, string givenNameClaimType = ClaimTypes.GivenName)
+	{
+		Guard.IsNotNull(principal);
+
+		return principal.FindFirst(givenNameClaimType)?.Value;
+	}
 
 	/// <summary>
 	/// Gets the last name.
@@ -54,7 +66,12 @@ public static class ClaimsPrincipalExtensions
 	/// <param name="principal">The principal.</param>
 	/// <param name="surnameClaimType">Type of the surname claim.</param>
 	/// <returns>The last name.</returns>
-	public static string? GetLastName(this ClaimsPrincipal principal, string surnameClaimType = ClaimTypes.Surname) => principal.FindFirst(surnameClaimType)?.Value;
+	public static string? GetLastName(this ClaimsPrincipal principal, string surnameClaimType = ClaimTypes.Surname)
+	{
+		Guard.IsNotNull(principal);
+
+		return principal.FindFirst(surnameClaimType)?.Value;
+	}
 
 	/// <summary>
 	/// Gets the initials using the first and last name claims.
@@ -85,7 +102,12 @@ public static class ClaimsPrincipalExtensions
 	/// <param name="principal">The principal.</param>
 	/// <param name="mobilePhoneNumberClaimType">Type of the mobile phone number claim.</param>
 	/// <returns>The mobile phone number.</returns>
-	public static string? GetMobilePhoneNumber(this ClaimsPrincipal principal, string mobilePhoneNumberClaimType = ClaimTypes.MobilePhone) => principal.FindFirst(mobilePhoneNumberClaimType)?.Value;
+	public static string? GetMobilePhoneNumber(this ClaimsPrincipal principal, string mobilePhoneNumberClaimType = ClaimTypes.MobilePhone)
+	{
+		Guard.IsNotNull(principal);
+
+		return principal.FindFirst(mobilePhoneNumberClaimType)?.Value;
+	}
 
 	/// <summary>
 	/// Gets the identifier.
@@ -96,6 +118,8 @@ public static class ClaimsPrincipalExtensions
 	/// <returns>The identifier</returns>
 	public static TUserId GetId<TUserId>(this ClaimsPrincipal principal, string nameIdentifierClaimType = ClaimTypes.NameIdentifier)
 	{
+		Guard.IsNotNull(principal);
+
 		if (principal.Identity?.IsAuthenticated is not true)
 			return default!;
 
@@ -126,7 +150,11 @@ public static class ClaimsPrincipalExtensions
 	/// <returns><see langword="true"/> if yes; otherwise <see langword="false"/>.</returns>
 	public static bool IsInRole<TRole>(this ClaimsPrincipal principal, TRole roleType)
 		where TRole : struct, Enum
-		=> principal.IsInRole(roleType.ToString());
+	{
+		Guard.IsNotNull(principal);
+
+		return principal.IsInRole(roleType.ToString());
+	}
 
 	/// <summary>
 	/// Determines whether the current principal is in any of the specified <paramref name="roles"/>.
@@ -164,6 +192,8 @@ public static class ClaimsPrincipalExtensions
 	public static IReadOnlyCollection<TRole> GetRoles<TRole>(this ClaimsPrincipal principal, string roleClaimType = ClaimTypes.Role)
 		where TRole : struct, Enum
 	{
+		Guard.IsNotNull(principal);
+
 		var lstRole = new List<TRole>();
 
 		foreach (var roleClaim in principal.Claims.Where(x => x.Type == roleClaimType))
@@ -191,6 +221,8 @@ public static class ClaimsPrincipalExtensions
 	/// <returns>The conversion result.</returns>
 	public static T GetFirstValueOrDefault<T>(this ClaimsPrincipal claimsPrincipal, string claimType, Func<T> fallbackCreator, Func<string?, T>? customValueConverter = null)
 	{
+		Guard.IsNotNull(claimsPrincipal);
+
 		Claim? claim = claimsPrincipal.FindFirst(claimType);
 
 		return GenericTypeConverterHelper.Convert(claim?.Value, fallbackCreator, customValueConverter);
@@ -211,6 +243,8 @@ public static class ClaimsPrincipalExtensions
 	/// <returns>The conversion result.</returns>
 	public static T GetFirstValueOrDefault<T>(this ClaimsPrincipal claimsPrincipal, string claimType, T fallback = default!, Func<string?, T>? customValueConverter = null)
 	{
+		Guard.IsNotNull(claimsPrincipal);
+
 		Claim? claim = claimsPrincipal.FindFirst(claimType);
 
 		return GenericTypeConverterHelper.Convert(claim?.Value, fallback, customValueConverter);
@@ -227,6 +261,8 @@ public static class ClaimsPrincipalExtensions
 	public static T GetFirstEnumValueOrDefault<T>(this ClaimsPrincipal claimsPrincipal, string claimType, T fallback = default)
 		where T : struct, Enum
 	{
+		Guard.IsNotNull(claimsPrincipal);
+
 		Claim? claim = claimsPrincipal.FindFirst(claimType);
 
 		return GenericTypeConverterHelper.ConvertToEnum(claim?.Value, fallback);
@@ -242,7 +278,11 @@ public static class ClaimsPrincipalExtensions
 	/// <returns>The conversion result.</returns>
 	public static T? GetFirstNullableEnumValueOrDefault<T>(this ClaimsPrincipal claimsPrincipal, string claimType, T? fallback = null)
 		where T : struct, Enum
-		=> GenericTypeConverterHelper.ConvertToNullableEnum(claimsPrincipal.FindFirst(claimType)?.Value, fallback);
+	{
+		Guard.IsNotNull(claimsPrincipal);
+
+		return GenericTypeConverterHelper.ConvertToNullableEnum(claimsPrincipal.FindFirst(claimType)?.Value, fallback);
+	}
 
 	/// <summary>
 	/// Determines if a claim exists for the specified <paramref name="claimType"/> with a value of <see langword="true"/>.
@@ -251,5 +291,9 @@ public static class ClaimsPrincipalExtensions
 	/// <param name="claimType">The type of the claim.</param>
 	/// <returns><see langword="true"/> if a claim exists with a <see langword="true"/> value; otherwise <see langword="false"/>.</returns>
 	public static bool HasBooleanTrueClaim(this ClaimsPrincipal claimsPrincipal, string claimType)
-		=> claimsPrincipal.FindFirst(claimType)?.Value?.Equals(bool.TrueString, StringComparison.OrdinalIgnoreCase) is true;
+	{
+		Guard.IsNotNull(claimsPrincipal);
+
+		return claimsPrincipal.FindFirst(claimType)?.Value?.Equals(bool.TrueString, StringComparison.OrdinalIgnoreCase) is true;
+	}
 }

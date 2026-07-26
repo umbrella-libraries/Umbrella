@@ -8,7 +8,7 @@ public class UmbrellaDataverseMetadataColumnMappingTest
 	{
 		var mapping = new DataverseMetadataColumnMapping { ColumnName = "" };
 
-		Assert.IsAssignableFrom<ArgumentException>(Record.Exception(mapping.Validate));
+		_ = Assert.IsAssignableFrom<ArgumentException>(Record.Exception(mapping.Validate));
 	}
 
 	[Fact]
@@ -20,7 +20,7 @@ public class UmbrellaDataverseMetadataColumnMappingTest
 			ColumnType = DataverseMetadataColumnType.Lookup,
 		};
 
-		Assert.IsAssignableFrom<ArgumentException>(Record.Exception(mapping.Validate));
+		_ = Assert.IsAssignableFrom<ArgumentException>(Record.Exception(mapping.Validate));
 	}
 
 	[Fact]
@@ -32,7 +32,7 @@ public class UmbrellaDataverseMetadataColumnMappingTest
 			ColumnType = DataverseMetadataColumnType.Owner,
 		};
 
-		Assert.IsAssignableFrom<ArgumentException>(Record.Exception(mapping.Validate));
+		_ = Assert.IsAssignableFrom<ArgumentException>(Record.Exception(mapping.Validate));
 	}
 
 	[Fact]

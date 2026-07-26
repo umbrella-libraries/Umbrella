@@ -19,6 +19,11 @@ public class ArrayWrapperModelBinder : IModelBinder
 	/// <inheritdoc />
 	public bool BindModel(HttpActionContext actionContext, ModelBindingContext bindingContext)
 	{
+		if (actionContext is null)
+			throw new ArgumentNullException(nameof(actionContext));
+		if (bindingContext is null)
+			throw new ArgumentNullException(nameof(bindingContext));
+
 		if (typeof(IEnumerable).IsAssignableFrom(bindingContext.ModelType))
 		{
 			string? rawValue = null;

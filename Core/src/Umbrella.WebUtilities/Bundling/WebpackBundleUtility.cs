@@ -39,6 +39,8 @@ public class WebpackBundleUtility : BundleUtility<WebpackBundleUtilityOptions>, 
 		IUmbrellaWebHostingEnvironment hostingEnvironment)
 		: base(logger, options, hybridCache, cacheKeyUtility, hostingEnvironment)
 	{
+		Guard.IsNotNull(hostingEnvironment);
+
 		string? rootPath = hostingEnvironment.MapPath(Options.DefaultBundleFolderAppRelativePath, false);
 		Guard.IsNotNullOrWhiteSpace(rootPath);
 
@@ -118,6 +120,7 @@ public class WebpackBundleUtility : BundleUtility<WebpackBundleUtilityOptions>, 
 	protected override async Task<string> DetermineBundlePathAsync(string bundleNameOrPath, string bundleType, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		Guard.IsNotNull(bundleNameOrPath);
 
 		if (bundleNameOrPath.StartsWith("~", StringComparison.Ordinal) || bundleNameOrPath.StartsWith("/", StringComparison.Ordinal))
 			throw new ArgumentException("The path must not be app relative. It should just be the webpack bundle name.");

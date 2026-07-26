@@ -9,26 +9,31 @@ namespace Umbrella.Utilities.Extensions;
 /// <summary>
 /// Extension methods that operation on <see langword="string"/> instances.
 /// </summary>
-public static class StringExtensions
+public static partial class StringExtensions
 {
 	// lang=regex
 	private const string HtmlTagPattern = @"<.*?>";
 	// lang=regex
 	private const string EllipsisPattern = @"[\.]+$";
 
-	private static readonly Regex _htmlTagPatternRegex = new(HtmlTagPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-	private static readonly Regex _ellipsisPatternRegex = new(EllipsisPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+	private static readonly Regex _htmlTagPatternRegex = CreateHtmlTagPatternRegex();
+	private static readonly Regex _ellipsisPatternRegex = CreateEllipsisPatternRegex();
 
 	/// <summary>
 	/// Removes zero-width whitespace characters from the specified <paramref name="value"/>.
 	/// </summary>
 	/// <param name="value">The value.</param>
 	/// <returns>A new string with the preambles removed.</returns>
+	public static string RemovePreambles(this string value)
+	{
+		Guard.IsNotNull(value);
+
 #if NET6_0_OR_GREATER
-	public static string RemovePreambles(this string value) => value.Replace(StringEncodingConstants.PreambleString, null, StringComparison.Ordinal);
+		return value.Replace(StringEncodingConstants.PreambleString, null, StringComparison.Ordinal);
 #else
-	public static string RemovePreambles(this string value) => value.Replace(StringEncodingConstants.PreambleString, null);
+		return value.Replace(StringEncodingConstants.PreambleString, null);
 #endif
+	}
 
 	/// <summary>
 	/// Normalizes new line characters to ensure consistency between Windows and Unix platforms.
@@ -36,11 +41,16 @@ public static class StringExtensions
 	/// </summary>
 	/// <param name="value">The value.</param>
 	/// <returns>A new string with the new lines normalized.</returns>
+	public static string NormalizeNewLines(this string value)
+	{
+		Guard.IsNotNull(value);
+
 #if NET6_0_OR_GREATER
-	public static string NormalizeNewLines(this string value) => value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\r\n", StringComparison.Ordinal);
+		return value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\r\n", StringComparison.Ordinal);
 #else
-	public static string NormalizeNewLines(this string value) => value.Replace("\r\n", "\n").Replace("\n", "\r\n");
+		return value.Replace("\r\n", "\n").Replace("\n", "\r\n");
 #endif
+	}
 
 	/// <summary>
 	/// Normalizes new line characters in a HTML encoded string to ensure consistency between Windows and Unix platforms.
@@ -48,11 +58,16 @@ public static class StringExtensions
 	/// </summary>
 	/// <param name="encodedValue">The encoded value.</param>
 	/// <returns>A new HTML encoded string with the new lines normalized.</returns>
+	public static string NormalizeHtmlEncodedNewLines(this string encodedValue)
+	{
+		Guard.IsNotNull(encodedValue);
+
 #if NET6_0_OR_GREATER
-	public static string NormalizeHtmlEncodedNewLines(this string encodedValue) => encodedValue.Replace(StringEncodingConstants.HtmlEncodedCrLfToken, StringEncodingConstants.HtmlEncodedLfToken, StringComparison.Ordinal).Replace(StringEncodingConstants.HtmlEncodedLfToken, StringEncodingConstants.HtmlEncodedCrLfToken, StringComparison.Ordinal);
+		return encodedValue.Replace(StringEncodingConstants.HtmlEncodedCrLfToken, StringEncodingConstants.HtmlEncodedLfToken, StringComparison.Ordinal).Replace(StringEncodingConstants.HtmlEncodedLfToken, StringEncodingConstants.HtmlEncodedCrLfToken, StringComparison.Ordinal);
 #else
-	public static string NormalizeHtmlEncodedNewLines(this string encodedValue) => encodedValue.Replace(StringEncodingConstants.HtmlEncodedCrLfToken, StringEncodingConstants.HtmlEncodedLfToken).Replace(StringEncodingConstants.HtmlEncodedLfToken, StringEncodingConstants.HtmlEncodedCrLfToken);
+		return encodedValue.Replace(StringEncodingConstants.HtmlEncodedCrLfToken, StringEncodingConstants.HtmlEncodedLfToken).Replace(StringEncodingConstants.HtmlEncodedLfToken, StringEncodingConstants.HtmlEncodedCrLfToken);
 #endif
+	}
 
 	/// <summary>
 	/// Reduces the whitespace in the specified <paramref name="value"/> by replacing multiple whitespace
@@ -62,6 +77,8 @@ public static class StringExtensions
 	/// <returns>A new string with reduced whitespace.</returns>
 	public static string ReduceWhitespace(this string value)
 	{
+		Guard.IsNotNull(value);
+
 		var newString = new StringBuilder();
 
 		bool previousIsWhitespace = false;
@@ -374,4 +391,16 @@ public static class StringExtensions
 			return diff == 0;
 		}
 	}
+
+#if NET7_0_OR_GREATER
+	[GeneratedRegex(HtmlTagPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+	private static partial Regex CreateHtmlTagPatternRegex();
+
+	[GeneratedRegex(EllipsisPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+	private static partial Regex CreateEllipsisPatternRegex();
+#else
+	private static Regex CreateHtmlTagPatternRegex() => new(HtmlTagPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+	private static Regex CreateEllipsisPatternRegex() => new(EllipsisPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+#endif
 }

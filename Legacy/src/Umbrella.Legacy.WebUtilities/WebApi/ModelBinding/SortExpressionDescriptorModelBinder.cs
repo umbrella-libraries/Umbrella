@@ -26,6 +26,9 @@ public class SortExpressionDescriptorModelBinder : IModelBinder
 	/// </returns>
 	public bool BindModel(HttpActionContext actionContext, ModelBindingContext bindingContext)
 	{
+		if (bindingContext is null)
+			throw new ArgumentNullException(nameof(bindingContext));
+
 		if (bindingContext.ModelType == _descriptorType || _enumerableDescriptorType.IsAssignableFrom(bindingContext.ModelType))
 		{
 			ValueProviderResult val = bindingContext.ValueProvider.GetValue(bindingContext.ModelName);

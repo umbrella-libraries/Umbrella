@@ -2,18 +2,27 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using CommunityToolkit.Diagnostics;
 using Umbrella.AI.Tools.Models;
 
 namespace Umbrella.AI.Tools.Services;
 
-public sealed class AiBundleInstaller(string assetRoot, string installerPackageId, string installerVersion)
+public sealed partial class AiBundleInstaller(string assetRoot, string installerPackageId, string installerVersion)
 {
     private const string BundleDefinitionRelativePath = ".ai-shared\\bundles\\umbrella\\bundle.json";
     private readonly JsonSerializerOptions _serializerOptions = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
 
-    public OperationResult Install(CommandOptions options) => InstallOrUpdate(options, requireExistingManifest: false, operationName: "install");
+    public OperationResult Install(CommandOptions options)
+    {
+        Guard.IsNotNull(options);
+        return InstallOrUpdate(options, requireExistingManifest: false, operationName: "install");
+    }
 
-    public OperationResult Update(CommandOptions options) => InstallOrUpdate(options, requireExistingManifest: true, operationName: "update");
+    public OperationResult Update(CommandOptions options)
+    {
+        Guard.IsNotNull(options);
+        return InstallOrUpdate(options, requireExistingManifest: true, operationName: "update");
+    }
 
     public OperationResult Sync(string startDirectory)
     {
@@ -46,7 +55,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
                     string targetPath = Path.Combine(targetDirectory, relativeToSource);
                     string displayPath = NormalizePath(Path.Combine(target.Destination, relativeToSource));
                     var entry = new ManagedFileEntry(file, target.Substitutions);
-                    Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+                    _ = Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
                     bool updated = WriteFileIfChanged(targetPath, entry);
                     syncedFiles.Add((entry, targetPath, displayPath));
                     result.Messages.Add(updated ? $"Synced: {displayPath}" : $"Unchanged: {displayPath}");
@@ -69,7 +78,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
                     ? []
                     : ReadAgentMetadata(Path.Combine(repoRoot, NormalizePath(blockConfig.AgentsDirectory)));
                 string blockPath = Path.Combine(repoRoot, NormalizePath(blockConfig.TargetPath));
-                Directory.CreateDirectory(Path.GetDirectoryName(blockPath)!);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(blockPath)!);
                 File.WriteAllText(blockPath, GenerateSkillListBlock(skills, blockConfig.SkillsDirectory, agents, blockConfig.AgentsDirectory));
                 result.Messages.Add($"Generated: {NormalizePath(blockConfig.TargetPath)}");
             }
@@ -128,7 +137,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             }
 
             SaveMcpJson(mcpPath, mcpRoot);
-            Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
             File.WriteAllText(codexPath, updatedCodexConfig);
             result.Messages.Add($"Generated: {CodexMcpConfigManager.RelativePath}");
             result.Messages.Add("Synchronized generated mcpServers compatibility entries in .mcp.json.");
@@ -221,7 +230,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
                     break;
                 }
 
-                Match match = Regex.Match(line, @"^(\w+):\s*(.+?)\s*$");
+                Match match = FrontmatterPropertyRegex().Match(line);
                 if (match.Success)
                 {
                     string rawValue = match.Groups[2].Value;
@@ -291,7 +300,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
                 break;
             }
 
-            Match match = Regex.Match(line, @"^(\w+):\s*(.+?)\s*$");
+            Match match = FrontmatterPropertyRegex().Match(line);
             if (!match.Success)
             {
                 continue;
@@ -319,28 +328,28 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         string? agentsDirectory)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("## Umbrella Skills");
-        sb.AppendLine();
-        sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"The following skills are available in `{skillsDirectory}`. Read a skill's `SKILL.md` for full instructions before using it.");
-        sb.AppendLine();
+        _ = sb.AppendLine("## Umbrella Skills");
+        _ = sb.AppendLine();
+        _ = sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"The following skills are available in `{skillsDirectory}`. Read a skill's `SKILL.md` for full instructions before using it.");
+        _ = sb.AppendLine();
 
         foreach ((string name, string description) in skills)
         {
-            sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"- `{name}` -- {description}");
+            _ = sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"- `{name}` -- {description}");
         }
 
         if (agents.Count > 0 && !string.IsNullOrWhiteSpace(agentsDirectory))
         {
-            sb.AppendLine();
-            sb.AppendLine("## Umbrella Agents");
-            sb.AppendLine();
-            sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"The following agent playbooks are available in `{agentsDirectory}`. For a matching task, read the relevant playbook before starting work.");
-            sb.AppendLine();
+            _ = sb.AppendLine();
+            _ = sb.AppendLine("## Umbrella Agents");
+            _ = sb.AppendLine();
+            _ = sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"The following agent playbooks are available in `{agentsDirectory}`. For a matching task, read the relevant playbook before starting work.");
+            _ = sb.AppendLine();
 
             foreach ((string name, string description, string fileName) in agents)
             {
                 string agentPath = NormalizePath(Path.Combine(agentsDirectory, fileName));
-                sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"- `{name}` -- {description} Playbook: `{agentPath}`.");
+                _ = sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"- `{name}` -- {description} Playbook: `{agentPath}`.");
             }
         }
 
@@ -348,6 +357,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
     }
     public OperationResult GetStatus(CommandOptions options)
     {
+        Guard.IsNotNull(options);
         string targetRoot = ResolveTargetRoot(options.TargetPath);
         AiBundleDefinition bundle = LoadBundleDefinition();
         string manifestPath = GetManifestPath(targetRoot, bundle.BundleId);
@@ -449,6 +459,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
 
     public OperationResult Remove(CommandOptions options)
     {
+        Guard.IsNotNull(options);
         string targetRoot = ResolveTargetRoot(options.TargetPath);
         AiBundleDefinition bundle = LoadBundleDefinition();
         string manifestPath = GetManifestPath(targetRoot, bundle.BundleId);
@@ -645,7 +656,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         foreach ((string relativePath, ManagedFileEntry entry) in sourceFiles)
         {
             string targetPath = Path.Combine(targetRoot, relativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
             WriteFile(targetPath, entry);
             newManifest.ManagedFiles.Add(new PathHashRecord { Path = relativePath, Hash = HashUtility.ComputeFileHash(targetPath) });
             result.Messages.Add($"Managed file {operationName}ed: {relativePath}");
@@ -663,7 +674,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
         {
             string fragmentContent = ReadTextAsset(block.SourcePath);
             string targetPath = Path.Combine(targetRoot, NormalizePath(block.TargetPath));
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
             SetManagedBlock(targetPath, bundle.BundleId, fragmentContent);
             newManifest.ManagedBlocks.Add(new PathHashRecord { Path = NormalizePath(block.TargetPath), Hash = HashUtility.ComputeStringHash(fragmentContent.TrimEnd()) });
             result.Messages.Add($"Managed doc block {operationName}ed: {NormalizePath(block.TargetPath)}");
@@ -699,13 +710,13 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
 
         SaveMcpJson(targetMcpPath, targetMcpRoot);
 
-        Directory.CreateDirectory(Path.GetDirectoryName(targetCodexPath)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(targetCodexPath)!);
         File.WriteAllText(targetCodexPath, updatedCodexConfig);
         string codexManagedContent = CodexMcpConfigManager.RenderManagedContent(sourceServers);
         newManifest.ManagedCodexMcp = new PathHashRecord { Path = CodexMcpConfigManager.RelativePath, Hash = CodexMcpConfigManager.ComputeManagedHash(codexManagedContent) };
         result.Messages.Add($"Managed Codex MCP config {operationName}ed: {CodexMcpConfigManager.RelativePath}");
 
-        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(newManifest, _serializerOptions));
         result.Messages.Add($"Wrote manifest: {manifestPath}");
         result.Success = true;
@@ -976,7 +987,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
 
     private void CopyTextAsset(string relativePath, string targetPath)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
         File.Copy(ResolveAssetPath(relativePath), targetPath, overwrite: true);
     }
 
@@ -1117,7 +1128,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
 
     private static void SaveMcpJson(string mcpPath, JsonObject root)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(mcpPath)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(mcpPath)!);
         File.WriteAllText(mcpPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 
@@ -1143,4 +1154,7 @@ public sealed class AiBundleInstaller(string assetRoot, string installerPackageI
             directory = parent;
         }
     }
+
+    [GeneratedRegex(@"^(\w+):\s*(.+?)\s*$")]
+    private static partial Regex FrontmatterPropertyRegex();
 }

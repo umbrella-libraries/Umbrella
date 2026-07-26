@@ -2,7 +2,7 @@
 
 public static class UmbrellaDynamicExpressionTest
 {
-	private class TestType
+	private sealed class TestType
 	{
 		public int? NullableIntProperty { get; set; }
 		public int IntProperty { get; set; }

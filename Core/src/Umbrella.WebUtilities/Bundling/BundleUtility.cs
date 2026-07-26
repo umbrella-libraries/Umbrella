@@ -238,6 +238,8 @@ public abstract class BundleUtility<TOptions> : IBundleUtility
 	/// <returns>The bundle path.</returns>
 	protected virtual Task<string> DetermineBundlePathAsync(string bundleNameOrPath, string bundleType, CancellationToken cancellationToken)
 	{
+		Guard.IsNotNull(bundleNameOrPath);
+
 		if (Path.HasExtension(bundleNameOrPath))
 			bundleNameOrPath = bundleNameOrPath[..bundleNameOrPath.LastIndexOf('.')];
 

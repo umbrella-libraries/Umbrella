@@ -35,6 +35,8 @@ public sealed class DistributedRedisSynchronizationManager : ISynchronizationMan
 	public async ValueTask<ISynchronizationRoot> GetSynchronizationRootAndWaitAsync(Type type, string key, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		if (type is null)
+			throw new ArgumentNullException(nameof(type));
 
 		try
 		{

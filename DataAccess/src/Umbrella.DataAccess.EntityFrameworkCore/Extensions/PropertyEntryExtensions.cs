@@ -34,6 +34,6 @@ public static class PropertyEntryExtensions
 		if (currentValue is not null && originalValue is null)
 			return true;
 
-		return currentValue!.Equals(originalValue) is false;
+		return !currentValue!.Equals(originalValue);
 	}
 }

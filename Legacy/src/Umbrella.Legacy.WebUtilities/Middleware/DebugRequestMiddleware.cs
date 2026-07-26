@@ -35,6 +35,9 @@ public class DebugRequestMiddleware : OwinMiddleware
 	/// <returns>A <see cref="Task"/> which can be awaited whilst the middleware is invoked.</returns>
 	public override Task Invoke(IOwinContext context)
 	{
+		if (context is null)
+			throw new ArgumentNullException(nameof(context));
+
 		context.Request.CallCancelled.ThrowIfCancellationRequested();
 
 		try
