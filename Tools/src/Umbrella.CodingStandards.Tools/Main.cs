@@ -1,4 +1,6 @@
 ﻿using System.CommandLine;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Xml.Linq;
 
 namespace Umbrella.CodingStandards.Tools;
@@ -6,6 +8,7 @@ namespace Umbrella.CodingStandards.Tools;
 internal sealed class Main
 {
 	private const string CodingStandardsImportElement = "<Import Project=\"Umbrella.CodingStandards.props\" />";
+	private const string CodingStandardsCommandName = "UmbrellaCodingStandards";
 	private static readonly IReadOnlyCollection<string> _filesToCopy = [".editorconfig", ".filenesting.json", "Umbrella.CodingStandards.props", "Umbrella.CodingStandards.cmd"];
 
 #pragma warning disable CA1822 // Mark members as static
@@ -62,44 +65,79 @@ internal sealed class Main
 				if (document.Root is null)
 					throw new InvalidOperationException("The document root is null.");
 
-				if (!document.Root.Elements().Any(x => x.Name == "Import" && x.Attribute("Project")?.Value is "Umbrella.CodingStandards.props"))
+				XName importElementName = document.Root.Name.Namespace + "Import";
+
+				if (!document.Root.Elements(importElementName).Any(x => x.Attribute("Project")?.Value is "Umbrella.CodingStandards.props"))
 				{
-					var element = new XElement("Import", new XAttribute("Project", "Umbrella.CodingStandards.props"));
+					var element = new XElement(importElementName, new XAttribute("Project", "Umbrella.CodingStandards.props"));
 
 					document.Root.AddFirst(element);
 
-					using var sw = fiDirectoryBuildPropsPath.OpenWrite();
+					using FileStream sw = fiDirectoryBuildPropsPath.Create();
 					await document.SaveAsync(sw, SaveOptions.None, CancellationToken.None);
 				}
 			}
 
 			string commandsJsonPath = Path.Combine(outputDirectoryPath, "commands.json");
 
-			FileInfo fiCommandsJsonPath = new(commandsJsonPath);
+			JsonObject commandsJson;
 
-			if (!fiCommandsJsonPath.Exists)
+			if (File.Exists(commandsJsonPath))
 			{
-				using var sw = fiCommandsJsonPath.CreateText();
-				await sw.WriteAsync("""
-					{
-						"commands": {
-							"UmbrellaCodingStandards": {
-								"fileName": "cmd.exe",
-							"workingDirectory": ".",
-							"arguments": "/c Umbrella.CodingStandards.cmd"
-							}
-						},
-						"-vs-binding":{ "ProjectOpened":["UmbrellaCodingStandards"]}
-					}
-					""");
+				commandsJson = JsonNode.Parse(await File.ReadAllTextAsync(commandsJsonPath)) as JsonObject
+					?? throw new InvalidDataException($"The commands file '{commandsJsonPath}' must contain a JSON object.");
 			}
 			else
 			{
-				// TODO: Load the existing file and mutate.
+				commandsJson = [];
 			}
+
+			JsonObject commands = GetOrCreateObject(commandsJson, "commands");
+			commands[CodingStandardsCommandName] = new JsonObject
+			{
+				["fileName"] = "cmd.exe",
+				["workingDirectory"] = ".",
+				["arguments"] = "/c Umbrella.CodingStandards.cmd"
+			};
+
+			JsonObject bindings = GetOrCreateObject(commandsJson, "-vs-binding");
+			JsonArray projectOpenedBindings = GetOrCreateArray(bindings, "ProjectOpened");
+
+			if (!projectOpenedBindings.Any(x => x?.GetValue<string>() is CodingStandardsCommandName))
+				projectOpenedBindings.Add(CodingStandardsCommandName);
+
+			await File.WriteAllTextAsync(commandsJsonPath, commandsJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 		});
 
 		return await rootCommand.Parse(args).InvokeAsync();
+	}
+
+	private static JsonObject GetOrCreateObject(JsonObject parent, string propertyName)
+	{
+		if (parent[propertyName] is JsonObject value)
+			return value;
+
+		if (parent.ContainsKey(propertyName))
+			throw new InvalidDataException($"The '{propertyName}' property must contain a JSON object.");
+
+		var result = new JsonObject();
+		parent[propertyName] = result;
+
+		return result;
+	}
+
+	private static JsonArray GetOrCreateArray(JsonObject parent, string propertyName)
+	{
+		if (parent[propertyName] is JsonArray value)
+			return value;
+
+		if (parent.ContainsKey(propertyName))
+			throw new InvalidDataException($"The '{propertyName}' property must contain a JSON array.");
+
+		var result = new JsonArray();
+		parent[propertyName] = result;
+
+		return result;
 	}
 }
 

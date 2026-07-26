@@ -56,6 +56,92 @@ public class CodingStandardsToolTest
     }
 
     [Fact]
+    public void ToolAddsImportUsingExistingMsBuildNamespace()
+    {
+        using var workspace = new TemporaryWorkspace();
+        string directoryBuildPropsPath = Path.Combine(workspace.RootPath, "Directory.Build.props");
+        const string msBuildNamespace = "http://schemas.microsoft.com/developer/msbuild/2003";
+        File.WriteAllText(directoryBuildPropsPath, $"""
+            <Project xmlns="{msBuildNamespace}">
+                <PropertyGroup>
+                    <Test>true</Test>
+                </PropertyGroup>
+            </Project>
+            """);
+
+        ProcessResult result = RunTool(workspace.RootPath);
+
+        Assert.Equal(0, result.ExitCode);
+
+        var document = XDocument.Load(directoryBuildPropsPath);
+        XNamespace ns = msBuildNamespace;
+        int importCount = document.Root!.Elements(ns + "Import")
+            .Count(x => x.Attribute("Project")?.Value == "Umbrella.CodingStandards.props");
+
+        Assert.Equal(1, importCount);
+        Assert.DoesNotContain(document.Root.Elements(), x => x.Name.Namespace == XNamespace.None);
+    }
+
+    [Fact]
+    public void ToolTruncatesExistingDirectoryBuildPropsWhenRewriting()
+    {
+        using var workspace = new TemporaryWorkspace();
+        string directoryBuildPropsPath = Path.Combine(workspace.RootPath, "Directory.Build.props");
+        string encodedValue = string.Concat(Enumerable.Repeat("&#x41;", 1024));
+        string originalContent = $"<Project><PropertyGroup><Test>{encodedValue}</Test></PropertyGroup></Project>";
+        File.WriteAllText(directoryBuildPropsPath, originalContent);
+        long originalLength = new FileInfo(directoryBuildPropsPath).Length;
+
+        ProcessResult result = RunTool(workspace.RootPath);
+
+        Assert.Equal(0, result.ExitCode);
+        _ = XDocument.Load(directoryBuildPropsPath);
+        Assert.True(new FileInfo(directoryBuildPropsPath).Length < originalLength);
+    }
+
+    [Fact]
+    public void ToolMergesCommandIntoExistingCommandsJson()
+    {
+        using var workspace = new TemporaryWorkspace();
+        string commandsJsonPath = Path.Combine(workspace.RootPath, "commands.json");
+        File.WriteAllText(commandsJsonPath, """
+            {
+              "commands": {
+                "ExistingCommand": {
+                  "fileName": "pwsh.exe"
+                }
+              },
+              "-vs-binding": {
+                "ProjectOpened": [
+                  "ExistingCommand"
+                ]
+              },
+              "customProperty": true
+            }
+            """);
+
+        ProcessResult firstRun = RunTool(workspace.RootPath);
+        ProcessResult secondRun = RunTool(workspace.RootPath);
+
+        Assert.Equal(0, firstRun.ExitCode);
+        Assert.Equal(0, secondRun.ExitCode);
+
+        using var commands = JsonDocument.Parse(File.ReadAllText(commandsJsonPath));
+        JsonElement root = commands.RootElement;
+        Assert.Equal("pwsh.exe", root.GetProperty("commands").GetProperty("ExistingCommand").GetProperty("fileName").GetString());
+        Assert.Equal("/c Umbrella.CodingStandards.cmd", root.GetProperty("commands").GetProperty("UmbrellaCodingStandards").GetProperty("arguments").GetString());
+        Assert.True(root.GetProperty("customProperty").GetBoolean());
+
+        string[] projectOpenedBindings = root.GetProperty("-vs-binding").GetProperty("ProjectOpened")
+            .EnumerateArray()
+            .Select(x => x.GetString()!)
+            .ToArray();
+
+        Assert.Contains("ExistingCommand", projectOpenedBindings);
+        Assert.Equal(1, projectOpenedBindings.Count(x => x == "UmbrellaCodingStandards"));
+    }
+
+    [Fact]
     public void ToolReturnsNonZeroForMissingRootDirectory()
     {
         string missingRoot = Path.Combine(Path.GetTempPath(), "Umbrella.CodingStandards.Tools.Test", Guid.NewGuid().ToString("N"), "missing");
