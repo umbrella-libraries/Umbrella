@@ -1,24 +1,20 @@
 ﻿namespace Umbrella.Utilities.Data.Pagination;
 
-// TODO: Could this be a readonly struct?? Or even a record (not yet though!).
-// NO. Can't be either yet because we need to be able to deserialize JSON to it.
-// When we can full utilize .NET 5 we can do the above.
-
-// TODO: Create a PaginatedResultModel<T>.Empty inside Umbrella to avoid allocations. Can only do this
-// when it becomes readonly. Use C# 9 init too.
-
 /// <summary>
 /// Represents the result of a paginated query.
 /// </summary>
+/// <remarks>
+/// The pagination state exposed by this record must be initialized during construction, by using an object initializer, or by using a <c>with</c> expression.
+/// Types that derive from this type must also be records.
+/// </remarks>
 /// <typeparam name="TItem">The type of the item.</typeparam>
-public class PaginatedResultModel<TItem>
+public record PaginatedResultModel<TItem>
 {
 	/// <summary>
 	/// Initializes a new instance of the <see cref="PaginatedResultModel{TItem}"/> class.
 	/// </summary>
 	public PaginatedResultModel()
 	{
-		Items = Array.Empty<TItem>();
 	}
 
 	/// <summary>
@@ -34,31 +30,30 @@ public class PaginatedResultModel<TItem>
 		PageNumber = pageNumber;
 		PageSize = pageSize;
 		TotalCount = totalCount;
-		MoreItems = PageNumber * PageSize < TotalCount;
 	}
 
 	/// <summary>
 	/// Gets the items.
 	/// </summary>
-	public IReadOnlyCollection<TItem> Items { get; set; }
+	public IReadOnlyCollection<TItem> Items { get; init; } = Array.Empty<TItem>();
 
 	/// <summary>
 	/// Gets the page number.
 	/// </summary>
-	public int PageNumber { get; set; }
+	public int PageNumber { get; init; }
 
 	/// <summary>
 	/// Gets the size of the page.
 	/// </summary>
-	public int PageSize { get; set; }
+	public int PageSize { get; init; }
 
 	/// <summary>
 	/// Gets the total count.
 	/// </summary>
-	public int TotalCount { get; set; }
+	public int TotalCount { get; init; }
 
 	/// <summary>
 	/// Gets a value indicating whether there are more items that can be retrieved on subsequent pages.
 	/// </summary>
-	public bool MoreItems { get; set; }
+	public bool MoreItems => PageNumber * PageSize < TotalCount;
 }

@@ -8,7 +8,7 @@ namespace Umbrella.Utilities.Data.Abstractions;
 /// </summary>
 /// <typeparam name="TIdentifier">The type of the item identifier.</typeparam>
 /// <seealso cref="PaginatedResultModel{TItem}" />
-public class NoOpPaginatedResultModel<TIdentifier> : PaginatedResultModel<NoOpKeyedItem<TIdentifier>>
+public record NoOpPaginatedResultModel<TIdentifier> : PaginatedResultModel<NoOpKeyedItem<TIdentifier>>
 	where TIdentifier : IEquatable<TIdentifier>
 {
 }
