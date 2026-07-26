@@ -24,7 +24,7 @@ public class UmbrellaGenericRepositoryDataServiceApiControllerTest
 		public int Id { get; init; }
 	}
 
-	public sealed class TestPaginatedResultModel : PaginatedResultModel<TestSlimItem>
+	public sealed record TestPaginatedResultModel : PaginatedResultModel<TestSlimItem>
 	{
 	}
 

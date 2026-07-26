@@ -133,8 +133,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 				Items = mapReadAllEntitiesDelegate is null ? await Mapper.MapAllAsync<TEntityResult, TItemModel>(result.Items, cancellationToken).ConfigureAwait(false) : mapReadAllEntitiesDelegate(result.Items),
 				PageNumber = pageNumber,
 				PageSize = pageSize,
-				TotalCount = result.TotalCount,
-				MoreItems = pageNumber * pageSize < result.TotalCount
+				TotalCount = result.TotalCount
 			};
 
 			if (afterCreateSearchSlimPaginatedModelAsyncDelegate is not null)
