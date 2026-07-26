@@ -7,8 +7,8 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Umbrella.Analyzers;
 
 /// <summary>
-/// Ensures public instance methods on logger-owning types wrap their operational code in an outer try...catch block
-/// and log caught exceptions with relevant method state.
+/// Ensures eligible public instance methods on logger-owning types wrap their operational code in an outer try...catch
+/// block and log broad caught exceptions with relevant method state.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class PublicMethodTryCatchAnalyzer : DiagnosticAnalyzer
@@ -55,7 +55,8 @@ public sealed class PublicMethodTryCatchAnalyzer : DiagnosticAnalyzer
 		var methodDeclaration = (MethodDeclarationSyntax)context.Node;
 
 		if (context.SemanticModel.GetDeclaredSymbol(methodDeclaration, context.CancellationToken) is not IMethodSymbol methodSymbol ||
-			!analysis.IsEligible(methodSymbol))
+			!analysis.IsEligible(methodSymbol) ||
+			analysis.IsExempt(methodSymbol, methodDeclaration, context.SemanticModel, context.CancellationToken))
 		{
 			return;
 		}

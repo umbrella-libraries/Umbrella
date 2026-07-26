@@ -6,17 +6,38 @@ namespace Umbrella.Analyzers;
 
 internal sealed class PublicMethodExceptionHandlingAnalysis
 {
+	private const string ExceptionMetadataName = "System.Exception";
+	private const string IAsyncDisposableMetadataName = "System.IAsyncDisposable";
+	private const string IDisposableMetadataName = "System.IDisposable";
 	private const string ILoggerMetadataName = "Microsoft.Extensions.Logging.ILogger";
+	private const string NonActionAttributeMetadataName = "Microsoft.AspNetCore.Mvc.NonActionAttribute";
+	private const string RequestDelegateMetadataName = "Microsoft.AspNetCore.Http.RequestDelegate";
+	private const string TaskMetadataName = "System.Threading.Tasks.Task";
+	private const string ValueTaskMetadataName = "System.Threading.Tasks.ValueTask";
 
 	private readonly Compilation _compilation;
+	private readonly INamedTypeSymbol? _exceptionType;
+	private readonly INamedTypeSymbol? _iAsyncDisposableType;
+	private readonly INamedTypeSymbol? _iDisposableType;
 	private readonly INamedTypeSymbol? _loggerType;
+	private readonly INamedTypeSymbol? _nonActionAttributeType;
 	private readonly ParameterValidationAnalysis _parameterValidationAnalysis;
+	private readonly INamedTypeSymbol? _requestDelegateType;
+	private readonly INamedTypeSymbol? _taskType;
+	private readonly INamedTypeSymbol? _valueTaskType;
 
 	internal PublicMethodExceptionHandlingAnalysis(Compilation compilation)
 	{
 		_compilation = compilation;
+		_exceptionType = compilation.GetTypeByMetadataName(ExceptionMetadataName);
+		_iAsyncDisposableType = compilation.GetTypeByMetadataName(IAsyncDisposableMetadataName);
+		_iDisposableType = compilation.GetTypeByMetadataName(IDisposableMetadataName);
 		_loggerType = compilation.GetTypeByMetadataName(ILoggerMetadataName);
+		_nonActionAttributeType = compilation.GetTypeByMetadataName(NonActionAttributeMetadataName);
 		_parameterValidationAnalysis = new ParameterValidationAnalysis(compilation);
+		_requestDelegateType = compilation.GetTypeByMetadataName(RequestDelegateMetadataName);
+		_taskType = compilation.GetTypeByMetadataName(TaskMetadataName);
+		_valueTaskType = compilation.GetTypeByMetadataName(ValueTaskMetadataName);
 	}
 
 	internal bool IsEligible(IMethodSymbol methodSymbol)
@@ -32,6 +53,19 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 			HasAccessibleLogger(methodSymbol.ContainingType);
 	}
 
+	internal bool IsExempt(
+		IMethodSymbol methodSymbol,
+		MethodDeclarationSyntax methodDeclaration,
+		SemanticModel semanticModel,
+		CancellationToken cancellationToken)
+	{
+		return HasNonActionAttribute(methodSymbol) ||
+			IsMiddlewareEntryPoint(methodSymbol) ||
+			IsDisposalImplementation(methodSymbol) ||
+			IsDirectBaseForwarder(methodSymbol, methodDeclaration, semanticModel, cancellationToken) ||
+			IsTrivialNoOp(methodDeclaration, semanticModel, cancellationToken);
+	}
+
 	internal TryStatementSyntax? FindOuterTryStatement(
 		MethodDeclarationSyntax methodDeclaration,
 		SemanticModel semanticModel,
@@ -43,7 +77,8 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 		int index = 0;
 
 		while (index < body.Statements.Count &&
-			_parameterValidationAnalysis.IsValidationPreambleStatement(body.Statements[index], semanticModel, cancellationToken))
+			(_parameterValidationAnalysis.IsValidationPreambleStatement(body.Statements[index], semanticModel, cancellationToken) ||
+				IsSafeLocalDeclaration(body.Statements[index], semanticModel, cancellationToken)))
 		{
 			index++;
 		}
@@ -65,8 +100,229 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 
 		bool requiresState = methodSymbol.Parameters.Any(x => !_parameterValidationAnalysis.IsCancellationToken(x.Type));
 
-		return tryStatement.Catches.All(
-			x => ContainsRequiredLogging(x, semanticModel, requiresState, cancellationToken));
+		return tryStatement.Catches
+			.Where(x => RequiresLogging(x, semanticModel, cancellationToken))
+			.All(x => ContainsRequiredLogging(x, semanticModel, requiresState, cancellationToken));
+	}
+
+	private bool HasNonActionAttribute(IMethodSymbol methodSymbol)
+	{
+		if (_nonActionAttributeType is null)
+			return false;
+
+		return methodSymbol.GetAttributes().Any(
+			x => SymbolEqualityComparer.Default.Equals(x.AttributeClass, _nonActionAttributeType));
+	}
+
+	private bool IsMiddlewareEntryPoint(IMethodSymbol methodSymbol)
+	{
+		if (_requestDelegateType is null || methodSymbol.Name is not ("Invoke" or "InvokeAsync"))
+			return false;
+
+		return methodSymbol.ContainingType.InstanceConstructors
+			.SelectMany(x => x.Parameters)
+			.Any(x => SymbolEqualityComparer.Default.Equals(x.Type.OriginalDefinition, _requestDelegateType));
+	}
+
+	private bool IsDisposalImplementation(IMethodSymbol methodSymbol)
+	{
+		return IsInterfaceImplementation(methodSymbol, _iDisposableType, "Dispose") ||
+			IsInterfaceImplementation(methodSymbol, _iAsyncDisposableType, "DisposeAsync");
+	}
+
+	private static bool IsInterfaceImplementation(
+		IMethodSymbol methodSymbol,
+		INamedTypeSymbol? interfaceType,
+		string methodName)
+	{
+		if (interfaceType is null)
+			return false;
+
+		foreach (IMethodSymbol interfaceMethod in interfaceType.GetMembers(methodName).OfType<IMethodSymbol>())
+		{
+			ISymbol? implementation = methodSymbol.ContainingType.FindImplementationForInterfaceMember(interfaceMethod);
+
+			if (SymbolEqualityComparer.Default.Equals(implementation, methodSymbol))
+				return true;
+		}
+
+		return false;
+	}
+
+	private bool IsDirectBaseForwarder(
+		IMethodSymbol methodSymbol,
+		MethodDeclarationSyntax methodDeclaration,
+		SemanticModel semanticModel,
+		CancellationToken cancellationToken)
+	{
+		InvocationExpressionSyntax? invocation = GetForwardedInvocation(
+			methodDeclaration,
+			semanticModel,
+			cancellationToken);
+
+		if (invocation is null ||
+			semanticModel.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol targetMethod)
+		{
+			return false;
+		}
+
+		targetMethod = targetMethod.ReducedFrom ?? targetMethod;
+
+		if (!IsDeclaredOnBaseType(methodSymbol.ContainingType, targetMethod.ContainingType))
+			return false;
+
+		return methodSymbol.Parameters.All(
+			x => ReferencesParameter(invocation, x, semanticModel, cancellationToken));
+	}
+
+	private InvocationExpressionSyntax? GetForwardedInvocation(
+		MethodDeclarationSyntax methodDeclaration,
+		SemanticModel semanticModel,
+		CancellationToken cancellationToken)
+	{
+		ExpressionSyntax? expression = methodDeclaration.ExpressionBody?.Expression;
+
+		if (expression is null && methodDeclaration.Body is { } body)
+		{
+			int index = 0;
+
+			while (index < body.Statements.Count &&
+				_parameterValidationAnalysis.IsValidationPreambleStatement(body.Statements[index], semanticModel, cancellationToken))
+			{
+				index++;
+			}
+
+			if (index != body.Statements.Count - 1)
+				return null;
+
+			expression = body.Statements[index] switch
+			{
+				ReturnStatementSyntax returnStatement => returnStatement.Expression,
+				ExpressionStatementSyntax expressionStatement => expressionStatement.Expression,
+				_ => null
+			};
+		}
+
+		while (expression is AwaitExpressionSyntax awaitExpression)
+			expression = awaitExpression.Expression;
+
+		return expression as InvocationExpressionSyntax;
+	}
+
+	private static bool IsDeclaredOnBaseType(INamedTypeSymbol containingType, INamedTypeSymbol targetContainingType)
+	{
+		for (INamedTypeSymbol? baseType = containingType.BaseType; baseType is not null; baseType = baseType.BaseType)
+		{
+			if (SymbolEqualityComparer.Default.Equals(
+				baseType.OriginalDefinition,
+				targetContainingType.OriginalDefinition))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private static bool ReferencesParameter(
+		SyntaxNode node,
+		IParameterSymbol parameter,
+		SemanticModel semanticModel,
+		CancellationToken cancellationToken)
+	{
+		foreach (IdentifierNameSyntax identifier in node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+		{
+			if (SymbolEqualityComparer.Default.Equals(
+				semanticModel.GetSymbolInfo(identifier, cancellationToken).Symbol,
+				parameter))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private bool IsTrivialNoOp(
+		MethodDeclarationSyntax methodDeclaration,
+		SemanticModel semanticModel,
+		CancellationToken cancellationToken)
+	{
+		if (methodDeclaration.ExpressionBody is { Expression: { } expression })
+			return IsTrivialExpression(expression, semanticModel, cancellationToken);
+
+		if (methodDeclaration.Body is not { } body)
+			return false;
+
+		int index = 0;
+
+		while (index < body.Statements.Count &&
+			_parameterValidationAnalysis.IsValidationPreambleStatement(body.Statements[index], semanticModel, cancellationToken))
+		{
+			index++;
+		}
+
+		if (index == body.Statements.Count)
+			return true;
+
+		return index == body.Statements.Count - 1 &&
+			body.Statements[index] is ReturnStatementSyntax returnStatement &&
+			(returnStatement.Expression is null ||
+				IsTrivialExpression(returnStatement.Expression, semanticModel, cancellationToken));
+	}
+
+	private bool IsTrivialExpression(
+		ExpressionSyntax expression,
+		SemanticModel semanticModel,
+		CancellationToken cancellationToken)
+	{
+		if (semanticModel.GetConstantValue(expression, cancellationToken).HasValue ||
+			expression is DefaultExpressionSyntax)
+		{
+			return true;
+		}
+
+		if (semanticModel.GetSymbolInfo(expression, cancellationToken).Symbol is not IPropertySymbol property ||
+			property.Name != "CompletedTask")
+		{
+			return false;
+		}
+
+		return SymbolEqualityComparer.Default.Equals(property.ContainingType.OriginalDefinition, _taskType) ||
+			SymbolEqualityComparer.Default.Equals(property.ContainingType.OriginalDefinition, _valueTaskType);
+	}
+
+	private static bool IsSafeLocalDeclaration(
+		StatementSyntax statement,
+		SemanticModel semanticModel,
+		CancellationToken cancellationToken)
+	{
+		if (statement is not LocalDeclarationStatementSyntax localDeclaration ||
+			!localDeclaration.UsingKeyword.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.None) ||
+			!localDeclaration.AwaitKeyword.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.None))
+		{
+			return false;
+		}
+
+		return localDeclaration.Declaration.Variables.All(
+			x => x.Initializer is null ||
+				x.Initializer.Value is DefaultExpressionSyntax ||
+				semanticModel.GetConstantValue(x.Initializer.Value, cancellationToken).HasValue);
+	}
+
+	private bool RequiresLogging(
+		CatchClauseSyntax catchClause,
+		SemanticModel semanticModel,
+		CancellationToken cancellationToken)
+	{
+		if (catchClause.Declaration is null)
+			return true;
+
+		ITypeSymbol? caughtType = semanticModel.GetTypeInfo(catchClause.Declaration.Type, cancellationToken).Type;
+
+		return _exceptionType is null ||
+			caughtType is null ||
+			SymbolEqualityComparer.Default.Equals(caughtType.OriginalDefinition, _exceptionType);
 	}
 
 	private bool HasAccessibleLogger(INamedTypeSymbol containingType)

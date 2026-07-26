@@ -79,7 +79,7 @@ public class UA008_PublicMethodTryCatchAnalyzerTests : AnalyzerTestBase<PublicMe
 	[Fact]
 	public async Task ExpressionBodiedPublicMethodWithILogger_ShouldTriggerDiagnostic()
 	{
-		const string source = @"using Microsoft.Extensions.Logging; public class TestClass { private readonly ILogger _logger; public TestClass(ILogger logger) { _logger = logger; } public string M() => ""test""; }";
+		const string source = @"using Microsoft.Extensions.Logging; public class TestClass { private readonly ILogger _logger; public TestClass(ILogger logger) { _logger = logger; } public string M() => System.Environment.MachineName; }";
 		var expected = Diagnostic(PublicMethodTryCatchAnalyzer.Rule, 1, 165, "M");
 		await VerifyAnalyzerAsync(source, [_loggingReference], expected);
 	}
