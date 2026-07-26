@@ -1,15 +1,14 @@
 ﻿using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Umbrella.Analyzers;
 
 /// <summary>
-/// Analyzer that enforces all parameter validation (Guard.* calls, Argument* Throw* helpers, or direct throws
-/// of ArgumentException / ArgumentNullException / ArgumentOutOfRangeException) appear before the first
-/// top-level try...catch block in a method body and NEVER anywhere inside any try block (including nested tries,
-/// lambdas within try blocks etc.). Parameter validation must be performed at the very start of the method
-/// to ensure argument exceptions are thrown deterministically and not swallowed by later exception handling logic.
+/// Ensures argument and cancellation validation occurs before the first top-level try...catch and never inside a try
+/// block.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ParameterValidationPlacementAnalyzer : DiagnosticAnalyzer
@@ -27,8 +26,8 @@ public sealed class ParameterValidationPlacementAnalyzer : DiagnosticAnalyzer
 	/// prior to any try...catch blocks, to improve code clarity and maintainability.</remarks>
 	public static readonly DiagnosticDescriptor Rule = new(
 		DiagnosticId,
-		"Parameter validation must appear before first try...catch block",
-		"Parameter validation should occur before the first try...catch block in method '{0}'",
+		"Argument and cancellation validation must precede exception handling",
+		"Argument and cancellation validation should occur before the first try...catch block in method '{0}'",
 		"CodeStyle",
 		DiagnosticSeverity.Error,
 		isEnabledByDefault: true);
@@ -44,56 +43,38 @@ public sealed class ParameterValidationPlacementAnalyzer : DiagnosticAnalyzer
 
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 		context.EnableConcurrentExecution();
-		context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
+		context.RegisterCompilationStartAction(
+			compilationContext =>
+			{
+				var analysis = new ParameterValidationAnalysis(compilationContext.Compilation);
+				compilationContext.RegisterSyntaxNodeAction(
+					syntaxContext => AnalyzeMethod(syntaxContext, analysis),
+					SyntaxKind.MethodDeclaration);
+			});
 	}
 
-	private static void AnalyzeMethod(SymbolAnalysisContext context)
+	private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, ParameterValidationAnalysis analysis)
 	{
-		var methodSymbol = (IMethodSymbol)context.Symbol;
-		var syntaxRef = methodSymbol.DeclaringSyntaxReferences.FirstOrDefault();
-		if (syntaxRef is null)
-			return;
+		var methodDeclaration = (MethodDeclarationSyntax)context.Node;
 
-		if (syntaxRef.GetSyntax(context.CancellationToken) is not Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax methodDecl)
-			return;
-
-		var body = methodDecl.Body;
-		if (body is null)
-			return; // expression-bodied members cannot contain try blocks nor multiple statements.
-
-		// Gather all try statements (including nested ones) for inside-try detection.
-		var allTryStatements = body.DescendantNodes(static _ => true)
-			.OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TryStatementSyntax>()
-			.ToList();
-
-		// Find the first TOP-LEVEL try (direct child of the method body statements collection).
-		Microsoft.CodeAnalysis.CSharp.Syntax.TryStatementSyntax? firstTopLevelTry = null;
-		foreach (var statement in body.Statements)
+		if (context.SemanticModel.GetDeclaredSymbol(methodDeclaration, context.CancellationToken) is not IMethodSymbol methodSymbol ||
+			methodDeclaration.Body is not { } body)
 		{
-			if (statement is Microsoft.CodeAnalysis.CSharp.Syntax.TryStatementSyntax ts)
-			{
-				firstTopLevelTry = ts;
-				break;
-			}
+			return;
 		}
 
-		int firstTopLevelTryStart = firstTopLevelTry?.SpanStart ?? int.MaxValue;
+		var allTryStatements = body.DescendantNodes(ShouldDescendInto)
+			.OfType<TryStatementSyntax>()
+			.ToList();
 
-		// Walk every descendant node (excluding local functions) to locate parameter validation occurrences.
-		foreach (var node in body.DescendantNodes(ShouldDescendInto))
+		TryStatementSyntax? firstTopLevelTry = body.Statements.OfType<TryStatementSyntax>().FirstOrDefault();
+		int firstTopLevelTryStart = firstTopLevelTry?.SpanStart ?? int.MaxValue;
+		foreach (SyntaxNode node in body.DescendantNodes(ShouldDescendInto))
 		{
-			if (!IsParameterValidationNode(node))
+			if (!analysis.IsValidationNode(node, context.SemanticModel, context.CancellationToken))
 				continue;
 
-			// 1. Inside ANY try block? (even nested). If so, report.
-			if (IsInsideTryBlock(node, allTryStatements))
-			{
-				Report(context, methodSymbol, node.GetLocation());
-				return;
-			}
-
-			// 2. Appears AFTER the first top-level try? (i.e. even if not inside a try but placed later) -> report.
-			if (node.SpanStart > firstTopLevelTryStart)
+			if (IsInsideTryBlock(node, allTryStatements) || node.SpanStart > firstTopLevelTryStart)
 			{
 				Report(context, methodSymbol, node.GetLocation());
 				return;
@@ -103,88 +84,21 @@ public sealed class ParameterValidationPlacementAnalyzer : DiagnosticAnalyzer
 
 	private static bool ShouldDescendInto(SyntaxNode node)
 	{
-		// Do not analyze inside local functions; those have their own validation scope.
-		if (node is Microsoft.CodeAnalysis.CSharp.Syntax.LocalFunctionStatementSyntax)
-			return false;
-
-		return true;
+		return node is not LocalFunctionStatementSyntax and not AnonymousFunctionExpressionSyntax;
 	}
 
-	private static bool IsInsideTryBlock(SyntaxNode node, IEnumerable<Microsoft.CodeAnalysis.CSharp.Syntax.TryStatementSyntax> tryStatements)
+	private static bool IsInsideTryBlock(SyntaxNode node, IEnumerable<TryStatementSyntax> tryStatements)
 	{
-		foreach (var ts in tryStatements)
+		foreach (TryStatementSyntax tryStatement in tryStatements)
 		{
-			var block = ts.Block;
-			if (block is null)
-				continue;
-
-			if (node.SpanStart >= block.SpanStart && node.SpanStart < block.Span.End && IsNodeWithinBlock(node, block))
+			if (node.Ancestors().Any(x => x == tryStatement.Block))
 				return true;
 		}
 
 		return false;
 	}
 
-	private static bool IsNodeWithinBlock(SyntaxNode node, Microsoft.CodeAnalysis.CSharp.Syntax.BlockSyntax block)
-	{
-		SyntaxNode? current = node;
-		while (current is not null)
-		{
-			if (current == block)
-				return true;
-
-			// Stop if we reach a boundary that would indicate we are no longer strictly inside the try block itself.
-			if (current is Microsoft.CodeAnalysis.CSharp.Syntax.CatchClauseSyntax or Microsoft.CodeAnalysis.CSharp.Syntax.FinallyClauseSyntax)
-				return false;
-
-			current = current.Parent;
-		}
-
-		return false;
-	}
-
-	private static bool IsParameterValidationNode(SyntaxNode node)
-	{
-		// Guard.*
-		if (node is Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax invocation && invocation.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax memberAccess)
-		{
-			var leftId = memberAccess.Expression as Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax;
-			var rightId = memberAccess.Name as Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax;
-			if (leftId is not null && rightId is not null)
-			{
-				string leftText = leftId.Identifier.Text;
-				string rightText = rightId.Identifier.Text;
-
-				if (leftText == "Guard")
-					return true;
-
-				// ArgumentX.ThrowIfX style static helpers (must begin with Throw)
-				if ((leftText is "ArgumentException" or "ArgumentNullException" or "ArgumentOutOfRangeException") && rightText.StartsWith("Throw", StringComparison.Ordinal))
-					return true;
-			}
-		}
-
-		// throw new ArgumentX(...)
-		if (node is Microsoft.CodeAnalysis.CSharp.Syntax.ThrowStatementSyntax throwStmt && throwStmt.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.ObjectCreationExpressionSyntax objectCreation)
-		{
-			if (objectCreation.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax typeId)
-			{
-				string name = typeId.Identifier.Text;
-				if (name is "ArgumentException" or "ArgumentNullException" or "ArgumentOutOfRangeException")
-					return true;
-			}
-			else if (objectCreation.Type is Microsoft.CodeAnalysis.CSharp.Syntax.QualifiedNameSyntax qn)
-			{
-				string right = qn.Right.Identifier.Text;
-				if (right is "ArgumentException" or "ArgumentNullException" or "ArgumentOutOfRangeException")
-					return true;
-			}
-		}
-
-		return false;
-	}
-
-	private static void Report(SymbolAnalysisContext context, IMethodSymbol methodSymbol, Location location)
+	private static void Report(SyntaxNodeAnalysisContext context, IMethodSymbol methodSymbol, Location location)
 	{
 		var diagnostic = Diagnostic.Create(Rule, location, methodSymbol.Name);
 		context.ReportDiagnostic(diagnostic);

@@ -1,16 +1,17 @@
 ﻿using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Umbrella.Analyzers;
 
 /// <summary>
-/// An analyzer that ensures all public methods are wrapped in an outer try...catch block.
-/// If an ILogger instance exists, it ensures the logging pattern matches the specified conventions.
+/// Ensures public instance methods on logger-owning types wrap their operational code in an outer try...catch block
+/// and log caught exceptions with relevant method state.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-public class PublicMethodTryCatchAnalyzer : DiagnosticAnalyzer
+public sealed class PublicMethodTryCatchAnalyzer : DiagnosticAnalyzer
 {
 	/// <summary>
 	/// The diagnostic ID for this analyzer.
@@ -22,8 +23,8 @@ public class PublicMethodTryCatchAnalyzer : DiagnosticAnalyzer
 	/// </summary>
 	public static readonly DiagnosticDescriptor Rule = new(
 		DiagnosticId,
-		"Public methods should be wrapped in a try...catch block",
-		"Public method '{0}' should be wrapped in a try...catch block, and logging should follow the specified pattern if ILogger is available",
+		"Public instance methods with an ILogger should use state-aware exception handling",
+		"Public method '{0}' should wrap operational code in try...catch and log the caught exception with relevant method state",
 		"CodeStyle",
 		DiagnosticSeverity.Error,
 		isEnabledByDefault: true);
@@ -39,140 +40,45 @@ public class PublicMethodTryCatchAnalyzer : DiagnosticAnalyzer
 
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 		context.EnableConcurrentExecution();
-		context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
+		context.RegisterCompilationStartAction(
+			compilationContext =>
+			{
+				var analysis = new PublicMethodExceptionHandlingAnalysis(compilationContext.Compilation);
+				compilationContext.RegisterSyntaxNodeAction(
+					syntaxContext => AnalyzeMethod(syntaxContext, analysis),
+					SyntaxKind.MethodDeclaration);
+			});
 	}
 
-	private static void AnalyzeMethod(SymbolAnalysisContext context)
+	private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, PublicMethodExceptionHandlingAnalysis analysis)
 	{
-		var methodSymbol = (IMethodSymbol)context.Symbol;
+		var methodDeclaration = (MethodDeclarationSyntax)context.Node;
 
-		// Only analyze public methods
-		if (methodSymbol.DeclaredAccessibility != Accessibility.Public)
+		if (context.SemanticModel.GetDeclaredSymbol(methodDeclaration, context.CancellationToken) is not IMethodSymbol methodSymbol ||
+			!analysis.IsEligible(methodSymbol))
+		{
 			return;
+		}
 
-		if (methodSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax(context.CancellationToken) is not MethodDeclarationSyntax methodDeclaration)
-			return;
-
-		// Expression-bodied methods (=> expr) cannot contain a try-catch — flag them immediately
 		if (methodDeclaration.ExpressionBody is not null)
 		{
 			ReportDiagnostic(context, methodSymbol);
 			return;
 		}
 
-		// Abstract, extern, or partial declaration with no body — skip
-		if (methodDeclaration.Body is null)
-			return;
+		TryStatementSyntax? tryStatement = analysis.FindOuterTryStatement(
+			methodDeclaration,
+			context.SemanticModel,
+			context.CancellationToken);
 
-		// Check if the method body is wrapped in a try...catch block
-		var firstStatement = methodDeclaration.Body.Statements.FirstOrDefault();
-		if (firstStatement is not TryStatementSyntax tryStatement || tryStatement.Catches.Count == 0)
+		if (tryStatement is null ||
+			!analysis.HasRequiredLogging(methodSymbol, tryStatement, context.SemanticModel, context.CancellationToken))
 		{
 			ReportDiagnostic(context, methodSymbol);
-			return;
-		}
-
-		// Check for ILogger instance in the class or base class
-		var containingType = methodSymbol.ContainingType;
-		var loggerFieldOrProperty = FindLoggerFieldOrProperty(containingType);
-
-		if (loggerFieldOrProperty != null)
-		{
-			// Ensure the catch block contains a logging statement
-			if (!ContainsLoggingStatement(tryStatement, loggerFieldOrProperty.Name))
-			{
-				ReportDiagnostic(context, methodSymbol);
-			}
 		}
 	}
 
-	private static ISymbol? FindLoggerFieldOrProperty(INamedTypeSymbol containingType)
-	{
-		// Check fields and properties in the current type
-		foreach (var member in containingType.GetMembers())
-		{
-			if (member is IFieldSymbol field && field.Type.Name == "ILogger")
-				return field;
-
-			if (member is IPropertySymbol property && property.Type.Name == "ILogger")
-				return property;
-		}
-
-		// Check base types for protected members
-		var baseType = containingType.BaseType;
-		while (baseType != null)
-		{
-			foreach (var member in baseType.GetMembers())
-			{
-				if (member.DeclaredAccessibility == Accessibility.Public || member.DeclaredAccessibility == Accessibility.Protected)
-				{
-					if (member is IFieldSymbol field && field.Type.Name == "ILogger")
-						return field;
-
-					if (member is IPropertySymbol property && property.Type.Name == "ILogger")
-						return property;
-				}
-			}
-
-			baseType = baseType.BaseType;
-		}
-
-		return null;
-	}
-
-	private static bool ContainsLoggingStatement(TryStatementSyntax tryStatement, string loggerName)
-	{
-		foreach (var catchClause in tryStatement.Catches)
-		{
-			// Check logger calls in the catch block body
-			if (catchClause.Block.Statements.Any(statement =>
-				statement is ExpressionStatementSyntax expressionStatement &&
-				expressionStatement.Expression is InvocationExpressionSyntax invocation &&
-				invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-				memberAccess.Expression is IdentifierNameSyntax identifier &&
-				identifier.Identifier.Text == loggerName))
-			{
-				return true;
-			}
-
-			// Check logger calls in the when(...) exception filter expression
-			// e.g. catch (Exception exc) when (exc is not X && Logger.WriteError(exc, ...))
-			if (catchClause.Filter is { } filter &&
-				ContainsLoggerInvocationInExpression(filter.FilterExpression, loggerName))
-			{
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	private static bool ContainsLoggerInvocationInExpression(ExpressionSyntax expression, string loggerName)
-	{
-		// Direct invocation: _logger.WriteError(...) / Logger.WriteError(...)
-		if (expression is InvocationExpressionSyntax invocation &&
-			invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-			memberAccess.Expression is IdentifierNameSyntax identifier &&
-			identifier.Identifier.Text == loggerName)
-		{
-			return true;
-		}
-
-		// Binary expression: left && right / left || right
-		if (expression is BinaryExpressionSyntax binary)
-		{
-			return ContainsLoggerInvocationInExpression(binary.Left, loggerName) ||
-				   ContainsLoggerInvocationInExpression(binary.Right, loggerName);
-		}
-
-		// Parenthesised expression
-		if (expression is ParenthesizedExpressionSyntax parenthesized)
-			return ContainsLoggerInvocationInExpression(parenthesized.Expression, loggerName);
-
-		return false;
-	}
-
-	private static void ReportDiagnostic(SymbolAnalysisContext context, IMethodSymbol methodSymbol)
+	private static void ReportDiagnostic(SyntaxNodeAnalysisContext context, IMethodSymbol methodSymbol)
 	{
 		var diagnostic = Diagnostic.Create(Rule, methodSymbol.Locations[0], methodSymbol.Name);
 		context.ReportDiagnostic(diagnostic);
