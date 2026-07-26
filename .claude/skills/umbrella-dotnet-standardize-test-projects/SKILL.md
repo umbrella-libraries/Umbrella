@@ -67,6 +67,7 @@ Helper projects under test folders should not be runnable tests. Use `<IsTestPro
 
 - Do not rename `.Tests` projects automatically. Report plural naming drift so the caller can perform a deliberate project/file/solution rename.
 - Do not remove project-specific packages such as `Xunit.v3.Priority`, `Microsoft.AspNetCore.Mvc.Testing`, Testcontainers packages, user-secrets packages, or provider-specific test dependencies.
+- Preserve additional repository-specific `NoWarn` and `WarningsAsErrors` entries in the central test-only `Directory.Build.targets` block while enforcing the shared baseline entries.
 - Never downgrade a newer explicit shared test-package version merely to match the script baseline.
 - Do not run `Apply` in a dirty repo without first reviewing unrelated user changes.
 - After `Apply`, run:

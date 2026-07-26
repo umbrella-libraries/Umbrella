@@ -349,11 +349,50 @@ function Set-DirectoryBuildPropsContent {
     return [regex]::Replace($Content, '(?is)\s*</Project>\s*$', "`r`n$block`r`n`r`n</Project>`r`n")
 }
 
+function Merge-CentralDelimitedPropertyValue {
+    param(
+        [string]$Content,
+        [string]$PropertyName,
+        [string]$RequiredValue
+    )
+
+    $values = [System.Collections.Generic.List[string]]::new()
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    foreach ($value in @($RequiredValue -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+        if ($seen.Add($value)) {
+            $values.Add($value)
+        }
+    }
+
+    foreach ($block in @(Get-TestConditionBlocks -Content $Content -ElementName 'PropertyGroup')) {
+        $match = [regex]::Match($block, "(?is)<$PropertyName>(.*?)</$PropertyName>")
+        if (-not $match.Success) {
+            continue
+        }
+
+        foreach ($value in @($match.Groups[1].Value -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+            if ($seen.Add($value)) {
+                $values.Add($value)
+            }
+        }
+    }
+
+    return $values -join ';'
+}
+
 function Set-DirectoryBuildTargetsContent {
     param([string]$Content)
 
     $lines = foreach ($entry in $CentralTestProperties.GetEnumerator()) {
-        "`t`t<$($entry.Key)>$($entry.Value)</$($entry.Key)>"
+        $value = if ($entry.Key -in @('NoWarn', 'WarningsAsErrors')) {
+            Merge-CentralDelimitedPropertyValue -Content $Content -PropertyName $entry.Key -RequiredValue $entry.Value
+        }
+        else {
+            $entry.Value
+        }
+
+        "`t`t<$($entry.Key)>$value</$($entry.Key)>"
     }
 
     $block = @"
