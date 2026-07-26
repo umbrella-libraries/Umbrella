@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
@@ -12,6 +14,8 @@ namespace Umbrella.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class PublicMethodLoggerAnalyzer : DiagnosticAnalyzer
 {
+	private const string EntityMetadataName = "Umbrella.DataAccess.Abstractions.IEntity`1";
+
 	/// <summary>
 	/// The diagnostic ID for this analyzer.
 	/// </summary>
@@ -65,60 +69,59 @@ public sealed class PublicMethodLoggerAnalyzer : DiagnosticAnalyzer
 			compilationContext =>
 			{
 				var analysis = new PublicMethodExceptionHandlingAnalysis(compilationContext.Compilation);
-				compilationContext.RegisterSymbolAction(
-					symbolContext => AnalyzeType(symbolContext, analysis),
-					SymbolKind.NamedType);
+				INamedTypeSymbol? entityType = compilationContext.Compilation.GetTypeByMetadataName(EntityMetadataName);
+				var reportedTypes = new ConcurrentDictionary<ISymbol, byte>(SymbolEqualityComparer.Default);
+
+				compilationContext.RegisterSyntaxNodeAction(
+					syntaxContext => AnalyzeMethod(syntaxContext, analysis, entityType, reportedTypes),
+					SyntaxKind.MethodDeclaration);
 			});
 	}
 
-	private static void AnalyzeType(
-		SymbolAnalysisContext context,
-		PublicMethodExceptionHandlingAnalysis analysis)
+	private static void AnalyzeMethod(
+		SyntaxNodeAnalysisContext context,
+		PublicMethodExceptionHandlingAnalysis analysis,
+		INamedTypeSymbol? entityType,
+		ConcurrentDictionary<ISymbol, byte> reportedTypes)
 	{
-		var typeSymbol = (INamedTypeSymbol)context.Symbol;
+		var methodDeclaration = (MethodDeclarationSyntax)context.Node;
+
+		if (context.SemanticModel.GetDeclaredSymbol(methodDeclaration, context.CancellationToken) is not IMethodSymbol methodSymbol)
+			return;
+
+		INamedTypeSymbol typeSymbol = methodSymbol.ContainingType;
 
 		if (typeSymbol.TypeKind != TypeKind.Class ||
 			typeSymbol.IsStatic ||
 			typeSymbol.IsImplicitlyDeclared ||
-			analysis.HasAccessibleLogger(typeSymbol))
+			analysis.HasAccessibleLogger(typeSymbol) ||
+			IsEntity(typeSymbol, entityType) ||
+			!PublicMethodExceptionHandlingAnalysis.IsCandidate(methodSymbol) ||
+			IsTestEntryPoint(methodSymbol) ||
+			analysis.IsExempt(
+				methodSymbol,
+				methodDeclaration,
+				context.SemanticModel,
+				context.CancellationToken) ||
+			!reportedTypes.TryAdd(typeSymbol, 0))
 		{
 			return;
 		}
 
-		foreach (IMethodSymbol methodSymbol in typeSymbol.GetMembers().OfType<IMethodSymbol>())
-		{
-			if (!PublicMethodExceptionHandlingAnalysis.IsCandidate(methodSymbol) ||
-				IsTestEntryPoint(methodSymbol))
-			{
-				continue;
-			}
+		Location? location = methodDeclaration
+			.FirstAncestorOrSelf<TypeDeclarationSyntax>()?
+			.Identifier
+			.GetLocation();
 
-			foreach (SyntaxReference syntaxReference in methodSymbol.DeclaringSyntaxReferences)
-			{
-				if (syntaxReference.GetSyntax(context.CancellationToken) is not MethodDeclarationSyntax methodDeclaration)
-					continue;
+		if (location is not null)
+			context.ReportDiagnostic(Diagnostic.Create(Rule, location, typeSymbol.Name, methodSymbol.Name));
+	}
 
-#pragma warning disable RS1030 // A type-level diagnostic requires checking every method with its semantic model.
-				SemanticModel semanticModel = context.Compilation.GetSemanticModel(methodDeclaration.SyntaxTree);
-#pragma warning restore RS1030
-
-				if (analysis.IsExempt(
-					methodSymbol,
-					methodDeclaration,
-					semanticModel,
-					context.CancellationToken))
-				{
-					continue;
-				}
-
-				Location? location = typeSymbol.Locations.FirstOrDefault(static x => x.IsInSource);
-
-				if (location is not null)
-				context.ReportDiagnostic(Diagnostic.Create(Rule, location, typeSymbol.Name, methodSymbol.Name));
-
-				return;
-			}
-		}
+	private static bool IsEntity(INamedTypeSymbol typeSymbol, INamedTypeSymbol? entityType)
+	{
+		return entityType is not null &&
+			typeSymbol.AllInterfaces.Any(
+				x => SymbolEqualityComparer.Default.Equals(x.OriginalDefinition, entityType));
 	}
 
 	private static bool IsTestEntryPoint(IMethodSymbol methodSymbol)

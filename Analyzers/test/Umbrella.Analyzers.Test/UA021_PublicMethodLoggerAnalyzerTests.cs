@@ -39,7 +39,7 @@ public class UA021_PublicMethodLoggerAnalyzerTests : AnalyzerTestBase<PublicMeth
 		await VerifyAnalyzerAsync(
 			source,
 			[_loggingReference],
-			ExpectedAt(source, "class TestClass", "TestClass", "Update"));
+			ExpectedLocationAt(source, "class TestClass", "TestClass"));
 	}
 
 	[Theory]
@@ -268,6 +268,44 @@ public class UA021_PublicMethodLoggerAnalyzerTests : AnalyzerTestBase<PublicMeth
 	}
 
 	[Fact]
+	public async Task UmbrellaTrimmableImplementation_ShouldNotTriggerDiagnostic()
+	{
+		const string source = """
+			namespace Umbrella.Utilities.Text
+			{
+				public interface IUmbrellaTrimmable
+				{
+					void TrimAllStringProperties();
+				}
+			}
+			public class TestModel : Umbrella.Utilities.Text.IUmbrellaTrimmable
+			{
+				public string? Value { get; set; }
+				public void TrimAllStringProperties() { Value = Value?.Trim(); }
+			}
+			""";
+
+		await VerifyNoDiagnosticsAsync(source, [_loggingReference]);
+	}
+
+	[Fact]
+	public async Task EntityOperationalMethod_ShouldNotTriggerDiagnostic()
+	{
+		const string source = """
+			namespace Umbrella.DataAccess.Abstractions
+			{
+				public interface IEntity<TKey> { }
+			}
+			public class TestEntity : Umbrella.DataAccess.Abstractions.IEntity<int>
+			{
+				public string GetDisplayText(int value) => value.ToString();
+			}
+			""";
+
+		await VerifyNoDiagnosticsAsync(source, [_loggingReference]);
+	}
+
+	[Fact]
 	public async Task NonActionMethod_ShouldNotTriggerDiagnostic()
 	{
 		const string source = """
@@ -412,12 +450,21 @@ public class UA021_PublicMethodLoggerAnalyzerTests : AnalyzerTestBase<PublicMeth
 		string typeName,
 		string methodName)
 	{
+		ExpectedDiagnostic location = ExpectedLocationAt(source, declaration, typeName);
+		return Diagnostic(PublicMethodLoggerAnalyzer.Rule, location.Line, location.Column, typeName, methodName);
+	}
+
+	private static ExpectedDiagnostic ExpectedLocationAt(
+		string source,
+		string declaration,
+		string typeName)
+	{
 		int declarationIndex = source.IndexOf(declaration, StringComparison.Ordinal);
 		int typeIndex = declarationIndex + declaration.IndexOf(typeName, StringComparison.Ordinal);
 		string precedingText = source[..typeIndex];
 		int line = precedingText.Count(static character => character == '\n') + 1;
 		int column = typeIndex - precedingText.LastIndexOf('\n');
 
-		return Diagnostic(PublicMethodLoggerAnalyzer.Rule, line, column, typeName, methodName);
+		return Diagnostic(PublicMethodLoggerAnalyzer.Rule, line, column);
 	}
 }

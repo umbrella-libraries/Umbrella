@@ -13,6 +13,7 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 	private const string NonActionAttributeMetadataName = "Microsoft.AspNetCore.Mvc.NonActionAttribute";
 	private const string RequestDelegateMetadataName = "Microsoft.AspNetCore.Http.RequestDelegate";
 	private const string TaskMetadataName = "System.Threading.Tasks.Task";
+	private const string TrimmableMetadataName = "Umbrella.Utilities.Text.IUmbrellaTrimmable";
 	private const string ValueTaskMetadataName = "System.Threading.Tasks.ValueTask";
 
 	private readonly Compilation _compilation;
@@ -24,6 +25,7 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 	private readonly ParameterValidationAnalysis _parameterValidationAnalysis;
 	private readonly INamedTypeSymbol? _requestDelegateType;
 	private readonly INamedTypeSymbol? _taskType;
+	private readonly INamedTypeSymbol? _trimmableType;
 	private readonly INamedTypeSymbol? _valueTaskType;
 
 	internal PublicMethodExceptionHandlingAnalysis(Compilation compilation)
@@ -37,6 +39,7 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 		_parameterValidationAnalysis = new ParameterValidationAnalysis(compilation);
 		_requestDelegateType = compilation.GetTypeByMetadataName(RequestDelegateMetadataName);
 		_taskType = compilation.GetTypeByMetadataName(TaskMetadataName);
+		_trimmableType = compilation.GetTypeByMetadataName(TrimmableMetadataName);
 		_valueTaskType = compilation.GetTypeByMetadataName(ValueTaskMetadataName);
 	}
 
@@ -67,6 +70,7 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 		return HasNonActionAttribute(methodSymbol) ||
 			IsMiddlewareEntryPoint(methodSymbol) ||
 			IsDisposalImplementation(methodSymbol) ||
+			IsInterfaceImplementation(methodSymbol, _trimmableType, "TrimAllStringProperties") ||
 			IsDirectBaseForwarder(methodSymbol, methodDeclaration, semanticModel, cancellationToken) ||
 			IsTrivialNoOp(methodDeclaration, semanticModel, cancellationToken);
 	}
