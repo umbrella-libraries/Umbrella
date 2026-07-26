@@ -6,6 +6,7 @@ namespace Umbrella.Analyzers;
 internal sealed class ChangeablePublicMethodAnalysis
 {
 	private const string ComponentBaseMetadataName = "Microsoft.AspNetCore.Components.ComponentBase";
+	private const string RequestDelegateMetadataName = "Microsoft.AspNetCore.Http.RequestDelegate";
 
 	private static readonly ImmutableHashSet<string> _excludedAttributeMetadataNames = ImmutableHashSet.Create(
 		StringComparer.Ordinal,
@@ -30,10 +31,12 @@ internal sealed class ChangeablePublicMethodAnalysis
 		"Xunit.TheoryAttribute");
 
 	private readonly INamedTypeSymbol? _componentBaseType;
+	private readonly INamedTypeSymbol? _requestDelegateType;
 
 	internal ChangeablePublicMethodAnalysis(Compilation compilation)
 	{
 		_componentBaseType = compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
+		_requestDelegateType = compilation.GetTypeByMetadataName(RequestDelegateMetadataName);
 	}
 
 	internal bool IsEligible(IMethodSymbol methodSymbol)
@@ -48,6 +51,7 @@ internal sealed class ChangeablePublicMethodAnalysis
 			methodSymbol.DeclaringSyntaxReferences.Length > 0 &&
 			methodSymbol.Locations.Any(static location => location.IsInSource) &&
 			!IsDeclaredOnComponent(methodSymbol.ContainingType) &&
+			!IsMiddlewareEntryPoint(methodSymbol) &&
 			methodSymbol.ExplicitInterfaceImplementations.Length == 0 &&
 			!IsImplicitInterfaceImplementation(methodSymbol) &&
 			!HasExcludedAttribute(methodSymbol);
@@ -65,6 +69,19 @@ internal sealed class ChangeablePublicMethodAnalysis
 		}
 
 		return false;
+	}
+
+	private bool IsMiddlewareEntryPoint(IMethodSymbol methodSymbol)
+	{
+		if (_requestDelegateType is null || methodSymbol.Name is not ("Invoke" or "InvokeAsync"))
+			return false;
+
+		return methodSymbol.ContainingType.InstanceConstructors
+			.SelectMany(static constructor => constructor.Parameters)
+			.Any(parameter =>
+				SymbolEqualityComparer.Default.Equals(
+					parameter.Type.OriginalDefinition,
+					_requestDelegateType));
 	}
 
 	private static bool IsImplicitInterfaceImplementation(IMethodSymbol methodSymbol)

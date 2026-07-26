@@ -10,6 +10,7 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 	private const string IAsyncDisposableMetadataName = "System.IAsyncDisposable";
 	private const string IDisposableMetadataName = "System.IDisposable";
 	private const string ILoggerMetadataName = "Microsoft.Extensions.Logging.ILogger";
+	private const string DoesNotReturnAttributeMetadataName = "System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute";
 	private const string NonActionAttributeMetadataName = "Microsoft.AspNetCore.Mvc.NonActionAttribute";
 	private const string RequestDelegateMetadataName = "Microsoft.AspNetCore.Http.RequestDelegate";
 	private const string TaskMetadataName = "System.Threading.Tasks.Task";
@@ -17,6 +18,7 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 	private const string ValueTaskMetadataName = "System.Threading.Tasks.ValueTask";
 
 	private readonly Compilation _compilation;
+	private readonly INamedTypeSymbol? _doesNotReturnAttributeType;
 	private readonly INamedTypeSymbol? _exceptionType;
 	private readonly INamedTypeSymbol? _iAsyncDisposableType;
 	private readonly INamedTypeSymbol? _iDisposableType;
@@ -31,6 +33,7 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 	internal PublicMethodExceptionHandlingAnalysis(Compilation compilation)
 	{
 		_compilation = compilation;
+		_doesNotReturnAttributeType = compilation.GetTypeByMetadataName(DoesNotReturnAttributeMetadataName);
 		_exceptionType = compilation.GetTypeByMetadataName(ExceptionMetadataName);
 		_iAsyncDisposableType = compilation.GetTypeByMetadataName(IAsyncDisposableMetadataName);
 		_iDisposableType = compilation.GetTypeByMetadataName(IDisposableMetadataName);
@@ -67,13 +70,20 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 		SemanticModel semanticModel,
 		CancellationToken cancellationToken)
 	{
-		return HasNonActionAttribute(methodSymbol) ||
+		return methodDeclaration is { Body: null, ExpressionBody: null } ||
+			HasAttribute(methodSymbol, _doesNotReturnAttributeType) ||
+			HasNonActionAttribute(methodSymbol) ||
 			IsMiddlewareEntryPoint(methodSymbol) ||
 			IsDisposalImplementation(methodSymbol) ||
 			IsInterfaceImplementation(methodSymbol, _trimmableType, "TrimAllStringProperties") ||
 			IsDirectBaseForwarder(methodSymbol, methodDeclaration, semanticModel, cancellationToken) ||
 			IsTrivialNoOp(methodDeclaration, semanticModel, cancellationToken);
 	}
+
+	private static bool HasAttribute(IMethodSymbol methodSymbol, INamedTypeSymbol? attributeType) =>
+		attributeType is not null &&
+		methodSymbol.GetAttributes().Any(attribute =>
+			SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeType));
 
 	internal TryStatementSyntax? FindOuterTryStatement(
 		MethodDeclarationSyntax methodDeclaration,

@@ -95,32 +95,20 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		description: "Per Umbrella standards, collection properties in model types should use IReadOnlyCollection<T> for better immutability.");
 
 	/// <summary>
-	/// Diagnostic rule that requires model records to be <c>partial</c> when <c>IUmbrellaTrimmable</c> is present in the compilation.
+	/// Diagnostic rule that requires model types with mutable string properties to implement <c>IUmbrellaTrimmable</c>.
 	/// </summary>
-	public static readonly DiagnosticDescriptor ModelRecordMustBePartialRule = new(
+	public static readonly DiagnosticDescriptor MutableStringModelMustImplementTrimmableRule = new(
 		id: "UA015",
-		title: "Model records must be partial when IUmbrellaTrimmable is used",
-		messageFormat: "Model record '{0}' must be declared as 'partial' when the project uses IUmbrellaTrimmable source generation",
+		title: "Models with mutable string properties must implement IUmbrellaTrimmable",
+		messageFormat: "Model type '{0}' has mutable string properties and must implement IUmbrellaTrimmable",
 		category: "UmbrellaModelStandards",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true,
-		description: "When a project uses IUmbrellaTrimmable for source-generated string trimming, model records must be partial so the source generator can emit the trimming implementation.");
-
-	/// <summary>
-	/// Diagnostic rule that requires Create*/Update* model records with string properties to implement <c>IUmbrellaTrimmable</c>.
-	/// </summary>
-	public static readonly DiagnosticDescriptor InputModelMustImplementTrimmableRule = new(
-		id: "UA016",
-		title: "Input model records with string properties must implement IUmbrellaTrimmable",
-		messageFormat: "Input model '{0}' has string properties but does not implement IUmbrellaTrimmable; user-supplied strings will not be trimmed",
-		category: "UmbrellaModelStandards",
-		defaultSeverity: DiagnosticSeverity.Warning,
-		isEnabledByDefault: true,
-		description: "Create/Update model records that contain string properties should implement IUmbrellaTrimmable so the source generator emits string-trimming code for user input before it reaches validation or persistence.");
+		description: "Model classes and records with public mutable string properties should implement IUmbrellaTrimmable so user-supplied strings can be trimmed.");
 
 	/// <inheritdoc />
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-		[ModelMustBeRecordRule, PropertiesMustBeRequiredRule, PropertiesMustBeGetterInitOnlyRule, CollectionsMustBeReadOnlyRule, ModelRecordMustBePartialRule, InputModelMustImplementTrimmableRule];
+		[ModelMustBeRecordRule, PropertiesMustBeRequiredRule, PropertiesMustBeGetterInitOnlyRule, CollectionsMustBeReadOnlyRule, MutableStringModelMustImplementTrimmableRule];
 
 	/// <inheritdoc />
 	public override void Initialize(AnalysisContext context)
@@ -141,7 +129,8 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 				return;
 
 			startContext.RegisterSyntaxNodeAction(
-				ctx => AnalyzeModelRecordForBlazorRequirements(ctx, trimmableSymbol),
+				ctx => AnalyzeModelForTrimmingRequirements(ctx, trimmableSymbol),
+				SyntaxKind.ClassDeclaration,
 				SyntaxKind.RecordDeclaration);
 		});
 	}
@@ -209,67 +198,53 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		}
 	}
 
-	private static void AnalyzeModelRecordForBlazorRequirements(SyntaxNodeAnalysisContext context, INamedTypeSymbol trimmableSymbol)
+	private static void AnalyzeModelForTrimmingRequirements(SyntaxNodeAnalysisContext context, INamedTypeSymbol trimmableSymbol)
 	{
-		var recordDecl = (RecordDeclarationSyntax)context.Node;
+		var typeDecl = (TypeDeclarationSyntax)context.Node;
 
-		if (!IsModelType(recordDecl.Identifier.Text))
+		if (!IsModelType(typeDecl.Identifier.Text))
 			return;
 
-		if (HasOptOutAttribute(recordDecl, context.SemanticModel, "UmbrellaExcludeFromModelStandardsAttribute"))
+		if (HasOptOutAttribute(typeDecl, context.SemanticModel, "UmbrellaExcludeFromModelStandardsAttribute"))
 			return;
 
-		if (context.SemanticModel.GetDeclaredSymbol(recordDecl) is not INamedTypeSymbol typeSymbol)
-			return;
-
-		bool isPartial = recordDecl.Modifiers.Any(SyntaxKind.PartialKeyword);
-
-		if (!isPartial)
+		if (context.SemanticModel.GetDeclaredSymbol(typeDecl) is not INamedTypeSymbol typeSymbol ||
+			!HasMutableStringProperty(typeSymbol) ||
+			ImplementsInterface(typeSymbol, trimmableSymbol))
 		{
-			context.ReportDiagnostic(Diagnostic.Create(
-				ModelRecordMustBePartialRule,
-				recordDecl.Identifier.GetLocation(),
-				typeSymbol.Name));
+			return;
 		}
 
-		if (!IsInputModelType(recordDecl.Identifier.Text))
-			return;
-
-		bool implementsTrimmable = false;
-		foreach (INamedTypeSymbol iface in typeSymbol.AllInterfaces)
-		{
-			if (SymbolEqualityComparer.Default.Equals(iface, trimmableSymbol))
-			{
-				implementsTrimmable = true;
-				break;
-			}
-		}
-
-		if (implementsTrimmable)
-			return;
-
-		bool hasStringProperty = false;
-		foreach (ISymbol member in typeSymbol.GetMembers())
-		{
-			if (member is IPropertySymbol prop && prop.Type.SpecialType == SpecialType.System_String)
-			{
-				hasStringProperty = true;
-				break;
-			}
-		}
-
-		if (hasStringProperty)
-		{
-			context.ReportDiagnostic(Diagnostic.Create(
-				InputModelMustImplementTrimmableRule,
-				recordDecl.Identifier.GetLocation(),
-				typeSymbol.Name));
-		}
+		context.ReportDiagnostic(Diagnostic.Create(
+			MutableStringModelMustImplementTrimmableRule,
+			typeDecl.Identifier.GetLocation(),
+			typeSymbol.Name));
 	}
 
-	private static bool IsInputModelType(string typeName) =>
-		(typeName.StartsWith("Create", StringComparison.Ordinal) || typeName.StartsWith("Update", StringComparison.Ordinal)) &&
-		IsModelType(typeName);
+	private static bool HasMutableStringProperty(INamedTypeSymbol typeSymbol)
+	{
+		for (INamedTypeSymbol? currentType = typeSymbol;
+			currentType is not null;
+			currentType = currentType.BaseType)
+		{
+			if (currentType.GetMembers()
+				.OfType<IPropertySymbol>()
+				.Any(static property =>
+					!property.IsStatic &&
+					property.DeclaredAccessibility == Accessibility.Public &&
+					property.Type.SpecialType == SpecialType.System_String &&
+					property.SetMethod is { IsInitOnly: false }))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private static bool ImplementsInterface(INamedTypeSymbol typeSymbol, INamedTypeSymbol interfaceSymbol) =>
+		typeSymbol.AllInterfaces.Any(
+			interfaceType => SymbolEqualityComparer.Default.Equals(interfaceType, interfaceSymbol));
 
 	private static bool IsModelType(string typeName)
 	{

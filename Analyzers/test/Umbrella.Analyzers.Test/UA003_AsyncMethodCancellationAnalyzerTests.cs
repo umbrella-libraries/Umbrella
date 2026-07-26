@@ -189,6 +189,36 @@ public class UA003_AsyncMethodCancellationAnalyzerTests : AnalyzerTestBase<Async
 	}
 
 	[Fact]
+	public async Task MiddlewareEntryPoint_ShouldNotTriggerDiagnostic()
+	{
+		const string source = """
+			using System.Threading.Tasks;
+
+			namespace Microsoft.AspNetCore.Http
+			{
+				public delegate Task RequestDelegate(object context);
+			}
+
+			public sealed class TestMiddleware
+			{
+				private readonly Microsoft.AspNetCore.Http.RequestDelegate _next;
+
+				public TestMiddleware(Microsoft.AspNetCore.Http.RequestDelegate next)
+				{
+					_next = next;
+				}
+
+				public async Task InvokeAsync(object context)
+				{
+					await _next(context);
+				}
+			}
+			""";
+
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
 	public async Task SubmitFormMethodOutsideBlazorComponent_ShouldTriggerDiagnostic()
 	{
 		const string source = "using System.Threading.Tasks; public class TestClass { public async Task SubmitFormAsync() { await Task.Yield(); } }";

@@ -306,6 +306,164 @@ public class UA021_PublicMethodLoggerAnalyzerTests : AnalyzerTestBase<PublicMeth
 	}
 
 	[Fact]
+	public async Task BodylessMapperlyPartialMethods_ShouldNotTriggerDiagnostic()
+	{
+		const string source = """
+			namespace Umbrella.Utilities.Mapping.Mapperly.Abstractions
+			{
+				public interface IUmbrellaMapperlyNewInstanceMapper<TSource, TDestination>
+				{
+					TDestination Map(TSource source);
+				}
+			}
+
+			public partial class Mapper :
+				Umbrella.Utilities.Mapping.Mapperly.Abstractions.IUmbrellaMapperlyNewInstanceMapper<string, int>
+			{
+				public partial int Map(string source);
+			}
+			""";
+
+		await VerifyNoDiagnosticsAsync(source, [_loggingReference]);
+	}
+
+	[Fact]
+	public async Task BlockBodiedMapperlyMethodWithoutLogger_ShouldTriggerDiagnostic()
+	{
+		const string source = """
+			namespace Umbrella.Utilities.Mapping.Mapperly.Abstractions
+			{
+				public interface IUmbrellaMapperlyNewInstanceMapper<TSource, TDestination>
+				{
+					TDestination Map(TSource source);
+				}
+			}
+
+			public sealed class Mapper :
+				Umbrella.Utilities.Mapping.Mapperly.Abstractions.IUmbrellaMapperlyNewInstanceMapper<string, int>
+			{
+				public int Map(string source)
+				{
+					return int.Parse(source);
+				}
+			}
+			""";
+
+		await VerifyAnalyzerAsync(
+			source,
+			[_loggingReference],
+			ExpectedAt(source, "class Mapper", "Mapper", "Map"));
+	}
+
+	[Fact]
+	public async Task ExpressionBodiedMapperlyMethodWithoutLogger_ShouldTriggerDiagnostic()
+	{
+		const string source = """
+			namespace Umbrella.Utilities.Mapping.Mapperly.Abstractions
+			{
+				public interface IUmbrellaMapperlyNewInstanceMapper<TSource, TDestination>
+				{
+					TDestination Map(TSource source);
+				}
+			}
+
+			public sealed class Mapper :
+				Umbrella.Utilities.Mapping.Mapperly.Abstractions.IUmbrellaMapperlyNewInstanceMapper<string, int>
+			{
+				public int Map(string source) => int.Parse(source);
+			}
+			""";
+
+		await VerifyAnalyzerAsync(
+			source,
+			[_loggingReference],
+			ExpectedAt(source, "class Mapper", "Mapper", "Map"));
+	}
+
+	[Fact]
+	public async Task MixedMapperlyMethods_ShouldUseAuthoredBodyToRequireLogger()
+	{
+		const string source = """
+			namespace Umbrella.Utilities.Mapping.Mapperly.Abstractions
+			{
+				public interface IUmbrellaMapperlyNewInstanceMapper<TSource, TDestination>
+				{
+					TDestination Map(TSource source);
+				}
+			}
+
+			public partial class Mapper :
+				Umbrella.Utilities.Mapping.Mapperly.Abstractions.IUmbrellaMapperlyNewInstanceMapper<string, int>
+			{
+				public partial int MapGenerated(string source);
+
+				public int Map(string source)
+				{
+					return int.Parse(source);
+				}
+			}
+			""";
+
+		await VerifyAnalyzerAsync(
+			source,
+			[_loggingReference],
+			ExpectedAt(source, "class Mapper", "Mapper", "Map"));
+	}
+
+	[Fact]
+	public async Task AuthoredMapperlyMethodWithLogger_ShouldNotTriggerDiagnostic()
+	{
+		const string source = """
+			using Microsoft.Extensions.Logging;
+
+			namespace Umbrella.Utilities.Mapping.Mapperly.Abstractions
+			{
+				public interface IUmbrellaMapperlyNewInstanceMapper<TSource, TDestination>
+				{
+					TDestination Map(TSource source);
+				}
+			}
+
+			public sealed class Mapper :
+				Umbrella.Utilities.Mapping.Mapperly.Abstractions.IUmbrellaMapperlyNewInstanceMapper<string, int>
+			{
+				private readonly ILogger<Mapper> _logger;
+
+				public Mapper(ILogger<Mapper> logger)
+				{
+					_logger = logger;
+				}
+
+				public int Map(string source)
+				{
+					return int.Parse(source);
+				}
+			}
+			""";
+
+		await VerifyNoDiagnosticsAsync(source, [_loggingReference]);
+	}
+
+	[Fact]
+	public async Task DoesNotReturnControlFlowMethod_ShouldNotTriggerDiagnostic()
+	{
+		const string source = """
+			using System.Diagnostics.CodeAnalysis;
+
+			public sealed class RedirectManager
+			{
+				[DoesNotReturn]
+				public void Redirect(string uri)
+				{
+					throw new InvalidOperationException(uri);
+				}
+			}
+			""";
+
+		await VerifyNoDiagnosticsAsync(source, [_loggingReference]);
+	}
+
+	[Fact]
 	public async Task NonActionMethod_ShouldNotTriggerDiagnostic()
 	{
 		const string source = """

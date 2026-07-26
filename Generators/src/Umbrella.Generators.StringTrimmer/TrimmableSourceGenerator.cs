@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
@@ -52,7 +53,8 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 				if (model.GetDeclaredSymbol(typeInfo.Node) is not INamedTypeSymbol typeSymbol)
 					continue;
 
-				if (ImplementsInterface(typeSymbol, trimmableSymbol))
+				if (ImplementsInterface(typeSymbol, trimmableSymbol) &&
+					!HasConcreteImplementation(typeSymbol, trimmableSymbol))
 				{
 					string generated = GenerateTrimmableImplementation(typeSymbol, trimmableSymbol, typeInfo.IsRecord);
 					string namespaceSafeName = GetSafeNamespaceName(typeSymbol.ContainingNamespace.ToDisplayString());
@@ -71,13 +73,32 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 	}
 
 	private static bool IsClassCandidate(SyntaxNode node)
-		=> node is ClassDeclarationSyntax cds && cds.BaseList?.Types.Any() == true;
+		=> node is ClassDeclarationSyntax cds &&
+			cds.BaseList?.Types.Any() == true &&
+			cds.Modifiers.Any(static modifier => modifier.IsKind(SyntaxKind.PartialKeyword));
 
 	private static bool IsRecordCandidate(SyntaxNode node)
-		=> node is RecordDeclarationSyntax rds && rds.BaseList?.Types.Any() == true;
+		=> node is RecordDeclarationSyntax rds &&
+			rds.BaseList?.Types.Any() == true &&
+			rds.Modifiers.Any(static modifier => modifier.IsKind(SyntaxKind.PartialKeyword));
 
 	private static bool ImplementsInterface(INamedTypeSymbol typeSymbol, INamedTypeSymbol interfaceSymbol)
 		=> typeSymbol.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i, interfaceSymbol));
+
+	private static bool HasConcreteImplementation(INamedTypeSymbol typeSymbol, INamedTypeSymbol interfaceSymbol)
+	{
+		foreach (IMethodSymbol interfaceMethod in interfaceSymbol.GetMembers().OfType<IMethodSymbol>())
+		{
+			if (typeSymbol.FindImplementationForInterfaceMember(interfaceMethod) is IMethodSymbol implementation &&
+				SymbolEqualityComparer.Default.Equals(implementation.ContainingType, typeSymbol) &&
+				!implementation.IsAbstract)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
 
 	private static string GenerateTrimmableImplementation(
 		INamedTypeSymbol typeSymbol,
