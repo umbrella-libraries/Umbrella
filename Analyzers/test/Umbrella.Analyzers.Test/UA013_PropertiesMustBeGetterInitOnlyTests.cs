@@ -26,6 +26,34 @@ public class UA013_PropertiesMustBeGetterInitOnlyTests : AnalyzerTestBase<Umbrel
 	[Fact]
 	public async Task PropertyWithOptOutAttribute_ShouldNotTriggerDiagnostic()
 	{
+		const string source = @"using Umbrella.Analyzers;
+
+public record UserModel
+{
+    [UmbrellaAllowMutableProperty(""Two-way UI binding requires a setter."")]
+    public required string Name { get; set; }
+}";
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task PropertyWithOptOutAttributeButNoGetter_ShouldTriggerDiagnostic()
+	{
+		// [UmbrellaAllowMutableProperty] suppresses the setter check but not the missing-getter check
+		const string source = @"using Umbrella.Analyzers;
+
+public record UserModel
+{
+    [UmbrellaAllowMutableProperty(""Two-way UI binding requires a setter."")]
+    public required string Name { set; }
+}";
+		var expected = Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeGetterInitOnlyRule, 6, 28, "Name", "UserModel");
+		await VerifyAnalyzerAsync(source, expected);
+	}
+
+	[Fact]
+	public async Task SimilarlyNamedAttribute_ShouldNotSuppressDiagnostic()
+	{
 		const string source = @"using System;
 
 public record UserModel
@@ -34,23 +62,7 @@ public record UserModel
     public required string Name { get; set; }
 }
 
-public class UmbrellaAllowMutablePropertyAttribute : Attribute { }";
-		await VerifyNoDiagnosticsAsync(source);
-	}
-
-	[Fact]
-	public async Task PropertyWithOptOutAttributeButNoGetter_ShouldTriggerDiagnostic()
-	{
-		// [UmbrellaAllowMutableProperty] suppresses the setter check but not the missing-getter check
-		const string source = @"using System;
-
-public record UserModel
-{
-    [UmbrellaAllowMutableProperty]
-    public required string Name { set; }
-}
-
-public class UmbrellaAllowMutablePropertyAttribute : Attribute { }";
+public sealed class UmbrellaAllowMutablePropertyAttribute : Attribute { }";
 		var expected = Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeGetterInitOnlyRule, 6, 28, "Name", "UserModel");
 		await VerifyAnalyzerAsync(source, expected);
 	}

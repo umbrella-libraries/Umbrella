@@ -116,15 +116,20 @@ public abstract class AnalyzerTestBase<T>
 	{
 		SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(source);
 
-		var references = new[]
-		{
-			MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-			MetadataReference.CreateFromFile(typeof(System.Runtime.AssemblyTargetedPatchBandAttribute).Assembly.Location),
-			MetadataReference.CreateFromFile(typeof(Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo).Assembly.Location),
-			MetadataReference.CreateFromFile(typeof(List<>).Assembly.Location),
-			MetadataReference.CreateFromFile(typeof(System.Collections.IEnumerable).Assembly.Location),
-			MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
-		};
+		string[] referencePaths =
+		[
+			.. (((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))?.Split(Path.PathSeparator) ?? []),
+			typeof(Diagnostic).Assembly.Location,
+			typeof(CSharpCompilation).Assembly.Location,
+			typeof(T).Assembly.Location
+		];
+
+		MetadataReference[] references =
+		[
+			.. referencePaths
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.Select(x => MetadataReference.CreateFromFile(x))
+		];
 
 		MetadataReference[] allReferences = additionalReferences is null
 			? references

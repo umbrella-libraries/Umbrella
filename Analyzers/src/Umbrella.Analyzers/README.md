@@ -25,9 +25,9 @@ Most rules are configured with **Error** severity (compile blocking); UA015, UA0
 | UA009 | Argument and cancellation validation must precede exception handling  | Guard calls, Argument* throw helpers/direct throws, and CancellationToken.ThrowIfCancellationRequested must appear before the first try and never inside a try block. |
 | UA010 | Primary constructors are not allowed                                  | Forbids primary constructors on non-record classes / structs (`class C(int x)` / `struct S(int x)`).          |
 | UA011 | Model types must be records                                           | Types named `*Model`, `*ViewModel`, `*ModelBase`, `*ViewModelBase`, or `*QueryResult` must be declared as `record`. Nested UI-state and paginated models remain eligible; ASP.NET Core Razor Pages `PageModel` descendants are excluded from the model standards rules. |
-| UA012 | Model properties must use the required keyword                        | Properties on model/QueryResult types must use the `required` modifier.                                       |
-| UA013 | Model properties must have getter and be init-only                    | Properties on model/QueryResult types must use `{ get; init; }` accessors.                                    |
-| UA014 | Collection properties must use read-only collection types             | Collection properties on model/QueryResult types must expose a read-only collection contract or a recognized immutable collection type. |
+| UA012 | Model properties must use the required keyword                        | Properties on model/QueryResult types must use the `required` modifier. Input-model hierarchies and model interfaces are excluded; individual properties can use `[UmbrellaAllowNonRequiredProperty]`. |
+| UA013 | Model properties must have getter and be init-only                    | Properties on model/QueryResult types must use `{ get; init; }`. Input-model hierarchies may use `set`; model interfaces are excluded. A getter is still required unless the property itself is exempted from mutation checks. |
+| UA014 | Collection properties must use read-only collection types             | Collection properties on model/QueryResult types must expose a read-only collection contract or a recognized immutable collection type. Input models remain subject to this rule unless the property uses `[UmbrellaAllowMutableProperty]`. |
 | UA015 | Models with mutable string properties must implement IUmbrellaTrimmable | When `IUmbrellaTrimmable` is present in the compilation, model classes and records with public instance `string` properties that have a non-init setter must implement the interface. Inherited mutable string properties are included. Partial types can use source generation; non-partial types can provide the implementation manually. |
 | UA017 | Use [UmbrellaProducesResponseType] instead of [ProducesResponseType]  | Controller classes and public MVC action candidates on `UmbrellaApiController` descendants must use the generic or non-generic `[UmbrellaProducesResponseType]` attribute rather than raw ASP.NET Core response type attributes. Generated, static, non-public, generic, `[NonAction]`, and `[NonController]` code is excluded. |
 | UA018 | Authorization handlers must not call context.Fail()                   | Authorization handlers must call `context.Succeed(requirement)` only for approved cases and otherwise leave the requirement unsatisfied so another handler can still approve it. |
@@ -35,16 +35,16 @@ Most rules are configured with **Error** severity (compile blocking); UA015, UA0
 | UA020 | Entity values must not be used as query criteria                      | Changeable public methods beginning with `Find`, `Get`, `Search`, `Lookup`, `Fetch`, or `Query` must not accept an entity, entity array, or immediate entity sequence. Entity-shaped infrastructure such as include maps, filter/sort expressions, and expression trees remains valid. Accept identifiers, scalar/value types, or a dedicated query criteria type instead. |
 | UA021 | Types with public operational methods should provide an ILogger       | Requires a class or record containing non-trivial public instance methods to expose an accessible `ILogger` or `ILogger<T>` through a field, property, captured primary-constructor parameter, or inheritance. Bodyless declarations and generated implementations do not create a logging requirement, but developer-authored mapper method bodies do. The remaining operational-method exclusions match UA008: framework entry points, `[DoesNotReturn]` control-flow methods, disposal and string-trimming implementations, direct base forwarders, recognized test entry points, and true no-ops. Entity types implementing `IEntity<T>` are also excluded because they are not dependency-injection service boundaries. |
 
-### Opt-out attributes (UA011–UA014)
-When a justified exception is needed, apply one of these attributes (all require a `justification` string):
+### Model attributes (UA012–UA014)
+Use the type-level input marker for models populated by UI/model binding. Use a narrowly scoped
+property attribute, with a justification, for exceptional properties. Attribute matching uses the
+exact `Umbrella.Analyzers` symbol; similarly named application attributes have no effect.
 
 | Attribute | Effect |
 |-----------|--------|
-| `[UmbrellaExcludeFromModelStandards("reason")]` | Excludes the entire type from UA011–UA014 |
-| `[UmbrellaAllowOptionalProperty("reason")]` | Allows a property without `required` (UA012) |
-| `[UmbrellaAllowLateInitialization("reason")]` | Like above, but signals the property is set post-construction |
-| `[UmbrellaAllowMutableProperty("reason")]` | Allows a `set` accessor instead of `init` (UA013) |
-| `[UmbrellaAllowMutableCollection("reason")]` | Allows a mutable collection property when mutation is genuinely required (UA014) |
+| `[UmbrellaInputModel]` | On a model type or base type, allows non-`required` properties (UA012) and `set` accessors (the mutability part of UA013). It does not suppress UA011, UA014, UA015, or UA013 for a missing getter. |
+| `[UmbrellaAllowNonRequiredProperty("reason")]` | Allows one property to omit `required` (UA012). |
+| `[UmbrellaAllowMutableProperty("reason")]` | Allows one property to use a `set` accessor (UA013), expose a mutable collection contract (UA014), or both. It does not permit a missing getter. |
 
 ### Severity
 UA001–UA014, UA018, UA020, and UA021 emit diagnostics as `Error` so builds fail until issues are resolved. UA015, UA017, and UA019 emit as `Warning` — they flag structural issues but do not block the build by default. Adjust severities via ruleset / .editorconfig if you need a different adoption path.

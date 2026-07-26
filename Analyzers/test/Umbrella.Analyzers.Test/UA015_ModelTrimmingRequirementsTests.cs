@@ -3,16 +3,14 @@ namespace Umbrella.Analyzers.Test;
 public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaModelStandardsAnalyzer>
 {
 	private const string TrimmableStub = """
+		using Umbrella.Analyzers;
+
 		namespace Umbrella.Utilities.Text
 		{
 			public interface IUmbrellaTrimmable
 			{
 				void TrimAllStringProperties();
 			}
-		}
-
-		public sealed class UmbrellaAllowMutablePropertyAttribute : System.Attribute
-		{
 		}
 
 		""";
@@ -23,14 +21,14 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 		const string source = TrimmableStub + """
 			public record UserModel
 			{
-				[UmbrellaAllowMutableProperty]
+				[UmbrellaAllowMutableProperty("Mutable property required by the test model.")]
 				public required string Name { get; set; }
 			}
 			""";
 
 		await VerifyAnalyzerAsync(
 			source,
-			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 12, 15, "UserModel"));
+			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 10, 15, "UserModel"));
 	}
 
 	[Fact]
@@ -39,15 +37,15 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 		const string source = TrimmableStub + """
 			public class UserModel
 			{
-				[UmbrellaAllowMutableProperty]
+				[UmbrellaAllowMutableProperty("Mutable property required by the test model.")]
 				public required string Name { get; set; }
 			}
 			""";
 
 		await VerifyAnalyzerAsync(
 			source,
-			Diagnostic(UmbrellaModelStandardsAnalyzer.ModelMustBeRecordRule, 12, 14, "UserModel"),
-			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 12, 14, "UserModel"));
+			Diagnostic(UmbrellaModelStandardsAnalyzer.ModelMustBeRecordRule, 10, 14, "UserModel"),
+			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 10, 14, "UserModel"));
 	}
 
 	[Fact]
@@ -56,14 +54,14 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 		const string source = TrimmableStub + """
 			public record UserModel
 			{
-				[UmbrellaAllowMutableProperty]
+				[UmbrellaAllowMutableProperty("Mutable property required by the test model.")]
 				public required string? DisplayName { get; set; }
 			}
 			""";
 
 		await VerifyAnalyzerAsync(
 			source,
-			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 12, 15, "UserModel"));
+			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 10, 15, "UserModel"));
 	}
 
 	[Fact]
@@ -72,7 +70,7 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 		const string source = TrimmableStub + """
 			public record UserState
 			{
-				[UmbrellaAllowMutableProperty]
+				[UmbrellaAllowMutableProperty("Mutable property required by the test model.")]
 				public required string Name { get; set; }
 			}
 
@@ -81,7 +79,7 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 
 		await VerifyAnalyzerAsync(
 			source,
-			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 18, 15, "UserModel"));
+			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 16, 15, "UserModel"));
 	}
 
 	[Fact]
@@ -104,7 +102,7 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 			public record UserModel
 			{
 				public required string Name { get; } = "";
-				[UmbrellaAllowMutableProperty]
+				[UmbrellaAllowMutableProperty("Mutable property required by the test model.")]
 				public static required string Description { get; set; } = "";
 			}
 			""";
@@ -118,7 +116,7 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 		const string source = TrimmableStub + """
 			public record UserModel
 			{
-				[UmbrellaAllowMutableProperty]
+				[UmbrellaAllowMutableProperty("Mutable property required by the test model.")]
 				public required int Age { get; set; }
 			}
 			""";
@@ -132,7 +130,7 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 		const string source = TrimmableStub + """
 			public partial record UserModel : Umbrella.Utilities.Text.IUmbrellaTrimmable
 			{
-				[UmbrellaAllowMutableProperty]
+				[UmbrellaAllowMutableProperty("Mutable property required by the test model.")]
 				public required string Name { get; set; }
 			}
 			""";
@@ -146,7 +144,7 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 		const string source = TrimmableStub + """
 			public record UserModel : Umbrella.Utilities.Text.IUmbrellaTrimmable
 			{
-				[UmbrellaAllowMutableProperty]
+				[UmbrellaAllowMutableProperty("Mutable property required by the test model.")]
 				public required string Name { get; set; }
 
 				public void TrimAllStringProperties()
@@ -165,7 +163,7 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 		const string source = TrimmableStub + """
 			public record UserState : Umbrella.Utilities.Text.IUmbrellaTrimmable
 			{
-				[UmbrellaAllowMutableProperty]
+				[UmbrellaAllowMutableProperty("Mutable property required by the test model.")]
 				public required string Name { get; set; }
 				public void TrimAllStringProperties() => Name = Name.Trim();
 			}
@@ -189,7 +187,7 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 
 				public record UserModel : IUmbrellaTrimmable
 				{
-					[UmbrellaAllowMutableProperty]
+					[UmbrellaAllowMutableProperty("Mutable property required by the test model.")]
 					public required string Name { get; set; }
 					public void TrimAllStringProperties() => Name = Name.Trim();
 				}
@@ -198,44 +196,18 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 
 		await VerifyAnalyzerAsync(
 			source,
-			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 19, 16, "UserModel"));
-	}
-
-	[Fact]
-	public async Task ExcludedModel_ShouldNotTriggerDiagnostic()
-	{
-		const string source = TrimmableStub + """
-			using System;
-
-			[UmbrellaExcludeFromModelStandards("Framework model")]
-			public record UserModel
-			{
-				[UmbrellaAllowMutableProperty]
-				public required string Name { get; set; }
-			}
-
-			public sealed class UmbrellaExcludeFromModelStandardsAttribute : Attribute
-			{
-				public UmbrellaExcludeFromModelStandardsAttribute(string justification)
-				{
-				}
-			}
-			""";
-
-		await VerifyNoDiagnosticsAsync(source);
+			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 17, 16, "UserModel"));
 	}
 
 	[Fact]
 	public async Task TrimmableInterfaceAbsent_ShouldNotTriggerDiagnostic()
 	{
 		const string source = """
-			public sealed class UmbrellaAllowMutablePropertyAttribute : System.Attribute
-			{
-			}
+			using Umbrella.Analyzers;
 
 			public record UserModel
 			{
-				[UmbrellaAllowMutableProperty]
+				[UmbrellaAllowMutableProperty("Mutable property required by the test model.")]
 				public required string Name { get; set; }
 			}
 			""";
@@ -249,7 +221,7 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 		const string source = TrimmableStub + """
 			public record UserState
 			{
-				[UmbrellaAllowMutableProperty]
+				[UmbrellaAllowMutableProperty("Mutable property required by the test model.")]
 				public required string Name { get; set; }
 			}
 			""";

@@ -150,16 +150,8 @@ public class UA014_CollectionsMustBeReadOnlyTests : AnalyzerTestBase<UmbrellaMod
 
 			public record UserModel
 			{
-				[UmbrellaAllowMutableCollection("Collection is mutable UI form state.")]
+				[Umbrella.Analyzers.UmbrellaAllowMutableProperty("Collection is mutable UI form state.")]
 				public required List<string> Items { get; init; }
-			}
-
-			[AttributeUsage(AttributeTargets.Property)]
-			public sealed class UmbrellaAllowMutableCollectionAttribute : Attribute
-			{
-				public UmbrellaAllowMutableCollectionAttribute(string justification)
-				{
-				}
 			}
 			""";
 

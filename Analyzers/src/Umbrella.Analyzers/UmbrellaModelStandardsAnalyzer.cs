@@ -15,16 +15,16 @@ namespace Umbrella.Analyzers;
 /// This analyzer enforces the following rules:
 /// </para>
 /// <list type="bullet">
-/// <item><description>UMS001: Model types must be records for better immutability guarantees</description></item>
-/// <item><description>UMS002: Model properties must use the 'required' keyword for initialization safety</description></item>
-/// <item><description>UMS003: Model properties must have getter and be init-only to prevent mutation</description></item>
+/// <item><description>UA011: Model types must be records for better immutability guarantees</description></item>
+/// <item><description>UA012: Model properties must use the 'required' keyword for initialization safety</description></item>
+/// <item><description>UA013: Model properties must have getter and be init-only to prevent mutation</description></item>
 /// <item><description>UA014: Collection properties must use a read-only collection type</description></item>
 /// </list>
 /// <para>
 /// The analyzer targets types with names ending in: Model, ModelBase, ViewModel, ViewModelBase, or QueryResult.
 /// </para>
 /// <para>
-/// Opt-out attributes are available to bypass specific rules when justified.
+/// Input models and justified property-level exceptions can use the model attributes supplied by this package.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -124,6 +124,12 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			INamedTypeSymbol? razorPageModelSymbol = startContext.Compilation.GetTypeByMetadataName(
 				"Microsoft.AspNetCore.Mvc.RazorPages.PageModel");
 			INamedTypeSymbol? trimmableSymbol = startContext.Compilation.GetTypeByMetadataName("Umbrella.Utilities.Text.IUmbrellaTrimmable");
+			INamedTypeSymbol? inputModelAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
+				"Umbrella.Analyzers.UmbrellaInputModelAttribute");
+			INamedTypeSymbol? allowNonRequiredPropertyAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
+				"Umbrella.Analyzers.UmbrellaAllowNonRequiredPropertyAttribute");
+			INamedTypeSymbol? allowMutablePropertyAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
+				"Umbrella.Analyzers.UmbrellaAllowMutablePropertyAttribute");
 			var collectionAnalysis = new CollectionTypeAnalysis(startContext.Compilation);
 
 			startContext.RegisterSyntaxNodeAction(
@@ -131,7 +137,13 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 				SyntaxKind.ClassDeclaration,
 				SyntaxKind.RecordDeclaration);
 			startContext.RegisterSyntaxNodeAction(
-				ctx => AnalyzePropertyDeclaration(ctx, razorPageModelSymbol, collectionAnalysis),
+				ctx => AnalyzePropertyDeclaration(
+					ctx,
+					razorPageModelSymbol,
+					inputModelAttributeSymbol,
+					allowNonRequiredPropertyAttributeSymbol,
+					allowMutablePropertyAttributeSymbol,
+					collectionAnalysis),
 				SyntaxKind.PropertyDeclaration);
 
 			if (trimmableSymbol is null)
@@ -154,9 +166,6 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		if (!IsApplicableModelType(typeDecl, context.SemanticModel, razorPageModelSymbol))
 			return;
 
-		if (HasOptOutAttribute(typeDecl, context.SemanticModel, "UmbrellaExcludeFromModelStandardsAttribute"))
-			return;
-
 		if (typeDecl is not RecordDeclarationSyntax)
 		{
 			var diagnostic = Diagnostic.Create(ModelMustBeRecordRule, typeDecl.Identifier.GetLocation(), typeDecl.Identifier.Text);
@@ -167,6 +176,9 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 	private static void AnalyzePropertyDeclaration(
 		SyntaxNodeAnalysisContext context,
 		INamedTypeSymbol? razorPageModelSymbol,
+		INamedTypeSymbol? inputModelAttributeSymbol,
+		INamedTypeSymbol? allowNonRequiredPropertyAttributeSymbol,
+		INamedTypeSymbol? allowMutablePropertyAttributeSymbol,
 		CollectionTypeAnalysis collectionAnalysis)
 	{
 		var propertyDecl = (PropertyDeclarationSyntax)context.Node;
@@ -178,11 +190,20 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			return;
 		}
 
-		if (HasOptOutAttribute(typeDecl, context.SemanticModel, "UmbrellaExcludeFromModelStandardsAttribute"))
+		if (context.SemanticModel.GetDeclaredSymbol(typeDecl) is not INamedTypeSymbol typeSymbol ||
+			context.SemanticModel.GetDeclaredSymbol(propertyDecl) is not IPropertySymbol propertySymbol)
+		{
 			return;
+		}
 
-		if (!HasRequiredModifier(propertyDecl) &&
-			!HasOptOutAttribute(propertyDecl, context.SemanticModel, "UmbrellaAllowOptionalPropertyAttribute"))
+		bool isInterfaceProperty = typeSymbol.TypeKind == TypeKind.Interface;
+		bool isInputModel = HasAttributeInTypeHierarchy(typeSymbol, inputModelAttributeSymbol);
+		bool allowsMutation = HasAttribute(propertySymbol, allowMutablePropertyAttributeSymbol);
+
+		if (!isInterfaceProperty &&
+			!isInputModel &&
+			!HasRequiredModifier(propertyDecl) &&
+			!HasAttribute(propertySymbol, allowNonRequiredPropertyAttributeSymbol))
 		{
 			var diagnostic = Diagnostic.Create(PropertiesMustBeRequiredRule, propertyDecl.Identifier.GetLocation(),
 				propertyDecl.Identifier.Text, typeDecl.Identifier.Text);
@@ -190,13 +211,16 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		}
 
 		// Check for getter (always required — [UmbrellaAllowMutableProperty] does not suppress this)
-		bool hasMissingGetter = propertyDecl.AccessorList == null ||
-			!propertyDecl.AccessorList.Accessors.Any(a => a.Kind() == SyntaxKind.GetAccessorDeclaration);
+		bool hasMissingGetter = !isInterfaceProperty &&
+			(propertyDecl.AccessorList == null ||
+				!propertyDecl.AccessorList.Accessors.Any(a => a.Kind() == SyntaxKind.GetAccessorDeclaration));
 
 		// Check for setter instead of init (suppressed by [UmbrellaAllowMutableProperty])
-		bool hasSetterWithoutInit = propertyDecl.AccessorList != null &&
+		bool hasSetterWithoutInit = !isInterfaceProperty &&
+			!isInputModel &&
+			propertyDecl.AccessorList != null &&
 			propertyDecl.AccessorList.Accessors.Any(a => a.Kind() == SyntaxKind.SetAccessorDeclaration && !HasInitModifier(a)) &&
-			!HasOptOutAttribute(propertyDecl, context.SemanticModel, "UmbrellaAllowMutablePropertyAttribute");
+			!allowsMutation;
 
 		if (hasMissingGetter || hasSetterWithoutInit)
 		{
@@ -209,7 +233,7 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		if (propertyType != null &&
 			collectionAnalysis.IsCollectionType(propertyType) &&
 			!collectionAnalysis.IsReadOnlyCollectionType(propertyType) &&
-			!HasOptOutAttribute(propertyDecl, context.SemanticModel, "UmbrellaAllowMutableCollectionAttribute"))
+			!allowsMutation)
 		{
 			var diagnostic = Diagnostic.Create(CollectionsMustBeReadOnlyRule, propertyDecl.Identifier.GetLocation(),
 				propertyDecl.Identifier.Text, typeDecl.Identifier.Text);
@@ -225,9 +249,6 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		var typeDecl = (TypeDeclarationSyntax)context.Node;
 
 		if (!IsApplicableModelType(typeDecl, context.SemanticModel, razorPageModelSymbol))
-			return;
-
-		if (HasOptOutAttribute(typeDecl, context.SemanticModel, "UmbrellaExcludeFromModelStandardsAttribute"))
 			return;
 
 		if (context.SemanticModel.GetDeclaredSymbol(typeDecl) is not INamedTypeSymbol typeSymbol ||
@@ -308,23 +329,23 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 	private static bool HasInitModifier(AccessorDeclarationSyntax accessor) =>
 		accessor.Modifiers.Any(m => m.Text == "init");
 
-	private static bool HasOptOutAttribute(SyntaxNode node, SemanticModel semanticModel, params string[] attributeNames)
+	private static bool HasAttribute(ISymbol symbol, INamedTypeSymbol? attributeSymbol)
 	{
-		if (node is MemberDeclarationSyntax memberDecl)
+		return attributeSymbol is not null &&
+			symbol.GetAttributes().Any(attribute =>
+				SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeSymbol));
+	}
+
+	private static bool HasAttributeInTypeHierarchy(
+		INamedTypeSymbol typeSymbol,
+		INamedTypeSymbol? attributeSymbol)
+	{
+		for (INamedTypeSymbol? currentType = typeSymbol;
+			currentType is not null;
+			currentType = currentType.BaseType)
 		{
-			if (memberDecl.AttributeLists.Count == 0)
-				return false;
-
-			var symbol = semanticModel.GetDeclaredSymbol(memberDecl);
-			if (symbol == null)
-				return false;
-
-			foreach (var attribute in symbol.GetAttributes())
-			{
-				var attributeClass = attribute.AttributeClass;
-				if (attributeClass != null && attributeNames.Contains(attributeClass.Name))
-					return true;
-			}
+			if (HasAttribute(currentType, attributeSymbol))
+				return true;
 		}
 
 		return false;

@@ -1,105 +1,51 @@
 namespace Umbrella.Analyzers;
 
 /// <summary>
-/// Indicates that a type should be excluded from the Umbrella model standards enforcement.
+/// Indicates that a model is designed for input binding and therefore permits non-required,
+/// settable properties.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public sealed class UmbrellaExcludeFromModelStandardsAttribute : Attribute
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = true)]
+public sealed class UmbrellaInputModelAttribute : Attribute
 {
-	/// <summary>
-	/// Gets the justification for excluding this type from model standards enforcement.
-	/// </summary>
-	public string Justification { get; }
-
-	/// <summary>
-	/// Initializes a new instance of the <see cref="UmbrellaExcludeFromModelStandardsAttribute"/> class.
-	/// </summary>
-	/// <param name="justification">The justification for excluding this type from model standards enforcement.</param>
-	public UmbrellaExcludeFromModelStandardsAttribute(string justification)
-	{
-		Justification = justification ?? throw new ArgumentNullException(nameof(justification));
-	}
 }
 
 /// <summary>
-/// Base attribute that indicates a property can skip the 'required' keyword requirement
-/// in Umbrella model standards.
+/// Indicates that a model property can omit the <c>required</c> modifier.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property)]
-[SuppressMessage("Performance", "CA1813:Avoid unsealed attributes", Justification = "Unsealed to allow it to be inherited.")]
-public class UmbrellaAllowOptionalPropertyAttribute : Attribute
+public sealed class UmbrellaAllowNonRequiredPropertyAttribute : Attribute
 {
 	/// <summary>
-	/// Gets the justification for allowing this property to be optional.
+	/// Gets the justification for allowing the property to omit the <c>required</c> modifier.
 	/// </summary>
 	public string Justification { get; }
 
 	/// <summary>
-	/// Initializes a new instance of the <see cref="UmbrellaAllowOptionalPropertyAttribute"/> class.
+	/// Initializes a new instance of the <see cref="UmbrellaAllowNonRequiredPropertyAttribute"/> class.
 	/// </summary>
-	/// <param name="justification">The justification for allowing this property to be optional.</param>
-	public UmbrellaAllowOptionalPropertyAttribute(string justification)
+	/// <param name="justification">The justification for allowing the property to omit <c>required</c>.</param>
+	public UmbrellaAllowNonRequiredPropertyAttribute(string justification)
 	{
 		Justification = justification ?? throw new ArgumentNullException(nameof(justification));
 	}
 }
 
 /// <summary>
-/// Indicates that a property can be mutable (have a setter rather than init-only)
-/// despite Umbrella model standards.
+/// Indicates that a model property can expose mutation through a setter, a mutable collection contract, or both.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property)]
 public sealed class UmbrellaAllowMutablePropertyAttribute : Attribute
 {
 	/// <summary>
-	/// Gets the justification for allowing this property to be mutable.
+	/// Gets the justification for allowing mutation through the property.
 	/// </summary>
 	public string Justification { get; }
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="UmbrellaAllowMutablePropertyAttribute"/> class.
 	/// </summary>
-	/// <param name="justification">The justification for allowing this property to be mutable.</param>
+	/// <param name="justification">The justification for allowing mutation through the property.</param>
 	public UmbrellaAllowMutablePropertyAttribute(string justification)
-	{
-		Justification = justification ?? throw new ArgumentNullException(nameof(justification));
-	}
-}
-
-/// <summary>
-/// Indicates that a property is designed to be initialized after the instance is created.
-/// This is semantically more specific than <see cref="UmbrellaAllowOptionalPropertyAttribute" />, expressing intent
-/// that the property will be set later in the object's lifecycle.
-/// </summary>
-[AttributeUsage(AttributeTargets.Property)]
-public sealed class UmbrellaAllowLateInitializationAttribute : UmbrellaAllowOptionalPropertyAttribute
-{
-	/// <summary>
-	/// Initializes a new instance of the <see cref="UmbrellaAllowLateInitializationAttribute"/> class.
-	/// </summary>
-	/// <param name="justification">The justification for allowing this property to be initialized after object creation.</param>
-	public UmbrellaAllowLateInitializationAttribute(string justification) : base(justification)
-	{
-	}
-}
-
-/// <summary>
-/// Indicates that a collection property can use a mutable collection type
-/// instead of the read-only collection contract normally required by Umbrella model standards.
-/// </summary>
-[AttributeUsage(AttributeTargets.Property)]
-public sealed class UmbrellaAllowMutableCollectionAttribute : Attribute
-{
-	/// <summary>
-	/// Gets the justification for allowing this collection property to be mutable.
-	/// </summary>
-	public string Justification { get; }
-
-	/// <summary>
-	/// Initializes a new instance of the <see cref="UmbrellaAllowMutableCollectionAttribute"/> class.
-	/// </summary>
-	/// <param name="justification">The justification for allowing this collection property to be mutable.</param>
-	public UmbrellaAllowMutableCollectionAttribute(string justification)
 	{
 		Justification = justification ?? throw new ArgumentNullException(nameof(justification));
 	}

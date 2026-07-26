@@ -47,18 +47,18 @@ public class NotAModelType
 	}
 
 	[Fact]
-	public async Task ModelClass_WithOptOutAttribute_ShouldNotTriggerDiagnostic()
+	public async Task ModelClass_WithInputModelAttribute_ShouldStillTriggerUA011()
 	{
-		const string source = @"using System;
+		const string source = @"using Umbrella.Analyzers;
 
-[UmbrellaExcludeFromModelStandards]
+[UmbrellaInputModel]
 public class UserModel
 {
     public string Name { get; set; }
-}
-
-public class UmbrellaExcludeFromModelStandardsAttribute : Attribute { }";
-		await VerifyNoDiagnosticsAsync(source);
+}";
+		await VerifyAnalyzerAsync(
+			source,
+			Diagnostic(UmbrellaModelStandardsAnalyzer.ModelMustBeRecordRule, 4, 14, "UserModel"));
 	}
 
 	[Fact]
