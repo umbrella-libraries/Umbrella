@@ -58,12 +58,12 @@ internal sealed class BrowserEventAggregator : IAsyncDisposable, IBrowserEventAg
 		{
 			// JS interop is unavailable during static rendering / prerendering; remove the callback so the dictionary
 			// stays consistent and the subscription can be retried once interactive rendering activates.
-			_callbackDictionary.Remove(eventName);
+			_ = _callbackDictionary.Remove(eventName);
 			_logger.WriteDebug(message: "Browser event subscription skipped: JavaScript interop is not available during prerendering.");
 		}
 		catch (Exception exc) when (_logger.WriteError(exc, new { eventName }))
 		{
-			_callbackDictionary.Remove(eventName);
+			_ = _callbackDictionary.Remove(eventName);
 			throw new UmbrellaBlazorException("There has been a problem subscribing to the event.", exc);
 		}
 	}

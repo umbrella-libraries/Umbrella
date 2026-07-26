@@ -18,6 +18,9 @@ public static class NonceHelper
 	/// <exception cref="UmbrellaWebException">A nonce for the current request could not be found either in the OWIN environment or in the items dictionary of HttpContextBase.</exception>
 	public static string? GetCurrentRequestNonce(this HtmlHelper htmlHelper)
 	{
+		if (htmlHelper is null)
+			throw new ArgumentNullException(nameof(htmlHelper));
+
 		string? value = htmlHelper.ViewContext.HttpContext.GetOwinContext().GetCurrentRequestNonce();
 
 		if (string.IsNullOrWhiteSpace(value))

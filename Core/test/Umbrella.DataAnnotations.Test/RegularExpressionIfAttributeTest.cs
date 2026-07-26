@@ -3,7 +3,7 @@ namespace Umbrella.DataAnnotations.Test;
 
 public class RegularExpressionIfAttributeTest
 {
-	private class Model : ContingentValidationModelBase<RegularExpressionIfAttribute>
+	private sealed class Model : ContingentValidationModelBase<RegularExpressionIfAttribute>
 	{
 		public bool Value1 { get; set; }
 

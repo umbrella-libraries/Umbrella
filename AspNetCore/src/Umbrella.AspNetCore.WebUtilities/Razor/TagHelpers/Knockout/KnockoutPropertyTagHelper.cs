@@ -145,6 +145,8 @@ public class KnockoutPropertyTagHelper : TagHelper
 	/// <inheritdoc />
 	public override void Process(TagHelperContext context, TagHelperOutput output)
 	{
+		ArgumentNullException.ThrowIfNull(output);
+
 		try
 		{
 			if (!string.IsNullOrWhiteSpace(PropertyName))

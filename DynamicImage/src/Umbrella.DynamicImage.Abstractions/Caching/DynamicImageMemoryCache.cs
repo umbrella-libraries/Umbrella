@@ -39,6 +39,8 @@ public class DynamicImageMemoryCache : DynamicImageCache, IDynamicImageCache
 	/// <inheritdoc />
 	public Task AddAsync(DynamicImageItem dynamicImage, CancellationToken cancellationToken = default)
 	{
+		CommunityToolkit.Diagnostics.Guard.IsNotNull(dynamicImage);
+
 		try
 		{
 			string rawKey = GenerateCacheKey(dynamicImage.ImageOptions);

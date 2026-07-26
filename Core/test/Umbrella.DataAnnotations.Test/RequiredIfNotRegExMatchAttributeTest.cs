@@ -3,7 +3,7 @@ namespace Umbrella.DataAnnotations.Test;
 
 public class RequiredIfNotRegExMatchAttributeTest
 {
-	private class Model : ContingentValidationModelBase<RequiredIfNotRegExMatchAttribute>
+	private sealed class Model : ContingentValidationModelBase<RequiredIfNotRegExMatchAttribute>
 	{
 		public string? Value1 { get; set; }
 

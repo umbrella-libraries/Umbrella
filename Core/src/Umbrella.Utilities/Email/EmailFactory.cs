@@ -53,6 +53,8 @@ public class EmailFactory : IEmailFactory
 		EmailFactoryOptions options,
 		IUmbrellaHostingEnvironment hostingEnvironment)
 	{
+		Guard.IsNotNull(options);
+
 		_emailContentLog = loggerFactory.CreateLogger<EmailContent>();
 		_log = logger;
 		_dateTimeProvider = dateTimeProvider;

@@ -44,7 +44,7 @@ public class UmbrellaFileStorageProviderAuthorizationTest
 			.ThrowsAsync<UmbrellaFileSystemException>(() => provider.CreateAsync("/documents/test.bin", TestContext.Current.CancellationToken))
 			.ConfigureAwait(true);
 
-		Assert.IsType<UmbrellaFileAccessDeniedException>(exception.InnerException);
+		_ = Assert.IsType<UmbrellaFileAccessDeniedException>(exception.InnerException);
 	}
 
 	[Fact]

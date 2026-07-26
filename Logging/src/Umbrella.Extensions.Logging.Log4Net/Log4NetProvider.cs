@@ -24,6 +24,11 @@ public class Log4NetProvider : ILoggerProvider
 	/// <param name="configFileRelativePath">The configuration file relative path.</param>
 	public Log4NetProvider(string contentRootPath, string configFileRelativePath)
 	{
+		if (contentRootPath is null)
+			throw new ArgumentNullException(nameof(contentRootPath));
+		if (configFileRelativePath is null)
+			throw new ArgumentNullException(nameof(configFileRelativePath));
+
 		_loggerRepository = LogManager.CreateRepository(Assembly.GetEntryAssembly() ?? Assembly.GetCallingAssembly(), typeof(log4net.Repository.Hierarchy.Hierarchy));
 
 		GlobalContext.Properties["appRoot"] = contentRootPath;

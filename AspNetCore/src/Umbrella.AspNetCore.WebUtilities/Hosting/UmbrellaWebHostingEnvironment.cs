@@ -20,10 +20,10 @@ namespace Umbrella.AspNetCore.WebUtilities.Hosting;
 /// </summary>
 /// <seealso cref="UmbrellaHostingEnvironment" />
 /// <seealso cref="IUmbrellaWebHostingEnvironment" />
-public class UmbrellaWebHostingEnvironment : UmbrellaHostingEnvironment, IUmbrellaWebHostingEnvironment
+public partial class UmbrellaWebHostingEnvironment : UmbrellaHostingEnvironment, IUmbrellaWebHostingEnvironment
 {
 	#region Private Static Members
-	private static readonly Regex _multipleForwardSlashRegex = new("/+", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+	private static readonly Regex _multipleForwardSlashRegex = CreateMultipleForwardSlashRegex();
 	#endregion
 
 	#region Protected Properties		
@@ -245,4 +245,7 @@ public class UmbrellaWebHostingEnvironment : UmbrellaHostingEnvironment, IUmbrel
 		return path;
 	}
 	#endregion
+
+	[GeneratedRegex("/+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+	private static partial Regex CreateMultipleForwardSlashRegex();
 }

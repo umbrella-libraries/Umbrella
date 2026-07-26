@@ -3,7 +3,7 @@ namespace Umbrella.DataAnnotations.Test;
 
 public class RequiredTrueAttributeTest
 {
-	private class Model : ValidationModelBase<RequiredTrueAttribute>
+	private sealed class Model : ValidationModelBase<RequiredTrueAttribute>
 	{
 		[RequiredTrue]
 		public bool? Value1 { get; set; }

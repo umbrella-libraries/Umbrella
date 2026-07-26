@@ -37,6 +37,8 @@ public class EnumExtensionsTest
 	[MemberData(nameof(ToFlagsStringTestData))]
 	public void ToFlagsString_Valid(Func<string> func, string expectedOutput)
 	{
+		ArgumentNullException.ThrowIfNull(func);
+
 		string result = func();
 
 		Assert.Equal(expectedOutput, result);
@@ -46,6 +48,8 @@ public class EnumExtensionsTest
 	[MemberData(nameof(ToFlagsDisplayStringTestData))]
 	public void ToFlagsDisplayString_Valid(Func<string> func, string expectedOutput)
 	{
+		ArgumentNullException.ThrowIfNull(func);
+
 		string result = func();
 
 		Assert.Equal(expectedOutput, result);

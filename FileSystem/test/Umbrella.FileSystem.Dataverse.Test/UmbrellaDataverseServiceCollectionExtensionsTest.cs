@@ -31,8 +31,8 @@ public class UmbrellaDataverseServiceCollectionExtensionsTest
 		IUmbrellaFileStorageProvider defaultProvider = serviceProvider.GetRequiredService<IUmbrellaFileStorageProvider>();
 		IUmbrellaFileStorageProviderOptions providerOptions = serviceProvider.GetRequiredService<IUmbrellaFileStorageProviderOptions>();
 
-		Assert.IsType<UmbrellaDataverseFileStorageProvider>(dataverseProvider);
+		_ = Assert.IsType<UmbrellaDataverseFileStorageProvider>(dataverseProvider);
 		Assert.Same(dataverseProvider, defaultProvider);
-		Assert.IsType<UmbrellaDataverseFileStorageProviderOptions>(providerOptions);
+		_ = Assert.IsType<UmbrellaDataverseFileStorageProviderOptions>(providerOptions);
 	}
 }

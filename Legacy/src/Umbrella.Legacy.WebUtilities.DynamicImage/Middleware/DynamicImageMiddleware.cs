@@ -66,6 +66,9 @@ public class DynamicImageMiddleware : OwinMiddleware
 	/// <exception cref="UmbrellaWebException">An error has occurred whilst executing the request.</exception>
 	public override async Task Invoke(IOwinContext context)
 	{
+		if (context is null)
+			throw new ArgumentNullException(nameof(context));
+
 		context.Request.CallCancelled.ThrowIfCancellationRequested();
 
 		var cts = CancellationTokenSource.CreateLinkedTokenSource(context.Request.CallCancelled);

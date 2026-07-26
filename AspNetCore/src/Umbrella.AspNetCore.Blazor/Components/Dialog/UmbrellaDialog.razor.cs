@@ -151,6 +151,8 @@ public partial class UmbrellaDialog
 	/// <param name="button">The clicked button.</param>
 	protected async Task ButtonClickAsync(UmbrellaDialogButton button)
 	{
+		ArgumentNullException.ThrowIfNull(button);
+
 		if (!string.IsNullOrWhiteSpace(button.NavigateUrl))
 		{
 			Navigation.NavigateTo(button.NavigateUrl);

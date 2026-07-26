@@ -246,6 +246,8 @@ public record UmbrellaColumnDefinition<TItem, TValue> : IUmbrellaColumnDefinitio
 	/// <inheritdoc/>
 	public string GetFilterOptionDisplayName(object option)
 	{
+		ArgumentNullException.ThrowIfNull(option);
+
 		if (FilterOptionDisplayNameSelector is null)
 		{
 			if (option is string strOption)

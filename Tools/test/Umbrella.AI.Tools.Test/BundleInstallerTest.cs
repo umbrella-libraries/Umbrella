@@ -77,7 +77,7 @@ public class BundleInstallerTest
         File.WriteAllText(agentsPath, "# Custom agent guidance\n\nUser-owned intro.");
         File.WriteAllText(exclusionsPath, "{\"packages\":[\"Contoso\"]}");
         File.WriteAllText(mcpPath, "{\"version\":1,\"inputs\":{\"token\":{\"type\":\"promptString\"}},\"servers\":{\"existing\":{\"type\":\"stdio\",\"command\":\"custom\"}}}");
-        Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
         File.WriteAllText(codexPath, unrelatedCodexConfig);
 
         var result = installer.Install(new Umbrella.AI.Tools.CommandOptions { TargetPath = workspace.RootPath });
@@ -159,7 +159,7 @@ public class BundleInstallerTest
 
         File.WriteAllText(agentsPath, "# User heading");
         File.WriteAllText(mcpPath, "{\"version\":1,\"servers\":{\"existing\":{\"type\":\"stdio\",\"command\":\"custom\"}}}");
-        Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
         File.WriteAllText(codexPath, unrelatedCodexConfig);
         Assert.True(installer.Install(new Umbrella.AI.Tools.CommandOptions { TargetPath = workspace.RootPath }).Success);
 
@@ -184,11 +184,11 @@ public class BundleInstallerTest
         using var workspace = new TemporaryWorkspace();
         var installer = CreateInstaller();
         string conflictingPath = Path.Combine(workspace.RootPath, ".github", "agents", "umbrella-nuget-safe-upgrade.agent.md");
-        Directory.CreateDirectory(Path.GetDirectoryName(conflictingPath)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(conflictingPath)!);
         File.WriteAllText(conflictingPath, "owned by another bundle");
 
         string otherManifestPath = Path.Combine(workspace.RootPath, ".ai-shared", "bundles", "other.bundle", "manifest.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(otherManifestPath)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(otherManifestPath)!);
         var otherManifest = new
         {
             bundleId = "other.bundle",
@@ -286,7 +286,7 @@ public class BundleInstallerTest
         var installer = CreateInstaller();
         string codexPath = Path.Combine(workspace.RootPath, ".codex", "config.toml");
         const string unrelatedCodexConfig = "model = \"gpt-5\"\r\n";
-        Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
         File.WriteAllText(codexPath, unrelatedCodexConfig);
 
         var firstResult = installer.Sync(workspace.RootPath);
@@ -327,15 +327,15 @@ public class BundleInstallerTest
     private static void CreateSyncWorkspace(string root, bool includeMcp = false)
     {
         string skillDir = Path.Combine(root, ".ai-shared", "skills", "sample-skill");
-        Directory.CreateDirectory(skillDir);
+        _ = Directory.CreateDirectory(skillDir);
         File.WriteAllText(Path.Combine(skillDir, "SKILL.md"), "---\nname: sample-skill\ndescription: Sample skill.\n---\n\nRun the script in `{{skill_dir}}`.\n");
 
         string agentDir = Path.Combine(root, ".ai-shared", "agents", "claude");
-        Directory.CreateDirectory(agentDir);
+        _ = Directory.CreateDirectory(agentDir);
         File.WriteAllText(Path.Combine(agentDir, "sample-agent.md"), "# Sample agent\n");
 
         string bundleDir = Path.Combine(root, ".ai-shared", "bundles", "umbrella");
-        Directory.CreateDirectory(bundleDir);
+        _ = Directory.CreateDirectory(bundleDir);
         File.WriteAllText(Path.Combine(bundleDir, "bundle.json"), """
         {
           "bundleId": "umbrella",
@@ -407,8 +407,8 @@ public class BundleInstallerTest
         public TemporaryWorkspace()
         {
             RootPath = Path.Combine(Path.GetTempPath(), "Umbrella.AI.Tools.Test", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(RootPath);
-            Directory.CreateDirectory(Path.Combine(RootPath, ".git"));
+            _ = Directory.CreateDirectory(RootPath);
+            _ = Directory.CreateDirectory(Path.Combine(RootPath, ".git"));
         }
 
         public string RootPath { get; }

@@ -36,6 +36,10 @@ public struct GeoLocation : IEquatable<GeoLocation>
 			   Longitude == other.Longitude;
 
 	/// <inheritdoc />
+#if NET8_0_OR_GREATER
+	public override readonly int GetHashCode() => HashCode.Combine(Latitude, Longitude);
+#else
+#pragma warning disable IDE0070 // HashCode.Combine is unavailable on the legacy target frameworks.
 	public override readonly int GetHashCode()
 	{
 		int hashCode = -1416534245;
@@ -43,6 +47,8 @@ public struct GeoLocation : IEquatable<GeoLocation>
 		hashCode = (hashCode * -1521134295) + Longitude.GetHashCode();
 		return hashCode;
 	}
+#pragma warning restore IDE0070
+#endif
 
 	/// <summary>
 	/// Calculates the distance between the current instance and the specified <paramref name="other"/> <see cref="GeoLocation"/>.

@@ -16,7 +16,7 @@ public class UmbrellaFileAuthorizationHandlerRegistryTest
 		IUmbrellaFileAuthorizationHandler? handler = registry.GetByFileInfo(CreateFileInfo("/documents/sub-folder/file.bin"));
 
 		Assert.NotNull(handler);
-		Assert.IsType<DocumentsAuthorizationHandler>(handler);
+		_ = Assert.IsType<DocumentsAuthorizationHandler>(handler);
 	}
 
 	[Fact]
@@ -59,7 +59,7 @@ public class UmbrellaFileAuthorizationHandlerRegistryTest
 		IUmbrellaFileAuthorizationHandler? actualHandler = registry.GetByFileInfo(CreateFileInfo($"/{options.TempFilesDirectoryName}/upload.bin"));
 
 		Assert.NotNull(expectedHandler);
-		Assert.IsType<UmbrellaTempFileAuthorizationHandler>(expectedHandler);
+		_ = Assert.IsType<UmbrellaTempFileAuthorizationHandler>(expectedHandler);
 		Assert.Same(expectedHandler, actualHandler);
 	}
 

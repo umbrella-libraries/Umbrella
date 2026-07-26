@@ -2,7 +2,7 @@
 
 public static class RequiredNonEmptyCollectionAttributeTest
 {
-	private class Model : ValidationModelBase<RequiredNonEmptyCollectionAttribute>
+	private sealed class Model : ValidationModelBase<RequiredNonEmptyCollectionAttribute>
 	{
 		[RequiredNonEmptyCollection]
 		public List<string>? Value1 { get; set; }

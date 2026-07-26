@@ -129,7 +129,7 @@ public abstract class DynamicImageResizerBase : IDynamicImageResizer
 
 			return dynamicImage;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceLastModified, options }) && (exc is UmbrellaDynamicImageException) == false)
+		catch (Exception exc) when (Logger.WriteError(exc, new { sourceLastModified, options }) && exc is not UmbrellaDynamicImageException)
 		{
 			throw new UmbrellaDynamicImageException("An error has occurred during image resizing.", exc, options);
 		}

@@ -18,6 +18,11 @@ public static class ControlExtensions
 	/// <returns>The control to be found.</returns>
 	public static T? FindFirstControl<T>(this Control from, Predicate<T> predicate) where T : Control
 	{
+		if (from is null)
+			throw new ArgumentNullException(nameof(from));
+		if (predicate is null)
+			throw new ArgumentNullException(nameof(predicate));
+
 		if (from is T obj && predicate(obj))
 			return obj;
 
@@ -50,6 +55,11 @@ public static class ControlExtensions
 	/// <returns>The controls.</returns>
 	public static IEnumerable<T> FindControls<T>(this Control from, Predicate<T> predicate) where T : Control
 	{
+		if (from is null)
+			throw new ArgumentNullException(nameof(from));
+		if (predicate is null)
+			throw new ArgumentNullException(nameof(predicate));
+
 		if (from is T obj)
 		{
 			if (predicate(obj))
@@ -90,6 +100,9 @@ public static class ControlExtensions
 	/// <returns>The <see cref="StringBuilder"/> containing the HTML string.</returns>
 	public static StringBuilder ToStringBuilder(this Control ctrl)
 	{
+		if (ctrl is null)
+			throw new ArgumentNullException(nameof(ctrl));
+
 		var sb = new StringBuilder();
 		var tw = new StringWriter(sb);
 		using var hw = new HtmlTextWriter(tw);

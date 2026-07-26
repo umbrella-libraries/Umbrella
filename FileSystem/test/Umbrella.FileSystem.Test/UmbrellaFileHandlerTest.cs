@@ -46,7 +46,7 @@ public class UmbrellaFileHandlerTest
 			.GetVersionedWebFilePathAsync(default, "test.bin", TestContext.Current.CancellationToken)
 			.ConfigureAwait(true);
 
-		Assert.NotNull(result);
+		_ = Assert.NotNull(result);
 		Assert.Equal("/files/documents/resolved-name.bin", result.Value.Url);
 		Assert.Equal(CreateMetadataVersionToken(lastModified, length), result.Value.VersionToken);
 		providerMock.Verify(x => x.GetAsync("/documents/test.bin", TestContext.Current.CancellationToken), Times.Once);
@@ -139,7 +139,7 @@ public class UmbrellaFileHandlerTest
 			.GetVersionedWebFilePathAsync(default, "test.bin", TestContext.Current.CancellationToken)
 			.ConfigureAwait(true);
 
-		Assert.NotNull(result);
+		_ = Assert.NotNull(result);
 		Assert.Equal("/files/documents/test.bin", result.Value.Url);
 		Assert.Equal(CreateHashVersionToken(bytes), result.Value.VersionToken);
 	}

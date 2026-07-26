@@ -24,7 +24,7 @@ public class PhysicalFileChangeToken : IChangeToken
 		bool notifyOnError = true,
 		bool notifyOnDeleted = true,
 		bool notifyOnRenamed = true)
-		: this(fileInfo.DirectoryName ?? "", fileInfo.Name, notifyOnChanged, notifyOnError, notifyOnDeleted, notifyOnRenamed)
+		: this(GetDirectoryName(fileInfo), GetFileName(fileInfo), notifyOnChanged, notifyOnError, notifyOnDeleted, notifyOnRenamed)
 	{
 	}
 
@@ -75,4 +75,18 @@ public class PhysicalFileChangeToken : IChangeToken
 	/// <inheritdoc />
 	public IDisposable RegisterChangeCallback(Action<object?> callback, object? state) => EmptyDisposable.Instance;
 	#endregion
+
+	private static string GetDirectoryName(FileInfo fileInfo)
+	{
+		CommunityToolkit.Diagnostics.Guard.IsNotNull(fileInfo);
+
+		return fileInfo.DirectoryName ?? "";
+	}
+
+	private static string GetFileName(FileInfo fileInfo)
+	{
+		CommunityToolkit.Diagnostics.Guard.IsNotNull(fileInfo);
+
+		return fileInfo.Name;
+	}
 }

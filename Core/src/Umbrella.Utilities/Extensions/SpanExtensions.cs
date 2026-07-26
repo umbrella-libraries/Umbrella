@@ -22,12 +22,16 @@ public static class SpanExtensions
 	/// this method will return 7.
 	/// </returns>
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static int Write(this in Span<char> span, int startIndex, string value) =>
+	public static int Write(this in Span<char> span, int startIndex, string value)
+	{
+		CommunityToolkit.Diagnostics.Guard.IsNotNull(value);
+
 #if NET462 || DEBUG
-		WriteInternalNetClr(span, startIndex, value);
+		return WriteInternalNetClr(span, startIndex, value);
 #else
-            WriteInternalCoreClr(span, startIndex, value);
+		return WriteInternalCoreClr(span, startIndex, value);
 #endif
+	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private static int WriteInternalNetClr(in Span<char> source, int startIndex, string value)

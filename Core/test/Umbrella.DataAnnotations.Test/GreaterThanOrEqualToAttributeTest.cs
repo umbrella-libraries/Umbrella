@@ -3,7 +3,7 @@ namespace Umbrella.DataAnnotations.Test;
 
 public class GreaterThanOrEqualToAttributeTest
 {
-	private class DateModel : ContingentValidationModelBase<GreaterThanOrEqualToAttribute>
+	private sealed class DateModel : ContingentValidationModelBase<GreaterThanOrEqualToAttribute>
 	{
 		public DateTime? Value1 { get; set; }
 
@@ -11,7 +11,7 @@ public class GreaterThanOrEqualToAttributeTest
 		public DateTime? Value2 { get; set; }
 	}
 
-	private class DateModelWithPassNull : ContingentValidationModelBase<GreaterThanOrEqualToAttribute>
+	private sealed class DateModelWithPassNull : ContingentValidationModelBase<GreaterThanOrEqualToAttribute>
 	{
 		public DateTime? Value1 { get; set; }
 
@@ -19,7 +19,7 @@ public class GreaterThanOrEqualToAttributeTest
 		public DateTime? Value2 { get; set; }
 	}
 
-	private class Int16Model : ContingentValidationModelBase<GreaterThanOrEqualToAttribute>
+	private sealed class Int16Model : ContingentValidationModelBase<GreaterThanOrEqualToAttribute>
 	{
 		public short Value1 { get; set; }
 

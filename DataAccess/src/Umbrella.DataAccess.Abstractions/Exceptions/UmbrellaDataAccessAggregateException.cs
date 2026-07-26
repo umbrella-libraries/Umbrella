@@ -12,6 +12,32 @@ public class UmbrellaDataAccessAggregateException : UmbrellaDataAccessException
 	/// <summary>
 	/// Initializes a new instance of the <see cref="UmbrellaDataAccessAggregateException"/> class.
 	/// </summary>
+	public UmbrellaDataAccessAggregateException()
+	{
+	}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="UmbrellaDataAccessAggregateException"/> class.
+	/// </summary>
+	/// <param name="message">The message.</param>
+	public UmbrellaDataAccessAggregateException(string message)
+		: base(message)
+	{
+	}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="UmbrellaDataAccessAggregateException"/> class.
+	/// </summary>
+	/// <param name="message">The message.</param>
+	/// <param name="innerException">The inner exception.</param>
+	public UmbrellaDataAccessAggregateException(string message, Exception innerException)
+		: base(message, innerException)
+	{
+	}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="UmbrellaDataAccessAggregateException"/> class.
+	/// </summary>
 	/// <param name="message">The message.</param>
 	/// <param name="innerExceptions">The inner exceptions.</param>
 	public UmbrellaDataAccessAggregateException(string message, params Exception[] innerExceptions)

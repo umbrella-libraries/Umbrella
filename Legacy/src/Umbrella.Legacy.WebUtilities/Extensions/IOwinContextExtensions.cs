@@ -13,5 +13,11 @@ public static class IOwinContextExtensions
 	/// </summary>
 	/// <param name="context">The context.</param>
 	/// <returns>The nonce.</returns>
-	public static string GetCurrentRequestNonce(this IOwinContext context) => context.Get<string>(SecurityConstants.DefaultNonceKey);
+	public static string GetCurrentRequestNonce(this IOwinContext context)
+	{
+		if (context is null)
+			throw new ArgumentNullException(nameof(context));
+
+		return context.Get<string>(SecurityConstants.DefaultNonceKey);
+	}
 }

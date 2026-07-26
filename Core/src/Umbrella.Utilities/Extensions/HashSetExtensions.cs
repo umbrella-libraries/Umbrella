@@ -79,6 +79,9 @@ public static class HashSetExtensions
 	/// <param name="values">The values to add.</param>
 	public static void AddRange<T>(this HashSet<T> set, IEnumerable<T> values)
 	{
+		Guard.IsNotNull(set);
+		Guard.IsNotNull(values);
+
 		foreach (T value in values)
 		{
 			if (value is null)

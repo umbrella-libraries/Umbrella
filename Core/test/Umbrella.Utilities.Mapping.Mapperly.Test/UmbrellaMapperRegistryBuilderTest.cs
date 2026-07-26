@@ -104,12 +104,12 @@ public class UmbrellaMapperRegistryBuilderTest
 		IServiceCollection returnedServices = services.AddUmbrellaUtilitiesMappingMapperly(new AlphaCatalog(), new BetaCatalog());
 
 		Assert.Same(services, returnedServices);
-		Assert.Single(services, x => x.ServiceType == typeof(IUmbrellaMapper));
+		_ = Assert.Single(services, x => x.ServiceType == typeof(IUmbrellaMapper));
 
 		using ServiceProvider serviceProvider = services.BuildServiceProvider();
 		IUmbrellaMapper mapper = serviceProvider.GetRequiredService<IUmbrellaMapper>();
 
-		Assert.IsType<UmbrellaMapper>(mapper);
+		_ = Assert.IsType<UmbrellaMapper>(mapper);
 		Assert.NotSame(existingMapper, mapper);
 
 		SharedDestination alphaDestination = await mapper.MapAsync<AlphaSource, SharedDestination>(new AlphaSource { Value = "one" }, TestContext.Current.CancellationToken);
@@ -162,12 +162,23 @@ public class UmbrellaMapperRegistryBuilderTest
 
 	public sealed class SyncAlphaMapper : IUmbrellaMapperlyMapper<AlphaSource, SharedDestination>
 	{
-		public SharedDestination Map(AlphaSource source) => new() { Value = $"alpha:{source.Value}" };
+		public SharedDestination Map(AlphaSource source)
+		{
+			ArgumentNullException.ThrowIfNull(source);
+
+			return new() { Value = $"alpha:{source.Value}" };
+		}
 
 		public IReadOnlyCollection<SharedDestination> MapAll(IEnumerable<AlphaSource> source)
 			=> source.Select(Map).ToArray();
 
-		public void Map(AlphaSource source, SharedDestination destination) => destination.Value = $"alpha:{source.Value}";
+		public void Map(AlphaSource source, SharedDestination destination)
+		{
+			ArgumentNullException.ThrowIfNull(source);
+			ArgumentNullException.ThrowIfNull(destination);
+
+			destination.Value = $"alpha:{source.Value}";
+		}
 	}
 
 	public sealed class AsyncAlphaMapper :
@@ -176,13 +187,20 @@ public class UmbrellaMapperRegistryBuilderTest
 		IUmbrellaMapperlyExistingInstanceAsyncMapper<AlphaSource, SharedDestination>
 	{
 		public ValueTask<SharedDestination> MapAsync(AlphaSource source, CancellationToken cancellationToken)
-			=> ValueTask.FromResult(new SharedDestination { Value = $"alpha:{source.Value}" });
+		{
+			ArgumentNullException.ThrowIfNull(source);
+
+			return ValueTask.FromResult(new SharedDestination { Value = $"alpha:{source.Value}" });
+		}
 
 		public ValueTask<IReadOnlyCollection<SharedDestination>> MapAllAsync(IEnumerable<AlphaSource> source, CancellationToken cancellationToken)
 			=> ValueTask.FromResult<IReadOnlyCollection<SharedDestination>>(source.Select(x => new SharedDestination { Value = $"alpha:{x.Value}" }).ToArray());
 
 		public ValueTask MapAsync(AlphaSource source, SharedDestination destination, CancellationToken cancellationToken)
 		{
+			ArgumentNullException.ThrowIfNull(source);
+			ArgumentNullException.ThrowIfNull(destination);
+
 			destination.Value = $"alpha:{source.Value}";
 			return ValueTask.CompletedTask;
 		}
@@ -190,17 +208,33 @@ public class UmbrellaMapperRegistryBuilderTest
 
 	public sealed class SyncBetaMapper : IUmbrellaMapperlyMapper<BetaSource, SharedDestination>
 	{
-		public SharedDestination Map(BetaSource source) => new() { Value = $"beta:{source.Value}" };
+		public SharedDestination Map(BetaSource source)
+		{
+			ArgumentNullException.ThrowIfNull(source);
+
+			return new() { Value = $"beta:{source.Value}" };
+		}
 
 		public IReadOnlyCollection<SharedDestination> MapAll(IEnumerable<BetaSource> source)
 			=> source.Select(Map).ToArray();
 
-		public void Map(BetaSource source, SharedDestination destination) => destination.Value = $"beta:{source.Value}";
+		public void Map(BetaSource source, SharedDestination destination)
+		{
+			ArgumentNullException.ThrowIfNull(source);
+			ArgumentNullException.ThrowIfNull(destination);
+
+			destination.Value = $"beta:{source.Value}";
+		}
 	}
 
 	public sealed class DuplicateAlphaMapper : IUmbrellaMapperlyNewInstanceMapper<AlphaSource, SharedDestination>
 	{
-		public SharedDestination Map(AlphaSource source) => new() { Value = $"duplicate:{source.Value}" };
+		public SharedDestination Map(AlphaSource source)
+		{
+			ArgumentNullException.ThrowIfNull(source);
+
+			return new() { Value = $"duplicate:{source.Value}" };
+		}
 	}
 
 	public sealed class AlphaCatalog : IUmbrellaMapperlyCatalog
@@ -212,6 +246,8 @@ public class UmbrellaMapperRegistryBuilderTest
 
 		public void AddMappings(UmbrellaMapperRegistryBuilder builder)
 		{
+			ArgumentNullException.ThrowIfNull(builder);
+
 			_ = builder
 				.AddNewInstance<SyncAlphaMapper, AlphaSource, SharedDestination>()
 				.AddNewCollection<SyncAlphaMapper, AlphaSource, SharedDestination>()
@@ -228,6 +264,8 @@ public class UmbrellaMapperRegistryBuilderTest
 
 		public void AddMappings(UmbrellaMapperRegistryBuilder builder)
 		{
+			ArgumentNullException.ThrowIfNull(builder);
+
 			_ = builder
 				.AddNewInstance<SyncBetaMapper, BetaSource, SharedDestination>()
 				.AddNewCollection<SyncBetaMapper, BetaSource, SharedDestination>()
@@ -244,6 +282,8 @@ public class UmbrellaMapperRegistryBuilderTest
 
 		public void AddMappings(UmbrellaMapperRegistryBuilder builder)
 		{
+			ArgumentNullException.ThrowIfNull(builder);
+
 			_ = builder.AddNewInstance<DuplicateAlphaMapper, AlphaSource, SharedDestination>();
 		}
 	}

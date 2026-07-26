@@ -18,7 +18,8 @@ public static class IOwinRequestExtensions
 	/// <returns><see langword="true"/> if it matches; otherwise <see langword="false"/>.</returns>
 	public static bool IfModifiedSinceHeaderMatched(this IOwinRequest request, DateTimeOffset valueToMatch)
 	{
-		Guard.IsNotNull(request);
+		if (request is null)
+			throw new ArgumentNullException(nameof(request));
 
 		string ifModifiedSince = request.Headers["If-Modified-Since"];
 
@@ -40,7 +41,8 @@ public static class IOwinRequestExtensions
 	/// <returns><see langword="true"/> if it matches; otherwise <see langword="false"/>.</returns>
 	public static bool IfNoneMatchHeaderMatched(this IOwinRequest request, string valueToMatch)
 	{
-		Guard.IsNotNull(request);
+		if (request is null)
+			throw new ArgumentNullException(nameof(request));
 		Guard.IsNotNullOrWhiteSpace(valueToMatch);
 
 		string ifNoneMatch = request.Headers["If-None-Match"];
@@ -54,7 +56,12 @@ public static class IOwinRequestExtensions
 	/// <param name="request">The request.</param>
 	/// <returns><see langword="true"/> if it does; otherwise <see langword="false"/>.</returns>
 	public static bool AcceptsWebP(this IOwinRequest request)
-		=> request.Headers.TryGetValue("Accept", out string[] values) && values.Any(x => !string.IsNullOrEmpty(x) && x.Contains("image/webp", StringComparison.OrdinalIgnoreCase));
+	{
+		if (request is null)
+			throw new ArgumentNullException(nameof(request));
+
+		return request.Headers.TryGetValue("Accept", out string[] values) && values.Any(x => !string.IsNullOrEmpty(x) && x.Contains("image/webp", StringComparison.OrdinalIgnoreCase));
+	}
 
 	/// <summary>
 	/// Determines if the requesting client supports rendering images encoded using the image/avif format.
@@ -62,7 +69,12 @@ public static class IOwinRequestExtensions
 	/// <param name="request">The request.</param>
 	/// <returns><see langword="true"/> if it does; otherwise <see langword="false"/>.</returns>
 	public static bool AcceptsAvif(this IOwinRequest request)
-		=> request.Headers.TryGetValue("Accept", out string[] values) && values.Any(x => !string.IsNullOrEmpty(x) && x.Contains("image/avif", StringComparison.OrdinalIgnoreCase));
+	{
+		if (request is null)
+			throw new ArgumentNullException(nameof(request));
+
+		return request.Headers.TryGetValue("Accept", out string[] values) && values.Any(x => !string.IsNullOrEmpty(x) && x.Contains("image/avif", StringComparison.OrdinalIgnoreCase));
+	}
 
 	/// <summary>
 	/// Determines whether the requesting client is IE by checking the User-Agent header to see if it contains
@@ -71,6 +83,9 @@ public static class IOwinRequestExtensions
 	/// <param name="request">The request.</param>
 	public static bool IsInternetExplorer(this IOwinRequest request)
 	{
+		if (request is null)
+			throw new ArgumentNullException(nameof(request));
+
 		string userAgent = request.Headers["User-Agent"];
 
 		return !string.IsNullOrWhiteSpace(userAgent) && (userAgent.Contains("MSIE", StringComparison.OrdinalIgnoreCase) || userAgent.Contains("Trident", StringComparison.OrdinalIgnoreCase));

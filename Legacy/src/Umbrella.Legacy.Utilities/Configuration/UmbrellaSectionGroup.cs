@@ -1,5 +1,4 @@
 ﻿using System.Configuration;
-using CommunityToolkit.Diagnostics;
 
 namespace Umbrella.Legacy.Utilities.Configuration;
 
@@ -28,7 +27,8 @@ public class UmbrellaSectionGroup : ConfigurationSectionGroup
 	/// <exception cref="ArgumentNullException">The parameter {nameof(config)} cannot be null</exception>
 	public static UmbrellaSectionGroup? GetSectionGroup(System.Configuration.Configuration config)
 	{
-		Guard.IsNotNull(config);
+		if (config is null)
+			throw new ArgumentNullException(nameof(config));
 
 		return config.GetSectionGroup("umbrella") as UmbrellaSectionGroup;
 	}

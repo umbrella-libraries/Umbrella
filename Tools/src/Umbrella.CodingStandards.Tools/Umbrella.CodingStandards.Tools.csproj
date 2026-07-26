@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<AssemblyName>umbrella-coding-standards</AssemblyName>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
+		<NoDefaultExcludes>true</NoDefaultExcludes>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<PackageId>Umbrella.CodingStandards.Tools</PackageId>
+		<PackAsTool>true</PackAsTool>
+		<ToolCommandName>umbrella-coding-standards</ToolCommandName>
+		<Description>Installs the files used to enforce the Umbrella coding standards.</Description>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Diagnostics" Version="8.4.0" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
+		<PackageReference Include="System.CommandLine" Version="2.0.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\..\..\icon.png" Pack="true" PackagePath="\" />
+		<None Include="..\..\..\.editorconfig" Link=".editorconfig">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Include="..\..\..\.filenesting.json" Link=".filenesting.json">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Umbrella.CodingStandards.cmd">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="Umbrella.CodingStandards.props">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+</Project>

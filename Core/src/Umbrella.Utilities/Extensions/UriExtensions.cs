@@ -18,6 +18,8 @@ public static class UriExtensions
 	/// <exception cref="NotSupportedException">Query parameters of type {typeof(T).Name} cannot be converted.</exception>
 	public static (bool success, T value) TryGetQueryStringValue<T>(this Uri uri, string key)
 	{
+		Guard.IsNotNull(uri);
+
 		if (QueryHelpers.ParseQuery(uri.Query).TryGetValue(key, out var valueFromQueryString))
 		{
 			if (typeof(T) == typeof(int) && int.TryParse(valueFromQueryString, out int valueAsInt))
@@ -58,9 +60,14 @@ public static class UriExtensions
 	/// <param name="key">The key of the value being read from the query string.</param>
 	/// <returns>A tuple containing fields indicating success together with any enum value.</returns>
 	public static (bool success, T value) TryGetQueryStringEnumValue<T>(this Uri uri, string key)
-		where T : struct, Enum => QueryHelpers.ParseQuery(uri.Query).TryGetValue(key, out var valueFromQueryString) && Enum.TryParse<T>(valueFromQueryString, true, out var valueAsEnum)
+		where T : struct, Enum
+	{
+		Guard.IsNotNull(uri);
+
+		return QueryHelpers.ParseQuery(uri.Query).TryGetValue(key, out var valueFromQueryString) && Enum.TryParse<T>(valueFromQueryString, true, out var valueAsEnum)
 			? (true, valueAsEnum)
 			: default;
+	}
 
 	/// <summary>
 	/// Strips a Uri of the specified query string parameters.

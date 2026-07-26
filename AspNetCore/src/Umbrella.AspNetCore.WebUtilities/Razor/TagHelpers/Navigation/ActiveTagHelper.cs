@@ -51,6 +51,8 @@ public class ActiveTagHelper : AnchorTagHelper
 	/// <inheritdoc />
 	public override void Process(TagHelperContext context, TagHelperOutput output)
 	{
+		ArgumentNullException.ThrowIfNull(output);
+
 		try
 		{
 			// NB: This runs after the built-in tag helper which populates the correct href for us.

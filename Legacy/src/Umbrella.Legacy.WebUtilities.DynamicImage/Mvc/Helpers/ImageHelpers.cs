@@ -56,6 +56,9 @@ public static class ImageHelpers
 	/// <returns>The generated <see cref="ResponsiveDynamicImageTag"/>.</returns>
 	public static ResponsiveDynamicImageTag ResponsiveDynamicImage(this HtmlHelper helper, IDynamicImageUtility utility, string path, string altText, int width, int height, DynamicResizeMode resizeMode, IDictionary<string, object> htmlAttributes, DynamicImageFormat format = DynamicImageFormat.Jpeg, bool toAbsolutePath = false, string? schemeOverride = null, string? hostOverride = null, int portOverride = 0, string dynamicImagePathPrefix = DynamicImageConstants.DefaultPathPrefix)
 	{
+		if (helper is null)
+			throw new ArgumentNullException(nameof(helper));
+
 		var urlHelper = new UrlHelper(helper.ViewContext.RequestContext);
 
 		return new ResponsiveDynamicImageTag(utility, dynamicImagePathPrefix, path, altText, width, height, resizeMode, htmlAttributes, format, urlHelper.Content, toAbsolutePath, helper.ViewContext.RequestContext.HttpContext.Request, schemeOverride, hostOverride, portOverride);
@@ -106,6 +109,12 @@ public static class ImageHelpers
 	/// <returns>The generated <see cref="ResponsiveDynamicImagePictureSourceTag"/>.</returns>
 	public static ResponsiveDynamicImagePictureSourceTag ResponsiveDynamicImagePictureSource(this HtmlHelper helper, IDynamicImageUtility utility, string path, int width, int height, DynamicResizeMode resizeMode, string mediaAttributeValue, IDictionary<string, object> htmlAttributes, DynamicImageFormat format = DynamicImageFormat.Jpeg, bool toAbsolutePath = false, string? schemeOverride = null, string? hostOverride = null, int portOverride = 0, string dynamicImagePathPrefix = DynamicImageConstants.DefaultPathPrefix)
 	{
+		if (helper is null)
+			throw new ArgumentNullException(nameof(helper));
+
+		if (utility is null)
+			throw new ArgumentNullException(nameof(utility));
+
 		var urlHelper = new UrlHelper(helper.ViewContext.RequestContext);
 
 		var options = new DynamicImageOptions(path, width, height, resizeMode, format);

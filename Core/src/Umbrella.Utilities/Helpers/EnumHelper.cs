@@ -60,12 +60,22 @@ public static class EnumHelper<TEnum> where TEnum : struct, Enum
 	/// <summary>
 	/// The collection of all enum values for the specified enum type.
 	/// </summary>
-	public static IReadOnlyCollection<TEnum> All { get; } = Enum.GetValues(typeof(TEnum)).Cast<TEnum>().ToArray();
+	public static IReadOnlyCollection<TEnum> All { get; } =
+#if NET5_0_OR_GREATER
+		Enum.GetValues<TEnum>();
+#else
+		Enum.GetValues(typeof(TEnum)).Cast<TEnum>().ToArray();
+#endif
 
 	/// <summary>
 	/// The collection of all enum values for the specified enum type as objects.
 	/// </summary>
-	public static IReadOnlyCollection<object> AllObjects { get; } = Enum.GetValues(typeof(TEnum)).Cast<object>().ToArray();
+	public static IReadOnlyCollection<object> AllObjects { get; } =
+#if NET5_0_OR_GREATER
+		Enum.GetValues<TEnum>().Cast<object>().ToArray();
+#else
+		Enum.GetValues(typeof(TEnum)).Cast<object>().ToArray();
+#endif
 
 	/// <summary>
 	/// Determines if the enum type supports flags.

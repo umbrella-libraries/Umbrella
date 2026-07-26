@@ -9,5 +9,10 @@ public static class IConcurrencyStampExtensions
 	/// Updated the <see cref="IConcurrencyStamp.ConcurrencyStamp" /> value.
 	/// </summary>
 	/// <param name="target">The item whose concurrency stamp will be updated.</param>
-	public static void UpdateConcurrencyStamp(this IConcurrencyStamp target) => target.ConcurrencyStamp = Guid.NewGuid().ToString();
+	public static void UpdateConcurrencyStamp(this IConcurrencyStamp target)
+	{
+		CommunityToolkit.Diagnostics.Guard.IsNotNull(target);
+
+		target.ConcurrencyStamp = Guid.NewGuid().ToString();
+	}
 }

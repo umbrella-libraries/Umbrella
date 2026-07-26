@@ -49,9 +49,16 @@ public class ApplicationInsightsLogger : ILogger
 	{
 		if (IsEnabled(logLevel))
 		{
+#if NET8_0_OR_GREATER
+			ArgumentNullException.ThrowIfNull(formatter);
+#else
+			if (formatter is null)
+				throw new ArgumentNullException(nameof(formatter));
+#endif
+
 			var stateDictionary = state as IReadOnlyList<KeyValuePair<string, object>>;
 
-			if (exception is null || _trackExceptionsAsExceptionTelemetry is false)
+			if (exception is null || !_trackExceptionsAsExceptionTelemetry)
 			{
 				var traceTelemetry = new TraceTelemetry(formatter(state, exception), GetSeverityLevel(logLevel));
 				PopulateTelemetry(traceTelemetry, stateDictionary, eventId);

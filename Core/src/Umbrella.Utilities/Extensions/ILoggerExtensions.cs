@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using CommunityToolkit.Diagnostics;
 
 #pragma warning disable IDE0130
 namespace Microsoft.Extensions.Logging;
@@ -27,7 +28,11 @@ public static class ILoggerExtensions
 	/// <param name="filePath">The file path.</param>
 	/// <param name="lineNumber">The line number.</param>
 	public static void WriteDebug(this ILogger log, object? state = null, string? message = null, in EventId eventId = default, [CallerMemberName] string methodName = "", [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0)
-		=> LogDetails(log, LogLevel.Debug, null, state, message, in eventId, methodName, filePath, lineNumber, true);
+	{
+		Guard.IsNotNull(log);
+
+		_ = LogDetails(log, LogLevel.Debug, null, state, message, in eventId, methodName, filePath, lineNumber, true);
+	}
 
 	/// <summary>
 	/// Writes a <see cref="LogLevel.Debug"/> message to the specified <paramref name="log"/>.
@@ -40,7 +45,11 @@ public static class ILoggerExtensions
 	/// <param name="filePath">The file path.</param>
 	/// <param name="lineNumber">The line number.</param>
 	public static void WriteTrace(this ILogger log, object? state = null, string? message = null, in EventId eventId = default, [CallerMemberName] string methodName = "", [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0)
-		=> LogDetails(log, LogLevel.Trace, null, state, message, in eventId, methodName, filePath, lineNumber, true);
+	{
+		Guard.IsNotNull(log);
+
+		_ = LogDetails(log, LogLevel.Trace, null, state, message, in eventId, methodName, filePath, lineNumber, true);
+	}
 
 	/// <summary>
 	/// Writes a <see cref="LogLevel.Information"/> message to the specified <paramref name="log"/>.
@@ -53,7 +62,11 @@ public static class ILoggerExtensions
 	/// <param name="filePath">The file path.</param>
 	/// <param name="lineNumber">The line number.</param>
 	public static void WriteInformation(this ILogger log, object? state = null, string? message = null, in EventId eventId = default, [CallerMemberName] string methodName = "", [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0)
-		=> LogDetails(log, LogLevel.Information, null, state, message, in eventId, methodName, filePath, lineNumber, true);
+	{
+		Guard.IsNotNull(log);
+
+		_ = LogDetails(log, LogLevel.Information, null, state, message, in eventId, methodName, filePath, lineNumber, true);
+	}
 
 	/// <summary>
 	/// Writes a <see cref="LogLevel.Warning"/> message to the specified <paramref name="log"/>.
@@ -77,7 +90,11 @@ public static class ILoggerExtensions
 	/// When using this method with a try...catch block, this method should be called as side-effect of exception filters.
 	/// </remarks>
 	public static bool WriteWarning(this ILogger log, Exception? exc = null, object? state = null, string? message = null, in EventId eventId = default, bool returnValue = true, [CallerMemberName] string methodName = "", [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0, bool ignoreCancellationExceptions = true)
-		=> LogDetails(log, LogLevel.Warning, exc, state, message, in eventId, methodName, filePath, lineNumber, ignoreCancellationExceptions) ?? returnValue;
+	{
+		Guard.IsNotNull(log);
+
+		return LogDetails(log, LogLevel.Warning, exc, state, message, in eventId, methodName, filePath, lineNumber, ignoreCancellationExceptions) ?? returnValue;
+	}
 
 	/// <summary>
 	/// Writes a <see cref="LogLevel.Error"/> message to the specified <paramref name="log"/>.
@@ -101,7 +118,11 @@ public static class ILoggerExtensions
 	/// When using this method with a try...catch block, this method should be called as side-effect of exception filters.
 	/// </remarks>
 	public static bool WriteError(this ILogger log, Exception? exc = null, object? state = null, string? message = null, in EventId eventId = default, bool returnValue = true, [CallerMemberName] string methodName = "", [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0, bool ignoreCancellationExceptions = true)
-		=> LogDetails(log, LogLevel.Error, exc, state, message, in eventId, methodName, filePath, lineNumber, ignoreCancellationExceptions) ?? returnValue;
+	{
+		Guard.IsNotNull(log);
+
+		return LogDetails(log, LogLevel.Error, exc, state, message, in eventId, methodName, filePath, lineNumber, ignoreCancellationExceptions) ?? returnValue;
+	}
 
 	/// <summary>
 	/// Writes a <see cref="LogLevel.Critical"/> message to the specified <paramref name="log"/>.
@@ -125,7 +146,11 @@ public static class ILoggerExtensions
 	/// When using this method with a try...catch block, this method should be called as side-effect of exception filters.
 	/// </remarks>
 	public static bool WriteCritical(this ILogger log, Exception? exc = null, object? state = null, string? message = null, in EventId eventId = default, bool returnValue = true, [CallerMemberName] string methodName = "", [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0, bool ignoreCancellationExceptions = true)
-		=> LogDetails(log, LogLevel.Critical, exc, state, message, in eventId, methodName, filePath, lineNumber, ignoreCancellationExceptions) ?? returnValue;
+	{
+		Guard.IsNotNull(log);
+
+		return LogDetails(log, LogLevel.Critical, exc, state, message, in eventId, methodName, filePath, lineNumber, ignoreCancellationExceptions) ?? returnValue;
+	}
 
 	/// <summary>
 	/// Writes a message to the specified <paramref name="log"/> with the specified <paramref name="level"/>.
@@ -150,7 +175,11 @@ public static class ILoggerExtensions
 	/// When using this method with a try...catch block, this method should be called as side-effect of exception filters.
 	/// </remarks>
 	public static bool Write(this ILogger log, LogLevel level, Exception? exc = null, object? state = null, string? message = null, in EventId eventId = default, bool returnValue = true, [CallerMemberName] string methodName = "", [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0, bool ignoreCancellationExceptions = true)
-		=> LogDetails(log, level, exc, state, message, in eventId, methodName, filePath, lineNumber, ignoreCancellationExceptions) ?? returnValue;
+	{
+		Guard.IsNotNull(log);
+
+		return LogDetails(log, level, exc, state, message, in eventId, methodName, filePath, lineNumber, ignoreCancellationExceptions) ?? returnValue;
+	}
 
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1848:Use the LoggerMessage delegates", Justification = "Logging is dynamic here so creating and caching delegates would be cumbersome.")]
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2254:Template should be a static expression", Justification = "Logging is dynamic here so creating and caching these expressions would be cumbersome.")]

@@ -10,6 +10,13 @@ namespace Umbrella.FileSystem.Abstractions;
 public sealed class UmbrellaFileNotFoundException : UmbrellaFileSystemException
 {
 	/// <summary>
+	/// Initializes a new instance of the <see cref="UmbrellaFileNotFoundException"/> class.
+	/// </summary>
+	public UmbrellaFileNotFoundException()
+	{
+	}
+
+	/// <summary>
 	/// Gets the subpath.
 	/// </summary>
 	public string? Subpath { get; }

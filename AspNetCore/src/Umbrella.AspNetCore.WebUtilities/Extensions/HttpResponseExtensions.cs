@@ -15,6 +15,8 @@ public static class HttpResponseExtensions
 	/// <param name="sendNullBody">If set to <see langword="true"/>, sets <see cref="HttpResponse.Body" /> to <see cref="Stream.Null"/>.</param>
 	public static void SendStatusCode(this HttpResponse response, HttpStatusCode statusCode, bool sendNullBody = true)
 	{
+		ArgumentNullException.ThrowIfNull(response);
+
 		response.StatusCode = (int)statusCode;
 
 		if (sendNullBody)
@@ -29,5 +31,10 @@ public static class HttpResponseExtensions
 	/// </summary>
 	/// <param name="response">The <see cref="HttpResponse"/> to check.</param>
 	/// <returns><see langword="true"/> if the response status code was between 200 and 299 inclusive. Otherwise <see langword="false"/>.</returns>
-	public static bool IsSuccessStatusCode(this HttpResponse response) => response.StatusCode >= 200 && response.StatusCode <= 299;
+	public static bool IsSuccessStatusCode(this HttpResponse response)
+	{
+		ArgumentNullException.ThrowIfNull(response);
+
+		return response.StatusCode >= 200 && response.StatusCode <= 299;
+	}
 }

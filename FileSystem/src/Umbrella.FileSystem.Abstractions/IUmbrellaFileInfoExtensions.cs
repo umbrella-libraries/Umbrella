@@ -15,6 +15,8 @@ public static class IUmbrellaFileInfoExtensions
 	public static async Task<TUserId> GetCreatedByIdAsync<TUserId>(this IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		if (fileInfo is null)
+			throw new ArgumentNullException(nameof(fileInfo));
 
 		return await fileInfo.GetMetadataValueAsync<TUserId>(UmbrellaFileSystemConstants.CreatedByIdMetadataKey, cancellationToken: cancellationToken).ConfigureAwait(false);
 	}
@@ -31,6 +33,8 @@ public static class IUmbrellaFileInfoExtensions
 	public static async Task SetCreatedByIdAsync<TUserId>(this IUmbrellaFileInfo fileInfo, TUserId value, bool writeChanges = true, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		if (fileInfo is null)
+			throw new ArgumentNullException(nameof(fileInfo));
 
 		await fileInfo.SetMetadataValueAsync(UmbrellaFileSystemConstants.CreatedByIdMetadataKey, value, writeChanges, cancellationToken).ConfigureAwait(false);
 	}
@@ -44,6 +48,8 @@ public static class IUmbrellaFileInfoExtensions
 	public static async Task<string> GetFileNameAsync(this IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		if (fileInfo is null)
+			throw new ArgumentNullException(nameof(fileInfo));
 
 		return await fileInfo.GetMetadataValueAsync<string>(UmbrellaFileSystemConstants.FileNameMetadataKey, cancellationToken: cancellationToken).ConfigureAwait(false);
 	}
@@ -59,6 +65,8 @@ public static class IUmbrellaFileInfoExtensions
 	public static async Task SetFileNameAsync(this IUmbrellaFileInfo fileInfo, string value, bool writeChanges = true, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		if (fileInfo is null)
+			throw new ArgumentNullException(nameof(fileInfo));
 
 		await fileInfo.SetMetadataValueAsync(UmbrellaFileSystemConstants.FileNameMetadataKey, value, writeChanges, cancellationToken).ConfigureAwait(false);
 	}
@@ -74,6 +82,8 @@ public static class IUmbrellaFileInfoExtensions
 		where TFileUpload : struct, Enum
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		if (fileInfo is null)
+			throw new ArgumentNullException(nameof(fileInfo));
 
 		string strFileUploadType = await fileInfo.GetMetadataValueAsync<string>("FileUploadType", cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -96,6 +106,8 @@ public static class IUmbrellaFileInfoExtensions
 		where TFileUpload : struct, Enum
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		if (fileInfo is null)
+			throw new ArgumentNullException(nameof(fileInfo));
 
 		await fileInfo.SetMetadataValueAsync("FileUploadType", value.ToString(), writeChanges, cancellationToken).ConfigureAwait(false);
 	}

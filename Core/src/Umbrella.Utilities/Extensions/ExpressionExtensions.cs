@@ -194,6 +194,8 @@ public static class ExpressionExtensions
 	/// <returns>The member path if it has a value; otherwise <see langword="null"/>.</returns>
 	public static string? GetUmbrellaMemberPath(this LambdaExpression expression)
 	{
+		Guard.IsNotNull(expression);
+
 		MemberExpression? memberExpression = GetMemberExpression(expression);
 
 		return memberExpression?.Member.GetUmbrellaMemberPath();

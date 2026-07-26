@@ -43,6 +43,8 @@ public class QueryStringParameterToHttpHeaderMiddleware
 	/// <returns>An awaitable <see cref="Task" />.</returns>
 	public async Task InvokeAsync(HttpContext context)
 	{
+		ArgumentNullException.ThrowIfNull(context);
+
 		try
 		{
 			foreach (var kvp in _options.Mappings)

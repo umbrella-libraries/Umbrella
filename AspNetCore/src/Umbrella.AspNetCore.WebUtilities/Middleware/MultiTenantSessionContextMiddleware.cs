@@ -42,6 +42,9 @@ public class MultiTenantSessionContextMiddleware<TAppTenantKey>
 	/// <param name="dbAppAuthSessionContext">The database application authentication session context.</param>
 	public async Task InvokeAsync(HttpContext context, DbAppTenantSessionContext<TAppTenantKey> dbAppAuthSessionContext)
 	{
+		ArgumentNullException.ThrowIfNull(context);
+		ArgumentNullException.ThrowIfNull(dbAppAuthSessionContext);
+
 		try
 		{
 			if (context.User.Identity?.IsAuthenticated is true)
@@ -104,6 +107,10 @@ public class MultiTenantSessionContextMiddleware<TAppTenantKey, TNullableAppTena
 	/// <param name="dbNullableAppAuthSessionContext">The nullable database application authentication session context.</param>
 	public async Task InvokeAsync(HttpContext context, DbAppTenantSessionContext<TAppTenantKey> dbAppAuthSessionContext, DbAppTenantSessionContext<TNullableAppTenantKey> dbNullableAppAuthSessionContext)
 	{
+		ArgumentNullException.ThrowIfNull(context);
+		ArgumentNullException.ThrowIfNull(dbAppAuthSessionContext);
+		ArgumentNullException.ThrowIfNull(dbNullableAppAuthSessionContext);
+
 		try
 		{
 			if (context.User.Identity?.IsAuthenticated is true)

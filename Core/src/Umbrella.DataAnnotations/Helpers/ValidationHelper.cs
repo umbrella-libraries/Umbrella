@@ -9,7 +9,7 @@ internal static class ValidationHelper
 	public static bool IsNonEmptyCollection(object? value) => value switch
 	{
 		null => false,
-		Array _ => _minLengthAttribute.IsValid(value),
+		Array => _minLengthAttribute.IsValid(value),
 		ICollection collection => collection.Count > 0,
 		IEnumerable enumerable => enumerable.GetEnumerator().MoveNext(),
 		_ => throw new NotImplementedException("The value being validated must be of type Array or implement ICollection.")

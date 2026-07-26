@@ -18,8 +18,8 @@ public readonly struct NoGroupId : IEquatable<NoGroupId>
 	public override string ToString() => string.Empty;
 
 	/// <summary>Returns <see langword="true"/>; all <see cref="NoGroupId"/> instances are equal.</summary>
-	public static bool operator ==(NoGroupId left, NoGroupId right) => true;
+	public static bool operator ==(NoGroupId left, NoGroupId right) => left.Equals(right);
 
 	/// <summary>Returns <see langword="false"/>; all <see cref="NoGroupId"/> instances are equal.</summary>
-	public static bool operator !=(NoGroupId left, NoGroupId right) => false;
+	public static bool operator !=(NoGroupId left, NoGroupId right) => !left.Equals(right);
 }

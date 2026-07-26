@@ -150,8 +150,8 @@ public sealed class Mapper : IUmbrellaMapperlyExistingInstanceMapper<Source, Des
 
 		GeneratorDriverRunResult runResult = driver.GetRunResult();
 		Assert.Empty(runResult.Diagnostics);
-		Assert.Single(runResult.Results);
-		Assert.Single(runResult.Results[0].GeneratedSources);
+		_ = Assert.Single(runResult.Results);
+		_ = Assert.Single(runResult.Results[0].GeneratedSources);
 
 		return runResult.Results[0].GeneratedSources[0].SourceText.ToString();
 	}

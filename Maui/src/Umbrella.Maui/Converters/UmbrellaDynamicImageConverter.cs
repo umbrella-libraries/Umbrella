@@ -5,7 +5,7 @@ using Umbrella.DynamicImage.Abstractions;
 namespace Umbrella.Maui.Converters;
 
 // TODO: Could make this public and encode the parameters in the ConverterParameter property using a pipe?
-internal class UmbrellaDynamicImageConverter : UmbrellaResponsiveImageConverter
+internal sealed class UmbrellaDynamicImageConverter : UmbrellaResponsiveImageConverter
 {
 	protected IDynamicImageUtility DynamicImageUtility { get; }
 

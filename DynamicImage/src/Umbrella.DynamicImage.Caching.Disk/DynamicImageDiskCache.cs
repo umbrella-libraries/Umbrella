@@ -37,6 +37,7 @@ public class DynamicImageDiskCache : DynamicImagePhysicalCache<IUmbrellaDiskFile
 		DynamicImageDiskCacheOptions diskCacheOptions)
 		: base(logger, cache, cacheKeyUtility, cacheOptions, fileProvider)
 	{
+		Guard.IsNotNull(diskCacheOptions);
 		Guard.IsNotNullOrWhiteSpace(diskCacheOptions.DirectoryName);
 
 		DiskCacheOptions = diskCacheOptions;
@@ -46,6 +47,10 @@ public class DynamicImageDiskCache : DynamicImagePhysicalCache<IUmbrellaDiskFile
 	#region Overridden Methods
 	/// <inheritdoc />
 	protected override string GetSubPath(string cacheKey, string fileExtension)
-		=> $@"/{DiskCacheOptions.DirectoryName}/{cacheKey.Substring(0, 2)}{base.GetSubPath(cacheKey, fileExtension)}";
+	{
+		Guard.IsNotNull(cacheKey);
+
+		return $@"/{DiskCacheOptions.DirectoryName}/{cacheKey.Substring(0, 2)}{base.GetSubPath(cacheKey, fileExtension)}";
+	}
 	#endregion
 }

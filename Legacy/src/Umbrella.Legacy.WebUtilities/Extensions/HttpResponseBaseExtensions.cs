@@ -12,5 +12,11 @@ public static class HttpResponseBaseExtensions
 	/// </summary>
 	/// <param name="response">The <see cref="HttpResponseBase"/> to check.</param>
 	/// <returns><see langword="true"/> if the response status code was between 200 and 299 inclusive. Otherwise <see langword="false"/>.</returns>
-	public static bool IsSuccessStatusCode(this HttpResponseBase response) => response.StatusCode >= 200 && response.StatusCode <= 299;
+	public static bool IsSuccessStatusCode(this HttpResponseBase response)
+	{
+		if (response is null)
+			throw new ArgumentNullException(nameof(response));
+
+		return response.StatusCode >= 200 && response.StatusCode <= 299;
+	}
 }

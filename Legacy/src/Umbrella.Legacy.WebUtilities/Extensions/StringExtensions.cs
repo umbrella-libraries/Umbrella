@@ -22,8 +22,11 @@ public static class StringExtensions
 	/// <example>~/path/to/foo or /path/to/foo to http://www.web.com/path/to/foo</example>
 	public static string ToAbsoluteUrl(this string relativeUrl, Uri requestUri, string? schemeOverride = null, string? hostOverride = null, int portOverride = 0)
 	{
+		if (relativeUrl is null)
+			throw new ArgumentNullException(nameof(relativeUrl));
+		if (requestUri is null)
+			throw new ArgumentNullException(nameof(requestUri));
 		Guard.IsNotNullOrWhiteSpace(relativeUrl, nameof(relativeUrl));
-		Guard.IsNotNull(requestUri, nameof(requestUri));
 
 		if (relativeUrl.StartsWith("/", StringComparison.Ordinal))
 			relativeUrl = relativeUrl.Insert(0, "~");

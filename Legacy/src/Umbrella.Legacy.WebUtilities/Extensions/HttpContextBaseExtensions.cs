@@ -13,5 +13,11 @@ public static class HttpContextBaseExtensions
 	/// </summary>
 	/// <param name="httpContext">The HTTP context.</param>
 	/// <returns>The nonce value for the current request.</returns>
-	public static string? GetCurrentRequestNonce(this HttpContextBase httpContext) => httpContext.Items[SecurityConstants.DefaultNonceKey] as string;
+	public static string? GetCurrentRequestNonce(this HttpContextBase httpContext)
+	{
+		if (httpContext is null)
+			throw new ArgumentNullException(nameof(httpContext));
+
+		return httpContext.Items[SecurityConstants.DefaultNonceKey] as string;
+	}
 }

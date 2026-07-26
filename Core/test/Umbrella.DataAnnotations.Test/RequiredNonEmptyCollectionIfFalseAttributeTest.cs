@@ -3,7 +3,7 @@ namespace Umbrella.DataAnnotations.Test;
 
 public class RequiredNonEmptyCollectionIfFalseAttributeTest
 {
-	private class Model : ContingentValidationModelBase<RequiredNonEmptyCollectionIfFalseAttribute>
+	private sealed class Model : ContingentValidationModelBase<RequiredNonEmptyCollectionIfFalseAttribute>
 	{
 		public bool? Value1 { get; set; }
 
