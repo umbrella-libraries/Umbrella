@@ -42,6 +42,12 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 
 	internal bool IsEligible(IMethodSymbol methodSymbol)
 	{
+		return IsCandidate(methodSymbol) &&
+			HasAccessibleLogger(methodSymbol.ContainingType);
+	}
+
+	internal static bool IsCandidate(IMethodSymbol methodSymbol)
+	{
 		return methodSymbol.DeclaredAccessibility == Accessibility.Public &&
 			methodSymbol.MethodKind == MethodKind.Ordinary &&
 			!methodSymbol.IsStatic &&
@@ -49,8 +55,7 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 			!methodSymbol.IsImplicitlyDeclared &&
 			!methodSymbol.IsExtern &&
 			methodSymbol.DeclaringSyntaxReferences.Length > 0 &&
-			methodSymbol.Locations.Any(static location => location.IsInSource) &&
-			HasAccessibleLogger(methodSymbol.ContainingType);
+			methodSymbol.Locations.Any(static location => location.IsInSource);
 	}
 
 	internal bool IsExempt(
@@ -325,10 +330,17 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 			SymbolEqualityComparer.Default.Equals(caughtType.OriginalDefinition, _exceptionType);
 	}
 
-	private bool HasAccessibleLogger(INamedTypeSymbol containingType)
+	internal bool HasAccessibleLogger(INamedTypeSymbol containingType)
 	{
 		if (_loggerType is null)
 			return false;
+
+		if (containingType.InstanceConstructors
+			.SelectMany(static constructor => constructor.Parameters)
+			.Any(parameter => IsLoggerType(parameter.Type) && IsPrimaryConstructorParameter(parameter)))
+		{
+			return true;
+		}
 
 		for (INamedTypeSymbol? type = containingType; type is not null; type = type.BaseType)
 		{
@@ -353,6 +365,16 @@ internal sealed class PublicMethodExceptionHandlingAnalysis
 		}
 
 		return false;
+	}
+
+	private static bool IsPrimaryConstructorParameter(IParameterSymbol parameter)
+	{
+		return parameter.DeclaringSyntaxReferences.Any(
+			static syntaxReference =>
+				syntaxReference.GetSyntax() is ParameterSyntax
+				{
+					Parent.Parent: TypeDeclarationSyntax
+				});
 	}
 
 	private bool ContainsRequiredLogging(

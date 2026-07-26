@@ -34,6 +34,7 @@ Most rules are configured with **Error** severity (compile blocking); UA015, UA0
 | UA018 | Do not call context.Fail() in HandleRequirementAsync                  | Calling `context.Fail()` inside `HandleRequirementAsync` silently breaks the authorization pipeline — remove the call. |
 | UA019 | Controller endpoint override must call base method                    | Overriding a standard CRUD endpoint (`GetAsync`, `PostAsync`, `PutAsync`, `DeleteAsync`, `PatchAsync`, `SearchAsync`, `SearchSlimAsync`) in a controller without calling `base.{method}()` skips base lifecycle hooks. Use Before/After lifecycle hook overrides for custom logic, or apply `[NonAction]` to intentionally disable the endpoint. |
 | UA020 | Entity types must not be used as query method parameters              | Methods whose names start with `Find`, `Get`, `Search`, `Lookup`, `Fetch`, or `Query` must not accept parameters of a type implementing `IEntity<TEntityKey>`. Passing an entity as a query parameter treats it as a specification bag, coupling the query contract to the entity shape. Accept individual primitive values or a dedicated filter/query type instead. |
+| UA021 | Types with public operational methods should provide an ILogger       | Requires a class or record containing non-trivial public instance methods to expose an accessible `ILogger` or `ILogger<T>` through a field, property, captured primary-constructor parameter, or inheritance. The operational-method exclusions match UA008: framework entry points, disposal methods, direct base forwarders, recognized test entry points, and true no-ops do not create a logging requirement. |
 
 ### Opt-out attributes (UA011–UA014)
 When a justified exception is needed, apply one of these attributes (all require a `justification` string):
@@ -47,7 +48,7 @@ When a justified exception is needed, apply one of these attributes (all require
 | `[UmbrellaAllowMutableCollection("reason")]` | Allows a mutable collection type instead of `IReadOnlyCollection<T>` (UA014) |
 
 ### Severity
-UA001–UA014, UA018, and UA020 emit diagnostics as `Error` so builds fail until issues are resolved. UA015, UA016, UA017, and UA019 emit as `Warning` — they flag structural issues but do not block the build by default. Adjust severities via ruleset / .editorconfig if you need a different adoption path.
+UA001–UA014, UA018, UA020, and UA021 emit diagnostics as `Error` so builds fail until issues are resolved. UA015, UA016, UA017, and UA019 emit as `Warning` — they flag structural issues but do not block the build by default. Adjust severities via ruleset / .editorconfig if you need a different adoption path.
 
 ## Release Tracking
 Rule introduction and status are tracked in:

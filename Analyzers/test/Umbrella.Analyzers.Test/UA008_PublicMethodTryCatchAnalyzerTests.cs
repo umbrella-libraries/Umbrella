@@ -28,6 +28,21 @@ public class UA008_PublicMethodTryCatchAnalyzerTests : AnalyzerTestBase<PublicMe
 	}
 
 	[Fact]
+	public async Task PublicMethodWithPrimaryConstructorLogger_ShouldTriggerDiagnostic()
+	{
+		const string source = """
+			using Microsoft.Extensions.Logging;
+			public class TestClass(ILogger<TestClass> logger)
+			{
+				public void Update(int value) { System.GC.KeepAlive(value); }
+			}
+			""";
+
+		var expected = Diagnostic(PublicMethodTryCatchAnalyzer.Rule, 4, 14, "Update");
+		await VerifyAnalyzerAsync(source, [_loggingReference], expected);
+	}
+
+	[Fact]
 	public async Task PublicMethodWithILoggerAndLogging_ShouldNotTriggerDiagnostic()
 	{
 		const string source = @"using System; using Microsoft.Extensions.Logging; public class TestClass { private readonly ILogger _logger; public TestClass(ILogger logger) { _logger = logger; } public void M() { try { int x = 0; } catch (Exception ex) { _logger.LogError(ex, ""An error occurred.""); } } }";
