@@ -19,6 +19,7 @@ namespace Umbrella.Analyzers;
 /// <item><description>UA012: Model properties must use the 'required' keyword for initialization safety</description></item>
 /// <item><description>UA013: Model properties must have getter and be init-only to prevent mutation</description></item>
 /// <item><description>UA014: Collection properties must use a read-only collection type</description></item>
+/// <item><description>UA015: Input models declaring mutable strings must implement IUmbrellaTrimmable</description></item>
 /// </list>
 /// <para>
 /// The analyzer targets types with names ending in: Model, ModelBase, ViewModel, ViewModelBase, or QueryResult.
@@ -95,16 +96,16 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		description: "Per Umbrella standards, collection properties in model types should expose a read-only collection contract or a recognized immutable collection type.");
 
 	/// <summary>
-	/// Diagnostic rule that requires model types with mutable string properties to implement <c>IUmbrellaTrimmable</c>.
+	/// Diagnostic rule that requires input model types declaring trimmable mutable string properties to implement <c>IUmbrellaTrimmable</c>.
 	/// </summary>
 	public static readonly DiagnosticDescriptor MutableStringModelMustImplementTrimmableRule = new(
 		id: "UA015",
-		title: "Models with mutable string properties must implement IUmbrellaTrimmable",
-		messageFormat: "Model type '{0}' has mutable string properties and must implement IUmbrellaTrimmable",
+		title: "Input models with mutable string properties must implement IUmbrellaTrimmable",
+		messageFormat: "Input model type '{0}' declares mutable string properties and must directly implement IUmbrellaTrimmable",
 		category: "UmbrellaModelStandards",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true,
-		description: "Model classes and records with public mutable string properties should implement IUmbrellaTrimmable so user-supplied strings can be trimmed.");
+		description: "Input model classes and records that declare public mutable string properties should directly implement IUmbrellaTrimmable so user-supplied strings can be trimmed.");
 
 	/// <inheritdoc />
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
@@ -124,6 +125,10 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			INamedTypeSymbol? razorPageModelSymbol = startContext.Compilation.GetTypeByMetadataName(
 				"Microsoft.AspNetCore.Mvc.RazorPages.PageModel");
 			INamedTypeSymbol? trimmableSymbol = startContext.Compilation.GetTypeByMetadataName("Umbrella.Utilities.Text.IUmbrellaTrimmable");
+			INamedTypeSymbol? doNotTrimAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
+				"Umbrella.Utilities.Text.UmbrellaDoNotTrimAttribute");
+			INamedTypeSymbol? concurrencyStampSymbol = startContext.Compilation.GetTypeByMetadataName(
+				"Umbrella.Utilities.Data.Concurrency.IConcurrencyStamp");
 			INamedTypeSymbol? inputModelAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
 				"Umbrella.Analyzers.UmbrellaInputModelAttribute");
 			INamedTypeSymbol? allowNonRequiredPropertyAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
@@ -150,7 +155,14 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 				return;
 
 			startContext.RegisterSyntaxNodeAction(
-				ctx => AnalyzeModelForTrimmingRequirements(ctx, trimmableSymbol, razorPageModelSymbol),
+				ctx => AnalyzeModelForTrimmingRequirements(
+					ctx,
+					trimmableSymbol,
+					inputModelAttributeSymbol,
+					allowMutablePropertyAttributeSymbol,
+					doNotTrimAttributeSymbol,
+					concurrencyStampSymbol,
+					razorPageModelSymbol),
 				SyntaxKind.ClassDeclaration,
 				SyntaxKind.RecordDeclaration);
 		});
@@ -196,12 +208,17 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			return;
 		}
 
+		if (propertySymbol.IsStatic || propertySymbol.DeclaredAccessibility != Accessibility.Public)
+			return;
+
 		bool isInterfaceProperty = typeSymbol.TypeKind == TypeKind.Interface;
 		bool isInputModel = HasAttributeInTypeHierarchy(typeSymbol, inputModelAttributeSymbol);
 		bool allowsMutation = HasAttribute(propertySymbol, allowMutablePropertyAttributeSymbol);
+		bool interfaceRequiresSetter = ImplementsInterfacePropertyWithSetter(typeSymbol, propertySymbol);
 
 		if (!isInterfaceProperty &&
 			!isInputModel &&
+			propertySymbol.SetMethod is not null &&
 			!HasRequiredModifier(propertyDecl) &&
 			!HasAttribute(propertySymbol, allowNonRequiredPropertyAttributeSymbol))
 		{
@@ -211,15 +228,14 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		}
 
 		// Check for getter (always required — [UmbrellaAllowMutableProperty] does not suppress this)
-		bool hasMissingGetter = !isInterfaceProperty &&
-			(propertyDecl.AccessorList == null ||
-				!propertyDecl.AccessorList.Accessors.Any(a => a.Kind() == SyntaxKind.GetAccessorDeclaration));
+		bool hasMissingGetter = !isInterfaceProperty && propertySymbol.GetMethod is null;
 
 		// Check for setter instead of init (suppressed by [UmbrellaAllowMutableProperty])
 		bool hasSetterWithoutInit = !isInterfaceProperty &&
 			!isInputModel &&
 			propertyDecl.AccessorList != null &&
 			propertyDecl.AccessorList.Accessors.Any(a => a.Kind() == SyntaxKind.SetAccessorDeclaration && !HasInitModifier(a)) &&
+			!interfaceRequiresSetter &&
 			!allowsMutation;
 
 		if (hasMissingGetter || hasSetterWithoutInit)
@@ -244,6 +260,10 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 	private static void AnalyzeModelForTrimmingRequirements(
 		SyntaxNodeAnalysisContext context,
 		INamedTypeSymbol trimmableSymbol,
+		INamedTypeSymbol? inputModelAttributeSymbol,
+		INamedTypeSymbol? allowMutablePropertyAttributeSymbol,
+		INamedTypeSymbol? doNotTrimAttributeSymbol,
+		INamedTypeSymbol? concurrencyStampSymbol,
 		INamedTypeSymbol? razorPageModelSymbol)
 	{
 		var typeDecl = (TypeDeclarationSyntax)context.Node;
@@ -252,8 +272,13 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			return;
 
 		if (context.SemanticModel.GetDeclaredSymbol(typeDecl) is not INamedTypeSymbol typeSymbol ||
-			!HasMutableStringProperty(typeSymbol) ||
-			ImplementsInterface(typeSymbol, trimmableSymbol))
+			!HasAttributeInTypeHierarchy(typeSymbol, inputModelAttributeSymbol) ||
+			!HasTrimmableStringProperty(
+				typeSymbol,
+				allowMutablePropertyAttributeSymbol,
+				doNotTrimAttributeSymbol,
+				concurrencyStampSymbol) ||
+			ImplementsInterfaceDirectly(typeSymbol, trimmableSymbol))
 		{
 			return;
 		}
@@ -264,30 +289,65 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			typeSymbol.Name));
 	}
 
-	private static bool HasMutableStringProperty(INamedTypeSymbol typeSymbol)
+	private static bool HasTrimmableStringProperty(
+		INamedTypeSymbol typeSymbol,
+		INamedTypeSymbol? allowMutablePropertyAttributeSymbol,
+		INamedTypeSymbol? doNotTrimAttributeSymbol,
+		INamedTypeSymbol? concurrencyStampSymbol) =>
+		typeSymbol.GetMembers()
+			.OfType<IPropertySymbol>()
+			.Any(property =>
+				!property.IsStatic &&
+				property.DeclaredAccessibility == Accessibility.Public &&
+				property.Type.SpecialType == SpecialType.System_String &&
+				property.SetMethod is { IsInitOnly: false } &&
+				!HasAttribute(property, allowMutablePropertyAttributeSymbol) &&
+				!HasAttribute(property, doNotTrimAttributeSymbol) &&
+				!ImplementsInterfaceProperty(property, typeSymbol, concurrencyStampSymbol));
+
+	private static bool ImplementsInterfaceDirectly(INamedTypeSymbol typeSymbol, INamedTypeSymbol interfaceSymbol) =>
+		typeSymbol.Interfaces.Any(
+			interfaceType =>
+				SymbolEqualityComparer.Default.Equals(interfaceType, interfaceSymbol) ||
+				interfaceType.AllInterfaces.Any(inheritedInterface =>
+					SymbolEqualityComparer.Default.Equals(inheritedInterface, interfaceSymbol)));
+
+	private static bool ImplementsInterfaceProperty(
+		IPropertySymbol propertySymbol,
+		INamedTypeSymbol typeSymbol,
+		INamedTypeSymbol? interfaceSymbol)
 	{
-		for (INamedTypeSymbol? currentType = typeSymbol;
-			currentType is not null;
-			currentType = currentType.BaseType)
+		if (interfaceSymbol is null)
+			return false;
+
+		return interfaceSymbol.GetMembers()
+			.OfType<IPropertySymbol>()
+			.Any(interfaceProperty =>
+				SymbolEqualityComparer.Default.Equals(
+					typeSymbol.FindImplementationForInterfaceMember(interfaceProperty),
+					propertySymbol));
+	}
+
+	private static bool ImplementsInterfacePropertyWithSetter(
+		INamedTypeSymbol typeSymbol,
+		IPropertySymbol propertySymbol)
+	{
+		foreach (INamedTypeSymbol interfaceType in typeSymbol.AllInterfaces)
 		{
-			if (currentType.GetMembers()
-				.OfType<IPropertySymbol>()
-				.Any(static property =>
-					!property.IsStatic &&
-					property.DeclaredAccessibility == Accessibility.Public &&
-					property.Type.SpecialType == SpecialType.System_String &&
-					property.SetMethod is { IsInitOnly: false }))
+			foreach (IPropertySymbol interfaceProperty in interfaceType.GetMembers().OfType<IPropertySymbol>())
 			{
-				return true;
+				if (interfaceProperty.SetMethod is not null &&
+					SymbolEqualityComparer.Default.Equals(
+						typeSymbol.FindImplementationForInterfaceMember(interfaceProperty),
+						propertySymbol))
+				{
+					return true;
+				}
 			}
 		}
 
 		return false;
 	}
-
-	private static bool ImplementsInterface(INamedTypeSymbol typeSymbol, INamedTypeSymbol interfaceSymbol) =>
-		typeSymbol.AllInterfaces.Any(
-			interfaceType => SymbolEqualityComparer.Default.Equals(interfaceType, interfaceSymbol));
 
 	private static bool IsModelType(string typeName)
 	{

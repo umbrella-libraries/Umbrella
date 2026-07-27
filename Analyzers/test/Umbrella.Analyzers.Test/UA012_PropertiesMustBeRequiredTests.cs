@@ -51,4 +51,32 @@ public sealed class UmbrellaAllowNonRequiredPropertyAttribute : Attribute { }";
 		var expected = Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeRequiredRule, 6, 19, "Name", "UserModel");
 		await VerifyAnalyzerAsync(source, expected);
 	}
+
+	[Fact]
+	public async Task StaticAndGetterOnlyProperties_ShouldNotTriggerDiagnostic()
+	{
+		const string source = """
+			public record UserModel
+			{
+				public static string DefaultName { get; } = "";
+				public string DisplayName => "User";
+				public int Count { get; } = 1;
+			}
+			""";
+
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task PrivateProperty_ShouldNotTriggerDiagnostic()
+	{
+		const string source = """
+			public record UserModel
+			{
+				private string Name { get; set; } = "";
+			}
+			""";
+
+		await VerifyNoDiagnosticsAsync(source);
+	}
 }

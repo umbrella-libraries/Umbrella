@@ -9,7 +9,7 @@
 
 	<PropertyGroup>
 		<PackageId>Umbrella.Generators.StringTrimmer</PackageId>
-		<Description>This package generates TrimAllStringProperties on partial classes and records that implement IUmbrellaTrimmable and do not provide the method manually.</Description>
+		<Description>This package generates TrimAllStringProperties on partial classes and records that implement IUmbrellaTrimmable and do not provide the method manually. UmbrellaDoNotTrim, technical mutation properties, and concurrency stamps are excluded.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>

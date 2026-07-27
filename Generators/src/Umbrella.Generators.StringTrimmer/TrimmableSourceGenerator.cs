@@ -13,6 +13,9 @@ namespace Umbrella.Generators.StringTrimmer;
 public class TrimmableSourceGenerator : IIncrementalGenerator
 {
 	private const string InterfaceName = "Umbrella.Utilities.Text.IUmbrellaTrimmable";
+	private const string DoNotTrimAttributeName = "Umbrella.Utilities.Text.UmbrellaDoNotTrimAttribute";
+	private const string AllowMutablePropertyAttributeName = "Umbrella.Analyzers.UmbrellaAllowMutablePropertyAttribute";
+	private const string ConcurrencyStampInterfaceName = "Umbrella.Utilities.Data.Concurrency.IConcurrencyStamp";
 	private const string AllowedMicrosoftNamespace = "Microsoft.AspNetCore.Identity";
 
 	/// <inheritdoc />
@@ -46,6 +49,12 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 			if (trimmableSymbol is null)
 				return;
 
+			var trimmingSymbols = new TrimmingSymbolContext(
+				trimmableSymbol,
+				compilation.GetTypeByMetadataName(DoNotTrimAttributeName),
+				compilation.GetTypeByMetadataName(AllowMutablePropertyAttributeName),
+				compilation.GetTypeByMetadataName(ConcurrencyStampInterfaceName));
+
 			foreach (var typeInfo in typeList.Distinct())
 			{
 				var model = compilation.GetSemanticModel(typeInfo.Node.SyntaxTree);
@@ -56,7 +65,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 				if (ImplementsInterface(typeSymbol, trimmableSymbol) &&
 					!HasConcreteImplementation(typeSymbol, trimmableSymbol))
 				{
-					string generated = GenerateTrimmableImplementation(typeSymbol, trimmableSymbol, typeInfo.IsRecord);
+					string generated = GenerateTrimmableImplementation(typeSymbol, trimmingSymbols, typeInfo.IsRecord);
 					string namespaceSafeName = GetSafeNamespaceName(typeSymbol.ContainingNamespace.ToDisplayString());
 					spc.AddSource($"{namespaceSafeName}.{typeSymbol.Name}_UmbrellaTrimmable.g.cs", SourceText.From(generated, Encoding.UTF8));
 				}
@@ -102,14 +111,23 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 
 	private static string GenerateTrimmableImplementation(
 		INamedTypeSymbol typeSymbol,
-		INamedTypeSymbol trimmableSymbol,
+		TrimmingSymbolContext trimmingSymbols,
 		bool isRecord)
 	{
 		string namespaceName = typeSymbol.ContainingNamespace.ToDisplayString();
 		string typeName = typeSymbol.Name;
 		string typeKeyword = isRecord ? "record" : "class";
+		string trimMethodModifiers = HasTrimmableBaseType(typeSymbol, trimmingSymbols.TrimmableInterface)
+			? "public new"
+			: "public";
 
-		var trimStatements = GenerateTrimStatements(typeSymbol, "this", new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default), trimmableSymbol, 0, 3);
+		var trimStatements = GenerateTrimStatements(
+			typeSymbol,
+			"this",
+			new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default),
+			trimmingSymbols,
+			0,
+			3);
 
 		string statementsText = trimStatements.Any()
 			? string.Join("\n", trimStatements)
@@ -129,7 +147,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 		{{Indent(2)}}/// <summary>
 		{{Indent(2)}}/// Trims all string properties in this object and its nested properties.
 		{{Indent(2)}}/// </summary>
-		{{Indent(2)}}public void TrimAllStringProperties()
+		{{Indent(2)}}{{trimMethodModifiers}} void TrimAllStringProperties()
 		{{Indent(2)}}{
 		{{Indent(3)}}if (_isTrimmingInProgress)
 		{{Indent(3)}}	return;
@@ -154,7 +172,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 		INamedTypeSymbol typeSymbol,
 		string instanceName,
 		HashSet<INamedTypeSymbol> visitedTypes,
-		INamedTypeSymbol trimmableInterface,
+		TrimmingSymbolContext trimmingSymbols,
 		int depth,
 		int indentLevel)
 	{
@@ -174,7 +192,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 				typeSymbol.BaseType,
 				instanceName,
 				visitedTypes,
-				trimmableInterface,
+				trimmingSymbols,
 				depth,
 				indentLevel);
 
@@ -187,7 +205,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 				typeSymbol.BaseType,
 				instanceName,
 				visitedTypes,
-				trimmableInterface,
+				trimmingSymbols,
 				depth,
 				indentLevel);
 
@@ -200,7 +218,8 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 				property.SetMethod is not null &&
 				!property.SetMethod.IsInitOnly &&
 				property.GetMethod is not null &&
-				property.DeclaredAccessibility is Accessibility.Public)
+				property.DeclaredAccessibility is Accessibility.Public &&
+				!ShouldSkipProperty(property, typeSymbol, trimmingSymbols))
 			{
 				string propertyName = property.Name;
 				var propertyType = property.Type;
@@ -216,7 +235,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 						 !IsSystemType(namedPropertyType) &&
 						 !namedPropertyType.IsValueType)
 				{
-					if (ImplementsInterface(namedPropertyType, trimmableInterface))
+					if (ImplementsInterface(namedPropertyType, trimmingSymbols.TrimmableInterface))
 					{
 						statements.Add($"{Indent(indentLevel)}{instanceName}.{propertyName}?.TrimAllStringProperties();");
 					}
@@ -226,7 +245,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 							namedPropertyType,
 							$"{instanceName}.{propertyName}",
 							visitedTypes,
-							trimmableInterface,
+							trimmingSymbols,
 							depth + 1,
 							indentLevel + 1);
 
@@ -285,7 +304,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 								!IsSystemType(namedValueType) &&
 								!namedValueType.IsValueType)
 						{
-							if (ImplementsInterface(namedValueType, trimmableInterface))
+							if (ImplementsInterface(namedValueType, trimmingSymbols.TrimmableInterface))
 							{
 								statements.Add($"{Indent(indentLevel)}if ({instanceName}.{propertyName} is not null)");
 								statements.Add($"{Indent(indentLevel)}{{");
@@ -302,7 +321,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 									namedValueType,
 									$"value{depth}",
 									visitedTypes,
-									trimmableInterface,
+									trimmingSymbols,
 									depth + 1,
 									indentLevel + 2);
 
@@ -345,7 +364,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 								 !IsSystemType(namedElementType) &&
 								 !namedElementType.IsValueType)
 						{
-							if (ImplementsInterface(namedElementType, trimmableInterface))
+							if (ImplementsInterface(namedElementType, trimmingSymbols.TrimmableInterface))
 							{
 								statements.Add($"{Indent(indentLevel)}if ({instanceName}.{propertyName} is not null)");
 								statements.Add($"{Indent(indentLevel)}{{");
@@ -362,7 +381,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 									namedElementType,
 									$"item{depth}",
 									visitedTypes,
-									trimmableInterface,
+									trimmingSymbols,
 									depth + 1,
 									indentLevel + 2);
 
@@ -389,6 +408,48 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 		_ = visitedTypes.Remove(typeSymbol);
 
 		return statements;
+	}
+
+	private static bool ShouldSkipProperty(
+		IPropertySymbol propertySymbol,
+		INamedTypeSymbol typeSymbol,
+		TrimmingSymbolContext trimmingSymbols) =>
+		HasAttribute(propertySymbol, trimmingSymbols.DoNotTrimAttribute) ||
+		HasAttribute(propertySymbol, trimmingSymbols.AllowMutablePropertyAttribute) ||
+		ImplementsInterfaceProperty(propertySymbol, typeSymbol, trimmingSymbols.ConcurrencyStampInterface);
+
+	private static bool HasTrimmableBaseType(INamedTypeSymbol typeSymbol, INamedTypeSymbol trimmableInterface)
+	{
+		for (INamedTypeSymbol? baseType = typeSymbol.BaseType;
+			baseType is not null;
+			baseType = baseType.BaseType)
+		{
+			if (ImplementsInterface(baseType, trimmableInterface))
+				return true;
+		}
+
+		return false;
+	}
+
+	private static bool HasAttribute(ISymbol symbol, INamedTypeSymbol? attributeSymbol) =>
+		attributeSymbol is not null &&
+		symbol.GetAttributes().Any(attribute =>
+			SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeSymbol));
+
+	private static bool ImplementsInterfaceProperty(
+		IPropertySymbol propertySymbol,
+		INamedTypeSymbol typeSymbol,
+		INamedTypeSymbol? interfaceSymbol)
+	{
+		if (interfaceSymbol is null)
+			return false;
+
+		return interfaceSymbol.GetMembers()
+			.OfType<IPropertySymbol>()
+			.Any(interfaceProperty =>
+				SymbolEqualityComparer.Default.Equals(
+					typeSymbol.FindImplementationForInterfaceMember(interfaceProperty),
+					propertySymbol));
 	}
 
 	private static bool IsSystemType(INamedTypeSymbol type, string? allowNamespace = null)
@@ -462,4 +523,27 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 	}
 
 	private static string Indent(int level) => new('\t', level);
+
+	private sealed class TrimmingSymbolContext
+	{
+		public INamedTypeSymbol TrimmableInterface { get; }
+
+		public INamedTypeSymbol? DoNotTrimAttribute { get; }
+
+		public INamedTypeSymbol? AllowMutablePropertyAttribute { get; }
+
+		public INamedTypeSymbol? ConcurrencyStampInterface { get; }
+
+		public TrimmingSymbolContext(
+			INamedTypeSymbol trimmableInterface,
+			INamedTypeSymbol? doNotTrimAttribute,
+			INamedTypeSymbol? allowMutablePropertyAttribute,
+			INamedTypeSymbol? concurrencyStampInterface)
+		{
+			TrimmableInterface = trimmableInterface;
+			DoNotTrimAttribute = doNotTrimAttribute;
+			AllowMutablePropertyAttribute = allowMutablePropertyAttribute;
+			ConcurrencyStampInterface = concurrencyStampInterface;
+		}
+	}
 }
