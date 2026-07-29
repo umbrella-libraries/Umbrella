@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis;
 
 namespace Umbrella.Analyzers.Test;
 
-public class UA021_PublicMethodLoggerAnalyzerTests : AnalyzerTestBase<PublicMethodLoggerAnalyzer>
+public class UA016_PublicMethodLoggerAnalyzerTests : AnalyzerTestBase<PublicMethodLoggerAnalyzer>
 {
 	private static readonly MetadataReference _loggingReference =
 		MetadataReference.CreateFromFile(typeof(Microsoft.Extensions.Logging.ILogger).Assembly.Location);

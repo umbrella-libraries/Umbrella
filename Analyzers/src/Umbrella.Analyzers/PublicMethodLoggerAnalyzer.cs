@@ -19,7 +19,7 @@ public sealed class PublicMethodLoggerAnalyzer : DiagnosticAnalyzer
 	/// <summary>
 	/// The diagnostic ID for this analyzer.
 	/// </summary>
-	public const string DiagnosticId = "UA021";
+	public const string DiagnosticId = "UA016";
 
 	private static readonly ImmutableHashSet<string> _testEntryPointAttributeMetadataNames = ImmutableHashSet.Create(
 		StringComparer.Ordinal,
