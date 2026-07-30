@@ -11,14 +11,14 @@ namespace Riok.Mapperly.Abstractions
 ";
 
 	[Fact]
-	public async Task InternalPartialClassWithMapperAttribute_ReportsDiagnostic()
+	public async Task InternalPartialClassWithMapperAttribute_NoDiagnostic()
 	{
 		const string source = MapperStub + @"namespace TestApp
 {
     [Riok.Mapperly.Abstractions.Mapper]
     internal partial class MyMapper { }
 }";
-		await VerifyAnalyzerAsync(source, Diagnostic(MapperlyRegistrationAnalyzer.MapperClassMustBePublicPartialRule, 10, 28));
+		await VerifyNoDiagnosticsAsync(source);
 	}
 
 	[Fact]
@@ -50,6 +50,45 @@ namespace Riok.Mapperly.Abstractions
 {
     [Riok.Mapperly.Abstractions.Mapper]
     public partial class MyMapper { }
+}";
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task InternalPartialRecordClassWithMapperAttribute_NoDiagnostic()
+	{
+		const string source = MapperStub + @"namespace TestApp
+{
+    [Riok.Mapperly.Abstractions.Mapper]
+    internal partial record class MyMapper;
+}";
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task PrivateNestedPartialClassWithMapperAttribute_ReportsDiagnostic()
+	{
+		const string source = MapperStub + @"namespace TestApp
+{
+    internal class Container
+    {
+        [Riok.Mapperly.Abstractions.Mapper]
+        private partial class MyMapper { }
+    }
+}";
+		await VerifyAnalyzerAsync(source, Diagnostic(MapperlyRegistrationAnalyzer.MapperClassMustBePublicPartialRule, 12, 31));
+	}
+
+	[Fact]
+	public async Task InternalNestedPartialClassWithMapperAttribute_NoDiagnostic()
+	{
+		const string source = MapperStub + @"namespace TestApp
+{
+    internal class Container
+    {
+        [Riok.Mapperly.Abstractions.Mapper]
+        internal partial class MyMapper { }
+    }
 }";
 		await VerifyNoDiagnosticsAsync(source);
 	}

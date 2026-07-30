@@ -377,9 +377,10 @@ public sealed class Consumer<TSlimAccountModel>
 	}
 
 	[Fact]
-	public async Task VerifyNoDiagnosticsAsyncWhenNoCatalogsAreConfigured()
+	public async Task VerifyAnalyzerAsyncWhenNoCatalogsAreConfigured()
 	{
-		await VerifyNoDiagnosticsAsync("""
+		await VerifyAnalyzerAsync("""
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -398,6 +399,29 @@ namespace Umbrella.Utilities.Mapping.Abstractions
 
 namespace Umbrella.Utilities.Mapping.Mapperly.Abstractions
 {
+    public enum UmbrellaMapperlyCatalogOperationKind
+    {
+        NewInstance,
+        NewCollection,
+        ExistingInstance
+    }
+
+    [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
+    public sealed class UmbrellaMapperlyCatalogReferenceAttribute : Attribute
+    {
+        public UmbrellaMapperlyCatalogReferenceAttribute(Type catalogType)
+        {
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
+    public sealed class UmbrellaMapperlyCatalogMappingAttribute : Attribute
+    {
+        public UmbrellaMapperlyCatalogMappingAttribute(Type sourceType, Type destinationType, UmbrellaMapperlyCatalogOperationKind operationKind)
+        {
+        }
+    }
+
     public interface IUmbrellaMapperlyCatalog
     {
     }
@@ -418,7 +442,7 @@ public sealed class Consumer
         await mapper.MapAsync<Person, PersonDto>(person, cancellationToken);
     }
 }
-""");
+""", Diagnostic(MapperlyRegistrationAnalyzer.MissingExactMappingRule, 60, 15));
 	}
 
 	[Fact]

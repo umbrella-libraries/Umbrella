@@ -14,9 +14,9 @@ UMA001 is configured with **Error** severity (compile blocking); UMA002 and UMA0
 
 | ID     | Title                                                              | Description                                                                                                                                                                   |
 |--------|--------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| UMA001 | IUmbrellaMapper calls must target an exact Mapperly registration   | Every closed `MapAsync` / `MapAllAsync` call site must have a matching `[UmbrellaMapperlyCatalogMapping]` entry in one of the configured catalogs. Missing registrations are a compile error. |
-| UMA002 | Open generic IUmbrellaMapper calls cannot be fully validated       | Call sites using open generic type arguments (e.g. `TSource`) cannot be validated at the generic definition site and are flagged as warnings for manual review.                |
-| UMA003 | Mapperly mapper classes must be public partial class               | Classes decorated with `[Mapper]` must be `public partial class`. The `Umbrella.Generators.Mapperly` source generator only discovers public types; a non-public or non-partial class is silently skipped and never registered in the catalog. |
+| UMA001 | IUmbrellaMapper calls must target an exact Mapperly registration   | Every closed `MapAsync` / `MapAllAsync` call site must have a matching `[UmbrellaMapperlyCatalogMapping]` entry in a configured catalog. Missing registrations, including calls made without any configured catalog, are compile errors. |
+| UMA002 | Open generic IUmbrellaMapper calls cannot be fully validated       | Open generic calls are validated against every known closed, non-abstract source type that inherits the containing implementation. A warning remains only when no complete set of closed constructions can be validated. |
+| UMA003 | Mapperly mapper classes must be partial and accessible             | Classes and record classes decorated with `[Mapper]` must be partial and accessible to the generated catalog. Public and internal mapper types are supported; inaccessible nested mapper types are rejected. |
 
 ### Configuring catalog references
 
@@ -28,11 +28,11 @@ using Umbrella.Utilities.Mapping.Mapperly.Abstractions;
 [assembly: UmbrellaMapperlyCatalogReference(typeof(MyApp_Web_Server_ModelFactoriesUmbrellaMapperlyCatalog))]
 ```
 
-Without this attribute, UMA001/UMA002 remain silent (no catalogs → no validation).
+Without this attribute, closed mapper calls produce UMA001 because none of their mappings are registered. Open calls continue through UMA002's closed-construction analysis.
 
 ### Severity
 
-UMA001 emits as `Error` because an unregistered mapping fails at runtime. UMA002 emits as `Warning` because open generics are inherently unresolvable at the definition site. UMA003 emits as `Warning` because a non-public/non-partial mapper is silently ignored rather than producing a runtime error. Adjust severities via `.editorconfig` if needed.
+UMA001 emits as `Error` because an unregistered mapping fails at runtime. UMA002 emits as `Warning` when an open generic call cannot be resolved using known closed source constructions. UMA003 emits as `Warning` because an invalid mapper declaration prevents Mapperly or the generated catalog from using the mapper. Adjust severities via `.editorconfig` if needed.
 
 ## Release Tracking
 

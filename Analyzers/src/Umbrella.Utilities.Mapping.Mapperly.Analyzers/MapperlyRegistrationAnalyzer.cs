@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
@@ -15,11 +17,11 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 	private const string CatalogInterfaceMetadataName = "Umbrella.Utilities.Mapping.Mapperly.Abstractions.IUmbrellaMapperlyCatalog";
 	private const string CatalogReferenceAttributeMetadataName = "Umbrella.Utilities.Mapping.Mapperly.Abstractions.UmbrellaMapperlyCatalogReferenceAttribute";
 	private const string CatalogMappingAttributeMetadataName = "Umbrella.Utilities.Mapping.Mapperly.Abstractions.UmbrellaMapperlyCatalogMappingAttribute";
+	private const string MapperAttributeMetadataName = "Riok.Mapperly.Abstractions.MapperAttribute";
 	private const string CancellationTokenMetadataName = "System.Threading.CancellationToken";
 	private const string MapAsyncMethodName = "MapAsync";
 	private const string MapAllAsyncMethodName = "MapAllAsync";
 
-	private static readonly SymbolDisplayFormat _keyDisplayFormat = SymbolDisplayFormat.FullyQualifiedFormat;
 	private static readonly SymbolDisplayFormat _messageDisplayFormat = SymbolDisplayFormat.CSharpErrorMessageFormat;
 
 	/// <summary>
@@ -35,28 +37,28 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 		description: "Strict Mapperly mapping requires an exact source/destination registration for each IUmbrellaMapper operation.");
 
 	/// <summary>
-	/// Diagnostic emitted when a mapper call uses open generic type arguments.
+	/// Diagnostic emitted when a mapper call cannot be resolved to known closed constructions.
 	/// </summary>
 	public static readonly DiagnosticDescriptor OpenGenericMapperCallRule = new(
 		id: "UMA002",
 		title: "Open generic IUmbrellaMapper calls cannot be fully validated",
-		messageFormat: "Mapperly {0} call uses open generic type argument(s) for source '{1}' and destination '{2}', so exact registration cannot be proven at the generic definition site",
+		messageFormat: "Mapperly {0} call uses open generic type argument(s) for source '{1}' and destination '{2}', and no complete set of closed source constructions could be validated",
 		category: "MapperlyRegistration",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true,
-		description: "Open generic IUmbrellaMapper calls are valid only for some closed constructions, so the analyzer reports them as warnings for manual review.");
+		description: "Open generic IUmbrellaMapper calls are validated against known closed source constructions. Calls that remain open require manual review.");
 
 	/// <summary>
-	/// Diagnostic emitted when a Mapperly mapper class is not declared as <c>public partial class</c>.
+	/// Diagnostic emitted when a Mapperly mapper class is not partial or is inaccessible to the generated catalog.
 	/// </summary>
 	public static readonly DiagnosticDescriptor MapperClassMustBePublicPartialRule = new(
 		id: "UMA003",
-		title: "Mapperly mapper classes must be public partial class",
-		messageFormat: "Mapper class '{0}' must be declared as 'public partial class' so the Umbrella source generator can discover and register it",
+		title: "Mapperly mapper classes must be partial and accessible",
+		messageFormat: "Mapper class '{0}' must be partial and accessible to the generated Umbrella mapper catalog",
 		category: "UmbrellaMapperStandards",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true,
-		description: "Mapper classes decorated with [Mapper] must be public and partial. The Umbrella.Generators.Mapperly source generator only scans public types. A non-public or non-partial mapper is silently skipped and never registered in the catalog.");
+		description: "Classes decorated with [Mapper] must be partial. Internal and public mapper classes are supported, but the generated catalog must be able to access the mapper type.");
 
 	/// <inheritdoc />
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [MissingExactMappingRule, OpenGenericMapperCallRule, MapperClassMustBePublicPartialRule];
@@ -73,26 +75,32 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 		context.RegisterCompilationStartAction(startContext =>
 		{
 			var state = AnalyzerState.Create(startContext.Compilation);
+			if (state is not null)
+			{
+				var openCalls = new ConcurrentBag<OpenMapperCall>();
 
-			if (state is null || !state.HasConfiguredCatalogs)
-				return;
+				startContext.RegisterSyntaxNodeAction(
+					syntaxContext => AnalyzeInvocation(syntaxContext, state, openCalls),
+					SyntaxKind.InvocationExpression);
 
-			startContext.RegisterSyntaxNodeAction(syntaxContext => AnalyzeInvocation(syntaxContext, state), Microsoft.CodeAnalysis.CSharp.SyntaxKind.InvocationExpression);
-		});
+				startContext.RegisterCompilationEndAction(
+					endContext => AnalyzeOpenMapperCalls(endContext, state, openCalls));
+			}
 
-		context.RegisterCompilationStartAction(startContext =>
-		{
-			INamedTypeSymbol? mapperAttributeSymbol = startContext.Compilation.GetTypeByMetadataName("Riok.Mapperly.Abstractions.MapperAttribute");
-			if (mapperAttributeSymbol is null)
-				return;
-
-			startContext.RegisterSyntaxNodeAction(
-				ctx => AnalyzeMapperClassDeclaration(ctx, mapperAttributeSymbol),
-				Microsoft.CodeAnalysis.CSharp.SyntaxKind.ClassDeclaration);
+			INamedTypeSymbol? mapperAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(MapperAttributeMetadataName);
+			if (mapperAttributeSymbol is not null)
+			{
+				startContext.RegisterSymbolAction(
+					symbolContext => AnalyzeMapperType(symbolContext, mapperAttributeSymbol),
+					SymbolKind.NamedType);
+			}
 		});
 	}
 
-	private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, AnalyzerState state)
+	private static void AnalyzeInvocation(
+		SyntaxNodeAnalysisContext context,
+		AnalyzerState state,
+		ConcurrentBag<OpenMapperCall> openCalls)
 	{
 		var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -102,36 +110,116 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 			return;
 		}
 
-		string operationDisplay = GetOperationDisplayName(operation);
-		string sourceDisplay = sourceType.ToDisplayString(_messageDisplayFormat);
-		string destinationDisplay = destinationType.ToDisplayString(_messageDisplayFormat);
-
 		if (ContainsOpenTypeParameter(sourceType) || ContainsOpenTypeParameter(destinationType))
 		{
-			context.ReportDiagnostic(Diagnostic.Create(
-				OpenGenericMapperCallRule,
-				invocation.GetLocation(),
-				operationDisplay,
-				sourceDisplay,
-				destinationDisplay));
+			if (context.SemanticModel.GetEnclosingSymbol(invocation.SpanStart, context.CancellationToken) is IMethodSymbol containingMethod &&
+				containingMethod.ContainingType is not null)
+			{
+				openCalls.Add(new OpenMapperCall(
+					invocation.GetLocation(),
+					containingMethod,
+					operation,
+					sourceType,
+					destinationType));
+			}
+			else
+			{
+				ReportOpenGenericDiagnostic(context.ReportDiagnostic, invocation.GetLocation(), operation, sourceType, destinationType);
+			}
 
 			return;
 		}
 
-		var key = new MappingKey(
-			operation,
-			sourceType.ToDisplayString(_keyDisplayFormat),
-			destinationType.ToDisplayString(_keyDisplayFormat));
+		ReportMissingMappingIfRequired(
+			context.ReportDiagnostic,
+			invocation.GetLocation(),
+			state,
+			new MappingKey(operation, sourceType, destinationType));
+	}
 
-		if (state.RegisteredMappings.Contains(key))
+	private static void AnalyzeOpenMapperCalls(
+		CompilationAnalysisContext context,
+		AnalyzerState state,
+		ConcurrentBag<OpenMapperCall> openCalls)
+	{
+		ImmutableArray<INamedTypeSymbol> sourceTypes = GetAllSourceTypes(context.Compilation.Assembly.GlobalNamespace);
+
+		foreach (OpenMapperCall openCall in openCalls)
+		{
+			bool foundClosedConstruction = false;
+			bool hasUnresolvedConstruction = false;
+			var checkedMappings = new HashSet<MappingKey>(MappingKeyComparer.Instance);
+
+			foreach (INamedTypeSymbol candidateType in sourceTypes)
+			{
+				if (candidateType.IsAbstract ||
+					ContainsOpenTypeParameter(candidateType) ||
+					!TryFindConstructedContainingType(candidateType, openCall.ContainingMethod.ContainingType, out INamedTypeSymbol? constructedContainingType))
+				{
+					continue;
+				}
+
+				foundClosedConstruction = true;
+				if (IsContainingMethodOverridden(candidateType, constructedContainingType, openCall.ContainingMethod))
+					continue;
+
+				ImmutableDictionary<ITypeParameterSymbol, ITypeSymbol> substitutions = CreateTypeSubstitutions(constructedContainingType);
+				ITypeSymbol sourceType = SubstituteType(openCall.SourceType, substitutions, context.Compilation);
+				ITypeSymbol destinationType = SubstituteType(openCall.DestinationType, substitutions, context.Compilation);
+
+				if (ContainsOpenTypeParameter(sourceType) || ContainsOpenTypeParameter(destinationType))
+				{
+					hasUnresolvedConstruction = true;
+					continue;
+				}
+
+				var mappingKey = new MappingKey(openCall.Operation, sourceType, destinationType);
+				if (checkedMappings.Add(mappingKey))
+					ReportMissingMappingIfRequired(context.ReportDiagnostic, openCall.Location, state, mappingKey);
+			}
+
+			if (!foundClosedConstruction || hasUnresolvedConstruction)
+			{
+				ReportOpenGenericDiagnostic(
+					context.ReportDiagnostic,
+					openCall.Location,
+					openCall.Operation,
+					openCall.SourceType,
+					openCall.DestinationType);
+			}
+		}
+	}
+
+	private static void ReportMissingMappingIfRequired(
+		Action<Diagnostic> reportDiagnostic,
+		Location location,
+		AnalyzerState state,
+		MappingKey mappingKey)
+	{
+		if (state.RegisteredMappings.Contains(mappingKey))
 			return;
 
-		context.ReportDiagnostic(Diagnostic.Create(
+		reportDiagnostic(Diagnostic.Create(
 			MissingExactMappingRule,
-			invocation.GetLocation(),
-			operationDisplay,
-			sourceDisplay,
-			destinationDisplay));
+			location,
+			GetOperationDisplayName(mappingKey.Operation),
+			mappingKey.SourceType.ToDisplayString(_messageDisplayFormat),
+			mappingKey.DestinationType.ToDisplayString(_messageDisplayFormat)));
+	}
+
+	private static void ReportOpenGenericDiagnostic(
+		Action<Diagnostic> reportDiagnostic,
+		Location location,
+		MapperOperation operation,
+		ITypeSymbol sourceType,
+		ITypeSymbol destinationType)
+	{
+		reportDiagnostic(Diagnostic.Create(
+			OpenGenericMapperCallRule,
+			location,
+			GetOperationDisplayName(operation),
+			sourceType.ToDisplayString(_messageDisplayFormat),
+			destinationType.ToDisplayString(_messageDisplayFormat)));
 	}
 
 	private static bool TryGetMapperCall(
@@ -145,71 +233,82 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 		sourceType = null!;
 		destinationType = null!;
 
-		if (methodSymbol.TypeArguments.Length is not 2 ||
-			!IsMapperMethodContainer(methodSymbol.ContainingType, state.MapperInterfaceSymbol))
-		{
+		if (methodSymbol.TypeArguments.Length is not 2)
 			return false;
+
+		foreach (MapperMethod mapperMethod in state.MapperMethods)
+		{
+			if (!IsInterfaceMethodOrImplementation(methodSymbol, mapperMethod.Method))
+				continue;
+
+			operation = mapperMethod.Operation;
+			sourceType = methodSymbol.TypeArguments[0];
+			destinationType = methodSymbol.TypeArguments[1];
+			return true;
 		}
 
-		if (methodSymbol.Name is MapAllAsyncMethodName &&
-			methodSymbol.Parameters.Length is 2 &&
-			SymbolEqualityComparer.Default.Equals(methodSymbol.Parameters[1].Type, state.CancellationTokenSymbol))
-		{
-			operation = MapperOperation.NewCollection;
-		}
-		else if (methodSymbol.Name is MapAsyncMethodName)
-		{
-			if (methodSymbol.Parameters.Length is 2 &&
-				SymbolEqualityComparer.Default.Equals(methodSymbol.Parameters[1].Type, state.CancellationTokenSymbol))
-			{
-				operation = MapperOperation.NewInstance;
-			}
-			else if (methodSymbol.Parameters.Length is 3 &&
-				SymbolEqualityComparer.Default.Equals(methodSymbol.Parameters[2].Type, state.CancellationTokenSymbol))
-			{
-				operation = MapperOperation.ExistingInstance;
-			}
-			else
-			{
-				return false;
-			}
-		}
-		else
-		{
-			return false;
-		}
-
-		sourceType = methodSymbol.TypeArguments[0];
-		destinationType = methodSymbol.TypeArguments[1];
-
-		return true;
+		return false;
 	}
 
-	private static bool IsMapperMethodContainer(INamedTypeSymbol containingType, INamedTypeSymbol mapperInterfaceSymbol)
+	private static bool IsInterfaceMethodOrImplementation(IMethodSymbol methodSymbol, IMethodSymbol interfaceMethod)
 	{
-		if (SymbolEqualityComparer.Default.Equals(containingType, mapperInterfaceSymbol))
+		if (SymbolEqualityComparer.Default.Equals(methodSymbol.OriginalDefinition, interfaceMethod.OriginalDefinition))
 			return true;
 
-		return containingType.AllInterfaces.Any(x => SymbolEqualityComparer.Default.Equals(x, mapperInterfaceSymbol));
+		ISymbol? implementation = methodSymbol.ContainingType.FindImplementationForInterfaceMember(interfaceMethod);
+		return implementation is IMethodSymbol implementationMethod &&
+			SymbolEqualityComparer.Default.Equals(methodSymbol.OriginalDefinition, implementationMethod.OriginalDefinition);
+	}
+
+	private static ImmutableArray<MapperMethod> GetMapperMethods(
+		INamedTypeSymbol mapperInterfaceSymbol,
+		INamedTypeSymbol cancellationTokenSymbol)
+	{
+		ImmutableArray<MapperMethod>.Builder builder = ImmutableArray.CreateBuilder<MapperMethod>();
+
+		foreach (IMethodSymbol method in mapperInterfaceSymbol.GetMembers().OfType<IMethodSymbol>())
+		{
+			if (method.TypeParameters.Length is not 2)
+				continue;
+
+			if (method.Name is MapAllAsyncMethodName &&
+				method.Parameters.Length is 2 &&
+				SymbolEqualityComparer.Default.Equals(method.Parameters[1].Type, cancellationTokenSymbol))
+			{
+				builder.Add(new MapperMethod(method, MapperOperation.NewCollection));
+			}
+			else if (method.Name is MapAsyncMethodName &&
+				method.Parameters.Length is 2 &&
+				SymbolEqualityComparer.Default.Equals(method.Parameters[1].Type, cancellationTokenSymbol))
+			{
+				builder.Add(new MapperMethod(method, MapperOperation.NewInstance));
+			}
+			else if (method.Name is MapAsyncMethodName &&
+				method.Parameters.Length is 3 &&
+				SymbolEqualityComparer.Default.Equals(method.Parameters[2].Type, cancellationTokenSymbol))
+			{
+				builder.Add(new MapperMethod(method, MapperOperation.ExistingInstance));
+			}
+		}
+
+		return builder.ToImmutable();
 	}
 
 	private static ImmutableHashSet<MappingKey> CollectRegisteredMappings(
 		IReadOnlyCollection<INamedTypeSymbol> configuredCatalogs,
 		INamedTypeSymbol catalogMappingAttributeSymbol)
 	{
-		ImmutableHashSet<MappingKey>.Builder builder = ImmutableHashSet.CreateBuilder<MappingKey>();
+		ImmutableHashSet<MappingKey>.Builder builder = ImmutableHashSet.CreateBuilder<MappingKey>(MappingKeyComparer.Instance);
 
 		foreach (INamedTypeSymbol catalogType in configuredCatalogs)
 		{
 			foreach (AttributeData attributeData in catalogType.GetAttributes())
 			{
-				if (!SymbolEqualityComparer.Default.Equals(attributeData.AttributeClass, catalogMappingAttributeSymbol) ||
-					!TryCreateMappingKey(attributeData, out MappingKey key))
+				if (SymbolEqualityComparer.Default.Equals(attributeData.AttributeClass, catalogMappingAttributeSymbol) &&
+					TryCreateMappingKey(attributeData, out MappingKey key))
 				{
-					continue;
+					_ = builder.Add(key);
 				}
-
-				_ = builder.Add(key);
 			}
 		}
 
@@ -226,17 +325,15 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 
 		foreach (AttributeData attributeData in assemblySymbol.GetAttributes())
 		{
-			if (!SymbolEqualityComparer.Default.Equals(attributeData.AttributeClass, catalogReferenceAttributeSymbol) ||
-				attributeData.ConstructorArguments.Length is not 1 ||
-				attributeData.ConstructorArguments[0].Value is not INamedTypeSymbol catalogType ||
-				catalogType.TypeKind is TypeKind.Error ||
-				!ImplementsCatalogInterface(catalogType, catalogInterfaceSymbol) ||
-				!seenCatalogs.Add(catalogType))
+			if (SymbolEqualityComparer.Default.Equals(attributeData.AttributeClass, catalogReferenceAttributeSymbol) &&
+				attributeData.ConstructorArguments.Length is 1 &&
+				attributeData.ConstructorArguments[0].Value is INamedTypeSymbol catalogType &&
+				catalogType.TypeKind is not TypeKind.Error &&
+				ImplementsCatalogInterface(catalogType, catalogInterfaceSymbol) &&
+				seenCatalogs.Add(catalogType))
 			{
-				continue;
+				builder.Add(catalogType);
 			}
-
-			builder.Add(catalogType);
 		}
 
 		return builder.ToImmutable();
@@ -263,11 +360,7 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 			return false;
 		}
 
-		mappingKey = new MappingKey(
-			operation,
-			sourceType.ToDisplayString(_keyDisplayFormat),
-			destinationType.ToDisplayString(_keyDisplayFormat));
-
+		mappingKey = new MappingKey(operation, sourceType, destinationType);
 		return true;
 	}
 
@@ -298,44 +391,189 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 		return typeSymbol switch
 		{
 			IArrayTypeSymbol arrayTypeSymbol => ContainsOpenTypeParameter(arrayTypeSymbol.ElementType),
-			INamedTypeSymbol namedTypeSymbol => namedTypeSymbol.TypeArguments.Any(ContainsOpenTypeParameter),
+			INamedTypeSymbol namedTypeSymbol =>
+				(namedTypeSymbol.ContainingType is not null && ContainsOpenTypeParameter(namedTypeSymbol.ContainingType)) ||
+				namedTypeSymbol.TypeArguments.Any(ContainsOpenTypeParameter),
 			IPointerTypeSymbol pointerTypeSymbol => ContainsOpenTypeParameter(pointerTypeSymbol.PointedAtType),
 			_ => false
 		};
 	}
 
-	private static void AnalyzeMapperClassDeclaration(SyntaxNodeAnalysisContext context, INamedTypeSymbol mapperAttributeSymbol)
+	private static void AnalyzeMapperType(SymbolAnalysisContext context, INamedTypeSymbol mapperAttributeSymbol)
 	{
-		var classDecl = (ClassDeclarationSyntax)context.Node;
-
-		if (classDecl.AttributeLists.Count == 0)
-			return;
-
-		if (context.SemanticModel.GetDeclaredSymbol(classDecl) is not INamedTypeSymbol classSymbol)
-			return;
-
-		bool hasMapperAttribute = false;
-		foreach (AttributeData attr in classSymbol.GetAttributes())
+		var mapperType = (INamedTypeSymbol)context.Symbol;
+		if (mapperType.TypeKind is not TypeKind.Class ||
+			!mapperType.GetAttributes().Any(x => SymbolEqualityComparer.Default.Equals(x.AttributeClass, mapperAttributeSymbol)))
 		{
-			if (SymbolEqualityComparer.Default.Equals(attr.AttributeClass, mapperAttributeSymbol))
+			return;
+		}
+
+		ImmutableArray<TypeDeclarationSyntax> declarations =
+		[
+			.. mapperType.DeclaringSyntaxReferences
+				.Select(x => x.GetSyntax(context.CancellationToken))
+				.OfType<TypeDeclarationSyntax>()
+		];
+
+		if (declarations.Length is 0)
+			return;
+
+		bool isPartial = declarations.All(x => x.Modifiers.Any(SyntaxKind.PartialKeyword));
+		if (isPartial && IsAccessibleToGeneratedCatalog(mapperType))
+			return;
+
+		context.ReportDiagnostic(Diagnostic.Create(
+			MapperClassMustBePublicPartialRule,
+			declarations[0].Identifier.GetLocation(),
+			mapperType.Name));
+	}
+
+	private static bool IsAccessibleToGeneratedCatalog(INamedTypeSymbol typeSymbol)
+	{
+		for (INamedTypeSymbol? current = typeSymbol; current is not null; current = current.ContainingType)
+		{
+			if (current.DeclaredAccessibility is not (
+				Accessibility.Public or
+				Accessibility.Internal or
+				Accessibility.ProtectedOrInternal))
 			{
-				hasMapperAttribute = true;
-				break;
+				return false;
 			}
 		}
 
-		if (!hasMapperAttribute)
-			return;
+		return true;
+	}
 
-		bool isPublic = classSymbol.DeclaredAccessibility == Accessibility.Public;
-		bool isPartial = classDecl.Modifiers.Any(Microsoft.CodeAnalysis.CSharp.SyntaxKind.PartialKeyword);
+	private static ImmutableArray<INamedTypeSymbol> GetAllSourceTypes(INamespaceSymbol globalNamespace)
+	{
+		ImmutableArray<INamedTypeSymbol>.Builder builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+		AddNamespaceTypes(globalNamespace, builder);
+		return builder.ToImmutable();
+	}
 
-		if (!isPublic || !isPartial)
+	private static void AddNamespaceTypes(
+		INamespaceSymbol namespaceSymbol,
+		ImmutableArray<INamedTypeSymbol>.Builder builder)
+	{
+		foreach (INamedTypeSymbol typeSymbol in namespaceSymbol.GetTypeMembers())
+			AddTypeAndNestedTypes(typeSymbol, builder);
+
+		foreach (INamespaceSymbol childNamespace in namespaceSymbol.GetNamespaceMembers())
+			AddNamespaceTypes(childNamespace, builder);
+	}
+
+	private static void AddTypeAndNestedTypes(
+		INamedTypeSymbol typeSymbol,
+		ImmutableArray<INamedTypeSymbol>.Builder builder)
+	{
+		builder.Add(typeSymbol);
+
+		foreach (INamedTypeSymbol nestedType in typeSymbol.GetTypeMembers())
+			AddTypeAndNestedTypes(nestedType, builder);
+	}
+
+	private static bool TryFindConstructedContainingType(
+		INamedTypeSymbol candidateType,
+		INamedTypeSymbol openContainingType,
+		out INamedTypeSymbol constructedContainingType)
+	{
+		for (INamedTypeSymbol? current = candidateType; current is not null; current = current.BaseType)
 		{
-			context.ReportDiagnostic(Diagnostic.Create(
-				MapperClassMustBePublicPartialRule,
-				classDecl.Identifier.GetLocation(),
-				classSymbol.Name));
+			if (SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, openContainingType.OriginalDefinition))
+			{
+				constructedContainingType = current;
+				return true;
+			}
+		}
+
+		constructedContainingType = null!;
+		return false;
+	}
+
+	private static bool IsContainingMethodOverridden(
+		INamedTypeSymbol candidateType,
+		INamedTypeSymbol constructedContainingType,
+		IMethodSymbol containingMethod)
+	{
+		for (INamedTypeSymbol? current = candidateType;
+			current is not null && !SymbolEqualityComparer.Default.Equals(current, constructedContainingType);
+			current = current.BaseType)
+		{
+			foreach (IMethodSymbol method in current.GetMembers(containingMethod.Name).OfType<IMethodSymbol>())
+			{
+				for (IMethodSymbol? overriddenMethod = method.OverriddenMethod;
+					overriddenMethod is not null;
+					overriddenMethod = overriddenMethod.OverriddenMethod)
+				{
+					if (SymbolEqualityComparer.Default.Equals(
+						overriddenMethod.OriginalDefinition,
+						containingMethod.OriginalDefinition))
+					{
+						return true;
+					}
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private static ImmutableDictionary<ITypeParameterSymbol, ITypeSymbol> CreateTypeSubstitutions(
+		INamedTypeSymbol constructedType)
+	{
+		ImmutableDictionary<ITypeParameterSymbol, ITypeSymbol>.Builder builder =
+			ImmutableDictionary.CreateBuilder<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+
+		AddTypeSubstitutions(constructedType, builder);
+		return builder.ToImmutable();
+	}
+
+	private static void AddTypeSubstitutions(
+		INamedTypeSymbol constructedType,
+		ImmutableDictionary<ITypeParameterSymbol, ITypeSymbol>.Builder builder)
+	{
+		if (constructedType.ContainingType is not null)
+			AddTypeSubstitutions(constructedType.ContainingType, builder);
+
+		ImmutableArray<ITypeParameterSymbol> parameters = constructedType.OriginalDefinition.TypeParameters;
+		ImmutableArray<ITypeSymbol> arguments = constructedType.TypeArguments;
+
+		for (int i = 0; i < parameters.Length && i < arguments.Length; i++)
+			builder[parameters[i]] = arguments[i];
+	}
+
+	private static ITypeSymbol SubstituteType(
+		ITypeSymbol typeSymbol,
+		ImmutableDictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+		Compilation compilation)
+	{
+		switch (typeSymbol)
+		{
+			case ITypeParameterSymbol typeParameter when substitutions.TryGetValue(typeParameter, out ITypeSymbol? replacement):
+				return replacement.WithNullableAnnotation(typeSymbol.NullableAnnotation);
+
+			case IArrayTypeSymbol arrayType:
+				return compilation.CreateArrayTypeSymbol(
+					SubstituteType(arrayType.ElementType, substitutions, compilation),
+					arrayType.Rank,
+					arrayType.NullableAnnotation);
+
+			case IPointerTypeSymbol pointerType:
+				return compilation.CreatePointerTypeSymbol(
+					SubstituteType(pointerType.PointedAtType, substitutions, compilation));
+
+			case INamedTypeSymbol namedType when namedType.TypeArguments.Length > 0:
+				ITypeSymbol[] typeArguments =
+				[
+					.. namedType.TypeArguments.Select(x => SubstituteType(x, substitutions, compilation))
+				];
+
+				return namedType.OriginalDefinition
+					.Construct(typeArguments)
+					.WithNullableAnnotation(namedType.NullableAnnotation);
+
+			default:
+				return typeSymbol;
 		}
 	}
 
@@ -348,7 +586,37 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 			_ => throw new ArgumentOutOfRangeException(nameof(operation))
 		};
 
-	private readonly record struct MappingKey(MapperOperation Operation, string SourceTypeName, string DestinationTypeName);
+	private readonly record struct MappingKey(MapperOperation Operation, ITypeSymbol SourceType, ITypeSymbol DestinationType);
+
+	private sealed class MappingKeyComparer : IEqualityComparer<MappingKey>
+	{
+		public static MappingKeyComparer Instance { get; } = new();
+
+		public bool Equals(MappingKey x, MappingKey y)
+			=> x.Operation == y.Operation &&
+				SymbolEqualityComparer.Default.Equals(x.SourceType, y.SourceType) &&
+				SymbolEqualityComparer.Default.Equals(x.DestinationType, y.DestinationType);
+
+		public int GetHashCode(MappingKey obj)
+		{
+			unchecked
+			{
+				int hashCode = (int)obj.Operation;
+				hashCode = (hashCode * 397) ^ SymbolEqualityComparer.Default.GetHashCode(obj.SourceType);
+				hashCode = (hashCode * 397) ^ SymbolEqualityComparer.Default.GetHashCode(obj.DestinationType);
+				return hashCode;
+			}
+		}
+	}
+
+	private readonly record struct MapperMethod(IMethodSymbol Method, MapperOperation Operation);
+
+	private readonly record struct OpenMapperCall(
+		Location Location,
+		IMethodSymbol ContainingMethod,
+		MapperOperation Operation,
+		ITypeSymbol SourceType,
+		ITypeSymbol DestinationType);
 
 	private enum MapperOperation
 	{
@@ -358,10 +626,8 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 	}
 
 	private sealed record AnalyzerState(
-		INamedTypeSymbol MapperInterfaceSymbol,
-		INamedTypeSymbol CancellationTokenSymbol,
-		ImmutableHashSet<MappingKey> RegisteredMappings,
-		bool HasConfiguredCatalogs)
+		ImmutableArray<MapperMethod> MapperMethods,
+		ImmutableHashSet<MappingKey> RegisteredMappings)
 	{
 		public static AnalyzerState? Create(Compilation compilation)
 		{
@@ -380,14 +646,20 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 				return null;
 			}
 
-			ImmutableArray<INamedTypeSymbol> configuredCatalogs = GetConfiguredCatalogs(compilation.Assembly, catalogInterfaceSymbol, catalogReferenceAttributeSymbol);
+			ImmutableArray<MapperMethod> mapperMethods = GetMapperMethods(mapperInterfaceSymbol, cancellationTokenSymbol);
+			if (mapperMethods.Length is 0)
+				return null;
 
-			if (configuredCatalogs.Length is 0)
-				return new AnalyzerState(mapperInterfaceSymbol, cancellationTokenSymbol, ImmutableHashSet<MappingKey>.Empty, false);
+			ImmutableArray<INamedTypeSymbol> configuredCatalogs = GetConfiguredCatalogs(
+				compilation.Assembly,
+				catalogInterfaceSymbol,
+				catalogReferenceAttributeSymbol);
 
-			ImmutableHashSet<MappingKey> mappings = CollectRegisteredMappings(configuredCatalogs, catalogMappingAttributeSymbol);
+			ImmutableHashSet<MappingKey> mappings = CollectRegisteredMappings(
+				configuredCatalogs,
+				catalogMappingAttributeSymbol);
 
-			return new AnalyzerState(mapperInterfaceSymbol, cancellationTokenSymbol, mappings, true);
+			return new AnalyzerState(mapperMethods, mappings);
 		}
 	}
 }
