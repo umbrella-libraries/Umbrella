@@ -35,6 +35,81 @@ public static class RenderFragmentFactory
 	}
 
 	[Fact]
+	public async Task BlazorComponent_WithNonStaticVariantInputsAndFingerprintingDisabled_ShouldTriggerDiagnostic()
+	{
+		const string source = """
+public static class RenderFragmentFactory
+{
+    public static void Build(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, int widthRequest)
+    {
+        builder.OpenComponent<Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage>(0);
+        builder.AddAttribute(1, "Url", "/images/product.jpg");
+        builder.AddAttribute(2, "WidthRequest", widthRequest);
+        builder.CloseComponent();
+    }
+}
+""" + SharedBlazorInfrastructureSource + ExplicitlyDisabledRegistrationSource;
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.NonStaticVariantShapingInputRule,
+			7,
+			17,
+			"WidthRequest");
+
+		await VerifyAnalyzerAsync(source, expected);
+	}
+
+	[Fact]
+	public async Task BlazorComponent_WithNonStaticVariantInputsAndFingerprintingEnabled_ShouldTriggerDiagnostic()
+	{
+		const string source = """
+public static class RenderFragmentFactory
+{
+    public static void Build(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, int widthRequest)
+    {
+        builder.OpenComponent<Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage>(0);
+        builder.AddAttribute(1, "Url", "/images/product.jpg");
+        builder.AddAttribute(2, "WidthRequest", widthRequest);
+        builder.CloseComponent();
+    }
+}
+""" + SharedBlazorInfrastructureSource + ExplicitlyEnabledRegistrationSource;
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.NonStaticVariantShapingInputRule,
+			7,
+			17,
+			"WidthRequest");
+
+		await VerifyAnalyzerAsync(source, expected);
+	}
+
+	[Fact]
+	public async Task BlazorComponent_UsingNet10GeneratedComponentParameterShape_ShouldTriggerDiagnostic()
+	{
+		const string source = """
+public static class RenderFragmentFactory
+{
+    public static void Build(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, int widthRequest)
+    {
+        builder.OpenComponent<Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage>(0);
+        builder.AddComponentParameter(1, nameof(Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage.Url), "/images/product.jpg");
+        builder.AddComponentParameter(2, nameof(Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage.WidthRequest), Microsoft.AspNetCore.Components.CompilerServices.RuntimeHelpers.TypeCheck<int>(widthRequest));
+        builder.CloseComponent();
+    }
+}
+""" + SharedBlazorInfrastructureSource;
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.NonStaticVariantShapingInputRule,
+			7,
+			121,
+			"WidthRequest");
+
+		await VerifyAnalyzerAsync(source, expected);
+	}
+
+	[Fact]
 	public async Task BlazorComponent_WithStaticVariantInputs_ShouldNotTriggerDiagnostic()
 	{
 		const string source = """
@@ -143,7 +218,16 @@ namespace Microsoft.AspNetCore.Components.Rendering
     {
         public void OpenComponent<TComponent>(int sequence) { }
         public void AddAttribute(int sequence, string name, object? value) { }
+        public void AddComponentParameter(int sequence, string name, object? value) { }
         public void CloseComponent() { }
+    }
+}
+
+namespace Microsoft.AspNetCore.Components.CompilerServices
+{
+    public static class RuntimeHelpers
+    {
+        public static T TypeCheck<T>(T value) => value;
     }
 }
 
@@ -151,6 +235,8 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
 {
     public class UmbrellaDynamicImage
     {
+        public string? Url { get; set; }
+        public int WidthRequest { get; set; }
     }
 }
 """;
@@ -171,6 +257,58 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
 
     public sealed class DynamicImageTagHelper : DynamicImageTagHelperBase
     {
+    }
+}
+""";
+
+	private const string ExplicitlyDisabledRegistrationSource = """
+
+public static class Registration
+{
+    public static void Configure(Microsoft.Extensions.DependencyInjection.IServiceCollection services)
+    {
+        Microsoft.Extensions.DependencyInjection.DynamicImageServiceCollectionExtensions.AddUmbrellaWebUtilitiesDynamicImage(
+            services,
+            (serviceProvider, options) => options.EnableUrlFingerprinting = false);
+    }
+}
+""" + RegistrationInfrastructureSource;
+
+	private const string ExplicitlyEnabledRegistrationSource = """
+
+public static class Registration
+{
+    public static void Configure(Microsoft.Extensions.DependencyInjection.IServiceCollection services)
+    {
+        Microsoft.Extensions.DependencyInjection.DynamicImageServiceCollectionExtensions.AddUmbrellaWebUtilitiesDynamicImage(
+            services,
+            (serviceProvider, options) => options.EnableUrlFingerprinting = true);
+    }
+}
+""" + RegistrationInfrastructureSource;
+
+	private const string RegistrationInfrastructureSource = """
+
+namespace Microsoft.Extensions.DependencyInjection
+{
+    public interface IServiceCollection
+    {
+    }
+
+    public static class DynamicImageServiceCollectionExtensions
+    {
+        public static IServiceCollection AddUmbrellaWebUtilitiesDynamicImage(
+            IServiceCollection services,
+            System.Action<System.IServiceProvider, Umbrella.WebUtilities.DynamicImage.Middleware.Options.DynamicImageMiddlewareOptions>? optionsBuilder = null)
+            => services;
+    }
+}
+
+namespace Umbrella.WebUtilities.DynamicImage.Middleware.Options
+{
+    public class DynamicImageMiddlewareOptions
+    {
+        public bool EnableUrlFingerprinting { get; set; }
     }
 }
 """;

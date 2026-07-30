@@ -21,7 +21,24 @@ UWDI001–UWDI003 are configured with **Error** severity (compile blocking); UWD
 
 ### Activation
 
-All rules are gated on explicit enablement. The analyzer detects calls to `AddUmbrellaWebUtilitiesDynamicImage` that set `EnableUrlFingerprinting = true`. If fingerprinting is not explicitly enabled, no diagnostics are reported.
+UWDI001–UWDI003 are gated on explicit URL-fingerprinting enablement. The analyzer detects the real
+`AddUmbrellaWebUtilitiesDynamicImage` registration callback and enables these diagnostics only when its final direct
+assignment to the real `DynamicImageMiddlewareOptions.EnableUrlFingerprinting` property is a compile-time constant
+`true`.
+
+UWDI001–UWDI003 remain disabled when:
+
+- the property is not assigned;
+- it is assigned `false`;
+- its value cannot be determined at compile time; or
+- it is assigned conditionally or through control flow that prevents the analyzer from proving it is enabled.
+
+This is intentionally independent of the runtime option's default value. Applications must opt into analyzer
+enforcement explicitly in their registration code.
+
+UWDI004 is independent of URL fingerprinting and remains active when fingerprinting is unset or disabled. Static
+variant discovery is required by the source-generated catalog regardless of whether generated image URLs are
+fingerprinted.
 
 ### Severity
 

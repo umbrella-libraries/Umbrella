@@ -17,6 +17,7 @@ node_modules
 **/wwwroot/dist/**
 **/Umbrella.AspNetCore.Blazor/**/*.css
 /.claude/settings.local.json
+/.playwright-mcp/
 /bash.exe.stackdump
 /FileSystem/bash.exe.stackdump
 /update_todo.py

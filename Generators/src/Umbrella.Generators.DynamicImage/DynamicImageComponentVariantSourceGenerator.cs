@@ -563,7 +563,8 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		attributeName = string.Empty;
 		valueExpression = null;
 
-		if (semanticModel.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol { Name: "AddAttribute" } ||
+		if (semanticModel.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol methodSymbol ||
+			methodSymbol.Name is not ("AddAttribute" or "AddComponentParameter") ||
 			invocation.ArgumentList.Arguments.Count < 2)
 		{
 			return false;

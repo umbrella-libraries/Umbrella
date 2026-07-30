@@ -13,6 +13,9 @@ namespace Umbrella.WebUtilities.DynamicImage.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 {
+	private const string DynamicImageMiddlewareOptionsMetadataName = "Umbrella.WebUtilities.DynamicImage.Middleware.Options.DynamicImageMiddlewareOptions";
+	private const string EnableUrlFingerprintingPropertyName = "EnableUrlFingerprinting";
+
 	private static readonly string[] _dynamicImagePropertyIndicators =
 	[
 		"image",
@@ -90,8 +93,15 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		context.RegisterCompilationStartAction(startContext =>
 		{
 			var state = new DynamicImageVersioningState();
+			var activationSymbols = DynamicImageActivationSymbols.Create(startContext.Compilation);
 
-			startContext.RegisterSyntaxNodeAction(syntaxContext => AnalyzeDynamicImageRegistrationInvocation(syntaxContext, state), SyntaxKind.InvocationExpression);
+			if (activationSymbols is not null)
+			{
+				startContext.RegisterSyntaxNodeAction(
+					syntaxContext => AnalyzeDynamicImageRegistrationInvocation(syntaxContext, state, activationSymbols),
+					SyntaxKind.InvocationExpression);
+			}
+
 			startContext.RegisterSymbolAction(symbolContext => AnalyzeNamedType(symbolContext, state), SymbolKind.NamedType);
 			startContext.RegisterSyntaxNodeAction(syntaxContext => AnalyzeObjectInitializer(syntaxContext, state), SyntaxKind.ObjectInitializerExpression);
 			startContext.RegisterSyntaxNodeAction(syntaxContext => AnalyzeAssignmentExpression(syntaxContext, state), SyntaxKind.SimpleAssignmentExpression);
@@ -100,20 +110,30 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		});
 	}
 
-	private static void AnalyzeDynamicImageRegistrationInvocation(SyntaxNodeAnalysisContext context, DynamicImageVersioningState state)
+	private static void AnalyzeDynamicImageRegistrationInvocation(
+		SyntaxNodeAnalysisContext context,
+		DynamicImageVersioningState state,
+		DynamicImageActivationSymbols activationSymbols)
 	{
 		var invocation = (InvocationExpressionSyntax)context.Node;
 
 		if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol methodSymbol ||
-			!IsDynamicImageRegistrationMethod(methodSymbol))
+			!IsDynamicImageRegistrationMethod(methodSymbol, activationSymbols.OptionsType))
 		{
 			return;
 		}
 
 		ArgumentSyntax? optionsBuilderArgument = GetOptionsBuilderArgument(invocation, methodSymbol);
 
-		if (optionsBuilderArgument is not null && HasExplicitTrueFingerprintingAssignment(optionsBuilderArgument.Expression, context.SemanticModel))
+		if (optionsBuilderArgument is not null &&
+			HasExplicitTrueFingerprintingAssignment(
+				optionsBuilderArgument.Expression,
+				context.SemanticModel,
+				activationSymbols.EnableUrlFingerprintingProperty,
+				context.CancellationToken))
+		{
 			state.MarkExplicitlyEnabled();
+		}
 	}
 
 	private static void AnalyzeNamedType(SymbolAnalysisContext context, DynamicImageVersioningState state)
@@ -302,7 +322,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 				}
 
 				if (nestingDepth is not 1 ||
-					!TryGetRenderTreeAttribute(nextInvocation, context.SemanticModel, context.CancellationToken, out string attributeName, out ExpressionSyntax? valueExpression))
+					!TryGetRenderTreeAttribute(nextInvocation, context.SemanticModel, context.CancellationToken, out string attributeName, out ExpressionSyntax? valueExpression, out Location attributeLocation))
 				{
 					continue;
 				}
@@ -313,7 +333,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 				{
 					urlPropertyName = propertySymbol.Name;
 					versionTokenPropertyName = expectedVersionTokenPropertyName;
-					diagnosticLocation = GetInvocationLocation(nextInvocation);
+					diagnosticLocation = attributeLocation;
 					continue;
 				}
 
@@ -420,7 +440,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 				}
 
 				if (nestingDepth is not 1 ||
-					!TryGetRenderTreeAttribute(nextInvocation, context.SemanticModel, context.CancellationToken, out string attributeName, out ExpressionSyntax? valueExpression))
+					!TryGetRenderTreeAttribute(nextInvocation, context.SemanticModel, context.CancellationToken, out string attributeName, out ExpressionSyntax? valueExpression, out Location attributeLocation))
 				{
 					continue;
 				}
@@ -439,7 +459,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 				}
 
 				AddNonStaticVariantInput(nonStaticInputs, displayName);
-				diagnosticLocation ??= GetInvocationLocation(nextInvocation);
+				diagnosticLocation ??= attributeLocation;
 			}
 		}
 	}
@@ -732,12 +752,15 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		SemanticModel semanticModel,
 		CancellationToken cancellationToken,
 		out string attributeName,
-		out ExpressionSyntax? valueExpression)
+		out ExpressionSyntax? valueExpression,
+		out Location attributeLocation)
 	{
 		attributeName = string.Empty;
 		valueExpression = null;
+		attributeLocation = invocation.GetLocation();
 
-		if (semanticModel.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol { Name: "AddAttribute" } ||
+		if (semanticModel.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol methodSymbol ||
+			methodSymbol.Name is not ("AddAttribute" or "AddComponentParameter") ||
 			invocation.ArgumentList.Arguments.Count < 2)
 		{
 			return false;
@@ -750,8 +773,21 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 		attributeName = attributeNameString;
 		valueExpression = invocation.ArgumentList.Arguments.Count > 2 ? invocation.ArgumentList.Arguments[2].Expression : null;
+		attributeLocation = methodSymbol.Name is "AddComponentParameter"
+			? GetGeneratedComponentParameterNameLocation(invocation.ArgumentList.Arguments[1].Expression, attributeNameString)
+			: GetInvocationLocation(invocation);
 
 		return true;
+	}
+
+	private static Location GetGeneratedComponentParameterNameLocation(ExpressionSyntax expression, string attributeName)
+	{
+		SimpleNameSyntax? matchingName = expression
+			.DescendantNodesAndSelf()
+			.OfType<SimpleNameSyntax>()
+			.LastOrDefault(x => string.Equals(x.Identifier.ValueText, attributeName, StringComparison.Ordinal));
+
+		return matchingName?.GetLocation() ?? expression.GetLocation();
 	}
 
 	private static Location GetInvocationLocation(InvocationExpressionSyntax invocation)
@@ -983,12 +1019,17 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		public List<string> NonStaticInputs { get; } = [];
 	}
 
-	private static bool IsDynamicImageRegistrationMethod(IMethodSymbol methodSymbol)
+	private static bool IsDynamicImageRegistrationMethod(
+		IMethodSymbol methodSymbol,
+		INamedTypeSymbol optionsType)
 	{
 		IMethodSymbol comparisonMethod = methodSymbol.ReducedFrom ?? methodSymbol;
 
-		if (!string.Equals(comparisonMethod.Name, "AddUmbrellaWebUtilitiesDynamicImage", StringComparison.Ordinal))
+		if (!string.Equals(comparisonMethod.Name, "AddUmbrellaWebUtilitiesDynamicImage", StringComparison.Ordinal) ||
+			!SymbolEqualityComparer.Default.Equals(comparisonMethod.ContainingAssembly, optionsType.ContainingAssembly))
+		{
 			return false;
+		}
 
 		if (!string.Equals(comparisonMethod.ContainingNamespace.ToDisplayString(), "Microsoft.Extensions.DependencyInjection", StringComparison.Ordinal))
 			return false;
@@ -998,11 +1039,11 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		if (optionsBuilderParameter?.Type is not INamedTypeSymbol delegateType)
 			return false;
 
-		if (!string.Equals(delegateType.OriginalDefinition.ToDisplayString(), "System.Action<T1, T2>", StringComparison.Ordinal))
+		if (delegateType.DelegateInvokeMethod is not IMethodSymbol delegateInvokeMethod)
 			return false;
 
-		return delegateType.TypeArguments.Length is 2 &&
-			   string.Equals(delegateType.TypeArguments[1].ToDisplayString(), "Umbrella.WebUtilities.DynamicImage.Middleware.Options.DynamicImageMiddlewareOptions", StringComparison.Ordinal);
+		return delegateInvokeMethod.Parameters.Length is 2 &&
+			SymbolEqualityComparer.Default.Equals(delegateInvokeMethod.Parameters[1].Type, optionsType);
 	}
 
 	private static ArgumentSyntax? GetOptionsBuilderArgument(InvocationExpressionSyntax invocation, IMethodSymbol methodSymbol)
@@ -1031,50 +1072,150 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		return null;
 	}
 
-	private static bool HasExplicitTrueFingerprintingAssignment(ExpressionSyntax expression, SemanticModel semanticModel)
+	private static bool HasExplicitTrueFingerprintingAssignment(
+		ExpressionSyntax expression,
+		SemanticModel semanticModel,
+		IPropertySymbol enableUrlFingerprintingProperty,
+		CancellationToken cancellationToken)
 	{
-		string? optionsParameterName = GetOptionsParameterName(expression);
+		IParameterSymbol? optionsParameter = GetOptionsParameter(expression, semanticModel, cancellationToken);
 
-		if (string.IsNullOrWhiteSpace(optionsParameterName))
+		if (optionsParameter is null)
 			return false;
 
-		IEnumerable<AssignmentExpressionSyntax> assignments = expression switch
+		AssignmentExpressionSyntax[] allAssignments =
+		[
+			.. expression.DescendantNodesAndSelf()
+				.OfType<AssignmentExpressionSyntax>()
+				.Where(x => IsFingerprintingAssignment(
+					x,
+					semanticModel,
+					optionsParameter,
+					enableUrlFingerprintingProperty,
+					cancellationToken))
+		];
+
+		if (allAssignments.Length is 0)
+			return false;
+
+		AssignmentExpressionSyntax[] directAssignments = expression switch
 		{
-			ParenthesizedLambdaExpressionSyntax { Body: BlockSyntax body } => body.DescendantNodes().OfType<AssignmentExpressionSyntax>(),
-			ParenthesizedLambdaExpressionSyntax { Body: AssignmentExpressionSyntax assignment } => [assignment],
-			SimpleLambdaExpressionSyntax { Body: BlockSyntax body } => body.DescendantNodes().OfType<AssignmentExpressionSyntax>(),
-			SimpleLambdaExpressionSyntax { Body: AssignmentExpressionSyntax assignment } => [assignment],
-			AnonymousMethodExpressionSyntax { Block: { } body } => body.DescendantNodes().OfType<AssignmentExpressionSyntax>(),
+			ParenthesizedLambdaExpressionSyntax { Body: BlockSyntax body } => GetDirectFingerprintingAssignments(
+				body,
+				semanticModel,
+				optionsParameter,
+				enableUrlFingerprintingProperty,
+				cancellationToken),
+			ParenthesizedLambdaExpressionSyntax { Body: AssignmentExpressionSyntax assignment }
+				when IsFingerprintingAssignment(assignment, semanticModel, optionsParameter, enableUrlFingerprintingProperty, cancellationToken)
+				=> [assignment],
+			SimpleLambdaExpressionSyntax { Body: BlockSyntax body } => GetDirectFingerprintingAssignments(
+				body,
+				semanticModel,
+				optionsParameter,
+				enableUrlFingerprintingProperty,
+				cancellationToken),
+			SimpleLambdaExpressionSyntax { Body: AssignmentExpressionSyntax assignment }
+				when IsFingerprintingAssignment(assignment, semanticModel, optionsParameter, enableUrlFingerprintingProperty, cancellationToken)
+				=> [assignment],
+			AnonymousMethodExpressionSyntax { Block: { } body } => GetDirectFingerprintingAssignments(
+				body,
+				semanticModel,
+				optionsParameter,
+				enableUrlFingerprintingProperty,
+				cancellationToken),
 			_ => []
 		};
 
-		foreach (AssignmentExpressionSyntax assignment in assignments)
-		{
-			if (assignment.Left is not MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax receiver, Name.Identifier.ValueText: "EnableUrlFingerprinting" })
-				continue;
+		if (directAssignments.Length is 0 || directAssignments.Length != allAssignments.Length)
+			return false;
 
-			if (!string.Equals(receiver.Identifier.ValueText, optionsParameterName, StringComparison.Ordinal))
-				continue;
-
-			Optional<object?> constantValue = semanticModel.GetConstantValue(assignment.Right);
-			if (constantValue.HasValue && constantValue.Value is true)
-				return true;
-		}
-
-		return false;
+		Optional<object?> finalValue = semanticModel.GetConstantValue(directAssignments[^1].Right, cancellationToken);
+		return finalValue.HasValue && finalValue.Value is true;
 	}
 
-	private static string? GetOptionsParameterName(ExpressionSyntax expression)
+	private static AssignmentExpressionSyntax[] GetDirectFingerprintingAssignments(
+		BlockSyntax body,
+		SemanticModel semanticModel,
+		IParameterSymbol optionsParameter,
+		IPropertySymbol enableUrlFingerprintingProperty,
+		CancellationToken cancellationToken)
+		=>
+		[
+			.. body.Statements
+				.OfType<ExpressionStatementSyntax>()
+				.Select(x => x.Expression)
+				.OfType<AssignmentExpressionSyntax>()
+				.Where(x => IsFingerprintingAssignment(
+					x,
+					semanticModel,
+					optionsParameter,
+					enableUrlFingerprintingProperty,
+					cancellationToken))
+		];
+
+	private static bool IsFingerprintingAssignment(
+		AssignmentExpressionSyntax assignment,
+		SemanticModel semanticModel,
+		IParameterSymbol optionsParameter,
+		IPropertySymbol enableUrlFingerprintingProperty,
+		CancellationToken cancellationToken)
 	{
-		return expression switch
+		if (!assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) ||
+			assignment.Left is not MemberAccessExpressionSyntax memberAccess ||
+			semanticModel.GetSymbolInfo(memberAccess, cancellationToken).Symbol is not IPropertySymbol propertySymbol ||
+			!SymbolEqualityComparer.Default.Equals(propertySymbol, enableUrlFingerprintingProperty))
+		{
+			return false;
+		}
+
+		return SymbolEqualityComparer.Default.Equals(
+			semanticModel.GetSymbolInfo(memberAccess.Expression, cancellationToken).Symbol,
+			optionsParameter);
+	}
+
+	private static IParameterSymbol? GetOptionsParameter(
+		ExpressionSyntax expression,
+		SemanticModel semanticModel,
+		CancellationToken cancellationToken)
+	{
+		ParameterSyntax? parameter = expression switch
 		{
 			ParenthesizedLambdaExpressionSyntax parenthesizedLambda when parenthesizedLambda.ParameterList.Parameters.Count > 0
-				=> parenthesizedLambda.ParameterList.Parameters[^1].Identifier.ValueText,
+				=> parenthesizedLambda.ParameterList.Parameters[^1],
 			SimpleLambdaExpressionSyntax simpleLambda
-				=> simpleLambda.Parameter.Identifier.ValueText,
+				=> simpleLambda.Parameter,
 			AnonymousMethodExpressionSyntax anonymousMethod when anonymousMethod.ParameterList?.Parameters.Count > 0
-				=> anonymousMethod.ParameterList.Parameters[^1].Identifier.ValueText,
+				=> anonymousMethod.ParameterList.Parameters[^1],
 			_ => null
 		};
+
+		return parameter is null
+			? null
+			: semanticModel.GetDeclaredSymbol(parameter, cancellationToken);
+	}
+
+	private sealed record DynamicImageActivationSymbols(
+		INamedTypeSymbol OptionsType,
+		IPropertySymbol EnableUrlFingerprintingProperty)
+	{
+		public static DynamicImageActivationSymbols? Create(Compilation compilation)
+		{
+			INamedTypeSymbol? optionsType = compilation.GetTypeByMetadataName(DynamicImageMiddlewareOptionsMetadataName);
+			if (optionsType is null)
+				return null;
+
+			IPropertySymbol? enableUrlFingerprintingProperty = optionsType
+				.GetMembers(EnableUrlFingerprintingPropertyName)
+				.OfType<IPropertySymbol>()
+				.FirstOrDefault(x =>
+					!x.IsStatic &&
+					x.Type.SpecialType is SpecialType.System_Boolean &&
+					x.SetMethod is not null);
+
+			return enableUrlFingerprintingProperty is null
+				? null
+				: new DynamicImageActivationSymbols(optionsType, enableUrlFingerprintingProperty);
+		}
 	}
 }

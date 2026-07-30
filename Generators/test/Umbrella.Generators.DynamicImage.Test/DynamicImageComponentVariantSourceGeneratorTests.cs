@@ -43,6 +43,33 @@ public static class RenderFragmentFactory
 	}
 
 	[Fact]
+	public void GenerateNet10ComponentParameterShapeEmitsExpectedEntries()
+	{
+		const string source = """
+public static class RenderFragmentFactory
+{
+	public static void Build(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder)
+	{
+		builder.OpenComponent<Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage>(0);
+		builder.AddComponentParameter(1, nameof(Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage.Url), "/images/product.jpg");
+		builder.AddComponentParameter(2, nameof(Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage.WidthRequest), Microsoft.AspNetCore.Components.CompilerServices.RuntimeHelpers.TypeCheck<int>(100));
+		builder.AddComponentParameter(3, nameof(Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage.HeightRequest), Microsoft.AspNetCore.Components.CompilerServices.RuntimeHelpers.TypeCheck<int>(50));
+		builder.AddComponentParameter(4, nameof(Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage.MaxPixelDensity), Microsoft.AspNetCore.Components.CompilerServices.RuntimeHelpers.TypeCheck<int>(2));
+		builder.CloseComponent();
+	}
+}
+""" + SharedComponentInfrastructureSource;
+
+		DynamicImageVariant[] variants = GenerateVariants(source);
+
+		Assert.Equal(
+		[
+			new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
+			new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
+		], variants);
+	}
+
+	[Fact]
 	public void GenerateStaticSizeWidthsAddsBaseAndResponsiveVariants()
 	{
 		const string source = """
@@ -807,6 +834,7 @@ namespace Microsoft.AspNetCore.Components.Rendering
 	{
 		public void OpenComponent<TComponent>(int sequence) { }
 		public void AddAttribute(int sequence, string name, object? value) { }
+		public void AddComponentParameter(int sequence, string name, object? value) { }
 		public void CloseComponent() { }
 	}
 }
@@ -823,6 +851,10 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
 {
 	public class UmbrellaDynamicImage
 	{
+		public string? Url { get; set; }
+		public int WidthRequest { get; set; }
+		public int HeightRequest { get; set; }
+		public int MaxPixelDensity { get; set; }
 	}
 }
 """;
