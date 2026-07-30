@@ -14,15 +14,19 @@ Most rules are configured with **Warning** severity; UDA005 is **Error** (compil
 
 | ID     | Title                                                                     | Description                                                                                                       |
 |--------|---------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
-| UDA001 | Repository methods returning a single item must start with 'FindBy'       | Enforces the `FindBy*` prefix for methods returning a single entity or model.                                     |
-| UDA002 | Repository methods returning a collection must start with 'FindAllBy'     | Enforces the `FindAllBy*` prefix for methods returning a sequence or collection.                                  |
-| UDA003 | Repository methods returning a count must start with 'FindCount'          | Enforces the `FindCount*` prefix for methods whose return type is a numeric count.                                |
-| UDA004 | Repository methods returning a boolean must start with 'Exists'           | Enforces the `Exists*` prefix for methods returning `bool` or `Task<bool>`.                                       |
-| UDA005 | Repository methods must not return IQueryable\<T\>                        | Prevents `IQueryable<T>` leaking out of repository methods — callers must receive materialised results only.      |
+| UDA001 | Single-result repository queries must start with 'Find'                   | Enforces the `Find*` prefix for query methods returning a single entity, projection, or aggregate result.         |
+| UDA002 | Collection repository queries must start with 'FindAll'                   | Enforces the `FindAll*` prefix for query methods returning a sequence, dictionary, tuple collection, or page.     |
+| UDA003 | Count repository queries must start with 'Find' and identify the count    | Accepts names such as `FindCountByStatusAsync` and `FindUnreadCountByRecipientIdAsync`.                            |
+| UDA004 | Boolean existence queries must start with 'Exists'                        | Enforces the `Exists*` prefix for query methods returning `bool` or a wrapped boolean result.                      |
+| UDA005 | Repository methods must not return IQueryable\<T\>                        | Prevents `IQueryable<T>` leaking directly or through wrappers from public repository methods.                     |
 
 ### Severity
 
-UDA001–UDA004 emit diagnostics as `Warning` so non-compliant names are flagged without blocking the build by default. UDA005 emits as `Error` because exposing `IQueryable<T>` through repository boundaries is an architectural violation. Adjust severities via `.editorconfig` if needed.
+UDA001–UDA004 emit diagnostics as `Warning` so non-compliant names are flagged without blocking the build by default. They classify eligible public methods on Umbrella EF Core and EF6 repository descendants by return shape. Recognized command methods such as `Create*`, `Update*`, `Delete*`, and `Reload*` are outside the naming rules even when they return an entity or operation result. Other names are validated, so an arbitrary method returning a single item must still follow the `Find*` convention.
+
+Return shapes are resolved semantically. The analyzers recognize `Task<T>`, `ValueTask<T>`, arrays, standard enumerable contracts, dictionaries, paginated result descendants, collection-bearing tuples, and single-payload generic result wrappers.
+
+UDA005 emits as `Error` because exposing `IQueryable<T>` through repository boundaries is an architectural violation. It also detects derived query contracts such as `IOrderedQueryable<T>` and queryable payloads nested inside tasks, tuples, arrays, and non-delegate generic wrappers. Adjust severities via `.editorconfig` if needed.
 
 ## Release Tracking
 

@@ -34,10 +34,14 @@ public sealed class RepositoryIQueryableAnalyzer : DiagnosticAnalyzer
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 		context.EnableConcurrentExecution();
 
-		context.RegisterSyntaxNodeAction(AnalyzeMethod, SyntaxKind.MethodDeclaration);
+		context.RegisterCompilationStartAction(compilationContext =>
+		{
+			var analysis = RepositoryAnalysis.Create(compilationContext.Compilation);
+			compilationContext.RegisterSyntaxNodeAction(x => AnalyzeMethod(x, analysis), SyntaxKind.MethodDeclaration);
+		});
 	}
 
-	private static void AnalyzeMethod(SyntaxNodeAnalysisContext context)
+	private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, RepositoryAnalysis analysis)
 	{
 		var methodDeclaration = (MethodDeclarationSyntax)context.Node;
 
@@ -50,46 +54,10 @@ public sealed class RepositoryIQueryableAnalyzer : DiagnosticAnalyzer
 			return;
 		}
 
-		if (!IsRepositoryClass(method.ContainingType))
+		if (!analysis.IsRepositoryType(method.ContainingType))
 			return;
 
-		ITypeSymbol? inner = UnwrapTaskOrValueTask(method.ReturnType);
-
-		if (inner is INamedTypeSymbol { Arity: 1 } named && named.OriginalDefinition.Name == "IQueryable")
+		if (analysis.ContainsQueryable(method.ReturnType))
 			context.ReportDiagnostic(Diagnostic.Create(IQueryableForbiddenRule, methodDeclaration.Identifier.GetLocation(), method.Name));
-	}
-
-	private static bool IsRepositoryClass(INamedTypeSymbol classSymbol)
-	{
-		INamedTypeSymbol? current = classSymbol.BaseType;
-
-		while (current is not null)
-		{
-			string name = current.OriginalDefinition.Name;
-
-			if (name is "GenericDbRepository" or "ReadOnlyGenericDbRepository")
-				return true;
-
-			current = current.BaseType;
-		}
-
-		return false;
-	}
-
-	private static ITypeSymbol? UnwrapTaskOrValueTask(ITypeSymbol typeSymbol)
-	{
-		if (typeSymbol.SpecialType == SpecialType.System_Void)
-			return null;
-
-		if (typeSymbol is INamedTypeSymbol named)
-		{
-			if (named.Arity == 0 && named.Name == "Task")
-				return null;
-
-			if (named.Arity == 1 && named.Name is "Task" or "ValueTask")
-				return named.TypeArguments[0];
-		}
-
-		return typeSymbol;
 	}
 }

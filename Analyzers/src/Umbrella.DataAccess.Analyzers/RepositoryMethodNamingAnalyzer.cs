@@ -17,32 +17,32 @@ public sealed class RepositoryMethodNamingAnalyzer : DiagnosticAnalyzer
 	/// <summary>Diagnostic emitted when a method returning a single item does not start with 'FindBy'.</summary>
 	public static readonly DiagnosticDescriptor FindByRule = new(
 		id: "UDA001",
-		title: "Repository method returning a single item must start with 'FindBy'",
-		messageFormat: "Repository method '{0}' returns a single item but does not start with 'FindBy'",
+		title: "Single-result repository query must start with 'Find'",
+		messageFormat: "Repository query method '{0}' returns a single result but does not start with 'Find'",
 		category: Category,
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true,
-		description: "Public methods in repository classes that return a single entity or result must use the 'FindBy' prefix to make intent clear and consistent across the codebase.");
+		description: "Public query methods in repository classes that return a single entity, projection, or aggregate result must use the 'Find' prefix to make intent clear and consistent across the codebase.");
 
 	/// <summary>Diagnostic emitted when a method returning a collection does not start with 'FindAllBy'.</summary>
 	public static readonly DiagnosticDescriptor FindAllByRule = new(
 		id: "UDA002",
-		title: "Repository method returning a collection must start with 'FindAllBy'",
-		messageFormat: "Repository method '{0}' returns a collection but does not start with 'FindAllBy'",
+		title: "Collection repository query must start with 'FindAll'",
+		messageFormat: "Repository query method '{0}' returns a collection but does not start with 'FindAll'",
 		category: Category,
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true,
-		description: "Public methods in repository classes that return a collection of entities or results must use the 'FindAllBy' prefix to make intent clear and consistent across the codebase.");
+		description: "Public query methods in repository classes that return a collection of entities or results must use the 'FindAll' prefix to make intent clear and consistent across the codebase.");
 
 	/// <summary>Diagnostic emitted when a method returning a count does not start with 'FindCount'.</summary>
 	public static readonly DiagnosticDescriptor FindCountRule = new(
 		id: "UDA003",
-		title: "Repository method returning a count must start with 'FindCount'",
-		messageFormat: "Repository method '{0}' returns a count but does not start with 'FindCount'",
+		title: "Count repository query must start with 'Find' and identify the count",
+		messageFormat: "Repository query method '{0}' returns a count but its name does not start with 'Find' and contain 'Count'",
 		category: Category,
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true,
-		description: "Public methods in repository classes that return an integer count must use the 'FindCount' prefix to make intent clear and consistent across the codebase.");
+		description: "Public query methods in repository classes that return an integer count must start with 'Find' and identify the count in the method name.");
 
 	/// <summary>Diagnostic emitted when a method returning a boolean does not start with 'Exists'.</summary>
 	public static readonly DiagnosticDescriptor ExistsRule = new(
@@ -67,10 +67,14 @@ public sealed class RepositoryMethodNamingAnalyzer : DiagnosticAnalyzer
 		context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 		context.EnableConcurrentExecution();
 
-		context.RegisterSyntaxNodeAction(AnalyzeMethod, SyntaxKind.MethodDeclaration);
+		context.RegisterCompilationStartAction(compilationContext =>
+		{
+			var analysis = RepositoryAnalysis.Create(compilationContext.Compilation);
+			compilationContext.RegisterSyntaxNodeAction(x => AnalyzeMethod(x, analysis), SyntaxKind.MethodDeclaration);
+		});
 	}
 
-	private static void AnalyzeMethod(SyntaxNodeAnalysisContext context)
+	private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, RepositoryAnalysis analysis)
 	{
 		var methodDeclaration = (MethodDeclarationSyntax)context.Node;
 
@@ -87,99 +91,26 @@ public sealed class RepositoryMethodNamingAnalyzer : DiagnosticAnalyzer
 			return;
 		}
 
-		if (!IsRepositoryClass(method.ContainingType))
-			return;
-
-		ReturnTypeCategory category = ClassifyReturnType(method.ReturnType);
-
-		DiagnosticDescriptor? rule = category switch
+		if (!analysis.IsRepositoryType(method.ContainingType)
+			|| RepositoryAnalysis.IsCommandMethodName(method.Name))
 		{
-			ReturnTypeCategory.SingleItem when !method.Name.StartsWith("FindBy", StringComparison.Ordinal) => FindByRule,
-			ReturnTypeCategory.Collection when !method.Name.StartsWith("FindAllBy", StringComparison.Ordinal) => FindAllByRule,
-			ReturnTypeCategory.Count when !method.Name.StartsWith("FindCount", StringComparison.Ordinal) => FindCountRule,
-			ReturnTypeCategory.Exists when !method.Name.StartsWith("Exists", StringComparison.Ordinal) => ExistsRule,
+			return;
+		}
+
+		var category = analysis.ClassifyReturnType(method.ReturnType);
+
+		var rule = category switch
+		{
+			RepositoryReturnTypeCategory.SingleItem when !RepositoryAnalysis.IsValidName(method.Name, category) => FindByRule,
+			RepositoryReturnTypeCategory.Collection when !RepositoryAnalysis.IsValidName(method.Name, category) => FindAllByRule,
+			RepositoryReturnTypeCategory.Count when !RepositoryAnalysis.IsValidName(method.Name, category) => FindCountRule,
+			RepositoryReturnTypeCategory.Exists when !RepositoryAnalysis.IsValidName(method.Name, category) => ExistsRule,
 			_ => null
 		};
 
 		if (rule is not null)
+		{
 			context.ReportDiagnostic(Diagnostic.Create(rule, methodDeclaration.Identifier.GetLocation(), method.Name));
-	}
-
-	private static bool IsRepositoryClass(INamedTypeSymbol classSymbol)
-	{
-		INamedTypeSymbol? current = classSymbol.BaseType;
-
-		while (current is not null)
-		{
-			string name = current.OriginalDefinition.Name;
-
-			if (name is "GenericDbRepository" or "ReadOnlyGenericDbRepository")
-				return true;
-
-			current = current.BaseType;
 		}
-
-		return false;
-	}
-
-	private static ReturnTypeCategory ClassifyReturnType(ITypeSymbol returnType)
-	{
-		ITypeSymbol? inner = UnwrapTaskOrValueTask(returnType);
-
-		if (inner is null)
-			return ReturnTypeCategory.Ignored;
-
-		// Unwrap Nullable<T> for value types (e.g. int?, bool?)
-		if (inner is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable)
-			inner = nullable.TypeArguments[0];
-
-		if (inner.SpecialType == SpecialType.System_Boolean)
-			return ReturnTypeCategory.Exists;
-
-		if (inner.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64)
-			return ReturnTypeCategory.Count;
-
-		if (inner is INamedTypeSymbol named)
-		{
-			string name = named.OriginalDefinition.Name;
-
-			// IQueryable is handled by UDA005; ignore it here to avoid double-reporting
-			if (name == "IQueryable")
-				return ReturnTypeCategory.Ignored;
-
-			if (name is "IEnumerable" or "IReadOnlyCollection" or "IReadOnlyList"
-					 or "IList" or "ICollection" or "List" or "PaginatedResultModel")
-			{
-				return ReturnTypeCategory.Collection;
-			}
-		}
-
-		return ReturnTypeCategory.SingleItem;
-	}
-
-	private static ITypeSymbol? UnwrapTaskOrValueTask(ITypeSymbol typeSymbol)
-	{
-		if (typeSymbol.SpecialType == SpecialType.System_Void)
-			return null;
-
-		if (typeSymbol is INamedTypeSymbol named)
-		{
-			if (named.Arity == 0 && named.Name == "Task")
-				return null;
-
-			if (named.Arity == 1 && named.Name is "Task" or "ValueTask")
-				return named.TypeArguments[0];
-		}
-
-		return typeSymbol;
-	}
-
-	private enum ReturnTypeCategory
-	{
-		Ignored,
-		SingleItem,
-		Collection,
-		Count,
-		Exists
 	}
 }

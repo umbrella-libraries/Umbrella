@@ -1,435 +1,263 @@
+using Microsoft.CodeAnalysis;
+
 namespace Umbrella.DataAccess.Analyzers.Test;
 
 public class UDA001_UDA004_RepositoryMethodNamingAnalyzerTests : AnalyzerTestBase<RepositoryMethodNamingAnalyzer>
 {
-	// Stubs occupy lines 1-11; appended test code starts at line 12.
-	private const string RepositoryStubs = @"namespace Umbrella.DataAccess.EntityFrameworkCore
+	[Fact]
+	public async Task SingleItemQuery_NamedGetBy_ReportsUDA001()
+	{
+		string source = CreateSource("public Task<object?> GetByIdAsync(int id) => Task.FromResult<object?>(null);");
+		await VerifyAnalyzerAsync(source, Expected(RepositoryMethodNamingAnalyzer.FindByRule, source, "GetByIdAsync"));
+	}
+
+	[Theory]
+	[InlineData("public Task<object?> HelloAsync() => Task.FromResult<object?>(null);", "UDA001")]
+	[InlineData("public Task<IReadOnlyCollection<object>> HelloAsync() => Task.FromResult<IReadOnlyCollection<object>>([]);", "UDA002")]
+	[InlineData("public Task<int> HelloAsync() => Task.FromResult(0);", "UDA003")]
+	[InlineData("public Task<bool> HelloAsync() => Task.FromResult(true);", "UDA004")]
+	[InlineData("public Task<object?> BananaAsync() => Task.FromResult<object?>(null);", "UDA001")]
+	public async Task ArbitraryMethodName_IsValidatedFromItsReturnShape(string member, string diagnosticId)
+	{
+		ArgumentNullException.ThrowIfNull(member);
+
+		string source = CreateSource(member);
+		var rule = diagnosticId switch
+		{
+			"UDA001" => RepositoryMethodNamingAnalyzer.FindByRule,
+			"UDA002" => RepositoryMethodNamingAnalyzer.FindAllByRule,
+			"UDA003" => RepositoryMethodNamingAnalyzer.FindCountRule,
+			"UDA004" => RepositoryMethodNamingAnalyzer.ExistsRule,
+			_ => throw new InvalidOperationException($"Unexpected diagnostic ID '{diagnosticId}'.")
+		};
+
+		string methodName = member.Contains("HelloAsync", StringComparison.Ordinal) ? "HelloAsync" : "BananaAsync";
+		await VerifyAnalyzerAsync(source, Expected(rule, source, methodName));
+	}
+
+	[Theory]
+	[InlineData("public Task<object?> FindByIdAsync(int id) => Task.FromResult<object?>(null);")]
+	[InlineData("public Task<object?> FindAsync() => Task.FromResult<object?>(null);")]
+	[InlineData("public Task<(int outstanding, int total)> FindActionMetricsByUserIdAsync() => Task.FromResult((0, 0));")]
+	public async Task ValidSingleItemQueryNames_ProduceNoDiagnostic(string member)
+	{
+		await VerifyNoDiagnosticsAsync(CreateSource(member));
+	}
+
+	[Theory]
+	[InlineData("public Task<object> AddItemAsync() => Task.FromResult(new object());")]
+	[InlineData("public Task<object> CreateItemAsync() => Task.FromResult(new object());")]
+	[InlineData("public Task<IOperationResult<object>> UpdateItemAsync() => Task.FromResult<IOperationResult<object>>(null!);")]
+	[InlineData("public Task<object> ReloadAsync() => Task.FromResult(new object());")]
+	[InlineData("public Task<IReadOnlyCollection<object>> ExportItemsAsync() => Task.FromResult<IReadOnlyCollection<object>>([]);")]
+	[InlineData("public Task<IReadOnlyCollection<object>> SaveItemsAsync() => Task.FromResult<IReadOnlyCollection<object>>([]);")]
+	[InlineData("public Task<int> IncrementCountAsync() => Task.FromResult(1);")]
+	[InlineData("public Task<bool> SetActiveAsync() => Task.FromResult(true);")]
+	[InlineData("public Task<object> ExecuteAsync() => Task.FromResult(new object());")]
+	public async Task CommandMethods_ReturningPayloads_ProduceNoDiagnostic(string member)
+	{
+		await VerifyNoDiagnosticsAsync(CreateSource(member));
+	}
+
+	[Theory]
+	[InlineData("public Task<object?> UpdaterAsync() => Task.FromResult<object?>(null);", "UpdaterAsync")]
+	[InlineData("public Task<object?> SavedSearchAsync() => Task.FromResult<object?>(null);", "SavedSearchAsync")]
+	public async Task CommandPrefixMustBeACompletePascalCaseWord(string member, string methodName)
+	{
+		string source = CreateSource(member);
+		await VerifyAnalyzerAsync(source, Expected(RepositoryMethodNamingAnalyzer.FindByRule, source, methodName));
+	}
+
+	[Fact]
+	public async Task QueryReturningOperationResult_NamedGetBy_ReportsUDA001()
+	{
+		string source = CreateSource("public Task<IOperationResult<object>> GetByIdAsync(int id) => Task.FromResult<IOperationResult<object>>(null!);");
+		await VerifyAnalyzerAsync(source, Expected(RepositoryMethodNamingAnalyzer.FindByRule, source, "GetByIdAsync"));
+	}
+
+	[Fact]
+	public async Task CollectionQuery_NamedGetAll_ReportsUDA002()
+	{
+		string source = CreateSource("public Task<IReadOnlyCollection<object>> GetAllAsync() => Task.FromResult<IReadOnlyCollection<object>>([]);");
+		await VerifyAnalyzerAsync(source, Expected(RepositoryMethodNamingAnalyzer.FindAllByRule, source, "GetAllAsync"));
+	}
+
+	[Theory]
+	[InlineData("public Task<IReadOnlyCollection<object>> FindAllByStatusAsync() => Task.FromResult<IReadOnlyCollection<object>>([]);")]
+	[InlineData("public Task<IReadOnlyCollection<object>> FindAllNameByIdListAsync() => Task.FromResult<IReadOnlyCollection<object>>([]);")]
+	[InlineData("public Task<IReadOnlyCollection<object>> FindAllMostPopularSlimHitAsync() => Task.FromResult<IReadOnlyCollection<object>>([]);")]
+	[InlineData("public Task<IReadOnlyDictionary<int, object>> FindAllAggregateDataAsync() => Task.FromResult<IReadOnlyDictionary<int, object>>(new Dictionary<int, object>());")]
+	[InlineData("public Task<(IReadOnlyCollection<object> items, int total)> FindAllRecentAsync() => Task.FromResult<(IReadOnlyCollection<object>, int)>(([], 0));")]
+	public async Task ValidCollectionQueryNamesAndShapes_ProduceNoDiagnostic(string member)
+	{
+		await VerifyNoDiagnosticsAsync(CreateSource(member));
+	}
+
+	[Fact]
+	public async Task CollectionQuery_WithoutAll_ReportsUDA002()
+	{
+		string source = CreateSource("public Task<IReadOnlyCollection<object>> FindMostRecentSlimAsync() => Task.FromResult<IReadOnlyCollection<object>>([]);");
+		await VerifyAnalyzerAsync(source, Expected(RepositoryMethodNamingAnalyzer.FindAllByRule, source, "FindMostRecentSlimAsync"));
+	}
+
+	[Fact]
+	public async Task DerivedPaginatedResult_IsClassifiedAsCollection()
+	{
+		const string additionalTypes = """
+namespace TestApp
 {
-    public abstract class ReadOnlyGenericDbRepository<TEntity> { }
-    public abstract class GenericDbRepository<TEntity> : ReadOnlyGenericDbRepository<TEntity> { }
+	public sealed record ThingPage : PaginatedResultModel<object>;
+}
+""";
+		string source = CreateSource(
+			"public Task<ThingPage> GetPageAsync() => Task.FromResult(new ThingPage());",
+			additionalTypes: additionalTypes);
+
+		await VerifyAnalyzerAsync(source, Expected(RepositoryMethodNamingAnalyzer.FindAllByRule, source, "GetPageAsync"));
+	}
+
+	[Fact]
+	public async Task CountQuery_NamedCountBy_ReportsUDA003()
+	{
+		string source = CreateSource("public Task<int> CountByStatusAsync() => Task.FromResult(0);");
+		await VerifyAnalyzerAsync(source, Expected(RepositoryMethodNamingAnalyzer.FindCountRule, source, "CountByStatusAsync"));
+	}
+
+	[Theory]
+	[InlineData("public Task<int> FindCountByStatusAsync() => Task.FromResult(0);")]
+	[InlineData("public Task<int> FindUnreadMessageCountByRecipientIdAsync() => Task.FromResult(0);")]
+	public async Task ValidCountQueryNames_ProduceNoDiagnostic(string member)
+	{
+		await VerifyNoDiagnosticsAsync(CreateSource(member));
+	}
+
+	[Fact]
+	public async Task BooleanQuery_NamedIsActive_ReportsUDA004()
+	{
+		string source = CreateSource("public Task<bool> IsActiveAsync() => Task.FromResult(true);");
+		await VerifyAnalyzerAsync(source, Expected(RepositoryMethodNamingAnalyzer.ExistsRule, source, "IsActiveAsync"));
+	}
+
+	[Fact]
+	public async Task BooleanQuery_NamedExists_ProducesNoDiagnostic()
+	{
+		await VerifyNoDiagnosticsAsync(CreateSource("public Task<bool> ExistsByEmailAsync() => Task.FromResult(true);"));
+	}
+
+	[Fact]
+	public async Task BooleanCommand_ProducesNoDiagnostic()
+	{
+		await VerifyNoDiagnosticsAsync(CreateSource("public Task<bool> UpdateStatusAsync() => Task.FromResult(true);"));
+	}
+
+	[Fact]
+	public async Task AbstractDeveloperOwnedQuery_IsAnalyzed()
+	{
+		string source = CreateSource(
+			"public abstract Task<object?> GetByIdAsync(int id);",
+			typeDeclaration: "public abstract class ThingRepository");
+
+		await VerifyAnalyzerAsync(source, Expected(RepositoryMethodNamingAnalyzer.FindByRule, source, "GetByIdAsync"));
+	}
+
+	[Theory]
+	[InlineData("public override Task<object?> GetByIdAsync(int id) => Task.FromResult<object?>(null);")]
+	[InlineData("public static Task<object?> GetByIdAsync(int id) => Task.FromResult<object?>(null);")]
+	[InlineData("protected Task<object?> GetByIdAsync(int id) => Task.FromResult<object?>(null);")]
+	[InlineData("public Task DeleteByIdAsync(int id) => Task.CompletedTask;")]
+	[InlineData("public void Reset() { }")]
+	public async Task ExcludedMethodShapes_ProduceNoDiagnostic(string member)
+	{
+		await VerifyNoDiagnosticsAsync(CreateSource(member));
+	}
+
+	[Fact]
+	public async Task SameShortBaseTypeNameInAnotherNamespace_ProducesNoDiagnostic()
+	{
+		const string source = """
+using System.Threading.Tasks;
+
+namespace Other
+{
+	public abstract class GenericDbRepository<T>;
 }
 
-namespace Umbrella.DataAccess.Abstractions
+namespace TestApp
 {
-    public class PaginatedResultModel<T> { }
-    public interface IOperationResult<T> { }
+	public sealed class ThingRepository : Other.GenericDbRepository<object>
+	{
+		public Task<object?> GetByIdAsync() => Task.FromResult<object?>(null);
+	}
 }
-";
-
-	// ── UDA001 ──────────────────────────────────────────────────────────────
-
-	[Fact]
-	public async Task SingleItemReturn_NamedGetBy_ReportsDiagnosticUDA001()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public Task<object?> GetByIdAsync(int id) => Task.FromResult<object?>(null);
-    }
-}";
-		// Line 12: using System.Threading.Tasks;
-		// Line 13: using Umbrella.DataAccess.EntityFrameworkCore;
-		// Line 14: (blank)
-		// Line 15: namespace TestApp
-		// Line 16: {
-		// Line 17:     public class ThingRepository ...
-		// Line 18:     {
-		// Line 19:         public Task<object?> GetByIdAsync(...)    ← identifier at col 30
-		await VerifyAnalyzerAsync(source, Diagnostic(RepositoryMethodNamingAnalyzer.FindByRule, 19, 30, "GetByIdAsync"));
-	}
-
-	[Fact]
-	public async Task SingleItemReturn_CorrectlyNamedFindBy_NoDiagnostic()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public Task<object?> FindByIdAsync(int id) => Task.FromResult<object?>(null);
-    }
-}";
+""";
 		await VerifyNoDiagnosticsAsync(source);
 	}
 
 	[Fact]
-	public async Task IOperationResultReturn_NamedGetBy_ReportsDiagnosticUDA001()
+	public async Task IQueryableReturn_IsLeftExclusivelyToUDA005()
 	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-using Umbrella.DataAccess.Abstractions;
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public Task<IOperationResult<object>> GetByIdAsync(int id) => Task.FromResult<IOperationResult<object>>(null!);
-    }
-}";
-		// Line 12: using System.Threading.Tasks;
-		// Line 13: using Umbrella.DataAccess.EntityFrameworkCore;
-		// Line 14: using Umbrella.DataAccess.Abstractions;
-		// Line 15: (blank)
-		// Line 16: namespace TestApp
-		// Line 17: {
-		// Line 18:     public class ThingRepository ...
-		// Line 19:     {
-		// Line 20:         public Task<IOperationResult<object>> GetByIdAsync(...)
-		//          "        public Task<IOperationResult<object>> " = 8+7+30 = 45 → col 46
-		await VerifyAnalyzerAsync(source, Diagnostic(RepositoryMethodNamingAnalyzer.FindByRule, 20, 47, "GetByIdAsync"));
+		await VerifyNoDiagnosticsAsync(CreateSource("public IQueryable<object> GetItems() => null!;"));
 	}
 
-	[Fact]
-	public async Task ReadOnlyRepo_SingleItemReturn_NamedGetBy_ReportsDiagnosticUDA001()
+	private static string CreateSource(
+		string member,
+		string typeDeclaration = "public class ThingRepository",
+		string baseType = "GenericDbRepository<object>",
+		string additionalTypes = "")
 	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public class ThingReadRepository : ReadOnlyGenericDbRepository<object>
-    {
-        public Task<object?> GetByStatusAsync(string status) => Task.FromResult<object?>(null);
-    }
-}";
-		// Line 19:     public Task<object?> GetByStatusAsync(...)   ← col 30
-		await VerifyAnalyzerAsync(source, Diagnostic(RepositoryMethodNamingAnalyzer.FindByRule, 19, 30, "GetByStatusAsync"));
-	}
-
-	[Fact]
-	public async Task AbstractBaseRepo_SingleItemReturn_NamedGetBy_ReportsDiagnosticUDA001()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public abstract class ProjectBaseRepository : GenericDbRepository<object>
-    {
-        public abstract Task<object?> GetByIdAsync(int id);
-    }
-}";
-		// Line 19:         public abstract Task<object?> GetByIdAsync(int id);
-		//          "        public abstract Task<object?> " = 8+7+9+14 = 38 → col 39
-		await VerifyAnalyzerAsync(source, Diagnostic(RepositoryMethodNamingAnalyzer.FindByRule, 19, 39, "GetByIdAsync"));
-	}
-
-	[Fact]
-	public async Task ConcreteRepoInheritingAbstractBase_SingleItemReturn_NamedGetBy_ReportsDiagnosticUDA001()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public abstract class ProjectBaseRepository : GenericDbRepository<object>
-    {
-    }
-
-    public class ConcreteRepository : ProjectBaseRepository
-    {
-        public Task<object?> GetByIdAsync(int id) => Task.FromResult<object?>(null);
-    }
-}";
-		// Line 12: using System.Threading.Tasks;
-		// Line 13: using Umbrella.DataAccess.EntityFrameworkCore;
-		// Line 14: (blank)
-		// Line 15: namespace TestApp
-		// Line 16: {
-		// Line 17:     public abstract class ProjectBaseRepository ...
-		// Line 18:     {
-		// Line 19:     }
-		// Line 20:     (blank)
-		// Line 21:     public class ConcreteRepository ...
-		// Line 22:     {
-		// Line 23:         public Task<object?> GetByIdAsync(...)    ← col 30
-		await VerifyAnalyzerAsync(source, Diagnostic(RepositoryMethodNamingAnalyzer.FindByRule, 23, 30, "GetByIdAsync"));
-	}
-
-	// ── UDA002 ──────────────────────────────────────────────────────────────
-
-	[Fact]
-	public async Task CollectionReturn_NamedGetAllBy_ReportsDiagnosticUDA002()
-	{
-		const string source = RepositoryStubs + @"using System.Collections.Generic;
+		return $$"""
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Umbrella.DataAccess.EntityFrameworkCore;
+using Umbrella.Utilities.Data.Pagination;
+using Umbrella.Utilities.Primitives.Abstractions;
 
-namespace TestApp
+namespace Umbrella.DataAccess.EntityFrameworkCore
 {
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public Task<IReadOnlyCollection<object>> GetAllByStatusAsync() => Task.FromResult<IReadOnlyCollection<object>>(new List<object>());
-    }
-}";
-		// Line 12: using System.Collections.Generic;
-		// Line 13: using System.Threading.Tasks;
-		// Line 14: using Umbrella.DataAccess.EntityFrameworkCore;
-		// Line 15: (blank)
-		// Line 16: namespace TestApp
-		// Line 17: {
-		// Line 18:     public class ThingRepository ...
-		// Line 19:     {
-		// Line 20:         public Task<IReadOnlyCollection<object>> GetAllByStatusAsync()
-		//          "        public Task<IReadOnlyCollection<object>> " = 8+7+34 = 49 → col 50
-		await VerifyAnalyzerAsync(source, Diagnostic(RepositoryMethodNamingAnalyzer.FindAllByRule, 20, 50, "GetAllByStatusAsync"));
+	public abstract class ReadOnlyGenericDbRepository<TEntity>
+	{
+		public virtual Task<object?> GetByIdAsync(int id) => Task.FromResult<object?>(null);
 	}
 
-	[Fact]
-	public async Task CollectionReturn_CorrectlyNamedFindAllBy_NoDiagnostic()
-	{
-		const string source = RepositoryStubs + @"using System.Collections.Generic;
-using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
+	public abstract class GenericDbRepository<TEntity> : ReadOnlyGenericDbRepository<TEntity>;
+}
+
+namespace Umbrella.Utilities.Data.Pagination
+{
+	public record PaginatedResultModel<T>;
+}
+
+namespace Umbrella.Utilities.Primitives.Abstractions
+{
+	public interface IOperationResult<T>;
+}
+
+{{additionalTypes}}
 
 namespace TestApp
 {
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public Task<IReadOnlyCollection<object>> FindAllByStatusAsync() => Task.FromResult<IReadOnlyCollection<object>>(new List<object>());
-    }
-}";
-		await VerifyNoDiagnosticsAsync(source);
+	{{typeDeclaration}} : {{baseType}}
+	{
+		{{member}}
+	}
+}
+""";
 	}
 
-	[Fact]
-	public async Task PaginatedResultModelReturn_NamedGetAll_ReportsDiagnosticUDA002()
+	private static ExpectedDiagnostic Expected(DiagnosticDescriptor rule, string source, string methodName)
 	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-using Umbrella.DataAccess.Abstractions;
+		string[] lines = source.Split('\n');
 
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public Task<PaginatedResultModel<object>> GetAllAsync() => Task.FromResult(new PaginatedResultModel<object>());
-    }
-}";
-		// Line 20:         public Task<PaginatedResultModel<object>> GetAllAsync()
-		//          "        public Task<PaginatedResultModel<object>> " = 8+7+35 = 50 → col 51
-		await VerifyAnalyzerAsync(source, Diagnostic(RepositoryMethodNamingAnalyzer.FindAllByRule, 20, 51, "GetAllAsync"));
-	}
+		for (int i = lines.Length - 1; i >= 0; i--)
+		{
+			int column = lines[i].IndexOf(methodName, StringComparison.Ordinal);
 
-	[Fact]
-	public async Task IReadOnlyCollectionOfIOperationResult_NamedGetAllBy_ReportsDiagnosticUDA002()
-	{
-		const string source = RepositoryStubs + @"using System.Collections.Generic;
-using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-using Umbrella.DataAccess.Abstractions;
+			if (column >= 0)
+				return Diagnostic(rule, i + 1, column + 1, methodName);
+		}
 
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public Task<IReadOnlyCollection<IOperationResult<object>>> GetAllByStatusAsync() => Task.FromResult<IReadOnlyCollection<IOperationResult<object>>>(new List<IOperationResult<object>>());
-    }
-}";
-		// Line 12: using System.Collections.Generic;
-		// Line 13: using System.Threading.Tasks;
-		// Line 14: using Umbrella.DataAccess.EntityFrameworkCore;
-		// Line 15: using Umbrella.DataAccess.Abstractions;
-		// Line 16: (blank)
-		// Line 17: namespace TestApp
-		// Line 18: {
-		// Line 19:     public class ThingRepository ...
-		// Line 20:     {
-		// Line 21:         public Task<IReadOnlyCollection<IOperationResult<object>>> GetAllByStatusAsync()
-		//          "        public Task<IReadOnlyCollection<IOperationResult<object>>> " = 8+7+52 = 67 → col 68
-		await VerifyAnalyzerAsync(source, Diagnostic(RepositoryMethodNamingAnalyzer.FindAllByRule, 21, 68, "GetAllByStatusAsync"));
-	}
-
-	// ── UDA003 ──────────────────────────────────────────────────────────────
-
-	[Fact]
-	public async Task CountReturn_NamedCount_ReportsDiagnosticUDA003()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public Task<int> CountByStatusAsync(string status) => Task.FromResult(0);
-    }
-}";
-		// Line 19:         public Task<int> CountByStatusAsync(...)   ← col 26
-		//          "        public Task<int> " = 8+7+10 = 25 → col 26
-		await VerifyAnalyzerAsync(source, Diagnostic(RepositoryMethodNamingAnalyzer.FindCountRule, 19, 26, "CountByStatusAsync"));
-	}
-
-	[Fact]
-	public async Task CountReturn_CorrectlyNamedFindCount_NoDiagnostic()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public Task<int> FindCountByStatusAsync(string status) => Task.FromResult(0);
-    }
-}";
-		await VerifyNoDiagnosticsAsync(source);
-	}
-
-	// ── UDA004 ──────────────────────────────────────────────────────────────
-
-	[Fact]
-	public async Task BoolReturn_NamedIsActive_ReportsDiagnosticUDA004()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public Task<bool> IsActiveAsync(int id) => Task.FromResult(true);
-    }
-}";
-		// Line 19:         public Task<bool> IsActiveAsync(...)   ← col 27
-		//          "        public Task<bool> " = 8+7+11 = 26 → col 27
-		await VerifyAnalyzerAsync(source, Diagnostic(RepositoryMethodNamingAnalyzer.ExistsRule, 19, 27, "IsActiveAsync"));
-	}
-
-	[Fact]
-	public async Task BoolReturn_CorrectlyNamedExists_NoDiagnostic()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public Task<bool> ExistsByEmailAsync(string email) => Task.FromResult(true);
-    }
-}";
-		await VerifyNoDiagnosticsAsync(source);
-	}
-
-	// ── Exclusions ──────────────────────────────────────────────────────────
-
-	[Fact]
-	public async Task OverrideMethod_WrongNaming_NoDiagnostic()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public override Task<object?> GetByIdAsync(int id) => Task.FromResult<object?>(null);
-    }
-}";
-		await VerifyNoDiagnosticsAsync(source);
-	}
-
-	[Fact]
-	public async Task StaticMethod_WrongNaming_NoDiagnostic()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public static Task<object?> GetByIdAsync(int id) => Task.FromResult<object?>(null);
-    }
-}";
-		await VerifyNoDiagnosticsAsync(source);
-	}
-
-	[Fact]
-	public async Task NonPublicMethod_WrongNaming_NoDiagnostic()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        protected Task<object?> GetByIdAsync(int id) => Task.FromResult<object?>(null);
-    }
-}";
-		await VerifyNoDiagnosticsAsync(source);
-	}
-
-	[Fact]
-	public async Task NonRepositoryClass_WrongNaming_NoDiagnostic()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-
-namespace TestApp
-{
-    public class ThingService
-    {
-        public Task<object?> GetByIdAsync(int id) => Task.FromResult<object?>(null);
-    }
-}";
-		await VerifyNoDiagnosticsAsync(source);
-	}
-
-	[Fact]
-	public async Task BareTaskReturn_NoDiagnostic()
-	{
-		const string source = RepositoryStubs + @"using System.Threading.Tasks;
-using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public Task DeleteByIdAsync(int id) => Task.CompletedTask;
-    }
-}";
-		await VerifyNoDiagnosticsAsync(source);
-	}
-
-	[Fact]
-	public async Task VoidReturn_NoDiagnostic()
-	{
-		const string source = RepositoryStubs + @"using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public void Reset() { }
-    }
-}";
-		await VerifyNoDiagnosticsAsync(source);
-	}
-
-	[Fact]
-	public async Task IQueryableReturn_NoDiagnosticFromNamingAnalyzer()
-	{
-		// IQueryable returns are handled exclusively by UDA005 (RepositoryIQueryableAnalyzer);
-		// the naming analyzer must not also fire on them.
-		const string source = RepositoryStubs + @"using Umbrella.DataAccess.EntityFrameworkCore;
-
-namespace System.Linq { public interface IQueryable<T> { } }
-
-namespace TestApp
-{
-    public class ThingRepository : GenericDbRepository<object>
-    {
-        public System.Linq.IQueryable<object> GetItems() => null!;
-    }
-}";
-		await VerifyNoDiagnosticsAsync(source);
+		throw new InvalidOperationException($"Method '{methodName}' was not found in the test source.");
 	}
 }
