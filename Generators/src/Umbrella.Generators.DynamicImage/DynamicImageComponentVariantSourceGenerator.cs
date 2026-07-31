@@ -2,18 +2,27 @@ using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
+using Umbrella.DynamicImage.RazorAnalysis;
 
 namespace Umbrella.Generators.DynamicImage;
 
 /// <summary>
-/// Generates a catalog of <c>DynamicImageVariant</c> entries inferred from statically declared
-/// <c>UmbrellaDynamicImage</c> Blazor component usages and MVC <c>DynamicImageTagHelper</c> /
-/// <c>DynamicImagePictureSourceTagHelper</c> usages found in Razor-generated C# syntax trees.
+/// Generates named and aggregate catalogs of <c>DynamicImageVariant</c> entries inferred from
+/// statically declared Dynamic Image usages in Razor source and manually authored C#.
 /// </summary>
 [Generator]
 public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGenerator
 {
+	private static readonly DiagnosticDescriptor _invalidCatalogConfigurationRule = new(
+		id: "UWDI005",
+		title: "Dynamic Image catalog configuration is invalid",
+		messageFormat: "Dynamic Image catalog configuration is invalid: {0}",
+		category: "DynamicImageGeneration",
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true);
+
 	// Blazor component
 	private const string DynamicImageComponentTypeName = "Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage";
 
@@ -44,13 +53,38 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 				predicate: static (node, _) => node is BlockSyntax,
 				transform: static (ctx, _) => (BlockSyntax)ctx.Node);
 
-		IncrementalValueProvider<(Compilation Compilation, ImmutableArray<BlockSyntax> CandidateBlocks)> combined =
-			context.CompilationProvider.Combine(candidateBlocks.Collect());
+		IncrementalValuesProvider<RazorFileInput> razorFiles = context.AdditionalTextsProvider
+			.Where(static file => IsRazorFile(file.Path))
+			.Combine(context.AnalyzerConfigOptionsProvider)
+			.Select(static (state, cancellationToken) => CreateRazorFileInput(state.Left, state.Right, cancellationToken));
 
-		context.RegisterSourceOutput(combined, static (spc, state) => Execute(spc, state.Compilation, state.CandidateBlocks));
+		IncrementalValueProvider<string> projectCatalogName = context.AnalyzerConfigOptionsProvider
+			.Select(static (options, _) => GetProjectCatalogName(options));
+
+		var combined = context.CompilationProvider
+			.Combine(candidateBlocks.Collect())
+			.Combine(razorFiles.Collect())
+			.Combine(projectCatalogName);
+
+		context.RegisterSourceOutput(combined, static (spc, state) =>
+		{
+			var compilationAndFiles = state.Left;
+			var compilationAndBlocks = compilationAndFiles.Left;
+			Execute(
+				spc,
+				compilationAndBlocks.Left,
+				compilationAndBlocks.Right,
+				compilationAndFiles.Right,
+				state.Right);
+		});
 	}
 
-	private static void Execute(SourceProductionContext context, Compilation compilation, ImmutableArray<BlockSyntax> candidateBlocks)
+	private static void Execute(
+		SourceProductionContext context,
+		Compilation compilation,
+		ImmutableArray<BlockSyntax> candidateBlocks,
+		ImmutableArray<RazorFileInput> razorFiles,
+		string projectCatalogName)
 	{
 		if (compilation.GetTypeByMetadataName(DynamicImageVariantTypeName) is null ||
 			compilation.GetTypeByMetadataName(DynamicResizeModeTypeName) is not INamedTypeSymbol resizeModeType ||
@@ -60,31 +94,249 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		}
 
 		bool hasComponentType = compilation.GetTypeByMetadataName(DynamicImageComponentTypeName) is not null;
-		bool hasTagHelperType = compilation.GetTypeByMetadataName(DynamicImageTagHelperTypeName) is not null ||
-								compilation.GetTypeByMetadataName(DynamicImagePictureSourceTagHelperTypeName) is not null;
+		bool hasImageTagHelperType = compilation.GetTypeByMetadataName(DynamicImageTagHelperTypeName) is not null;
+		bool hasPictureSourceTagHelperType = compilation.GetTypeByMetadataName(DynamicImagePictureSourceTagHelperTypeName) is not null;
+		bool hasTagHelperType = hasImageTagHelperType || hasPictureSourceTagHelperType;
 
 		if (!hasComponentType && !hasTagHelperType)
 			return;
 
 		HashSet<int> validResizeModes = GetEnumValues(resizeModeType);
 		HashSet<int> validImageFormats = GetEnumValues(imageFormatType);
-		HashSet<VariantEntry> variants = [];
+		var variantsByCatalog = new Dictionary<string, HashSet<VariantEntry>>(StringComparer.OrdinalIgnoreCase);
+
+		if (!TryValidateCatalogConfiguration(context, razorFiles, projectCatalogName, out ImmutableArray<RazorFileInput> uniqueRazorFiles))
+			return;
+
+		HashSet<VariantEntry> projectVariants = GetOrAddCatalog(variantsByCatalog, projectCatalogName);
 
 		foreach (BlockSyntax block in candidateBlocks)
 		{
 			context.CancellationToken.ThrowIfCancellationRequested();
 
+			if (IsRazorGeneratedSyntaxTree(block.SyntaxTree))
+				continue;
+
 			SemanticModel semanticModel = compilation.GetSemanticModel(block.SyntaxTree);
 
 			if (hasComponentType)
-				CollectBlockVariants(block, semanticModel, validResizeModes, validImageFormats, variants, context.CancellationToken);
+				CollectBlockVariants(block, semanticModel, validResizeModes, validImageFormats, projectVariants, context.CancellationToken);
 
 			if (hasTagHelperType)
-				CollectTagHelperBlockVariants(block, semanticModel, validResizeModes, validImageFormats, variants, context.CancellationToken);
+				CollectTagHelperBlockVariants(block, semanticModel, validResizeModes, validImageFormats, projectVariants, context.CancellationToken);
 		}
 
-		string source = GenerateSource(variants);
-		context.AddSource("UmbrellaDynamicImageComponentVariantCatalog.g.cs", SourceText.From(source, Encoding.UTF8));
+		DynamicImageRazorDocument[] documents =
+		[
+			.. uniqueRazorFiles.Select(x => new DynamicImageRazorDocument(x.Path, x.Text.ToString(), x.CatalogName))
+		];
+
+		foreach (RazorFileInput file in uniqueRazorFiles)
+			_ = GetOrAddCatalog(variantsByCatalog, file.CatalogName);
+
+		ImmutableArray<DynamicImageRazorUsage> usages = DynamicImageRazorSourceParser.Parse(
+			documents,
+			hasComponentType,
+			hasImageTagHelperType,
+			hasPictureSourceTagHelperType);
+		var resizeModeValues = GetEnumValueMap(resizeModeType);
+		var imageFormatValues = GetEnumValueMap(imageFormatType);
+
+		foreach (DynamicImageRazorUsage usage in usages)
+		{
+			HashSet<VariantEntry> variants = GetOrAddCatalog(variantsByCatalog, usage.Document.CatalogName);
+			AddRazorUsageVariants(usage, resizeModeValues, imageFormatValues, variants);
+		}
+
+		string source = GenerateSource(variantsByCatalog);
+		context.AddSource("DynamicImageVariantCatalog.g.cs", SourceText.From(source, Encoding.UTF8));
+	}
+
+	private static void AddRazorUsageVariants(
+		DynamicImageRazorUsage usage,
+		Dictionary<string, int> validResizeModes,
+		Dictionary<string, int> validImageFormats,
+		ISet<VariantEntry> variants)
+	{
+		bool isTagHelper = usage.Kind is not DynamicImageRazorUsageKind.Component;
+		bool supportsSizeWidths = usage.Kind is not DynamicImageRazorUsageKind.PictureSourceTagHelper;
+		var attributes = new Dictionary<string, DynamicImageRazorAttribute>(StringComparer.OrdinalIgnoreCase);
+
+		foreach (DynamicImageRazorAttribute attribute in usage.Attributes)
+		{
+			string normalizedName = NormalizeRazorAttributeName(attribute.Name, isTagHelper);
+
+			if (normalizedName.Length > 0)
+				attributes[normalizedName] = attribute;
+		}
+
+		foreach (KeyValuePair<string, DynamicImageRazorAttribute> entry in attributes)
+		{
+			if (IsVariantShapingAttribute(entry.Key, isTagHelper) &&
+				!DynamicImageRazorSourceParser.IsDiscoverableValue(entry.Key, entry.Value.Value, isTagHelper))
+			{
+				return;
+			}
+		}
+
+		if (attributes.TryGetValue(isTagHelper ? "Src" : "Url", out DynamicImageRazorAttribute? urlAttribute) &&
+			DynamicImageRazorSourceParser.TryGetStaticString(urlAttribute.Value, out string url) &&
+			IsStaticHttpUrl(url))
+		{
+			return;
+		}
+
+		int width = isTagHelper ? 0 : DefaultWidthRequest;
+		int height = isTagHelper ? 0 : DefaultHeightRequest;
+		int resizeMode = DefaultResizeMode;
+		int imageFormat = DefaultImageFormat;
+		int maxPixelDensity = DefaultMaxPixelDensity;
+		HashSet<int>? sizeWidths = null;
+
+		if (attributes.TryGetValue("WidthRequest", out DynamicImageRazorAttribute? widthAttribute))
+			_ = DynamicImageRazorSourceParser.TryGetStaticPositiveInt(widthAttribute.Value, out width);
+
+		if (attributes.TryGetValue("HeightRequest", out DynamicImageRazorAttribute? heightAttribute))
+			_ = DynamicImageRazorSourceParser.TryGetStaticPositiveInt(heightAttribute.Value, out height);
+
+		string densityName = isTagHelper ? "ImageMaxPixelDensity" : "MaxPixelDensity";
+		if (attributes.TryGetValue(densityName, out DynamicImageRazorAttribute? densityAttribute))
+			_ = DynamicImageRazorSourceParser.TryGetStaticPositiveInt(densityAttribute.Value, out maxPixelDensity);
+
+		if (attributes.TryGetValue("ResizeMode", out DynamicImageRazorAttribute? resizeAttribute))
+		{
+			if (!DynamicImageRazorSourceParser.TryGetStaticEnumMember(
+					resizeAttribute.Value,
+					DynamicResizeModeTypeName,
+					isTagHelper,
+					out string resizeMember) ||
+				!validResizeModes.TryGetValue(resizeMember, out int parsedResizeMode))
+			{
+				return;
+			}
+
+			resizeMode = parsedResizeMode;
+		}
+
+		if (attributes.TryGetValue("ImageFormat", out DynamicImageRazorAttribute? formatAttribute))
+		{
+			if (!DynamicImageRazorSourceParser.TryGetStaticEnumMember(
+					formatAttribute.Value,
+					DynamicImageFormatTypeName,
+					isTagHelper,
+					out string formatMember) ||
+				!validImageFormats.TryGetValue(formatMember, out int parsedImageFormat))
+			{
+				return;
+			}
+
+			imageFormat = parsedImageFormat;
+		}
+
+		if (supportsSizeWidths &&
+			attributes.TryGetValue("SizeWidths", out DynamicImageRazorAttribute? sizeWidthsAttribute) &&
+			DynamicImageRazorSourceParser.TryGetStaticString(sizeWidthsAttribute.Value, out string sizeWidthsValue))
+		{
+			sizeWidths = ParseSizeWidths(sizeWidthsValue);
+		}
+
+		if (isTagHelper)
+		{
+			var parameters = new TagHelperVariantParameters
+			{
+				WidthRequest = width,
+				HeightRequest = height,
+				ResizeMode = resizeMode,
+				ImageFormat = imageFormat,
+				MaxPixelDensity = maxPixelDensity,
+				SizeWidths = sizeWidths
+			};
+			AddTagHelperVariants(parameters, variants);
+		}
+		else
+		{
+			var parameters = new ComponentVariantParameters
+			{
+				WidthRequest = width,
+				HeightRequest = height,
+				ResizeMode = resizeMode,
+				ImageFormat = imageFormat,
+				MaxPixelDensity = maxPixelDensity,
+				SizeWidths = sizeWidths
+			};
+			AddVariants(parameters, variants);
+		}
+	}
+
+	private static bool TryValidateCatalogConfiguration(
+		SourceProductionContext context,
+		ImmutableArray<RazorFileInput> razorFiles,
+		string projectCatalogName,
+		out ImmutableArray<RazorFileInput> uniqueRazorFiles)
+	{
+		var errors = new List<string>();
+		RazorFileInput[] normalizedFiles =
+		[
+			.. razorFiles.Select(x => string.IsNullOrWhiteSpace(x.CatalogName) && !x.IsExternalSource
+				? x with { CatalogName = projectCatalogName }
+				: x)
+		];
+		string[] allCatalogNames = normalizedFiles.Select(x => x.CatalogName).Append(projectCatalogName).ToArray();
+
+		foreach (string name in allCatalogNames.Where(string.IsNullOrWhiteSpace).Distinct(StringComparer.Ordinal))
+			errors.Add("catalog names cannot be empty");
+
+		foreach (IGrouping<string, string> collision in allCatalogNames
+			.Where(x => !string.IsNullOrWhiteSpace(x))
+			.GroupBy(x => x, StringComparer.OrdinalIgnoreCase)
+			.Where(x => x.Distinct(StringComparer.Ordinal).Count() > 1))
+		{
+			errors.Add($"catalog names '{string.Join("', '", collision.Distinct(StringComparer.Ordinal))}' differ only by case");
+		}
+
+		foreach (string name in allCatalogNames.Where(x => !string.IsNullOrWhiteSpace(x) && SanitizeIdentifier(x).Length is 0).Distinct(StringComparer.OrdinalIgnoreCase))
+			errors.Add($"catalog name '{name}' does not contain any valid identifier characters");
+
+		var identifierCollisions = allCatalogNames
+			.Where(x => !string.IsNullOrWhiteSpace(x))
+			.GroupBy(SanitizeIdentifier, StringComparer.OrdinalIgnoreCase)
+			.Where(x => x.Select(y => y).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1);
+
+		foreach (IGrouping<string, string> collision in identifierCollisions)
+			errors.Add($"catalog names '{string.Join("', '", collision.Distinct(StringComparer.OrdinalIgnoreCase))}' produce the same generated identifier '{collision.Key}'");
+
+		var filesByPath = normalizedFiles.GroupBy(x => x.Path, StringComparer.OrdinalIgnoreCase);
+		var unique = ImmutableArray.CreateBuilder<RazorFileInput>();
+
+		foreach (IGrouping<string, RazorFileInput> group in filesByPath)
+		{
+			string[] owners = [.. group.Select(x => x.CatalogName).Distinct(StringComparer.OrdinalIgnoreCase)];
+
+			if (owners.Length > 1)
+			{
+				errors.Add($"Razor file '{group.Key}' belongs to more than one catalog: {string.Join(", ", owners)}");
+				continue;
+			}
+
+			unique.Add(group.First());
+		}
+
+		foreach (string error in errors.Distinct(StringComparer.Ordinal))
+			context.ReportDiagnostic(Diagnostic.Create(_invalidCatalogConfigurationRule, Location.None, error));
+
+		uniqueRazorFiles = unique.ToImmutable();
+		return errors.Count is 0;
+	}
+
+	private static HashSet<VariantEntry> GetOrAddCatalog(IDictionary<string, HashSet<VariantEntry>> catalogs, string catalogName)
+	{
+		if (!catalogs.TryGetValue(catalogName, out HashSet<VariantEntry>? variants))
+		{
+			variants = [];
+			catalogs.Add(catalogName, variants);
+		}
+
+		return variants;
 	}
 
 	private static void CollectBlockVariants(
@@ -166,21 +418,27 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 				parameters.StaticUrl = TryGetStaticString(valueExpression, semanticModel, cancellationToken, out string? url) ? url : null;
 				break;
 			case "WidthRequest":
+				parameters.HasUndiscoverableShapingInput |= !HasStaticValue(valueExpression, semanticModel, cancellationToken);
 				parameters.WidthRequest = GetStaticPositiveIntOrDefault(valueExpression, semanticModel, DefaultWidthRequest, cancellationToken);
 				break;
 			case "HeightRequest":
+				parameters.HasUndiscoverableShapingInput |= !HasStaticValue(valueExpression, semanticModel, cancellationToken);
 				parameters.HeightRequest = GetStaticPositiveIntOrDefault(valueExpression, semanticModel, DefaultHeightRequest, cancellationToken);
 				break;
 			case "ResizeMode":
+				parameters.HasUndiscoverableShapingInput |= !HasStaticValue(valueExpression, semanticModel, cancellationToken);
 				parameters.ResizeMode = GetStaticEnumValueOrDefault(valueExpression, semanticModel, validResizeModes, DefaultResizeMode, cancellationToken);
 				break;
 			case "ImageFormat":
+				parameters.HasUndiscoverableShapingInput |= !HasStaticValue(valueExpression, semanticModel, cancellationToken);
 				parameters.ImageFormat = GetStaticEnumValueOrDefault(valueExpression, semanticModel, validImageFormats, DefaultImageFormat, cancellationToken);
 				break;
 			case "MaxPixelDensity":
+				parameters.HasUndiscoverableShapingInput |= !HasStaticValue(valueExpression, semanticModel, cancellationToken);
 				parameters.MaxPixelDensity = GetStaticPositiveIntOrDefault(valueExpression, semanticModel, DefaultMaxPixelDensity, cancellationToken);
 				break;
 			case "SizeWidths":
+				parameters.HasUndiscoverableShapingInput |= !HasStaticValue(valueExpression, semanticModel, cancellationToken);
 				parameters.SizeWidths = TryGetStaticString(valueExpression, semanticModel, cancellationToken, out string? sizeWidths)
 					? ParseSizeWidths(sizeWidths)
 					: null;
@@ -309,21 +567,27 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		switch (propertyName)
 		{
 			case "WidthRequest":
+				parameters.HasUndiscoverableShapingInput |= !HasStaticValue(valueExpr, semanticModel, cancellationToken);
 				parameters.WidthRequest = GetStaticPositiveIntOrDefault(valueExpr, semanticModel, 0, cancellationToken);
 				break;
 			case "HeightRequest":
+				parameters.HasUndiscoverableShapingInput |= !HasStaticValue(valueExpr, semanticModel, cancellationToken);
 				parameters.HeightRequest = GetStaticPositiveIntOrDefault(valueExpr, semanticModel, 0, cancellationToken);
 				break;
 			case "ResizeMode":
+				parameters.HasUndiscoverableShapingInput |= !HasStaticValue(valueExpr, semanticModel, cancellationToken);
 				parameters.ResizeMode = GetStaticEnumValueOrDefault(valueExpr, semanticModel, validResizeModes, DefaultResizeMode, cancellationToken);
 				break;
 			case "ImageFormat":
+				parameters.HasUndiscoverableShapingInput |= !HasStaticValue(valueExpr, semanticModel, cancellationToken);
 				parameters.ImageFormat = GetStaticEnumValueOrDefault(valueExpr, semanticModel, validImageFormats, DefaultImageFormat, cancellationToken);
 				break;
 			case "ImageMaxPixelDensity":
+				parameters.HasUndiscoverableShapingInput |= !HasStaticValue(valueExpr, semanticModel, cancellationToken);
 				parameters.MaxPixelDensity = GetStaticPositiveIntOrDefault(valueExpr, semanticModel, DefaultMaxPixelDensity, cancellationToken);
 				break;
 			case "SizeWidths" when supportsSizeWidths:
+				parameters.HasUndiscoverableShapingInput |= !HasStaticValue(valueExpr, semanticModel, cancellationToken);
 				parameters.SizeWidths = TryGetStaticString(valueExpr, semanticModel, cancellationToken, out string? sw)
 					? ParseSizeWidths(sw)
 					: null;
@@ -344,6 +608,9 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 	/// </summary>
 	private static void AddTagHelperVariants(TagHelperVariantParameters parameters, ISet<VariantEntry> variants)
 	{
+		if (parameters.HasUndiscoverableShapingInput)
+			return;
+
 		int widthRequest = parameters.WidthRequest;
 		int heightRequest = parameters.HeightRequest;
 		int resizeMode = parameters.ResizeMode;
@@ -385,6 +652,9 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 
 	private static void AddVariants(ComponentVariantParameters parameters, ISet<VariantEntry> variants)
 	{
+		if (parameters.HasUndiscoverableShapingInput)
+			return;
+
 		if (IsStaticHttpUrl(parameters.StaticUrl))
 			return;
 
@@ -516,8 +786,25 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		return constantValue.Value is null || constantValue.Value is string;
 	}
 
+	private static bool HasStaticValue(ExpressionSyntax? expression, SemanticModel semanticModel, CancellationToken cancellationToken)
+	{
+		if (expression is null)
+			return false;
+
+		return semanticModel.GetConstantValue(UnwrapExpression(expression, semanticModel, cancellationToken), cancellationToken).HasValue;
+	}
+
 	private static HashSet<int> GetEnumValues(INamedTypeSymbol enumType)
 		=> [.. enumType.GetMembers().OfType<IFieldSymbol>().Where(x => x.HasConstantValue && x.ConstantValue is not null).Select(x => Convert.ToInt32(x.ConstantValue, System.Globalization.CultureInfo.InvariantCulture))];
+
+	private static Dictionary<string, int> GetEnumValueMap(INamedTypeSymbol enumType)
+		=> enumType.GetMembers()
+			.OfType<IFieldSymbol>()
+			.Where(x => x.HasConstantValue && x.ConstantValue is not null)
+			.ToDictionary(
+				x => x.Name,
+				x => Convert.ToInt32(x.ConstantValue, System.Globalization.CultureInfo.InvariantCulture),
+				StringComparer.Ordinal);
 
 	private static bool TryGetInvocationStatement(StatementSyntax statement, out InvocationExpressionSyntax? invocation)
 	{
@@ -611,9 +898,8 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			   string.Equals(methodSymbol.ContainingType.ToDisplayString(), RuntimeHelpersTypeName, StringComparison.Ordinal);
 	}
 
-	private static string GenerateSource(IEnumerable<VariantEntry> variants)
+	private static string GenerateSource(IReadOnlyDictionary<string, HashSet<VariantEntry>> variantsByCatalog)
 	{
-		VariantEntry[] orderedVariants = [.. variants.OrderBy(x => x.Width).ThenBy(x => x.Height).ThenBy(x => x.ResizeMode).ThenBy(x => x.ImageFormat)];
 		var builder = new StringBuilder();
 
 		_ = builder.AppendLine("// <auto-generated />");
@@ -621,15 +907,23 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		_ = builder.AppendLine();
 		_ = builder.AppendLine("namespace Umbrella.Generated.DynamicImage");
 		_ = builder.AppendLine("{");
-		_ = builder.AppendLine("\t/// <summary>");
-		_ = builder.AppendLine("\t/// Contains Dynamic Image variants inferred from statically declared UmbrellaDynamicImage component usages");
-		_ = builder.AppendLine("\t/// and MVC DynamicImageTagHelper / DynamicImagePictureSourceTagHelper usages.");
-		_ = builder.AppendLine("\t/// </summary>");
-		_ = builder.AppendLine("\tpublic static class UmbrellaDynamicImageComponentVariantCatalog");
+
+		foreach (KeyValuePair<string, HashSet<VariantEntry>> catalog in variantsByCatalog.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+			AppendCatalog(builder, SanitizeIdentifier(catalog.Key) + "DynamicImageVariantCatalog", catalog.Value);
+
+		HashSet<VariantEntry> aggregate = [.. variantsByCatalog.Values.SelectMany(x => x)];
+		AppendCatalog(builder, "DynamicImageVariantCatalog", aggregate);
+		_ = builder.AppendLine("}");
+
+		return builder.ToString();
+	}
+
+	private static void AppendCatalog(StringBuilder builder, string typeName, IEnumerable<VariantEntry> variants)
+	{
+		VariantEntry[] orderedVariants = [.. variants.OrderBy(x => x.Width).ThenBy(x => x.Height).ThenBy(x => x.ResizeMode).ThenBy(x => x.ImageFormat)];
+		_ = builder.AppendLine("\t/// <summary>Contains statically discovered Dynamic Image variants.</summary>");
+		_ = builder.AppendLine($"\tpublic static class {typeName}");
 		_ = builder.AppendLine("\t{");
-		_ = builder.AppendLine("\t\t/// <summary>");
-		_ = builder.AppendLine("\t\t/// Gets all generated Dynamic Image variants.");
-		_ = builder.AppendLine("\t\t/// </summary>");
 		_ = builder.Append("\t\tpublic static readonly global::System.Collections.Generic.IReadOnlyList<global::Umbrella.DynamicImage.Abstractions.DynamicImageVariant> All = ");
 
 		if (orderedVariants.Length is 0)
@@ -651,13 +945,109 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		}
 
 		_ = builder.AppendLine("\t}");
-		_ = builder.AppendLine("}");
+	}
+
+	private static string NormalizeRazorAttributeName(string name, bool isTagHelper)
+	{
+		if (!isTagHelper)
+			return name;
+
+		return name.ToLowerInvariant() switch
+		{
+			"src" => "Src",
+			"width-request" => "WidthRequest",
+			"height-request" => "HeightRequest",
+			"resize-mode" => "ResizeMode",
+			"image-format" => "ImageFormat",
+			"image-density" => "ImageMaxPixelDensity",
+			"size-widths" => "SizeWidths",
+			_ => string.Empty
+		};
+	}
+
+	private static bool IsVariantShapingAttribute(string name, bool isTagHelper)
+		=> name is "WidthRequest" or "HeightRequest" or "ResizeMode" or "ImageFormat" or "SizeWidths" ||
+		   (!isTagHelper && name is "MaxPixelDensity") ||
+		   (isTagHelper && name is "ImageMaxPixelDensity");
+
+	private static bool IsRazorFile(string path)
+	{
+		if (path.EndsWith(".umbrella-dynamic-image", StringComparison.OrdinalIgnoreCase))
+			path = path.Substring(0, path.Length - ".umbrella-dynamic-image".Length);
+
+		string extension = Path.GetExtension(path);
+		return string.Equals(extension, ".razor", StringComparison.OrdinalIgnoreCase) ||
+			   string.Equals(extension, ".cshtml", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static bool IsRazorGeneratedSyntaxTree(SyntaxTree syntaxTree)
+	{
+		string path = syntaxTree.FilePath;
+		return path.EndsWith(".razor.g.cs", StringComparison.OrdinalIgnoreCase) ||
+			   path.EndsWith(".cshtml.g.cs", StringComparison.OrdinalIgnoreCase) ||
+			   path.IndexOf("_razor.g.cs", StringComparison.OrdinalIgnoreCase) >= 0 ||
+			   path.IndexOf("_cshtml.g.cs", StringComparison.OrdinalIgnoreCase) >= 0;
+	}
+
+	private static RazorFileInput CreateRazorFileInput(
+		AdditionalText file,
+		AnalyzerConfigOptionsProvider optionsProvider,
+		CancellationToken cancellationToken)
+	{
+		AnalyzerConfigOptions options = optionsProvider.GetOptions(file);
+		_ = options.TryGetValue("build_metadata.AdditionalFiles.UmbrellaDynamicImageCatalogName", out string? catalogName);
+		bool isExternalSource =
+			options.TryGetValue("build_metadata.AdditionalFiles.UmbrellaDynamicImageExternalSource", out string? externalSource) &&
+			bool.TryParse(externalSource, out bool parsedExternalSource) &&
+			parsedExternalSource;
+		_ = options.TryGetValue("build_metadata.AdditionalFiles.UmbrellaDynamicImageOriginalSourcePath", out string? originalSourcePath);
+		SourceText text = file.GetText(cancellationToken) ?? SourceText.From(string.Empty, Encoding.UTF8);
+		return new RazorFileInput(
+			string.IsNullOrWhiteSpace(originalSourcePath) ? file.Path : originalSourcePath!,
+			text,
+			catalogName ?? string.Empty,
+			isExternalSource);
+	}
+
+	private static string GetProjectCatalogName(AnalyzerConfigOptionsProvider optionsProvider)
+	{
+		if (optionsProvider.GlobalOptions.TryGetValue("build_property.UmbrellaDynamicImageCatalogName", out string? configuredName) &&
+			!string.IsNullOrWhiteSpace(configuredName))
+		{
+			return configuredName;
+		}
+
+		if (optionsProvider.GlobalOptions.TryGetValue("build_property.MSBuildProjectName", out string? projectName) &&
+			!string.IsNullOrWhiteSpace(projectName))
+		{
+			return projectName;
+		}
+
+		return "Project";
+	}
+
+	private static string SanitizeIdentifier(string value)
+	{
+		var builder = new StringBuilder(value.Length + 1);
+
+		foreach (char character in value)
+		{
+			if (char.IsLetterOrDigit(character) || character is '_')
+				_ = builder.Append(character);
+		}
+
+		if (builder.Length is 0)
+			return string.Empty;
+
+		if (!char.IsLetter(builder[0]) && builder[0] is not '_')
+			_ = builder.Insert(0, '_');
 
 		return builder.ToString();
 	}
 
 	private sealed class TagHelperVariantParameters
 	{
+		public bool HasUndiscoverableShapingInput { get; set; }
 		public int WidthRequest { get; set; }
 		public int HeightRequest { get; set; }
 		public int ResizeMode { get; set; } = DefaultResizeMode;
@@ -668,6 +1058,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 
 	private sealed class ComponentVariantParameters
 	{
+		public bool HasUndiscoverableShapingInput { get; set; }
 		public string? StaticUrl { get; set; }
 
 		public int WidthRequest { get; set; } = DefaultWidthRequest;
@@ -684,4 +1075,6 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 	}
 
 	private readonly record struct VariantEntry(int Width, int Height, int ResizeMode, int ImageFormat);
+
+	private readonly record struct RazorFileInput(string Path, SourceText Text, string CatalogName, bool IsExternalSource);
 }

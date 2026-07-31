@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Net.Http.Headers;
 using Umbrella.AspNetCore.WebUtilities.Extensions;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.FileSystem.Abstractions;
@@ -89,9 +90,10 @@ public class DynamicImageMiddleware : IDisposable
 			}
 
 			DynamicImageFormat? overrideFormat = null;
+			bool formatNegotiationEnabledForRequest = _options.EnableJpgPngWebPOrAvifOverride
+				&& (path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
 
-			if (_options.EnableJpgPngWebPOrAvifOverride
-				&& (path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".png", StringComparison.OrdinalIgnoreCase)))
+			if (formatNegotiationEnabledForRequest)
 			{
 				overrideFormat = context switch
 				{
@@ -116,23 +118,23 @@ public class DynamicImageMiddleware : IDisposable
 				return;
 			}
 
+			if (!_options.ImageOptionsAllowed(requestedImageOptions))
+			{
+				context.Response.SendStatusCode(HttpStatusCode.NotFound);
+				return;
+			}
+
+			DynamicImageMiddlewareMapping mapping = _options.GetMapping(requestedImageOptions.SourcePath);
+
+			if (mapping is null || (_options.EnableValidation && !_dynamicImageUtility.ImageOptionsValid(requestedImageOptions, _options.AllowedVariants)))
+			{
+				context.Response.SendStatusCode(HttpStatusCode.NotFound);
+				return;
+			}
+
 			DynamicImageOptions imageOptions = overrideFormat.HasValue
 				? CreateDynamicImageOptions(requestedImageOptions, overrideFormat.Value)
 				: requestedImageOptions;
-
-			if (!_options.ImageOptionsAllowed(imageOptions))
-			{
-				context.Response.SendStatusCode(HttpStatusCode.NotFound);
-				return;
-			}
-
-			DynamicImageMiddlewareMapping mapping = _options.GetMapping(imageOptions.SourcePath);
-
-			if (mapping is null || (_options.EnableValidation && !_dynamicImageUtility.ImageOptionsValid(imageOptions, _options.AllowedVariants)))
-			{
-				context.Response.SendStatusCode(HttpStatusCode.NotFound);
-				return;
-			}
 
 			IUmbrellaFileInfo? sourceFile = await mapping.FileProviderMapping.FileProvider.GetAsync(imageOptions.SourcePath, context.RequestAborted);
 
@@ -163,6 +165,9 @@ public class DynamicImageMiddleware : IDisposable
 			void ApplyResponseHeaders()
 			{
 				context.Response.Headers.XContentTypeOptions = "nosniff";
+
+				if (formatNegotiationEnabledForRequest)
+					context.Response.Headers.AppendCommaSeparatedValues(HeaderNames.Vary, HeaderNames.Accept);
 
 				if (mapping.Cacheability is MiddlewareHttpCacheability.NoCache && hasValidators)
 				{

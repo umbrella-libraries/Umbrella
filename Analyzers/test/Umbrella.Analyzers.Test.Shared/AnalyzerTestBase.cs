@@ -95,6 +95,31 @@ public abstract class AnalyzerTestBase<T>
 	}
 
 	/// <summary>
+	/// Runs the analyzer with additional non-C# source files.
+	/// </summary>
+	protected static async Task VerifyAnalyzerWithAdditionalFilesAsync(
+		string source,
+		IEnumerable<(string Path, string Text)> additionalFiles,
+		params ExpectedDiagnostic[] expected)
+	{
+		ArgumentNullException.ThrowIfNull(additionalFiles);
+		ArgumentNullException.ThrowIfNull(expected);
+
+		CSharpCompilation compilation = CreateCompilation(source);
+		var analyzer = new T();
+		ImmutableArray<AdditionalText> texts =
+		[
+			.. additionalFiles.Select(x => (AdditionalText)new InMemoryAdditionalText(x.Path, x.Text))
+		];
+		var analyzerOptions = new AnalyzerOptions(texts);
+		CompilationWithAnalyzers compilationWithAnalyzers = compilation.WithAnalyzers([analyzer], analyzerOptions);
+		ImmutableArray<Diagnostic> diagnostics = await compilationWithAnalyzers.GetAnalyzerDiagnosticsAsync();
+		Diagnostic[] analyzerDiagnostics = [.. diagnostics.Where(d => _rulePrefixes.Any(x => d.Id.StartsWith(x, StringComparison.Ordinal)))];
+
+		VerifyDiagnostics(analyzerDiagnostics, expected);
+	}
+
+	/// <summary>
 	/// Runs the analyzer on the provided source code with additional metadata references and verifies no diagnostics are
 	/// reported.
 	/// </summary>
@@ -232,6 +257,20 @@ public abstract class AnalyzerTestBase<T>
 			var lineSpan = diagnostic.Location.GetLineSpan();
 			Console.WriteLine($"  {diagnostic.Id}: {diagnostic.GetMessage(CultureInfo.InvariantCulture)} at line {lineSpan.StartLinePosition.Line + 1}, column {lineSpan.StartLinePosition.Character + 1}");
 		}
+	}
+
+	private sealed class InMemoryAdditionalText : AdditionalText
+	{
+		private readonly Microsoft.CodeAnalysis.Text.SourceText _text;
+		public override string Path { get; }
+
+		public InMemoryAdditionalText(string path, string text)
+		{
+			Path = path;
+			_text = Microsoft.CodeAnalysis.Text.SourceText.From(text);
+		}
+
+		public override Microsoft.CodeAnalysis.Text.SourceText GetText(CancellationToken cancellationToken = default) => _text;
 	}
 }
 

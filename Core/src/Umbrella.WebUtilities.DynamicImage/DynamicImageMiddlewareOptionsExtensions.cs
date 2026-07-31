@@ -20,7 +20,7 @@ public static class DynamicImageMiddlewareOptionsExtensions
 	/// <returns>The same <see cref="DynamicImageMiddlewareOptions" /> instance.</returns>
 	/// <remarks>
 	/// This is intended for wiring generated catalogs such as
-	/// <c>Umbrella.Generated.DynamicImage.UmbrellaDynamicImageComponentVariantCatalog.All</c> into runtime middleware configuration.
+	/// <c>Umbrella.Generated.DynamicImage.DynamicImageVariantCatalog.All</c> into runtime middleware configuration.
 	/// Existing <see cref="DynamicImageMiddlewareOptions.AllowedVariants" /> entries are preserved.
 	/// </remarks>
 	public static DynamicImageMiddlewareOptions AddAllowedVariants(
@@ -35,6 +35,37 @@ public static class DynamicImageMiddlewareOptionsExtensions
 
 		foreach (DynamicImageVariant variant in variants)
 			_ = options.AllowedVariants.Add(variant);
+
+		if (enableValidation)
+			options.EnableValidation = true;
+
+		return options;
+	}
+
+	/// <summary>
+	/// Adds allowed Dynamic Image variants from multiple catalogs and optionally enables validation.
+	/// </summary>
+	/// <param name="options">The options.</param>
+	/// <param name="catalogs">The variant catalogs to merge.</param>
+	/// <param name="enableValidation"><see langword="true" /> to enable validation after every catalog has been merged; otherwise <see langword="false" />.</param>
+	/// <returns>The same <see cref="DynamicImageMiddlewareOptions" /> instance.</returns>
+	public static DynamicImageMiddlewareOptions AddAllowedVariantCatalogs(
+		this DynamicImageMiddlewareOptions options,
+		IEnumerable<IEnumerable<DynamicImageVariant>> catalogs,
+		bool enableValidation = true)
+	{
+		Guard.IsNotNull(options);
+		Guard.IsNotNull(catalogs);
+
+		options.AllowedVariants ??= [];
+
+		foreach (IEnumerable<DynamicImageVariant> catalog in catalogs)
+		{
+			Guard.IsNotNull(catalog);
+
+			foreach (DynamicImageVariant variant in catalog)
+				_ = options.AllowedVariants.Add(variant);
+		}
 
 		if (enableValidation)
 			options.EnableValidation = true;

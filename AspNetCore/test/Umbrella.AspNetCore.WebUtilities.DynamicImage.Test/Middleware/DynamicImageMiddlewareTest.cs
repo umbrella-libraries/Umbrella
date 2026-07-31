@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Net.Http.Headers;
 using Moq;
 using Umbrella.AspNetCore.WebUtilities.DynamicImage.Middleware;
 using Umbrella.DynamicImage.Abstractions;
@@ -36,6 +37,56 @@ public class DynamicImageMiddlewareTest
 		Assert.Equal(2, options.AllowedVariants.Count);
 		Assert.Contains(existingVariant, options.AllowedVariants);
 		Assert.Contains(generatedVariant, options.AllowedVariants);
+	}
+
+	[Fact]
+	public void AddAllowedVariantCatalogs_MergesCatalogsAndEnablesValidationOnce()
+	{
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		DynamicImageVariant existingVariant = new(90, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg);
+		DynamicImageVariant sharedVariant = new(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg);
+		DynamicImageVariant serverVariant = new(300, 200, DynamicResizeMode.Crop, DynamicImageFormat.WebP);
+		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
+		options.AllowedVariants = [existingVariant];
+
+		DynamicImageMiddlewareOptions returnedOptions = options.AddAllowedVariantCatalogs(
+		[
+			[sharedVariant],
+			[sharedVariant, serverVariant]
+		]);
+
+		Assert.Same(options, returnedOptions);
+		Assert.True(options.EnableValidation);
+		Assert.Equal(3, options.AllowedVariants.Count);
+		Assert.Contains(existingVariant, options.AllowedVariants);
+		Assert.Contains(sharedVariant, options.AllowedVariants);
+		Assert.Contains(serverVariant, options.AllowedVariants);
+	}
+
+	[Fact]
+	public void AddAllowedVariantCatalogs_WhenValidationDisabled_PreservesDisabledState()
+	{
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
+
+		_ = options.AddAllowedVariantCatalogs(
+			[
+				[new DynamicImageVariant(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)]
+			],
+			enableValidation: false);
+
+		Assert.False(options.EnableValidation);
+		_ = Assert.Single(options.AllowedVariants);
+	}
+
+	[Fact]
+	public void AddAllowedVariantCatalogs_WhenCatalogIsNull_Throws()
+	{
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
+		IEnumerable<DynamicImageVariant>? nullCatalog = null;
+
+		_ = Assert.Throws<ArgumentNullException>(() => options.AddAllowedVariantCatalogs([nullCatalog!]));
 	}
 
 	[Fact]
@@ -124,6 +175,227 @@ public class DynamicImageMiddlewareTest
 		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Once);
 	}
 
+	[Theory]
+	[InlineData("image/webp", DynamicImageFormat.WebP)]
+	[InlineData("image/avif", DynamicImageFormat.Avif)]
+	public async Task InvokeAsync_ValidatesRequestedFormatBeforeNegotiatingResponseFormat(string acceptHeader, DynamicImageFormat negotiatedFormat)
+	{
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		var sourceFile = new Mock<IUmbrellaFileInfo>(MockBehavior.Strict);
+		_ = sourceFile.SetupGet(x => x.LastModified).Returns((DateTimeOffset?)null);
+		_ = fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync(sourceFile.Object);
+
+		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
+		_ = resizer.Setup(x => x.SupportsFormat(negotiatedFormat)).Returns(true);
+
+		DynamicImageOptions negotiatedOptions = new("/images/test.png", 100, 200, DynamicResizeMode.Crop, negotiatedFormat);
+		DynamicImageItem cachedItem = new()
+		{
+			Content = new byte[] { 1, 2, 3 },
+			ImageOptions = negotiatedOptions
+		};
+
+		_ = resizer
+			.Setup(x => x.GetCachedItemAsync(
+				sourceFile.Object,
+				It.Is<DynamicImageOptions>(options => options == negotiatedOptions),
+				It.IsAny<CancellationToken>()))
+			.ReturnsAsync(cachedItem);
+
+		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
+		_ = options.AddAllowedVariants(
+		[
+			new DynamicImageVariant(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
+		]);
+		DynamicImageMiddleware middleware = CreateMiddleware(options, resizer: resizer.Object);
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg");
+		context.Request.Headers.Accept = acceptHeader;
+		context.Response.Headers.Vary = "Origin";
+
+		await middleware.InvokeAsync(context);
+
+		Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+		Assert.Equal(negotiatedFormat is DynamicImageFormat.WebP ? "image/webp" : "image/avif", context.Response.ContentType);
+		Assert.Equal(3, context.Response.ContentLength);
+
+		string[] varyValues = context.Response.Headers.Vary
+			.ToString()
+			.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+		Assert.Contains("Origin", varyValues, StringComparer.OrdinalIgnoreCase);
+		Assert.Contains(HeaderNames.Accept, varyValues, StringComparer.OrdinalIgnoreCase);
+		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Once);
+		resizer.VerifyAll();
+	}
+
+	[Fact]
+	public async Task InvokeAsync_ReturnsNotModified_WhenIfNoneMatchMatches()
+	{
+		DateTimeOffset lastModified = new(2026, 7, 14, 12, 0, 0, TimeSpan.Zero);
+		string lastModifiedHeaderValue = lastModified.ToString("R");
+		const string eTagValue = "\"abc123\"";
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		var sourceFile = new Mock<IUmbrellaFileInfo>(MockBehavior.Strict);
+		_ = sourceFile.SetupGet(x => x.LastModified).Returns(lastModified);
+		_ = sourceFile.SetupGet(x => x.Length).Returns(123L);
+		_ = fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync(sourceFile.Object);
+
+		var headerValueUtility = new Mock<IHttpHeaderValueUtility>(MockBehavior.Strict);
+		_ = headerValueUtility.Setup(x => x.CreateLastModifiedHeaderValue(lastModified)).Returns(lastModifiedHeaderValue);
+		_ = headerValueUtility.Setup(x => x.CreateETagHeaderValue(lastModified, 123L)).Returns(eTagValue);
+
+		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
+		_ = resizer.Setup(x => x.SupportsFormat(DynamicImageFormat.WebP)).Returns(true);
+		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
+		options.EnableUrlFingerprinting = false;
+		DynamicImageMiddleware middleware = CreateMiddleware(options, headerValueUtility.Object, resizer.Object);
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg");
+		context.Request.Headers.Accept = "image/webp";
+		context.Request.Headers.IfNoneMatch = eTagValue;
+		context.Request.Headers.IfModifiedSince = lastModifiedHeaderValue;
+		context.Response.Headers.Vary = "Origin";
+
+		await middleware.InvokeAsync(context);
+
+		Assert.Equal(StatusCodes.Status304NotModified, context.Response.StatusCode);
+		Assert.Equal("no-cache", context.Response.Headers.CacheControl);
+		Assert.Equal(eTagValue, context.Response.Headers.ETag);
+		Assert.Equal(lastModifiedHeaderValue, context.Response.Headers.LastModified);
+		Assert.Equal(0, context.Response.Body.Length);
+
+		string[] varyValues = context.Response.Headers.Vary
+			.ToString()
+			.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+		Assert.Contains("Origin", varyValues, StringComparer.OrdinalIgnoreCase);
+		Assert.Contains(HeaderNames.Accept, varyValues, StringComparer.OrdinalIgnoreCase);
+		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Once);
+		headerValueUtility.VerifyAll();
+		resizer.Verify(x => x.SupportsFormat(DynamicImageFormat.WebP), Times.Once);
+		resizer.VerifyNoOtherCalls();
+	}
+
+	[Fact]
+	public async Task InvokeAsync_ReturnsNotModified_WhenIfModifiedSinceMatches()
+	{
+		DateTimeOffset lastModified = new(2026, 7, 14, 12, 0, 0, TimeSpan.Zero);
+		string lastModifiedHeaderValue = lastModified.ToString("R");
+		const string eTagValue = "\"abc123\"";
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		var sourceFile = new Mock<IUmbrellaFileInfo>(MockBehavior.Strict);
+		_ = sourceFile.SetupGet(x => x.LastModified).Returns(lastModified);
+		_ = sourceFile.SetupGet(x => x.Length).Returns(123L);
+		_ = fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync(sourceFile.Object);
+
+		var headerValueUtility = new Mock<IHttpHeaderValueUtility>(MockBehavior.Strict);
+		_ = headerValueUtility.Setup(x => x.CreateLastModifiedHeaderValue(lastModified)).Returns(lastModifiedHeaderValue);
+		_ = headerValueUtility.Setup(x => x.CreateETagHeaderValue(lastModified, 123L)).Returns(eTagValue);
+
+		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
+		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
+		options.EnableUrlFingerprinting = false;
+		DynamicImageMiddleware middleware = CreateMiddleware(options, headerValueUtility.Object, resizer.Object);
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg");
+		context.Request.Headers.Accept = "image/jpeg";
+		context.Request.Headers.IfModifiedSince = lastModifiedHeaderValue;
+
+		await middleware.InvokeAsync(context);
+
+		Assert.Equal(StatusCodes.Status304NotModified, context.Response.StatusCode);
+		Assert.Equal("no-cache", context.Response.Headers.CacheControl);
+		Assert.Equal(eTagValue, context.Response.Headers.ETag);
+		Assert.Equal(lastModifiedHeaderValue, context.Response.Headers.LastModified);
+		Assert.Equal(HeaderNames.Accept, context.Response.Headers.Vary);
+		Assert.Equal(0, context.Response.Body.Length);
+		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Once);
+		headerValueUtility.VerifyAll();
+		resizer.VerifyNoOtherCalls();
+	}
+
+	[Theory]
+	[InlineData("101/200/Crop")]
+	[InlineData("100/201/Crop")]
+	[InlineData("100/200/UseWidth")]
+	public async Task InvokeAsync_ReturnsNotFoundForUnregisteredTransform_WhenResponseFormatWouldBeNegotiated(string transform)
+	{
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
+		_ = resizer.Setup(x => x.SupportsFormat(DynamicImageFormat.WebP)).Returns(true);
+		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
+		_ = options.AddAllowedVariants(
+		[
+			new DynamicImageVariant(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
+		]);
+		DynamicImageMiddleware middleware = CreateMiddleware(options, resizer: resizer.Object);
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/{transform}/png/images/test.jpg");
+		context.Request.Headers.Accept = "image/webp";
+
+		await middleware.InvokeAsync(context);
+
+		Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+		fileProvider.Verify(x => x.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+		resizer.VerifyAll();
+	}
+
+	[Fact]
+	public async Task InvokeAsync_ReturnsNotFound_WhenExplicitlyRequestedFormatIsNotRegistered()
+	{
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
+		_ = options.AddAllowedVariants(
+		[
+			new DynamicImageVariant(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
+		]);
+		DynamicImageMiddleware middleware = CreateMiddleware(options);
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.webp");
+
+		await middleware.InvokeAsync(context);
+
+		Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+		fileProvider.Verify(x => x.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+	}
+
+	[Fact]
+	public async Task InvokeAsync_AllowsExplicitlyRequestedFormat_WhenThatFormatIsRegistered()
+	{
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		_ = fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync((IUmbrellaFileInfo?)null);
+		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
+		_ = options.AddAllowedVariants(
+		[
+			new DynamicImageVariant(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.WebP)
+		]);
+		DynamicImageMiddleware middleware = CreateMiddleware(options);
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.webp");
+
+		await middleware.InvokeAsync(context);
+
+		Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Once);
+	}
+
+	[Fact]
+	public async Task InvokeAsync_DoesNotNegotiateFormat_WhenOverrideIsDisabled()
+	{
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		_ = fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync((IUmbrellaFileInfo?)null);
+		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
+		options.EnableJpgPngWebPOrAvifOverride = false;
+		_ = options.AddAllowedVariants(
+		[
+			new DynamicImageVariant(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
+		]);
+		DynamicImageMiddleware middleware = CreateMiddleware(options);
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg");
+		context.Request.Headers.Accept = "image/webp";
+
+		await middleware.InvokeAsync(context);
+
+		Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+		Assert.False(context.Response.Headers.ContainsKey(HeaderNames.Vary));
+		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Once);
+	}
+
 	[Fact]
 	public async Task InvokeAsync_RedirectsToFingerprintedUrl_PreservingRawQueryString()
 	{
@@ -161,19 +433,26 @@ public class DynamicImageMiddlewareTest
 		Assert.Equal($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg", context.Response.Headers.Location);
 	}
 
-	private static DynamicImageMiddleware CreateMiddleware(DynamicImageMiddlewareOptions options, IHttpHeaderValueUtility? headerValueUtility = null)
+	private static DynamicImageMiddleware CreateMiddleware(
+		DynamicImageMiddlewareOptions options,
+		IHttpHeaderValueUtility? headerValueUtility = null,
+		IDynamicImageResizer? resizer = null)
 	{
 		RequestDelegate next = _ => Task.CompletedTask;
 
-		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
+		var defaultResizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
 		var defaultHeaderValueUtility = new Mock<IHttpHeaderValueUtility>(MockBehavior.Strict);
-		IMimeTypeUtility mimeTypeUtility = CoreUtilitiesMocks.CreateMimeTypeUtility((".jpg", "image/jpeg"), (".png", "image/png"));
+		IMimeTypeUtility mimeTypeUtility = CoreUtilitiesMocks.CreateMimeTypeUtility(
+			("jpg", "image/jpeg"),
+			("png", "image/png"),
+			("webp", "image/webp"),
+			("avif", "image/avif"));
 
 		return new DynamicImageMiddleware(
 			next,
 			CoreUtilitiesMocks.CreateLogger<DynamicImageMiddleware>(),
 			new DynamicImageUtility(CoreUtilitiesMocks.CreateLogger<DynamicImageUtility>()),
-			resizer.Object,
+			resizer ?? defaultResizer.Object,
 			headerValueUtility ?? defaultHeaderValueUtility.Object,
 			mimeTypeUtility,
 			options);

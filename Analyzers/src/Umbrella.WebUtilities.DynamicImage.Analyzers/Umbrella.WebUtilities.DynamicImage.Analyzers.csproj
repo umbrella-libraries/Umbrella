@@ -19,7 +19,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Compile Include="..\..\..\DynamicImage\analysis\DynamicImageRazorSourceParser.cs" Link="DynamicImageRazorSourceParser.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<None Include="bin\$(Configuration)\netstandard2.0\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+		<None Include="buildTransitive\Umbrella.WebUtilities.DynamicImage.Analyzers.targets" Pack="true" PackagePath="buildTransitive" />
 	</ItemGroup>
 
 	<ItemGroup>

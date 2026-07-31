@@ -210,6 +210,164 @@ public static class ViewRenderer
 		await VerifyNoDiagnosticsAsync(source);
 	}
 
+	[Fact]
+	public async Task RazorComponent_WithLiteralAndEnumInputs_ShouldNotTriggerDiagnostic()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+<UmbrellaDynamicImage WidthRequest="200"
+                      HeightRequest="100"
+                      MaxPixelDensity="1"
+                      ResizeMode="DynamicResizeMode.Crop"
+                      ImageFormat="DynamicImageFormat.WebP" />
+""";
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedBlazorInfrastructureSource,
+			[("C:/app/Test.razor", razor)]);
+	}
+
+	[Fact]
+	public async Task RazorComponent_WithConstantReference_ShouldTriggerDiagnostic()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+<UmbrellaDynamicImage WidthRequest="@CardWidth"
+                      HeightRequest="100" />
+""";
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.NonStaticVariantShapingInputRule,
+			2,
+			23,
+			"WidthRequest");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedBlazorInfrastructureSource,
+			[("C:/app/Test.razor", razor)],
+			expected);
+	}
+
+	[Fact]
+	public async Task PreparedExternalRazorComponent_WithNonStaticInput_ShouldTriggerDiagnostic()
+	{
+		const string razor = """
+<UmbrellaDynamicImage WidthRequest="@Model.Width"
+                      HeightRequest="100" />
+""";
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.NonStaticVariantShapingInputRule,
+			1,
+			23,
+			"WidthRequest");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedBlazorInfrastructureSource,
+			[
+				("C:/app/_Imports.razor.umbrella-dynamic-image", "@using Umbrella.AspNetCore.Blazor.Components.DynamicImage"),
+				("C:/app/Test.razor.umbrella-dynamic-image", razor)
+			],
+			expected);
+	}
+
+	[Fact]
+	public async Task RazorComponent_WithDynamicEnumBinding_ShouldTriggerDiagnostic()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+<UmbrellaDynamicImage WidthRequest="200"
+                      HeightRequest="100"
+                      MaxPixelDensity="1"
+                      ResizeMode="@Model.ResizeMode" />
+""";
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.NonStaticVariantShapingInputRule,
+			5,
+			23,
+			"ResizeMode");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedBlazorInfrastructureSource,
+			[("C:/app/Test.razor", razor)],
+			expected);
+	}
+
+	[Fact]
+	public async Task RazorTagHelper_WithMixedStringExpression_ShouldTriggerDiagnostic()
+	{
+		const string viewImports = "@addTagHelper *, Umbrella.AspNetCore.WebUtilities.DynamicImage";
+		const string view = """
+<dynamic-image src="/images/test.jpg"
+               width-request="200"
+               height-request="100"
+               image-density="1"
+               size-widths="100,@Model.Width" />
+""";
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.NonStaticVariantShapingInputRule,
+			5,
+			16,
+			"SizeWidths");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedTagHelperInfrastructureSource,
+			[
+				("C:/app/Views/_ViewImports.cshtml", viewImports),
+				("C:/app/Views/Test.cshtml", view)
+			],
+			expected);
+	}
+
+	[Fact]
+	public async Task RazorTagHelper_RemovingPictureSourceOnlyLeavesDynamicImageActive()
+	{
+		const string viewImports = """
+@addTagHelper *, Umbrella.AspNetCore.WebUtilities.DynamicImage
+@removeTagHelper Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.DynamicImagePictureSourceTagHelper, Umbrella.AspNetCore.WebUtilities.DynamicImage
+""";
+		const string view = """
+<dynamic-image src="/images/test.jpg"
+               width-request="@Model.Width"
+               height-request="100" />
+""";
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.NonStaticVariantShapingInputRule,
+			2,
+			16,
+			"WidthRequest");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedTagHelperInfrastructureSource,
+			[
+				("C:/app/Views/_ViewImports.cshtml", viewImports),
+				("C:/app/Views/Test.cshtml", view)
+			],
+			expected);
+	}
+
+	[Fact]
+	public async Task RazorTagHelper_UnrelatedTypeDirectiveDoesNotActivateDynamicImage()
+	{
+		const string viewImports =
+			"@addTagHelper Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.UnrelatedTagHelper, Umbrella.AspNetCore.WebUtilities.DynamicImage";
+		const string view = """
+<dynamic-image src="/images/test.jpg"
+               width-request="@Model.Width"
+               height-request="100" />
+""";
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedTagHelperInfrastructureSource,
+			[
+				("C:/app/Views/_ViewImports.cshtml", viewImports),
+				("C:/app/Views/Test.cshtml", view)
+			]);
+	}
+
 	private const string SharedBlazorInfrastructureSource = """
 
 namespace Microsoft.AspNetCore.Components.Rendering
@@ -256,6 +414,10 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
     }
 
     public sealed class DynamicImageTagHelper : DynamicImageTagHelperBase
+    {
+    }
+
+    public sealed class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
     {
     }
 }

@@ -4,6 +4,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Text;
+using Umbrella.DynamicImage.RazorAnalysis;
 
 namespace Umbrella.WebUtilities.DynamicImage.Analyzers;
 
@@ -76,7 +78,8 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		category: "DynamicImageGeneration",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true,
-		description: "DynamicImage usages should keep variant-shaping inputs static when possible so source-generated catalogs can discover and validate the expected variants.");
+		description: "DynamicImage usages should keep variant-shaping inputs static when possible so source-generated catalogs can discover and validate the expected variants.",
+		customTags: [WellKnownDiagnosticTags.CompilationEnd]);
 
 	/// <inheritdoc />
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [MissingVersionTokenPropertyRule, MissingVersionTokenAssignmentRule, MissingVersionTokenUsageRule, NonStaticVariantShapingInputRule];
@@ -106,7 +109,11 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 			startContext.RegisterSyntaxNodeAction(syntaxContext => AnalyzeObjectInitializer(syntaxContext, state), SyntaxKind.ObjectInitializerExpression);
 			startContext.RegisterSyntaxNodeAction(syntaxContext => AnalyzeAssignmentExpression(syntaxContext, state), SyntaxKind.SimpleAssignmentExpression);
 			startContext.RegisterSyntaxNodeAction(syntaxContext => AnalyzeBlock(syntaxContext, state), SyntaxKind.Block);
-			startContext.RegisterCompilationEndAction(compilationContext => ReportDiagnostics(compilationContext, state));
+			startContext.RegisterCompilationEndAction(compilationContext =>
+			{
+				AnalyzeRazorVariantDiscoveryCoverage(compilationContext);
+				ReportDiagnostics(compilationContext, state);
+			});
 		});
 	}
 
@@ -247,8 +254,126 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 		AnalyzeBlazorComponentUsages(context, state, block);
 		AnalyzeTagHelperUsages(context, state, block);
-		AnalyzeBlazorComponentVariantDiscoveryCoverage(context, block);
-		AnalyzeTagHelperVariantDiscoveryCoverage(context, block);
+
+		if (!IsRazorGeneratedSyntaxTree(block.SyntaxTree))
+		{
+			AnalyzeBlazorComponentVariantDiscoveryCoverage(context, block);
+			AnalyzeTagHelperVariantDiscoveryCoverage(context, block);
+		}
+	}
+
+	private static void AnalyzeRazorVariantDiscoveryCoverage(CompilationAnalysisContext context)
+	{
+		bool hasComponentType = context.Compilation.GetTypeByMetadataName("Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage") is not null;
+		bool hasImageTagHelperType = context.Compilation.GetTypeByMetadataName("Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.DynamicImageTagHelper") is not null;
+		bool hasPictureSourceTagHelperType = context.Compilation.GetTypeByMetadataName("Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.DynamicImagePictureSourceTagHelper") is not null;
+
+		if (!hasComponentType && !hasImageTagHelperType && !hasPictureSourceTagHelperType)
+			return;
+
+		DynamicImageRazorDocument[] documents =
+		[
+			.. context.Options.AdditionalFiles
+				.Where(x => IsRazorFile(x.Path))
+				.Select(x => CreateRazorDocument(context, x))
+				.GroupBy(x => x.Path, StringComparer.OrdinalIgnoreCase)
+				.Select(x => x.First())
+		];
+
+		foreach (DynamicImageRazorUsage usage in DynamicImageRazorSourceParser.Parse(
+			documents,
+			hasComponentType,
+			hasImageTagHelperType,
+			hasPictureSourceTagHelperType))
+		{
+			bool isTagHelper = usage.Kind is not DynamicImageRazorUsageKind.Component;
+			string urlName = isTagHelper ? "src" : "Url";
+			DynamicImageRazorAttribute? urlAttribute = usage.Attributes.FirstOrDefault(x => string.Equals(x.Name, urlName, StringComparison.OrdinalIgnoreCase));
+
+			if (urlAttribute is not null &&
+				DynamicImageRazorSourceParser.TryGetStaticString(urlAttribute.Value, out string url) &&
+				IsStaticHttpUrl(url))
+			{
+				continue;
+			}
+
+			var nonStaticInputs = new List<(string Name, DynamicImageRazorAttribute Attribute)>();
+
+			foreach (DynamicImageRazorAttribute attribute in usage.Attributes)
+			{
+				string normalizedName = NormalizeRazorAttributeName(attribute.Name, isTagHelper);
+
+				if (!TryGetVariantShapingInputName(normalizedName, isTagHelper, out string displayName) ||
+					DynamicImageRazorSourceParser.IsDiscoverableValue(normalizedName, attribute.Value, isTagHelper))
+				{
+					continue;
+				}
+
+				if (!nonStaticInputs.Any(x => string.Equals(x.Name, displayName, StringComparison.Ordinal)))
+					nonStaticInputs.Add((displayName, attribute));
+			}
+
+			if (nonStaticInputs.Count is 0)
+				continue;
+
+			var sourceText = SourceText.From(usage.Document.Text);
+			DynamicImageRazorAttribute firstAttribute = nonStaticInputs[0].Attribute;
+			var span = new TextSpan(firstAttribute.NameStart, firstAttribute.NameLength);
+			var location = Location.Create(
+				usage.Document.Path,
+				span,
+				sourceText.Lines.GetLinePositionSpan(span));
+
+			context.ReportDiagnostic(Diagnostic.Create(
+				NonStaticVariantShapingInputRule,
+				location,
+				string.Join(", ", nonStaticInputs.Select(x => x.Name))));
+		}
+	}
+
+	private static string NormalizeRazorAttributeName(string name, bool isTagHelper)
+	{
+		if (!isTagHelper)
+			return name;
+
+		return name.ToLowerInvariant() switch
+		{
+			"width-request" => "WidthRequest",
+			"height-request" => "HeightRequest",
+			"resize-mode" => "ResizeMode",
+			"image-format" => "ImageFormat",
+			"image-density" => "ImageMaxPixelDensity",
+			"size-widths" => "SizeWidths",
+			_ => name
+		};
+	}
+
+	private static bool IsRazorGeneratedSyntaxTree(SyntaxTree syntaxTree)
+	{
+		string path = syntaxTree.FilePath;
+		return path.EndsWith(".razor.g.cs", StringComparison.OrdinalIgnoreCase) ||
+			   path.EndsWith(".cshtml.g.cs", StringComparison.OrdinalIgnoreCase) ||
+			   path.IndexOf("_razor.g.cs", StringComparison.OrdinalIgnoreCase) >= 0 ||
+			   path.IndexOf("_cshtml.g.cs", StringComparison.OrdinalIgnoreCase) >= 0;
+	}
+
+	private static bool IsRazorFile(string path)
+	{
+		if (path.EndsWith(".umbrella-dynamic-image", StringComparison.OrdinalIgnoreCase))
+			path = path.Substring(0, path.Length - ".umbrella-dynamic-image".Length);
+
+		string extension = Path.GetExtension(path);
+		return string.Equals(extension, ".razor", StringComparison.OrdinalIgnoreCase) ||
+			   string.Equals(extension, ".cshtml", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static DynamicImageRazorDocument CreateRazorDocument(CompilationAnalysisContext context, AdditionalText file)
+	{
+		AnalyzerConfigOptions options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(file);
+		_ = options.TryGetValue("build_metadata.AdditionalFiles.UmbrellaDynamicImageOriginalSourcePath", out string? originalSourcePath);
+		string path = string.IsNullOrWhiteSpace(originalSourcePath) ? file.Path : originalSourcePath!;
+		string text = (file.GetText(context.CancellationToken) ?? SourceText.From(string.Empty)).ToString();
+		return new DynamicImageRazorDocument(path, text, string.Empty);
 	}
 
 	private static void ReportDiagnostics(CompilationAnalysisContext context, DynamicImageVersioningState state)

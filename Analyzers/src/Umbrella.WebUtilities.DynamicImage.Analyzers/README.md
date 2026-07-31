@@ -1,8 +1,8 @@
 # Umbrella.WebUtilities.DynamicImage Analyzers
 
-Roslyn analyzers that enforce DynamicImage URL/version-token pairing conventions across Umbrella model types, Blazor components, and tag helper usages.
+Roslyn analyzers that enforce DynamicImage URL/version-token pairing conventions and verify source-generated variant discovery across Umbrella model types, Razor components, and tag helper usages.
 
-UWDI001–UWDI003 are configured with **Error** severity (compile blocking); UWDI004 is **Warning**. All rules are inactive unless DynamicImage URL fingerprinting is explicitly enabled via `AddUmbrellaWebUtilitiesDynamicImage`. Add the package as a PrivateAssets dependency so it does not flow transitively.
+UWDI001–UWDI003 are configured with **Error** severity (compile blocking) and are gated by explicit URL-fingerprinting enablement. UWDI004 is an always-active **Warning** because catalog discovery is independent of fingerprinting. Add the package as a PrivateAssets dependency so it does not flow transitively.
 
 ## Installation
 
@@ -17,7 +17,8 @@ UWDI001–UWDI003 are configured with **Error** severity (compile blocking); UWD
 | UWDI001 | DynamicImage URL properties must declare matching version token properties           | Model types with a `*Url` DynamicImage property (e.g. `ImageUrl`) must also declare a matching `*VersionToken` property (e.g. `ImageVersionToken`) of type `string?`.   |
 | UWDI002 | DynamicImage URL assignments must also assign matching version tokens               | Object initialisers and assignment statements that set a DynamicImage URL property must also set the corresponding `*VersionToken` property in the same construction/update flow. |
 | UWDI003 | DynamicImage UI usages must assign VersionToken                                     | `UmbrellaDynamicImage` Blazor component usages and `DynamicImage` tag helper usages bound to a DynamicImage URL model property must also assign the `VersionToken` input. |
-| UWDI004 | DynamicImage variant discovery coverage is reduced by non-static inputs             | DynamicImage usages with non-static variant-shaping inputs (e.g. a runtime width/height) reduce source-generated variant discovery coverage. This is a warning only and does not affect runtime rendering. |
+| UWDI004 | DynamicImage variant discovery coverage is reduced by non-static inputs             | Dynamic Image usages with variant-shaping inputs other than literals or enum members cannot be added safely to the generated catalog. The diagnostic points to the original Razor attribute and the entire occurrence is omitted from generation. |
+| UWDI005 | Dynamic Image catalog configuration is invalid                                     | The generator reports an error for empty or conflicting catalog names, or when more than one catalog owns the same physical Razor file. |
 
 ### Activation
 
@@ -40,9 +41,33 @@ UWDI004 is independent of URL fingerprinting and remains active when fingerprint
 variant discovery is required by the source-generated catalog regardless of whether generated image URLs are
 fingerprinted.
 
+### Server-only catalog generation
+
+Install `Umbrella.Generators.DynamicImage` in the Server project. Its `buildTransitive` targets expose the project's
+`.razor` and `.cshtml` files directly to the generator without disabling the modern Razor source generator. Additional
+source roots can be assigned to named catalogs:
+
+```xml
+<PropertyGroup>
+  <UmbrellaDynamicImageCatalogName>Server</UmbrellaDynamicImageCatalogName>
+</PropertyGroup>
+
+<ItemGroup>
+  <UmbrellaDynamicImageSourceRoot Include="..\MyApp.Client" CatalogName="Client" />
+</ItemGroup>
+```
+
+The generator emits `ServerDynamicImageVariantCatalog`, `ClientDynamicImageVariantCatalog`, and a sorted,
+deduplicated `DynamicImageVariantCatalog` aggregate in the `Umbrella.Generated.DynamicImage` namespace. Register
+multiple named catalogs with `AddAllowedVariantCatalogs`.
+
+Razor discovery honours effective `_Imports.razor`, `_ViewImports.cshtml`, `@using`, `@addTagHelper`, and
+`@removeTagHelper` directives. Variant-shaping values must be numeric/string literals or enum members. Compile-time
+constant references and other Razor expressions are intentionally not discoverable and report UWDI004.
+
 ### Severity
 
-UWDI001–UWDI003 emit as `Error` because missing version tokens at these points produce broken URLs at runtime when fingerprinting is active. UWDI004 emits as `Warning` because incomplete source-generated variant coverage degrades tooling but does not break runtime behaviour. Adjust severities via `.editorconfig` if needed.
+UWDI001–UWDI003 emit as `Error` because missing version tokens at these points produce broken URLs at runtime when fingerprinting is active. UWDI004 emits as `Warning` because incomplete source-generated variant coverage degrades tooling but does not break runtime behaviour. UWDI005 is an `Error` emitted by the generator because ambiguous catalog ownership would make the generated result unreliable. Adjust analyzer severities via `.editorconfig` if needed.
 
 ## Release Tracking
 

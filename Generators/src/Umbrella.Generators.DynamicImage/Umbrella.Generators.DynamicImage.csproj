@@ -18,8 +18,13 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Compile Include="..\..\..\DynamicImage\analysis\DynamicImageRazorSourceParser.cs" Link="DynamicImageRazorSourceParser.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<None Include="..\..\..\icon.png" Pack="true" PackagePath="\" />
 		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+		<None Include="buildTransitive\Umbrella.Generators.DynamicImage.targets" Pack="true" PackagePath="buildTransitive" />
 	</ItemGroup>
 
 </Project>

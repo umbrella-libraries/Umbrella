@@ -124,7 +124,7 @@ public static class RenderFragmentFactory
 	}
 
 	[Fact]
-	public void GenerateNonStaticParametersFallBackToComponentDefaults()
+	public void GenerateNonStaticParametersSkipsComponent()
 	{
 		const string source = """
 using Umbrella.DynamicImage.Abstractions;
@@ -156,12 +156,7 @@ public static class RenderFragmentFactory
 
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
-		Assert.Equal(
-		[
-			new DynamicImageVariant(1, 1, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
-			new DynamicImageVariant(2, 2, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
-			new DynamicImageVariant(3, 3, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
-		], variants);
+		Assert.Empty(variants);
 	}
 
 	[Fact]
@@ -773,7 +768,7 @@ public abstract class RazorPageBase
 		Assert.Empty(runResult.Diagnostics);
 
 		Assembly assembly = EmitAssembly(outputCompilation);
-		Type catalogType = assembly.GetType("Umbrella.Generated.DynamicImage.UmbrellaDynamicImageComponentVariantCatalog", throwOnError: true)!;
+		Type catalogType = assembly.GetType("Umbrella.Generated.DynamicImage.DynamicImageVariantCatalog", throwOnError: true)!;
 
 		return ((IEnumerable<DynamicImageVariant>)catalogType.GetField("All", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!)
 			.OrderBy(x => x.Width)

@@ -1,0 +1,12 @@
+<Project>
+	<PropertyGroup>
+		<UmbrellaDynamicImageCatalogName Condition="'$(UmbrellaDynamicImageCatalogName)' == ''">$(MSBuildProjectName)</UmbrellaDynamicImageCatalogName>
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(UsingMicrosoftNETSdkRazor)' == 'true'">
+		<AdditionalFiles Include="@(Content->WithMetadataValue('Extension', '.razor'));@(Content->WithMetadataValue('Extension', '.cshtml'))">
+			<UmbrellaDynamicImageCatalogName>$(UmbrellaDynamicImageCatalogName)</UmbrellaDynamicImageCatalogName>
+		</AdditionalFiles>
+		<CompilerVisibleItemMetadata Include="AdditionalFiles" MetadataName="UmbrellaDynamicImageCatalogName" />
+	</ItemGroup>
+</Project>
