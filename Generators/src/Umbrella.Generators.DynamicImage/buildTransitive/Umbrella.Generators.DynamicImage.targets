@@ -24,22 +24,24 @@
 				Include="%(UmbrellaDynamicImageSourceRoot.Identity)\**\*.razor"
 				Exclude="%(UmbrellaDynamicImageSourceRoot.Identity)\bin\**;%(UmbrellaDynamicImageSourceRoot.Identity)\obj\**;%(UmbrellaDynamicImageSourceRoot.Identity)\node_modules\**;$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)">
 				<UmbrellaDynamicImageCatalogName>%(UmbrellaDynamicImageSourceRoot.CatalogName)</UmbrellaDynamicImageCatalogName>
-				<UmbrellaDynamicImageSourceRootKey>$([MSBuild]::StableStringHash('%(UmbrellaDynamicImageSourceRoot.FullPath)', 'Sha256'))</UmbrellaDynamicImageSourceRootKey>
+				<UmbrellaDynamicImageSourceRootKey>$([MSBuild]::StableStringHash('%(UmbrellaDynamicImageSourceRoot.FullPath)', 'Sha256').Substring(0, 16))</UmbrellaDynamicImageSourceRootKey>
 			</_UmbrellaDynamicImageExternalRazorSource>
 			<_UmbrellaDynamicImageExternalViewSource
 				Include="%(UmbrellaDynamicImageSourceRoot.Identity)\**\*.cshtml"
 				Exclude="%(UmbrellaDynamicImageSourceRoot.Identity)\bin\**;%(UmbrellaDynamicImageSourceRoot.Identity)\obj\**;%(UmbrellaDynamicImageSourceRoot.Identity)\node_modules\**;$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)">
 				<UmbrellaDynamicImageCatalogName>%(UmbrellaDynamicImageSourceRoot.CatalogName)</UmbrellaDynamicImageCatalogName>
-				<UmbrellaDynamicImageSourceRootKey>$([MSBuild]::StableStringHash('%(UmbrellaDynamicImageSourceRoot.FullPath)', 'Sha256'))</UmbrellaDynamicImageSourceRootKey>
+				<UmbrellaDynamicImageSourceRootKey>$([MSBuild]::StableStringHash('%(UmbrellaDynamicImageSourceRoot.FullPath)', 'Sha256').Substring(0, 16))</UmbrellaDynamicImageSourceRootKey>
 			</_UmbrellaDynamicImageExternalViewSource>
 			<_UmbrellaDynamicImageExternalRazorSource Update="@(_UmbrellaDynamicImageExternalRazorSource)">
-				<UmbrellaDynamicImagePreparedPath>$(IntermediateOutputPath)UmbrellaDynamicImageSources\%(_UmbrellaDynamicImageExternalRazorSource.UmbrellaDynamicImageCatalogName)\%(_UmbrellaDynamicImageExternalRazorSource.UmbrellaDynamicImageSourceRootKey)\%(_UmbrellaDynamicImageExternalRazorSource.RecursiveDir)%(_UmbrellaDynamicImageExternalRazorSource.Filename)%(_UmbrellaDynamicImageExternalRazorSource.Extension).umbrella-dynamic-image</UmbrellaDynamicImagePreparedPath>
+				<UmbrellaDynamicImagePreparedPath>$(IntermediateOutputPath)udi\%(_UmbrellaDynamicImageExternalRazorSource.UmbrellaDynamicImageCatalogName)\%(_UmbrellaDynamicImageExternalRazorSource.UmbrellaDynamicImageSourceRootKey)\%(_UmbrellaDynamicImageExternalRazorSource.RecursiveDir)%(_UmbrellaDynamicImageExternalRazorSource.Filename)%(_UmbrellaDynamicImageExternalRazorSource.Extension).umbrella-dynamic-image</UmbrellaDynamicImagePreparedPath>
 			</_UmbrellaDynamicImageExternalRazorSource>
 			<_UmbrellaDynamicImageExternalViewSource Update="@(_UmbrellaDynamicImageExternalViewSource)">
-				<UmbrellaDynamicImagePreparedPath>$(IntermediateOutputPath)UmbrellaDynamicImageSources\%(_UmbrellaDynamicImageExternalViewSource.UmbrellaDynamicImageCatalogName)\%(_UmbrellaDynamicImageExternalViewSource.UmbrellaDynamicImageSourceRootKey)\%(_UmbrellaDynamicImageExternalViewSource.RecursiveDir)%(_UmbrellaDynamicImageExternalViewSource.Filename)%(_UmbrellaDynamicImageExternalViewSource.Extension).umbrella-dynamic-image</UmbrellaDynamicImagePreparedPath>
+				<UmbrellaDynamicImagePreparedPath>$(IntermediateOutputPath)udi\%(_UmbrellaDynamicImageExternalViewSource.UmbrellaDynamicImageCatalogName)\%(_UmbrellaDynamicImageExternalViewSource.UmbrellaDynamicImageSourceRootKey)\%(_UmbrellaDynamicImageExternalViewSource.RecursiveDir)%(_UmbrellaDynamicImageExternalViewSource.Filename)%(_UmbrellaDynamicImageExternalViewSource.Extension).umbrella-dynamic-image</UmbrellaDynamicImagePreparedPath>
 			</_UmbrellaDynamicImageExternalViewSource>
 			<_UmbrellaDynamicImageExternalSource Include="@(_UmbrellaDynamicImageExternalRazorSource);@(_UmbrellaDynamicImageExternalViewSource)" />
+			<_UmbrellaDynamicImagePreparedDirectory Include="$([System.IO.Path]::GetDirectoryName('%(_UmbrellaDynamicImageExternalSource.UmbrellaDynamicImagePreparedPath)'))" />
 		</ItemGroup>
+		<MakeDir Directories="@(_UmbrellaDynamicImagePreparedDirectory)" />
 		<Copy
 			SourceFiles="@(_UmbrellaDynamicImageExternalSource)"
 			DestinationFiles="@(_UmbrellaDynamicImageExternalSource->'%(UmbrellaDynamicImagePreparedPath)')"

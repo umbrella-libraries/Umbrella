@@ -21,6 +21,12 @@ public class DynamicImagePackageRazorSdkBuildTests
 		_ = Directory.CreateDirectory(Path.Combine(clientSourcePath, "bin"));
 		_ = Directory.CreateDirectory(Path.Combine(clientSourcePath, "obj"));
 		_ = Directory.CreateDirectory(Path.Combine(clientSourcePath, "node_modules"));
+		string nestedClientSourcePath = Path.Combine(
+			clientSourcePath,
+			"Pages",
+			"Admin",
+			"LearningProviderAdministratorManagement");
+		_ = Directory.CreateDirectory(nestedClientSourcePath);
 
 		try
 		{
@@ -157,6 +163,16 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
 				TestContext.Current.CancellationToken);
 
 			await File.WriteAllTextAsync(
+				Path.Combine(nestedClientSourcePath, "Index.razor"),
+				"""
+<UmbrellaDynamicImage Url="/images/nested-client.jpg"
+                      WidthRequest="700"
+                      HeightRequest="350"
+                      MaxPixelDensity="1" />
+""",
+				TestContext.Current.CancellationToken);
+
+			await File.WriteAllTextAsync(
 				Path.Combine(clientSourcePath, "_ViewImports.cshtml"),
 				"@addTagHelper *, Umbrella.AspNetCore.WebUtilities.DynamicImage",
 				TestContext.Current.CancellationToken);
@@ -216,7 +232,7 @@ public static class Verification
         ClientDynamicImageVariantCatalog.All.Any(x => x.Width is 600 && x.Height is 300);
 
     public static bool HasExpectedAggregateVariants =>
-        DynamicImageVariantCatalog.All.Count is 4;
+        DynamicImageVariantCatalog.All.Count is 5;
 }
 """,
 				TestContext.Current.CancellationToken);
@@ -233,15 +249,30 @@ public static class Verification
 				"build",
 				consumerProject,
 				"--configuration",
-				"Release",
+				"Debug",
 				"--no-restore",
 				"-p:TreatWarningsAsErrors=true");
 
 			string generatedPath = Path.Combine(consumerPath, "obj", "Generated");
 			string[] generatedFiles = Directory.GetFiles(generatedPath, "*.cs", SearchOption.AllDirectories);
+			string preparedSourcesPath = Path.Combine(consumerPath, "obj", "Debug", "net10.0", "udi");
+			string[] preparedSources = Directory.GetFiles(
+				preparedSourcesPath,
+				"*.umbrella-dynamic-image",
+				SearchOption.AllDirectories);
 
 			Assert.Contains(generatedFiles, x => x.EndsWith("DynamicImageVariantCatalog.g.cs", StringComparison.Ordinal));
 			Assert.Contains(generatedFiles, x => x.Contains("RazorSourceGenerator", StringComparison.OrdinalIgnoreCase));
+			Assert.Contains(
+				preparedSources,
+				x => x.EndsWith(
+					Path.Combine(
+						"Pages",
+						"Admin",
+						"LearningProviderAdministratorManagement",
+						"Index.razor.umbrella-dynamic-image"),
+					StringComparison.Ordinal));
+			Assert.All(preparedSources, x => Assert.True(x.Length < 260, $"Prepared source path is too long: {x}"));
 
 			string catalogSource = await File.ReadAllTextAsync(
 				generatedFiles.Single(x => x.EndsWith("DynamicImageVariantCatalog.g.cs", StringComparison.Ordinal)),
@@ -252,6 +283,7 @@ public static class Verification
 			Assert.Contains("DynamicImageVariant(400, 200", catalogSource, StringComparison.Ordinal);
 			Assert.Contains("DynamicImageVariant(500, 250", catalogSource, StringComparison.Ordinal);
 			Assert.Contains("DynamicImageVariant(600, 300", catalogSource, StringComparison.Ordinal);
+			Assert.Contains("DynamicImageVariant(700, 350", catalogSource, StringComparison.Ordinal);
 			Assert.DoesNotContain("DynamicImageVariant(999, 999", catalogSource, StringComparison.Ordinal);
 		}
 		finally
