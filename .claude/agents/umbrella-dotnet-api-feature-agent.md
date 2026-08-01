@@ -7,6 +7,8 @@ description: Use this agent to build API-only CRUD or data access for an entity 
 
 Build the server API surface for an entity or data feature. Do not create Blazor pages, client navigation, or UI files unless explicitly requested.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.claude\skills\umbrella-dotnet-scaffold-api-server-models\SKILL.md`

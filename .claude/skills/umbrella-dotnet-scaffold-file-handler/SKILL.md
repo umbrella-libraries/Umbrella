@@ -165,6 +165,10 @@ File handlers are always `AddSingleton` — they are stateless and safe to share
 
 ---
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Verification
 
 1. `DirectoryNames.<Name>` constant exists and is added to the `All` collection.

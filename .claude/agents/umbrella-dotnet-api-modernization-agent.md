@@ -7,6 +7,8 @@ description: Use this agent to migrate direct repository controllers to controll
 
 Modernize an existing direct repository controller to the data-service controller pattern. Keep route, policy, endpoint availability, and public API behavior stable unless the request says otherwise.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.claude\skills\umbrella-dotnet-migrate-repo-controller-to-data-service\SKILL.md`

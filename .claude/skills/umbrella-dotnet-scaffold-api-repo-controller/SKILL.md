@@ -87,9 +87,17 @@ protected override async Task AfterCreateEntityAsync(<Name> entity, CreateManage
     Guard.IsNotNull(model);
     Guard.IsNotNull(result);
 
-    result.ImageUrl = await _fileHandler.CreateByGroupIdAndTempFileNameAsync(entity.Id, model.ImageProviderFileName, null, cancellationToken);
+    _ = await _fileHandler.CreateByGroupIdAndTempFileNameAsync(entity.Id, model.ImageProviderFileName, null, cancellationToken);
+    UmbrellaVersionedUrl image = await _fileHandler
+        .GetVersionedWebFilePathAsync(entity.Id, model.ImageProviderFileName, cancellationToken)
+        ?? throw new InvalidOperationException("The saved image could not be resolved.");
+
+    result.ImageUrl = image.Url;
+    result.ImageVersionToken = image.VersionToken;
 }
 ```
+
+When Dynamic Image fingerprinting is enabled, the result model declares the matching nullable `ImageVersionToken`; always populate URL/token pairs together.
 
 ---
 
@@ -233,6 +241,10 @@ public async Task<IActionResult> GetByExternalIdAsync([FromQuery] string externa
 **Note on `UmbrellaDataAccessApiController`:** For non-CRUD or singleton-entity controllers where you need full control over which endpoints are exposed (e.g. a settings controller that only exposes GET and PUT for a hardcoded record), inherit from `UmbrellaDataAccessApiController` directly rather than this generic controller. See `SystemSettingsController` for an example.
 
 ---
+
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
 
 ## Verification
 

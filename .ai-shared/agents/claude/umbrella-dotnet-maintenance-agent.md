@@ -7,6 +7,8 @@ description: Use this agent to handle safe NuGet upgrades and repo-wide test pro
 
 Handle repository maintenance tasks such as safe NuGet package upgrades and test project standardization.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.claude\skills\umbrella-nuget-safe-upgrade\SKILL.md`

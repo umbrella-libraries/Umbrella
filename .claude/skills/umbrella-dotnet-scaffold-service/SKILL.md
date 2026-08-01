@@ -188,6 +188,10 @@ Services are always `AddScoped`. File handlers are `AddSingleton` -- but those a
 
 ---
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Verification
 
 1. Confirm the interface is `public`, has no base interface, and every method ends with `CancellationToken cancellationToken = default`.

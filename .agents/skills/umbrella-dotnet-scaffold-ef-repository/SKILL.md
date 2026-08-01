@@ -216,6 +216,10 @@ _ = services.AddScoped<I<EntityName>Repository, <EntityName>Repository>();
 
 ---
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Verification
 
 1. If an IncludeMap file was created, confirm it has `#nullable disable` and only references navigations that exist on the entity.

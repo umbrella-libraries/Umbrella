@@ -131,6 +131,10 @@ _ = services.AddScoped<IOrderNotificationEmailSender, OrderNotificationEmailSend
 
 `IRazorViewToStringRenderer` and `IEmailSender` are registered by the app's Umbrella wiring (`AddUmbrellaAspNetCoreWebUtilities` and the configured email provider) — do not re-register them.
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Verification
 
 1. Interface and models are in a core-layer project with no Web-layer `using` directives.

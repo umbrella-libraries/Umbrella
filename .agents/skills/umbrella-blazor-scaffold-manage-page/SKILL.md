@@ -93,7 +93,8 @@ When the feature includes image/file upload:
                                     MaxFileSizeBytes="@GlobalFileSystemConstants.<Name>MaxSizeBytes"
                                     WidthRequest="400"
                                     HeightRequest="400"
-                                    Url="@Model?.ImageUrl" />
+                                    Url="@Model?.ImageUrl"
+                                    VersionToken="@Model?.ImageVersionToken" />
     <ValidationMessage For="() => CreateUpdateModel.<FilePropertyName>" />
 </div>
 ```
@@ -291,3 +292,5 @@ protected void OnDeleteImage()
 8. `UmbrellaConcurrencyException` is caught and handled with `ClientErrorMessages.Concurrency`.
 9. `UmbrellaModelLayoutStateView` wraps the form content in the `.razor`.
 10. Client-side mapper classes exist in `Web.Client.Data\Mappings\Api\` for the `<Name>Model → Update<Name>Model` and `Update<Name>ResultModel → Update<Name>Model` mappings.
+11. When the displayed file uses Dynamic Image URL fingerprinting, its model declares `ImageVersionToken`, mappings assign URL/token together, and the component passes `VersionToken`.
+12. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.

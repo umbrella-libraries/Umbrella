@@ -72,7 +72,9 @@ public partial void Map(Source source, Dest destination);
 
 **Computed value (any lambda with an expression body):**
 
-`MapFrom((src, dest) => <expression>)` has no native Mapperly equivalent. Write a manual public wrapper + private `MapInternal`:
+`MapFrom((src, dest) => <expression>)` has no native Mapperly equivalent. Write a manual public wrapper + private `MapInternal`.
+
+An authored public mapper body activates UA008/UA016. Inject `ILogger<TMapper>` into that mapper and retain it in `_logger`; the examples below include the required outer logging shape. Bodyless partial mappings do not require a logger:
 
 ```csharp
 // AutoMapper
@@ -84,12 +86,20 @@ public partial void Map(Source source, Dest destination);
 public Dest Map(Source source)
 {
     Guard.IsNotNull(source);
-    var model = MapInternal(source);
-    // record type — use with:
-    model = model with { Initials = (source.FirstName[0].ToString() + source.LastName[0].ToString()).ToUpperInvariant() };
-    // class type — assign directly:
-    // model.Initials = ...;
-    return model;
+
+    try
+    {
+        var model = MapInternal(source);
+        // record type — use with:
+        model = model with { Initials = (source.FirstName[0].ToString() + source.LastName[0].ToString()).ToUpperInvariant() };
+        // class type — assign directly:
+        // model.Initials = ...;
+        return model;
+    }
+    catch (Exception exc) when (_logger.WriteError(exc, new { source.FirstName, source.LastName }))
+    {
+        throw;
+    }
 }
 
 [MapperIgnoreTarget(nameof(Dest.Initials))]
@@ -115,9 +125,17 @@ private static int TransformTimeType(InterruptionTimeType t) => t switch { ... }
 public Dest Map(Source source)
 {
     Guard.IsNotNull(source);
-    var model = MapInternal(source);
-    model = model with { TimeFrameType = TransformTimeType(source.TimeType) };
-    return model;
+
+    try
+    {
+        var model = MapInternal(source);
+        model = model with { TimeFrameType = TransformTimeType(source.TimeType) };
+        return model;
+    }
+    catch (Exception exc) when (_logger.WriteError(exc, new { source.TimeType }))
+    {
+        throw;
+    }
 }
 
 [MapperIgnoreTarget(nameof(Dest.TimeFrameType))]
@@ -140,10 +158,18 @@ private partial Dest MapInternal(Source source);
 public Dest Map(Source source)
 {
     Guard.IsNotNull(source);
-    var model = MapInternal(source);
-    var days = source.Days.OrderBy(x => x.Date).ToArray();
-    model = model with { StartDate = days.First().Date, EndDate = days.Last().Date };
-    return model;
+
+    try
+    {
+        var model = MapInternal(source);
+        var days = source.Days.OrderBy(x => x.Date).ToArray();
+        model = model with { StartDate = days.First().Date, EndDate = days.Last().Date };
+        return model;
+    }
+    catch (Exception exc) when (_logger.WriteError(exc, new { source.Days }))
+    {
+        throw;
+    }
 }
 
 [MapperIgnoreTarget(nameof(Dest.StartDate))]
@@ -160,8 +186,17 @@ private partial Dest MapInternal(Source source);
 public void Map(Source source, Dest destination)
 {
     Guard.IsNotNull(source);
-    MapInternal(source, destination);
-    destination.HasItems = source.Items?.Any() ?? false;
+    Guard.IsNotNull(destination);
+
+    try
+    {
+        MapInternal(source, destination);
+        destination.HasItems = source.Items?.Any() ?? false;
+    }
+    catch (Exception exc) when (_logger.WriteError(exc, new { source.Items }))
+    {
+        throw;
+    }
 }
 
 [MapperIgnoreTarget(nameof(Dest.HasItems))]
@@ -183,7 +218,7 @@ If the original `AfterMap` sets a property on the *source* object (first paramet
 
 Group related AutoMapper profiles by entity/feature and write one `<Feature>Mappers.cs` file per group, following `umbrella-dotnet-scaffold-mapperly-factories` for file location and naming. Apply the conversion reference above for each `CreateMap` pair.
 
-All rules from `umbrella-dotnet-scaffold-mapperly-factories` apply: `public partial class`, `[Mapper]` on each class, `[MapperIgnoreTarget]` on private partial methods only, `Guard.IsNotNull(source)` in every public wrapper with a body.
+All rules from `umbrella-dotnet-scaffold-mapperly-factories` apply: use an accessible `partial class`, put `[Mapper]` on each class, place `[MapperIgnoreTarget]` on private partial methods only, and apply validation plus state-aware logging to every public wrapper with a body. Use the async mapper interfaces when migrated enrichment performs I/O.
 
 ---
 
@@ -294,8 +329,10 @@ If the project already uses `IUmbrellaMapper` throughout (e.g. via Umbrella base
 2. No `Profile` class files remain.
 3. No `AutoMapper`, `AutoMapper.Extensions.Microsoft.DependencyInjection`, or `Umbrella.Utilities.Mapping.AutoMapper` package references remain in any `.csproj`.
 4. No `IMapper` injections remain — all sites use `IUmbrellaMapper`.
-5. All mapper classes are `public partial class`.
+5. All `[Mapper]` classes are accessible `partial` types; public and internal top-level types are supported.
 6. `[MapperIgnoreTarget]` is on the private `MapInternal` partial method only.
-7. Public wrapper methods call `Guard.IsNotNull(source)`.
+7. Authored public wrapper methods validate before the outer `try`, have logger access, and use state-aware exception logging; bodyless partial declarations remain logger-free.
 8. `Program.cs` has a single `AddUmbrellaUtilitiesMappingMapperly(...)` call containing all catalogs.
 9. The consuming project's `IServiceCollectionExtensions.cs` has `[assembly: UmbrellaMapperlyCatalogReference(typeof(...))]`.
+10. Asynchronous enrichment uses the corresponding async mapper interface and propagates its cancellation token.
+11. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with UA/UMA/UWDI analyzers enabled where applicable.

@@ -123,6 +123,10 @@ dotnet test "<TestProject>" --no-restore --no-build --verbosity minimal
 
 Docker must be available for the Testcontainers collection.
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Output
 
 Report: endpoints covered, status codes tested per endpoint, codes excluded with reasons, shared assertion APIs used or compatibility fallbacks added, and test run results.

@@ -8,6 +8,8 @@ tools: ["changes", "codebase", "editFiles", "runCommands", "search", "terminalLa
 
 Handle repository maintenance tasks such as safe NuGet package upgrades and test project standardization.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.github\skills\umbrella-nuget-safe-upgrade\SKILL.md`

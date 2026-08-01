@@ -8,6 +8,8 @@ tools: ["changes", "codebase", "editFiles", "runCommands", "search", "terminalLa
 
 Add the Blazor UI surface for an API feature that already has server models and endpoints. Inspect existing pages in the same area before choosing routes, page titles, breadcrumbs, grid columns, form fields, and nav placement.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.github\skills\umbrella-dotnet-scaffold-client-data\SKILL.md`

@@ -7,6 +7,8 @@ description: Use this agent to add or tighten row-level ASP.NET Core resource au
 
 Add or tighten row-level authorization for an existing entity-backed API. Start by reading the controller or controller service to see which `AuthorizationXxxChecksEnabled` flags are active.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.claude\skills\umbrella-dotnet-scaffold-resource-auth-handler\SKILL.md`

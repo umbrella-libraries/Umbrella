@@ -8,6 +8,8 @@ tools: ["changes", "codebase", "editFiles", "runCommands", "search", "terminalLa
 
 Build a complete Blazor admin CRUD feature. Start by discovering existing feature patterns in the target repository, then read the relevant skill files before making changes.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.github\skills\umbrella-dotnet-scaffold-ef-entity\SKILL.md`

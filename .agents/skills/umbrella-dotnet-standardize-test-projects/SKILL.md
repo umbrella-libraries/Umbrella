@@ -79,6 +79,10 @@ dotnet test "<SolutionFile>" --no-restore --verbosity minimal
 
 Do not add legacy VSTest `--logger` arguments to Microsoft Testing Platform invocations. Use the reporting options exposed by the installed MTP extensions and confirm them with `dotnet test --help`.
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Output
 
 The script prints a summary and writes a JSON report with:

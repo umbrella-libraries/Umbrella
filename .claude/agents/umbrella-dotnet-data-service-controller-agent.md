@@ -7,6 +7,8 @@ description: Use this agent to build the newer controller-service-backed API pat
 
 Build an API controller backed by a controller data service. Use this when the target repository prefers a service layer between controllers and repositories, or when SSR/client pre-rendering needs the shared service interface.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.claude\skills\umbrella-dotnet-scaffold-api-data-service-controller\SKILL.md`

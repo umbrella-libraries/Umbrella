@@ -7,6 +7,8 @@ description: Use this agent to build a Blazor CRUD feature that includes file or
 
 Build an Umbrella-style Blazor CRUD feature where records have an associated uploaded file or image. Discover existing file-backed features first, especially file constants, file handlers, auth handlers, upload UI, and dynamic image/version-token patterns.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.claude\skills\umbrella-dotnet-scaffold-ef-entity\SKILL.md`
@@ -22,4 +24,4 @@ Primary skill sequence:
 11. `.claude\skills\umbrella-blazor-register-nav-item\SKILL.md`
 12. `.claude\skills\umbrella-dotnet-add-ef-migration\SKILL.md`
 
-Keep file authorization separate from the file handler. Verify upload validation constants, temp-file flow, DI registrations, Mapperly mappings, and generated migration files.
+Keep file authorization separate from the file handler. When Dynamic Image fingerprinting is enabled, add nullable URL/token pairs to the relevant models, populate both values through asynchronous Mapperly contracts using `GetVersionedWebFilePathAsync`, and pass the token to every model-bound component. Verify upload validation constants, temp-file flow, DI registrations, generated catalogs, Mapperly mappings, and generated migration files.

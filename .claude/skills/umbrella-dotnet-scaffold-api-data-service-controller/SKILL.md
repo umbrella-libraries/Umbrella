@@ -126,9 +126,17 @@ protected override async Task AfterCreateEntityAsync(<Name> entity, CreateManage
     Guard.IsNotNull(model);
     Guard.IsNotNull(result);
 
-    result.ImageUrl = await _fileHandler.CreateByGroupIdAndTempFileNameAsync(entity.Id, model.ImageProviderFileName, null, cancellationToken);
+    _ = await _fileHandler.CreateByGroupIdAndTempFileNameAsync(entity.Id, model.ImageProviderFileName, null, cancellationToken);
+    UmbrellaVersionedUrl image = await _fileHandler
+        .GetVersionedWebFilePathAsync(entity.Id, model.ImageProviderFileName, cancellationToken)
+        ?? throw new InvalidOperationException("The saved image could not be resolved.");
+
+    result.ImageUrl = image.Url;
+    result.ImageVersionToken = image.VersionToken;
 }
 ```
+
+When Dynamic Image fingerprinting is enabled, the result model declares the matching nullable `ImageVersionToken`; always populate URL/token pairs together.
 
 ---
 
@@ -244,6 +252,10 @@ public Task<IActionResult> GetSummaryAsync([FromQuery] int id, CancellationToken
 Do not use `async` lambdas with `ExecuteOperationAsync` — pass an expression lambda returning the service's `Task` directly, or the call can bind to the wrong overload and lose the typed response body.
 
 ---
+
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
 
 ## Verification
 

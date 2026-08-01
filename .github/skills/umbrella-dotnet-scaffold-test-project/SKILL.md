@@ -117,6 +117,10 @@ dotnet test "<ProjectFile>" --no-restore --no-build
 
 If the project intentionally contains zero tests, report that Microsoft Testing Platform may return a non-success zero-tests exit code. Prefer adding a real or wiring smoke test before committing.
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Output
 
 Report:

@@ -95,6 +95,10 @@ If the server registration is already `ReplaceScoped`, skip this step.
 
 ---
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Verification
 
 1. The client service is `internal sealed class` inheriting `GenericHttpDataService` with 8 type params in the correct order (same as `IGenericDataService`).

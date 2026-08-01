@@ -82,6 +82,10 @@ If unsure, check what icon an analogous existing feature uses.
 
 ---
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Verification
 
 1. The new `<div class="nav-item">` is inside a `<AuthorizeView>` block whose policy matches the `[Authorize]` attribute on the index and manage pages.

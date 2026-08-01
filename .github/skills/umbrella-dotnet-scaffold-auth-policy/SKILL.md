@@ -84,6 +84,10 @@ options.AddPolicy(<AppName>PolicyNames.<Name>, x =>
 
 ---
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Verification
 
 1. The constant is in the correct group in `<AppName>PolicyNames.cs` and uses `nameof(...)` for its value.

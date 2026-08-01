@@ -125,11 +125,15 @@ protected override async Task AfterCreateEntityAsync(<Name> entity, Create<Name>
     Guard.IsNotNull(model);
     Guard.IsNotNull(result);
 
-    result.ImageUrl = await _fileHandler.CreateByGroupIdAndTempFileNameAsync(...);
+    _ = await _fileHandler.CreateByGroupIdAndTempFileNameAsync(...);
+    UmbrellaVersionedUrl image = await _fileHandler.GetVersionedWebFilePathAsync(...)
+        ?? throw new InvalidOperationException("The saved image could not be resolved.");
+    result.ImageUrl = image.Url;
+    result.ImageVersionToken = image.VersionToken;
 }
 ```
 
-Move them verbatim into the controller service. Any extra dependencies (e.g. `I<Name>FileHandler`) that those hooks needed move to the controller service constructor (after the 9 base params):
+Move them verbatim into the controller service. Preserve Dynamic Image URL/version-token pairing and asynchronous file lookups. Any extra dependencies (e.g. `I<Name>FileHandler`) that those hooks needed move to the controller service constructor (after the 9 base params):
 
 ```csharp
 private readonly I<Name>FileHandler _fileHandler;
@@ -208,6 +212,10 @@ _ = services.AddScoped<I<Name>Service, <Name>ControllerService>();
 If the old server DI had any explicit registration for this controller's old repository interface, remove it.
 
 ---
+
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
 
 ## Verification
 

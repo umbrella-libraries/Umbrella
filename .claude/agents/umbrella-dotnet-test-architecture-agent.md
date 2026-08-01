@@ -7,6 +7,8 @@ description: Use this agent to add or standardize architecture tests and shared 
 
 Add architecture tests or normalize repository test project configuration. Use this for solution-level test structure work, not feature-specific unit tests.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.claude\skills\umbrella-dotnet-scaffold-architecture-tests\SKILL.md`

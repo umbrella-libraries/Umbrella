@@ -60,27 +60,13 @@ Match the models you create to the endpoints you intend to enable. Models for di
 
 ---
 
-## Record declaration style (Blazor vs. standalone API)
+## Record declaration and input-model style
 
-The declaration style depends on the project type. Determine this during discovery.
+All analyzer-matched model types use `record`; project type does not determine whether they are `partial`. Use `partial` only when a source generator actually needs to add an implementation.
 
-**Blazor app project:**
-All model types use `public partial record`. The `partial` keyword is required so the `IUmbrellaTrimmable` source generator can emit the trim implementation in a separate file. Input models (`Create*Model`, `Update*Model`) that contain or inherit string properties also implement `IUmbrellaTrimmable`. Add `using Umbrella.Utilities.Text;` to those files.
+Models bound to UI or request inputs and intentionally using mutable setters belong to an `[UmbrellaInputModel]` hierarchy. The attribute permits `set` and non-`required` input properties, but it does not permit mutable collection contracts or missing getters. A type that declares mutable trimmable string properties must directly implement `IUmbrellaTrimmable`. Make that type `partial` when the installed trimming generator supplies the implementation; otherwise provide the interface implementation manually without forcing `partial`.
 
-| Model type | Declaration |
-|---|---|
-| `<Name>ModelBase` (abstract base) | `public abstract partial record` |
-| `<Name>Model` (GET detail) | `public partial record` |
-| `Slim<Name>Model` (GET list item) | `public partial record` |
-| `Create<Name>Model` | `public partial record : IUmbrellaTrimmable` (when has/inherits strings) |
-| `Update<Name>Model` | `public partial record : IUmbrellaTrimmable` (when has/inherits strings) |
-| `Create<Name>ResultModel` | `public partial record` |
-| `Update<Name>ResultModel` | `public partial record` |
-
-**Standalone API project (no Blazor):**
-All models use plain `record` — no `partial`, no `IUmbrellaTrimmable`. String trimming is handled at the transport/middleware level.
-
-The code examples in Step 1 use the Blazor convention. For standalone API projects, remove `partial` and omit `IUmbrellaTrimmable`.
+Read and result models normally remain immutable records with `required ... { get; init; }`. Do not mark them as input models merely because the same feature also has a Blazor form.
 
 ---
 
@@ -96,11 +82,12 @@ When create and update models share the same editable properties, or when the re
 **Typical hierarchy (used when warranted):**
 
 ```
-<Name>ModelBase (abstract record)
-├── <Name>Model : <Name>ModelBase, IKeyedItem<int>, IConcurrencyStamp
-└── CreateUpdate<Name>ModelBase : <Name>ModelBase (abstract record)
-    ├── Create<Name>Model : CreateUpdate<Name>ModelBase
-    └── Update<Name>Model : CreateUpdate<Name>ModelBase, IUpdateModel<int>
+<Name>ModelBase (immutable abstract record)
+└── <Name>Model : <Name>ModelBase, IKeyedItem<int>, IConcurrencyStamp
+
+[UmbrellaInputModel] CreateUpdate<Name>ModelBase (mutable abstract input record)
+├── Create<Name>Model : CreateUpdate<Name>ModelBase
+└── Update<Name>Model : CreateUpdate<Name>ModelBase, IUpdateModel<int>
 
 CreateUpdate<Name>ResultModelBase (abstract record)
 ├── Create<Name>ResultModel : CreateUpdate<Name>ResultModelBase, ICreateResultModel<int>
@@ -108,8 +95,8 @@ CreateUpdate<Name>ResultModelBase (abstract record)
 ```
 
 Notes:
-- `<Name>ModelBase` holds the shared display/editable properties and their validation attributes
-- `CreateUpdate<Name>ModelBase` inherits `<Name>ModelBase` and is the base for both request models — only needed if there are truly shared create/update properties beyond what's already on `<Name>ModelBase`; omit if it would be empty
+- `<Name>ModelBase` holds immutable read-model properties. Do not reuse mutable UI-bound properties here.
+- `[UmbrellaInputModel] CreateUpdate<Name>ModelBase` holds properties shared by create/update inputs. It does not inherit the read-model base because their accessor contracts differ.
 - `Slim<Name>Model` usually does NOT inherit from `<Name>ModelBase` — it exists independently with only the fields needed in list views
 - `CreateUpdate<Name>ResultModelBase` holds properties returned by both create and update results (e.g., `ConcurrencyStamp`, any computed properties like `ImageUrl`)
 - A two-tier result base is only worth adding if there are genuinely shared result properties; if both results only return `ConcurrencyStamp`, a base is unlikely to add value
@@ -125,27 +112,50 @@ Notes:
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public abstract partial record <Name>ModelBase
+public abstract record <Name>ModelBase
 {
     [Required(ErrorMessage = "<Name>Constants.NameRequiredErrorMessage")]
     [MaxLength(200)]
-    public string Name { get; set; } = null!;
-    // other shared editable properties
+    public required string Name { get; init; }
+    // other shared read properties
 }
 ```
 
-Place validation attributes here so they are not repeated on each request model.
+**Mutable input base (when create/update share fields):**
+
+```csharp
+using Umbrella.Utilities.Annotations;
+using Umbrella.Utilities.Text;
+
+namespace <AppName>.Web.Shared.Models.Api.<Feature>;
+
+[UmbrellaInputModel]
+public abstract partial record CreateUpdate<Name>ModelBase : IUmbrellaTrimmable
+{
+    [Required(ErrorMessage = "<Name>Constants.NameRequiredErrorMessage")]
+    [MaxLength(200)]
+    public string? Name { get; set; }
+}
+```
+
+The `partial` declaration above assumes the trimming source generator is installed. If it is not, implement `IUmbrellaTrimmable` manually and omit `partial`. If the input type declares no mutable trimmable strings, omit the interface and `partial`.
 
 **Full read model:**
 
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public partial record <Name>Model : <Name>ModelBase, IKeyedItem<int>, IConcurrencyStamp
+public record <Name>Model : <Name>ModelBase, IKeyedItem<int>, IConcurrencyStamp
 {
     public required int Id { get; init; }
     public required string ConcurrencyStamp { get; set; }
-    // computed / server-side properties not in the base (e.g., ImageUrl)
+    // Dynamic Image pairs populated by asynchronous enrichment, when used:
+    // [UmbrellaAllowNonRequiredProperty("Populated after the generated mapping.")]
+    // [UmbrellaAllowMutableProperty("Populated after the generated mapping.")]
+    // public string? ImageUrl { get; set; }
+    // [UmbrellaAllowNonRequiredProperty("Populated after the generated mapping.")]
+    // [UmbrellaAllowMutableProperty("Populated after the generated mapping.")]
+    // public string? ImageVersionToken { get; set; }
 }
 ```
 
@@ -154,7 +164,7 @@ public partial record <Name>Model : <Name>ModelBase, IKeyedItem<int>, IConcurren
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public partial record Slim<Name>Model : IKeyedItem<int>
+public record Slim<Name>Model : IKeyedItem<int>
 {
     public required int Id { get; init; }
     // only the fields shown in list views
@@ -164,11 +174,9 @@ public partial record Slim<Name>Model : IKeyedItem<int>
 **Create model:**
 
 ```csharp
-using Umbrella.Utilities.Text;
-
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public partial record Create<Name>Model : <Name>ModelBase, IUmbrellaTrimmable
+public record Create<Name>Model : CreateUpdate<Name>ModelBase
 {
     // add properties specific to creation only; leave empty if everything is on the base
 }
@@ -177,11 +185,9 @@ public partial record Create<Name>Model : <Name>ModelBase, IUmbrellaTrimmable
 **Update model:**
 
 ```csharp
-using Umbrella.Utilities.Text;
-
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public partial record Update<Name>Model : <Name>ModelBase, IUpdateModel<int>, IUmbrellaTrimmable
+public record Update<Name>Model : CreateUpdate<Name>ModelBase, IUpdateModel<int>
 {
     public required int Id { get; init; }
     [Required]
@@ -197,11 +203,17 @@ Note: `ConcurrencyStamp` must use `set` (not `init`) to satisfy `IConcurrencySta
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public partial record Create<Name>ResultModel : ICreateResultModel<int>
+public record Create<Name>ResultModel : ICreateResultModel<int>
 {
     public int Id { get; set; }
     public string ConcurrencyStamp { get; set; } = null!;
-    // any other values the server computes on creation (e.g., ImageUrl)
+    // Dynamic Image pairs populated after saving, when used:
+    // [UmbrellaAllowNonRequiredProperty("Populated after the file is saved.")]
+    // [UmbrellaAllowMutableProperty("Populated after the file is saved.")]
+    // public string? ImageUrl { get; set; }
+    // [UmbrellaAllowNonRequiredProperty("Populated after the file is saved.")]
+    // [UmbrellaAllowMutableProperty("Populated after the file is saved.")]
+    // public string? ImageVersionToken { get; set; }
 }
 ```
 
@@ -212,7 +224,7 @@ Note: `Id` must use `set` (not `init`) to satisfy `ICreateResultModel<int>`.
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public partial record Update<Name>ResultModel : IUpdateResultModel
+public record Update<Name>ResultModel : IUpdateResultModel
 {
     public string ConcurrencyStamp { get; set; } = null!;
     // any other values the server recomputes on update
@@ -233,7 +245,7 @@ Note: `PaginatedResultModel<T>` is a class, so the paginated result model must a
 
 ## `required` keyword guidance
 
-Use `required` on properties that the caller must always supply — typically `Id`, `ConcurrencyStamp`, and any non-nullable reference types that have no meaningful default. Skip `required` on properties with sensible defaults (`= ""`, `= null!`) or on mutable properties that may be filled in after construction.
+Use `required` on public settable properties unless an analyzer-recognized contract exempts them. `[UmbrellaInputModel]` deliberately permits form/request properties to be populated after construction. For an exceptional non-input property, use `[UmbrellaAllowNonRequiredProperty("reason")]`; do not omit `required` merely because a default initializer exists.
 
 ---
 
@@ -246,5 +258,7 @@ Use `required` on properties that the caller must always supply — typically `I
 5. Validation attributes are placed on the base model (not duplicated on each request model).
 6. `Slim<Name>Model` does not inherit from any base — it is independent.
 7. If base classes were introduced: no base class is empty (an empty base adds no value and should be removed).
-8. **Blazor project:** All record types are `public partial record`; input models with strings implement `IUmbrellaTrimmable` with `using Umbrella.Utilities.Text;`.
-9. **Standalone API:** All record types are plain `record` — no `partial`, no `IUmbrellaTrimmable`.
+8. UI/request models with mutable setters are in an `[UmbrellaInputModel]` hierarchy; read/result models are not marked as input models without a concrete binding reason.
+9. Every type that declares mutable trimmable strings directly implements `IUmbrellaTrimmable`; only source-generated implementations force that type to be `partial`.
+10. Collection properties expose read-only contracts unless an individual property has a justified `[UmbrellaAllowMutableProperty("reason")]`.
+11. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.

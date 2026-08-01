@@ -8,6 +8,8 @@ tools: ["changes", "codebase", "editFiles", "runCommands", "search", "terminalLa
 
 Add or extend authorization policy coverage for a Blazor feature. Discover existing role, primary-role, menu, and page policies before adding new constants or policy registrations.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.github\skills\umbrella-dotnet-scaffold-auth-policy\SKILL.md`

@@ -8,6 +8,8 @@ tools: ["changes", "codebase", "editFiles", "runCommands", "search", "terminalLa
 
 Build the simpler direct repository controller pattern for a repository-backed entity. Use this when adjacent APIs use direct repository controllers and no controller-service layer is needed.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.github\skills\umbrella-dotnet-scaffold-api-repo-controller\SKILL.md`

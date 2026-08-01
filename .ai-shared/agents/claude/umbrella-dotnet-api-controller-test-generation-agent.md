@@ -7,6 +7,8 @@ description: Use this agent to generate integration tests for concrete API contr
 
 Generate response-code integration tests for one or more concrete API controllers. Use this after (or alongside) building a controller, not for broad unit-test generation and not for creating test infrastructure alone — delegate infrastructure to the integration test skills below.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.claude\skills\umbrella-dotnet-audit-server-bootstrap\SKILL.md` (when the server app has not previously been audited — several response codes depend on bootstrap conformance)

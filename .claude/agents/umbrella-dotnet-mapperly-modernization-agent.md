@@ -7,6 +7,8 @@ description: Use this agent to migrate legacy AutoMapper profiles and IMapper us
 
 Migrate AutoMapper profiles and injection sites to Mapperly. Use this only when AutoMapper usage exists in the target repository.
 
+Before changing C# or Razor, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md`. Finish with an analyzer-enabled build of the affected projects and treat diagnostics introduced by the work as implementation defects.
+
 Primary skill sequence:
 
 1. `.claude\skills\umbrella-dotnet-migrate-automapper-to-mapperly\SKILL.md`

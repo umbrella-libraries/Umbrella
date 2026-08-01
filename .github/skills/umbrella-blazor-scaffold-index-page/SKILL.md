@@ -119,3 +119,5 @@ public abstract class IndexBase : <AppName>RemoteDataAccessGridComponentBase<Sli
 4. The grid `TItem` matches the slim model used in the base class generic params.
 5. `DeleteItemClickAsync` is called on the delete button — not a custom method.
 6. The "Create" button href matches the manage page's create route.
+7. Any model-bound Dynamic Image usage passes the matching version token and uses only catalog-discoverable static variant inputs.
+8. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.

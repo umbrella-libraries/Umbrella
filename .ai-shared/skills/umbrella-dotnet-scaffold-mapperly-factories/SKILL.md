@@ -25,7 +25,7 @@ Mappers plug into the `UmbrellaMapper` infrastructure via a **source-generated c
 
 ## How UmbrellaMapper discovers mappers
 
-When you reference `Umbrella.Generators.Mapperly` in a project, the incremental source generator runs at compile time. It scans the assembly for all public non-abstract types implementing any of the six mapper interfaces and emits a catalog class:
+When you reference `Umbrella.Generators.Mapperly` in a project, the incremental source generator runs at compile time. It scans the assembly for non-abstract types implementing any of the six mapper interfaces and emits a catalog class:
 
 - **Class name:** `{AssemblyName}UmbrellaMapperlyCatalog` — dots in the assembly name become underscores.
   - Example: `IndyRecords.Web.Server.ModelFactories` → `IndyRecords_Web_Server_ModelFactoriesUmbrellaMapperlyCatalog`
@@ -40,7 +40,7 @@ builder.Services.AddUmbrellaUtilitiesMappingMapperly(
 
 The Roslyn analyzer (`UMA001`/`UMA002`) validates `IUmbrellaMapper` call sites using the `[assembly: UmbrellaMapperlyCatalogReference(typeof(...))]` attribute on the consuming project — if a `MapAsync` call has no registered mapping, it emits an error at compile time.
 
-**Consequence:** mapper classes must be `public`. An `internal` mapper is not discovered by the source generator and will silently do nothing.
+**Consequence:** mapper classes can be public or internal, but must be accessible from the generated catalog. Keep them top-level (or otherwise accessibly nested), non-abstract, and `partial` when decorated with `[Mapper]`; UMA003 reports invalid declarations.
 
 ---
 
@@ -53,6 +53,9 @@ The Roslyn analyzer (`UMA001`/`UMA002`) validates `IUmbrellaMapper` call sites u
 | `IUmbrellaMapperlyNewInstanceMapper<TSource, TDest>` | `TDest Map(TSource source)` | Entity → model (GET single / POST/PUT result) |
 | `IUmbrellaMapperlyNewCollectionMapper<TSource, TDest>` | `IReadOnlyCollection<TDest> MapAll(IEnumerable<TSource> source)` | Entity → model collection (GET list) |
 | `IUmbrellaMapperlyExistingInstanceMapper<TSource, TDest>` | `void Map(TSource source, TDest destination)` | Request model → entity (PUT update) |
+| `IUmbrellaMapperlyNewInstanceAsyncMapper<TSource, TDest>` | `ValueTask<TDest> MapAsync(TSource source, CancellationToken cancellationToken)` | New-instance mapping that requires asynchronous enrichment |
+| `IUmbrellaMapperlyNewCollectionAsyncMapper<TSource, TDest>` | `ValueTask<IReadOnlyCollection<TDest>> MapAllAsync(IEnumerable<TSource> source, CancellationToken cancellationToken)` | Collection mapping that requires asynchronous enrichment |
+| `IUmbrellaMapperlyExistingInstanceAsyncMapper<TSource, TDest>` | `ValueTask MapAsync(TSource source, TDest destination, CancellationToken cancellationToken)` | Existing-instance mapping that requires asynchronous enrichment |
 
 ### Client-side (model → model, in `Web.Client.Data`)
 
@@ -108,7 +111,7 @@ public partial class <Name>Mapper :
 }
 ```
 
-**Mapper with properties needing manual values (e.g., file URLs):**
+**Mapper with properties needing asynchronous manual values (for example versioned file URLs):**
 
 ```csharp
 using <AppName>.Core.Domain.Entities;
@@ -119,47 +122,82 @@ namespace <AppName>.Web.Server.ModelFactories.Mappings.Api;
 
 [Mapper]
 public partial class <Name>Mapper :
-    IUmbrellaMapperlyNewInstanceMapper<<Name>Entity, <Name>Model>,
-    IUmbrellaMapperlyNewCollectionMapper<<Name>Entity, Slim<Name>Model>
+    IUmbrellaMapperlyNewInstanceAsyncMapper<<Name>Entity, <Name>Model>,
+    IUmbrellaMapperlyNewCollectionAsyncMapper<<Name>Entity, Slim<Name>Model>
 {
+    private readonly ILogger<<Name>Mapper> _logger;
     private readonly I<Name>FileHandler _fileHandler;
 
-    public <Name>Mapper(I<Name>FileHandler fileHandler)
+    public <Name>Mapper(ILogger<<Name>Mapper> logger, I<Name>FileHandler fileHandler)
     {
+        _logger = logger;
         _fileHandler = fileHandler;
     }
 
-    public <Name>Model Map(<Name>Entity source)
+    public async ValueTask<<Name>Model> MapAsync(<Name>Entity source, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         Guard.IsNotNull(source);
 
-        var model = MapInternal(source);
-        model.ImageUrl = _fileHandler.GetWebFilePath(source.ImageProviderFileName, source.Id);
+        try
+        {
+            var model = MapInternal(source);
+            UmbrellaVersionedUrl? image = await _fileHandler
+                .GetVersionedWebFilePathAsync(source.Id, source.ImageProviderFileName, cancellationToken)
+                .ConfigureAwait(false);
 
-        return model;
+            model.ImageUrl = image?.Url;
+            model.ImageVersionToken = image?.VersionToken;
+
+            return model;
+        }
+        catch (Exception exc) when (_logger.WriteError(exc, new { source.Id, source.ImageProviderFileName }))
+        {
+            throw;
+        }
     }
 
     [MapperIgnoreTarget(nameof(<Name>Model.ImageUrl))]
+    [MapperIgnoreTarget(nameof(<Name>Model.ImageVersionToken))]
     private partial <Name>Model MapInternal(<Name>Entity source);
 
-    public IReadOnlyCollection<Slim<Name>Model> MapAll(IEnumerable<<Name>Entity> source)
+    public async ValueTask<IReadOnlyCollection<Slim<Name>Model>> MapAllAsync(
+        IEnumerable<<Name>Entity> source,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         Guard.IsNotNull(source);
 
-        var models = MapAllInternal(source);
-
-        foreach (var (entity, model) in source.Zip(models))
+        try
         {
-            model.ImageUrl = _fileHandler.GetWebFilePath(entity.ImageProviderFileName, entity.Id);
-        }
+            IReadOnlyCollection<<Name>Entity> entities = source as IReadOnlyCollection<<Name>Entity> ?? source.ToArray();
+            IReadOnlyCollection<Slim<Name>Model> models = MapAllInternal(entities);
 
-        return models;
+            foreach (var (entity, model) in entities.Zip(models))
+            {
+                UmbrellaVersionedUrl? image = await _fileHandler
+                    .GetVersionedWebFilePathAsync(entity.Id, entity.ImageProviderFileName, cancellationToken)
+                    .ConfigureAwait(false);
+
+                model.ImageUrl = image?.Url;
+                model.ImageVersionToken = image?.VersionToken;
+            }
+
+            return models;
+        }
+        catch (Exception exc) when (_logger.WriteError(exc))
+        {
+            throw;
+        }
     }
 
     [MapperIgnoreTarget(nameof(Slim<Name>Model.ImageUrl))]
+    [MapperIgnoreTarget(nameof(Slim<Name>Model.ImageVersionToken))]
     private partial IReadOnlyCollection<Slim<Name>Model> MapAllInternal(IEnumerable<<Name>Entity> source);
 }
 ```
+
+Use the async mapper interfaces whenever enrichment performs I/O. Assign each Dynamic Image URL and matching version token in the same flow. Authored public mapper bodies activate UA008/UA016, so inject an `ILogger`, put guards/cancellation before the outer `try`, and log meaningful state. Pure bodyless partial mappings need neither a logger nor a wrapper.
 
 **Multiple mapper classes (when the same interface can't be implemented twice):**
 
@@ -271,11 +309,11 @@ If the attribute is already present in the consuming project, no change is neede
 
 ## Rules
 
-- Always `public partial class` — never `internal`. Non-public types are invisible to the source generator.
+- Use an accessible `partial class`; top-level `public` and `internal` mapper types are supported. Follow the target project's visibility convention.
 - `[Mapper]` attribute on the class triggers Mapperly source generation for `partial` methods.
 - `partial` methods with no body are auto-implemented by Mapperly. Methods with a body are manual overrides.
 - `[MapperIgnoreTarget(nameof(Prop))]` goes on the private `partial` method (the one Mapperly implements), not on the class.
-- When you write a public wrapper that calls a private `partial` method, add `Guard.IsNotNull(source)` at the top.
+- When you write a public wrapper that calls a private `partial` method, add cancellation/argument validation before its outer `try`, inject an `ILogger`, and apply state-aware exception logging. Prefer an async mapper interface when the wrapper performs I/O.
 - All mapper classes for one feature go in one file named `<Feature>Mappers.cs`.
 - No per-mapper DI registration is needed — the generated catalog handles all registrations.
 - The generated catalog class name is `{AssemblyName_Dots_Replaced_By_Underscores}UmbrellaMapperlyCatalog` in namespace `Umbrella.Generated.Mapping.Mapperly`.
@@ -284,11 +322,12 @@ If the attribute is already present in the consuming project, no change is neede
 
 ## Verification
 
-1. All mapper classes are `public partial class` — not `internal`, not `sealed`.
+1. All `[Mapper]` classes are accessible `partial` classes; public and internal top-level types are valid.
 2. Every `partial` method either has no body (Mapperly generates it) or has a body for manual post-mapping logic.
 3. `[MapperIgnoreTarget(nameof(Prop))]` is placed on the private `partial` method.
-4. Public wrapper methods call `Guard.IsNotNull(source)`.
+4. Authored public wrapper methods validate before the outer `try`, have logger access, log useful state, and use async interfaces for asynchronous enrichment.
 5. The mapper project has `Umbrella.Generators.Mapperly` in its `.csproj` with global usings for `Riok.Mapperly.Abstractions` and `Umbrella.Utilities.Mapping.Mapperly.Abstractions`.
 6. The consuming project's `Program.cs` passes the generated catalog to `AddUmbrellaUtilitiesMappingMapperly(...)`.
 7. The consuming project's `IServiceCollectionExtensions.cs` has `[assembly: UmbrellaMapperlyCatalogReference(typeof(...))]` pointing to the generated catalog.
 8. Web client and web server have separate catalogs — each registered and attributed independently.
+9. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with UA/UMA/UWDI analyzers enabled where applicable.

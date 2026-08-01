@@ -59,6 +59,10 @@ powershell -ExecutionPolicy Bypass -File .github\skills\umbrella-dotnet-add-ef-m
 - `Modified files:` — the `*ModelSnapshot.cs` file
 - Warning if the migration body contains no `migrationBuilder` calls
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Safety rules
 
 - Never run `dotnet ef migrations add` directly.

@@ -209,6 +209,10 @@ dotnet test "<SolutionFile.sln>" --no-restore --verbosity minimal
 
 ---
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Verification checklist
 
 1. `dotnet build` produces no errors and only expected warnings.

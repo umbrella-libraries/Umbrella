@@ -250,6 +250,10 @@ public abstract class IndyRecordsDataServiceApiController<TDataService> : Umbrel
 - Declare `[UmbrellaProducesResponseType]` per the statuses the composed service operation can return (for `UmbrellaRepositoryDataService`-derived services these match the Pattern 2 endpoint sets), plus 422 whenever the action binds input.
 - Status codes come from the service's `IOperationResult`s — put conflict/not-found/validation decisions in the service, not the controller.
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Verification
 
 1. The controller derives from the app intermediate base, not the Umbrella base directly.

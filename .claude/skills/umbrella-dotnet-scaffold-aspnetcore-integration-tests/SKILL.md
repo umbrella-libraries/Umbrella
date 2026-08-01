@@ -316,6 +316,10 @@ For Microsoft Testing Platform projects, do not add legacy VSTest `--logger` arg
 
 If Docker/Testcontainers tests are included immediately, run them only when Docker is available and the user expects the container cost.
 
+## Analyzer compatibility
+
+Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build the affected projects with their installed analyzers enabled. Treat diagnostics introduced by the generated or changed code as defects in this workflow.
+
 ## Output
 
 Report:
