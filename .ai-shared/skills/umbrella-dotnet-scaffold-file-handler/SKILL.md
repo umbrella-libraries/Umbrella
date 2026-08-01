@@ -7,7 +7,7 @@ description: 'Scaffold a file handler (interface, implementation, DirectoryNames
 
 ## Purpose
 
-Add a new file handler to the `Core.<AppName>.Core.Logic` project. File handlers plug into the Umbrella file storage infrastructure and are responsible for **storage operations only**: saving, retrieving, deleting files, generating web-relative URLs, caching file lookups, and optional post-save processing (e.g. image resizing).
+Add a new file handler to the `Core.<AppName>.Core.Logic` project. File handlers plug into the Umbrella file storage infrastructure and are responsible for **storage operations only**: saving, retrieving, deleting files, generating web-relative or versioned URLs, caching file lookups, and optional post-save processing (e.g. image resizing).
 
 Authorization is decoupled and lives in a separate `UmbrellaFileAuthorizationHandler` — see the `umbrella-dotnet-scaffold-file-authorization-handler` skill. A file handler can exist without a matching authorization handler if access control is handled elsewhere, but be aware that the default storage provider behaviour is to deny access for directories with no registered auth handler.
 
@@ -148,6 +148,7 @@ internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileH
 - Do NOT add `AuthorizeAsync` here — authorization belongs in a separate `UmbrellaFileAuthorizationHandler` (see `umbrella-dotnet-scaffold-file-authorization-handler`)
 - Override `AfterSavingAsync` only when post-save processing is needed; always call `cancellationToken.ThrowIfCancellationRequested()` first
 - `using Umbrella.DynamicImage.Abstractions;` is only needed when overriding `AfterSavingAsync` for image work — confirm the package is referenced in the `.csproj`
+- Dynamic Image consumers obtain their URL/token pair from the inherited `GetVersionedWebFilePathAsync`; do not add a second token algorithm to the concrete handler.
 
 ---
 
@@ -177,3 +178,4 @@ Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` a
 4. There is no `AuthorizeAsync` on the file handler — authorization is in a separate handler.
 5. `AddSingleton<I<Name>FileHandler, <Name>FileHandler>()` is present in `IServiceCollectionExtensions.cs`.
 6. If authorization is needed, the `umbrella-dotnet-scaffold-file-authorization-handler` skill has been used to create a matching `<Name>FileAuthorizationHandler` with the same `DirectoryName`.
+7. If the handler backs Dynamic Image, callers use `GetVersionedWebFilePathAsync` and propagate its URL and token together.

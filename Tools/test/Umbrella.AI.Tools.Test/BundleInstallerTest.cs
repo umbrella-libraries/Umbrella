@@ -22,6 +22,8 @@ public class BundleInstallerTest
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "agents", "umbrella-dotnet-blazor-admin-crud-feature-agent.agent.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "skills", "umbrella-dotnet-scaffold-service", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "skills", "umbrella-dotnet-scaffold-service", "SKILL.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "skills", "umbrella-dotnet-configure-dynamic-image", "SKILL.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "skills", "umbrella-dotnet-configure-dynamic-image", "references", "dynamic-image-contract.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".mcp.json")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".codex", "config.toml")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, "nuget-upgrade-exclusions.json")));

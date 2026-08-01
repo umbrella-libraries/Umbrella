@@ -18,6 +18,8 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	private const string DynamicImageMiddlewareOptionsMetadataName = "Umbrella.WebUtilities.DynamicImage.Middleware.Options.DynamicImageMiddlewareOptions";
 	private const string EnableUrlFingerprintingPropertyName = "EnableUrlFingerprinting";
 	private const string EnableUrlFingerprintingBuildPropertyName = "build_property.UmbrellaDynamicImageEnableUrlFingerprinting";
+	private const string DynamicImageComponentTypeName = "Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage";
+	private const string FileImagePreviewUploadComponentTypeName = "Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload.UmbrellaFileImagePreviewUpload";
 
 	private static readonly string[] _dynamicImagePropertyIndicators =
 	[
@@ -269,7 +271,9 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 	private static void AnalyzeRazorVariantDiscoveryCoverage(CompilationAnalysisContext context)
 	{
-		bool hasComponentType = context.Compilation.GetTypeByMetadataName("Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage") is not null;
+		bool hasDynamicImageComponentType = context.Compilation.GetTypeByMetadataName(DynamicImageComponentTypeName) is not null;
+		bool hasFileImagePreviewUploadComponentType = context.Compilation.GetTypeByMetadataName(FileImagePreviewUploadComponentTypeName) is not null;
+		bool hasComponentType = hasDynamicImageComponentType || hasFileImagePreviewUploadComponentType;
 		bool hasImageTagHelperType = context.Compilation.GetTypeByMetadataName("Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.DynamicImageTagHelper") is not null;
 		bool hasPictureSourceTagHelperType = context.Compilation.GetTypeByMetadataName("Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.DynamicImagePictureSourceTagHelper") is not null;
 
@@ -287,11 +291,12 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 		foreach (DynamicImageRazorUsage usage in DynamicImageRazorSourceParser.Parse(
 			documents,
-			hasComponentType,
+			hasDynamicImageComponentType,
+			hasFileImagePreviewUploadComponentType,
 			hasImageTagHelperType,
 			hasPictureSourceTagHelperType))
 		{
-			bool isTagHelper = usage.Kind is not DynamicImageRazorUsageKind.Component;
+			bool isTagHelper = usage.Kind is DynamicImageRazorUsageKind.ImageTagHelper or DynamicImageRazorUsageKind.PictureSourceTagHelper;
 			string urlName = isTagHelper ? "src" : "Url";
 			DynamicImageRazorAttribute? urlAttribute = usage.Attributes.FirstOrDefault(x => string.Equals(x.Name, urlName, StringComparison.OrdinalIgnoreCase));
 
@@ -869,7 +874,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		}
 
 		isDynamicImageComponent = methodSymbol.TypeArguments.Length is 1 &&
-			string.Equals(methodSymbol.TypeArguments[0].ToDisplayString(), "Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage", StringComparison.Ordinal);
+			IsDynamicImageRenderingComponentType(methodSymbol.TypeArguments[0]);
 
 		return true;
 	}
@@ -908,6 +913,13 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 			: GetInvocationLocation(invocation);
 
 		return true;
+	}
+
+	private static bool IsDynamicImageRenderingComponentType(ITypeSymbol typeSymbol)
+	{
+		string typeName = typeSymbol.ToDisplayString();
+		return string.Equals(typeName, DynamicImageComponentTypeName, StringComparison.Ordinal) ||
+			   string.Equals(typeName, FileImagePreviewUploadComponentTypeName, StringComparison.Ordinal);
 	}
 
 	private static Location GetGeneratedComponentParameterNameLocation(ExpressionSyntax expression, string attributeName)

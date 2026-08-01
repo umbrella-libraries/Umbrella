@@ -6,6 +6,7 @@ namespace Umbrella.DynamicImage.RazorAnalysis;
 internal enum DynamicImageRazorUsageKind
 {
 	Component,
+	FileImagePreviewUploadComponent,
 	ImageTagHelper,
 	PictureSourceTagHelper
 }
@@ -59,8 +60,10 @@ internal sealed class DynamicImageRazorUsage
 
 internal static class DynamicImageRazorSourceParser
 {
-	private const string ComponentNamespace = "Umbrella.AspNetCore.Blazor.Components.DynamicImage";
-	private const string FullyQualifiedComponentName = ComponentNamespace + ".UmbrellaDynamicImage";
+	private const string DynamicImageComponentNamespace = "Umbrella.AspNetCore.Blazor.Components.DynamicImage";
+	private const string FullyQualifiedDynamicImageComponentName = DynamicImageComponentNamespace + ".UmbrellaDynamicImage";
+	private const string FileImagePreviewUploadComponentNamespace = "Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload";
+	private const string FullyQualifiedFileImagePreviewUploadComponentName = FileImagePreviewUploadComponentNamespace + ".UmbrellaFileImagePreviewUpload";
 	private const string TagHelperAssemblyName = "Umbrella.AspNetCore.WebUtilities.DynamicImage";
 	private const string DynamicImageTagHelperTypeName = "Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.DynamicImageTagHelper";
 	private const string DynamicImagePictureSourceTagHelperTypeName = "Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.DynamicImagePictureSourceTagHelper";
@@ -70,7 +73,8 @@ internal static class DynamicImageRazorSourceParser
 
 	public static ImmutableArray<DynamicImageRazorUsage> Parse(
 		IEnumerable<DynamicImageRazorDocument> documents,
-		bool hasComponentType,
+		bool hasDynamicImageComponentType,
+		bool hasFileImagePreviewUploadComponentType,
 		bool hasImageTagHelperType,
 		bool hasPictureSourceTagHelperType)
 	{
@@ -88,15 +92,20 @@ internal static class DynamicImageRazorSourceParser
 				continue;
 
 			string effectiveDirectives = BuildEffectiveDirectives(document, imports);
-			bool componentIsActive = hasComponentType &&
-				(isComponentDocument && ContainsUsing(effectiveDirectives, ComponentNamespace));
+			bool dynamicImageComponentIsActive = hasDynamicImageComponentType &&
+				(isComponentDocument && ContainsUsing(effectiveDirectives, DynamicImageComponentNamespace));
+			bool fileImagePreviewUploadComponentIsActive = hasFileImagePreviewUploadComponentType &&
+				(isComponentDocument && ContainsUsing(effectiveDirectives, FileImagePreviewUploadComponentNamespace));
 			(bool imageTagHelperIsActive, bool pictureSourceTagHelperIsActive) = isViewDocument
 				? GetActiveTagHelpers(effectiveDirectives)
 				: (false, false);
 
 			ParseDocument(
 				document,
-				componentIsActive,
+				hasDynamicImageComponentType,
+				dynamicImageComponentIsActive,
+				hasFileImagePreviewUploadComponentType,
+				fileImagePreviewUploadComponentIsActive,
 				hasImageTagHelperType && imageTagHelperIsActive,
 				hasPictureSourceTagHelperType && pictureSourceTagHelperIsActive,
 				result);
@@ -200,7 +209,10 @@ internal static class DynamicImageRazorSourceParser
 
 	private static void ParseDocument(
 		DynamicImageRazorDocument document,
-		bool componentIsActive,
+		bool hasDynamicImageComponentType,
+		bool dynamicImageComponentIsActive,
+		bool hasFileImagePreviewUploadComponentType,
+		bool fileImagePreviewUploadComponentIsActive,
 		bool imageTagHelperIsActive,
 		bool pictureSourceTagHelperIsActive,
 		ImmutableArray<DynamicImageRazorUsage>.Builder result)
@@ -228,7 +240,10 @@ internal static class DynamicImageRazorSourceParser
 			string tagName = maskedText.Substring(nameStart, nameEnd - nameStart);
 			DynamicImageRazorUsageKind? kind = GetUsageKind(
 				tagName,
-				componentIsActive,
+				hasDynamicImageComponentType,
+				dynamicImageComponentIsActive,
+				hasFileImagePreviewUploadComponentType,
+				fileImagePreviewUploadComponentIsActive,
 				imageTagHelperIsActive,
 				pictureSourceTagHelperIsActive);
 
@@ -248,14 +263,25 @@ internal static class DynamicImageRazorSourceParser
 
 	private static DynamicImageRazorUsageKind? GetUsageKind(
 		string tagName,
-		bool componentIsActive,
+		bool hasDynamicImageComponentType,
+		bool dynamicImageComponentIsActive,
+		bool hasFileImagePreviewUploadComponentType,
+		bool fileImagePreviewUploadComponentIsActive,
 		bool imageTagHelperIsActive,
 		bool pictureSourceTagHelperIsActive)
 	{
-		if (string.Equals(tagName, FullyQualifiedComponentName, StringComparison.Ordinal) ||
-			(componentIsActive && string.Equals(tagName, "UmbrellaDynamicImage", StringComparison.Ordinal)))
+		if (hasDynamicImageComponentType &&
+			(string.Equals(tagName, FullyQualifiedDynamicImageComponentName, StringComparison.Ordinal) ||
+			 dynamicImageComponentIsActive && string.Equals(tagName, "UmbrellaDynamicImage", StringComparison.Ordinal)))
 		{
 			return DynamicImageRazorUsageKind.Component;
+		}
+
+		if (hasFileImagePreviewUploadComponentType &&
+			(string.Equals(tagName, FullyQualifiedFileImagePreviewUploadComponentName, StringComparison.Ordinal) ||
+			 fileImagePreviewUploadComponentIsActive && string.Equals(tagName, "UmbrellaFileImagePreviewUpload", StringComparison.Ordinal)))
+		{
+			return DynamicImageRazorUsageKind.FileImagePreviewUploadComponent;
 		}
 
 		if (imageTagHelperIsActive && string.Equals(tagName, "dynamic-image", StringComparison.OrdinalIgnoreCase))

@@ -228,6 +228,29 @@ public static class ViewRenderer
 	}
 
 	[Fact]
+	public async Task RazorFileImagePreviewUpload_WithNonStaticVariantInput_ShouldTriggerDiagnostic()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+<UmbrellaFileImagePreviewUpload Url="@Model.ImageUrl"
+                                VersionToken="@Model.ImageVersionToken"
+                                WidthRequest="@Model.Width"
+                                HeightRequest="100" />
+""";
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.NonStaticVariantShapingInputRule,
+			4,
+			33,
+			"WidthRequest");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedBlazorInfrastructureSource,
+			[("C:/app/Test.razor", razor)],
+			expected);
+	}
+
+	[Fact]
 	public async Task RazorComponent_WithConstantReference_ShouldTriggerDiagnostic()
 	{
 		const string razor = """
@@ -397,6 +420,16 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
         public int WidthRequest { get; set; }
     }
 }
+
+namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+{
+    public class UmbrellaFileImagePreviewUpload
+    {
+        public string? Url { get; set; }
+        public string? VersionToken { get; set; }
+        public int WidthRequest { get; set; }
+    }
+}
 """;
 
 	private const string SharedTagHelperInfrastructureSource = """
@@ -421,6 +454,7 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
     {
     }
 }
+
 """;
 
 	private const string ExplicitlyDisabledRegistrationSource = """

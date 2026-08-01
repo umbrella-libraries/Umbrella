@@ -1,6 +1,6 @@
 ---
 name: umbrella-dotnet-audit-server-bootstrap
-description: 'Read-only audit of an ASP.NET Core server app''s Program.cs and startup extensions against Umbrella bootstrap conventions: claims principal propagation, Umbrella MVC/API behavior options and the validation failure status code, authorization policy and resource handler registration, Umbrella service wiring, and middleware ordering. Reports deviations with their runtime consequences and recommended fixes.'
+description: 'Read-only audit of an ASP.NET Core server app''s Program.cs and startup extensions against Umbrella bootstrap conventions: claims principal propagation, MVC/API behavior, authorization, service wiring, Dynamic Image catalogs and mappings, and middleware ordering. Reports deviations with their runtime consequences and recommended fixes.'
 ---
 
 # Audit Server Bootstrap
@@ -49,11 +49,22 @@ Confirm the presence and pairing of the core registrations the app's feature set
 
 Flag registrations whose dependencies are only partially wired (e.g. file handlers registered but no storage provider).
 
-### 5. Middleware pipeline order
+### 5. Dynamic Image integration
+
+When Dynamic Image is present, read `.agents\skills\umbrella-dotnet-configure-dynamic-image\references\dynamic-image-contract.md` and verify:
+
+- the analyzer is installed directly in every participating source project and the generator is Server-only;
+- cross-project fingerprint activation, named external Razor roots, generated catalog registration, and validation agree;
+- every file-provider mapping has an intentional `Public`, `Private`, or `NoStore` policy and long max-age is paired with fingerprinting;
+- `UseUmbrellaDynamicImage` runs before terminal endpoint/fallback handling.
+
+Report missing catalog ownership or unsafe cacheability as runtime/security defects, not style observations.
+
+### 6. Middleware pipeline order
 
 Verify the relative order: routing → authentication → authorization → `UseUmbrellaPropagateClaimsPrincipal` → endpoints. Note any Umbrella middleware in use (`UseUmbrellaFrontEndCompression`, `UseUmbrellaApiException`, `UseUmbrellaFileAccessTokenQueryString`, multi-tenant session context) and whether its position is sensible relative to auth and endpoints.
 
-### 6. Environment-sensitive behaviour
+### 7. Environment-sensitive behaviour
 
 Record how the app branches on `IsDevelopment()` during startup (developer exception page, production-only services, seeding). The base controllers' exception filters only produce contractual `500` responses outside `Development` — note what a non-`Development` test host must provide to boot (cross-reference `umbrella-dotnet-audit-aspnetcore-integration-test-readiness`).
 

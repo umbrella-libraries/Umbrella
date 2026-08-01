@@ -124,6 +124,12 @@ public partial class UmbrellaFileImagePreviewUpload : ComponentBase
 	public string? Url { get; set; }
 
 	/// <summary>
+	/// Gets or sets the version token associated with <see cref="Url"/>.
+	/// </summary>
+	[Parameter]
+	public string? VersionToken { get; set; }
+
+	/// <summary>
 	/// Gets or sets the delegate that is invoked when the Delete button is clicked when there is an existing image.
 	/// </summary>
 	[Parameter]
@@ -137,6 +143,7 @@ public partial class UmbrellaFileImagePreviewUpload : ComponentBase
 	public string DeleteButtonText { get; set; } = "Delete";
 
 	private string? UpdatedImageUrl { get; set; }
+	private string? UpdatedImageVersionToken { get; set; }
 	private UmbrellaFileImagePreviewUploadMode FileUploadMode { get; set; }
 
 	/// <inheritdoc />
@@ -145,6 +152,7 @@ public partial class UmbrellaFileImagePreviewUpload : ComponentBase
 		if (!string.IsNullOrWhiteSpace(Url))
 		{
 			UpdatedImageUrl = Url;
+			UpdatedImageVersionToken = VersionToken;
 			FileUploadMode = UmbrellaFileImagePreviewUploadMode.Current;
 		}
 	}
@@ -180,6 +188,7 @@ public partial class UmbrellaFileImagePreviewUpload : ComponentBase
 				return;
 
 			UpdatedImageUrl = null;
+			UpdatedImageVersionToken = null;
 			FileUploadMode = UmbrellaFileImagePreviewUploadMode.Upload;
 
 			if (OnDeleteImage.HasDelegate)
@@ -192,20 +201,23 @@ public partial class UmbrellaFileImagePreviewUpload : ComponentBase
 	}
 
 	/// <summary>
-	/// Updates the thumbnail <see cref="Url"/>. This should be called manually by the component consumer after uploading a new image.
+	/// Updates the thumbnail <see cref="Url"/> and its optional version token. This should be called manually by the component consumer after uploading a new image.
 	/// </summary>
 	/// <param name="url">The new thumbnail URL.</param>
-	public void Update(string? url)
+	/// <param name="versionToken">The optional version token associated with <paramref name="url"/>.</param>
+	public void Update(string? url, string? versionToken = null)
 	{
 		if (string.IsNullOrWhiteSpace(url))
 		{
 			UpdatedImageUrl = null;
+			UpdatedImageVersionToken = null;
 			FileUploadMode = UmbrellaFileImagePreviewUploadMode.Upload;
 		}
 		else
 		{
 			string? currentImageUrl = UpdatedImageUrl;
 			UpdatedImageUrl = url;
+			UpdatedImageVersionToken = versionToken;
 			FileUploadMode = currentImageUrl?.Equals(UpdatedImageUrl, StringComparison.OrdinalIgnoreCase) is true ? UmbrellaFileImagePreviewUploadMode.Current : UmbrellaFileImagePreviewUploadMode.New;
 		}
 	}

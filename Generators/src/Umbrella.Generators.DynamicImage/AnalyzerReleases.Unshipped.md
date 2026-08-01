@@ -5,4 +5,4 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
-UWDI005 | DynamicImageGeneration | Error | DynamicImageComponentVariantSourceGenerator - catalog names and physical Razor file ownership must be valid and unambiguous
+UWDI005 | DynamicImageGeneration | Error | DynamicImageComponentVariantSourceGenerator - catalog names and physical Razor file ownership must be valid and unambiguous; generated catalogs include direct Dynamic Image and UmbrellaFileImagePreviewUpload usages

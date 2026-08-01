@@ -112,6 +112,47 @@ public partial class AnalyzerGuidanceTest
     }
 
     [Fact]
+    public void DynamicImageGuidanceMatchesSupportedIntegrationContract()
+    {
+        string skill = ReadSkill("umbrella-dotnet-configure-dynamic-image");
+        string reference = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            ".ai-shared",
+            "skills",
+            "umbrella-dotnet-configure-dynamic-image",
+            "references",
+            "dynamic-image-contract.md"));
+        string mapperSkill = ReadSkill("umbrella-dotnet-scaffold-mapperly-factories");
+        string component = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            "AspNetCore",
+            "src",
+            "Umbrella.AspNetCore.Blazor",
+            "Components",
+            "FileImagePreviewUpload",
+            "UmbrellaFileImagePreviewUpload.razor.cs"));
+        string componentMarkup = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            "AspNetCore",
+            "src",
+            "Umbrella.AspNetCore.Blazor",
+            "Components",
+            "FileImagePreviewUpload",
+            "UmbrellaFileImagePreviewUpload.razor"));
+
+        Assert.Contains("Umbrella.Generators.DynamicImage` only in the Server project", skill, StringComparison.Ordinal);
+        Assert.Contains("UmbrellaDynamicImageEnableUrlFingerprinting", reference, StringComparison.Ordinal);
+        Assert.Contains("UmbrellaDynamicImageSourceRoot", reference, StringComparison.Ordinal);
+        Assert.Contains("AddAllowedVariantCatalogs", reference, StringComparison.Ordinal);
+        Assert.Contains("MiddlewareHttpCacheability.Public", reference, StringComparison.Ordinal);
+        Assert.Contains("MiddlewareHttpCacheability.Private", reference, StringComparison.Ordinal);
+        Assert.Contains("MiddlewareHttpCacheability.NoStore", reference, StringComparison.Ordinal);
+        Assert.Contains("Task.WhenAll", mapperSkill, StringComparison.Ordinal);
+        Assert.Contains("public string? VersionToken { get; set; }", component, StringComparison.Ordinal);
+        Assert.Contains("VersionToken=\"@UpdatedImageVersionToken\"", componentMarkup, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GeneratedAdaptersMatchCanonicalSources()
     {
         string canonicalSkillsRoot = Path.Combine(RepoRoot, ".ai-shared", "skills");

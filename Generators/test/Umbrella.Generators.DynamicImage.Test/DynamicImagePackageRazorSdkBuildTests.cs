@@ -119,6 +119,27 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
     }
 }
 
+namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+{
+    public sealed class UmbrellaFileImagePreviewUpload : ComponentBase
+    {
+        [Parameter]
+        public string? Url { get; set; }
+
+        [Parameter]
+        public string? VersionToken { get; set; }
+
+        [Parameter]
+        public int WidthRequest { get; set; }
+
+        [Parameter]
+        public int HeightRequest { get; set; }
+
+        [Parameter]
+        public int MaxPixelDensity { get; set; }
+    }
+}
+
 namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
 {
     public sealed class DynamicImageTagHelper
@@ -149,7 +170,10 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
 
 			await File.WriteAllTextAsync(
 				Path.Combine(clientSourcePath, "_Imports.razor"),
-				"@using Umbrella.AspNetCore.Blazor.Components.DynamicImage",
+				"""
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+@using Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+""",
 				TestContext.Current.CancellationToken);
 
 			await File.WriteAllTextAsync(
@@ -159,6 +183,11 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
                       WidthRequest="400"
                       HeightRequest="200"
                       MaxPixelDensity="1" />
+<UmbrellaFileImagePreviewUpload Url="/images/client-preview.jpg"
+                                VersionToken="abc123"
+                                WidthRequest="450"
+                                HeightRequest="225"
+                                MaxPixelDensity="1" />
 """,
 				TestContext.Current.CancellationToken);
 
@@ -228,11 +257,12 @@ public static class Verification
 
     public static bool HasExpectedClientVariant =>
         ClientDynamicImageVariantCatalog.All.Any(x => x.Width is 400 && x.Height is 200) &&
+        ClientDynamicImageVariantCatalog.All.Any(x => x.Width is 450 && x.Height is 225) &&
         ClientDynamicImageVariantCatalog.All.Any(x => x.Width is 500 && x.Height is 250) &&
         ClientDynamicImageVariantCatalog.All.Any(x => x.Width is 600 && x.Height is 300);
 
     public static bool HasExpectedAggregateVariants =>
-        DynamicImageVariantCatalog.All.Count is 5;
+        DynamicImageVariantCatalog.All.Count is 6;
 }
 """,
 				TestContext.Current.CancellationToken);
@@ -281,6 +311,7 @@ public static class Verification
 			Assert.Contains("class ClientDynamicImageVariantCatalog", catalogSource, StringComparison.Ordinal);
 			Assert.Contains("DynamicImageVariant(321, 123", catalogSource, StringComparison.Ordinal);
 			Assert.Contains("DynamicImageVariant(400, 200", catalogSource, StringComparison.Ordinal);
+			Assert.Contains("DynamicImageVariant(450, 225", catalogSource, StringComparison.Ordinal);
 			Assert.Contains("DynamicImageVariant(500, 250", catalogSource, StringComparison.Ordinal);
 			Assert.Contains("DynamicImageVariant(600, 300", catalogSource, StringComparison.Ordinal);
 			Assert.Contains("DynamicImageVariant(700, 350", catalogSource, StringComparison.Ordinal);

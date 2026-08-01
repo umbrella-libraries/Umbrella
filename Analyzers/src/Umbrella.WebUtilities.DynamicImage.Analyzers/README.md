@@ -16,7 +16,7 @@ UWDI001–UWDI003 are configured with **Error** severity (compile blocking) and 
 |---------|-------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | UWDI001 | DynamicImage URL properties must declare matching version token properties           | Model types with a `*Url` DynamicImage property (e.g. `ImageUrl`) must also declare a matching `*VersionToken` property (e.g. `ImageVersionToken`) of type `string?`.   |
 | UWDI002 | DynamicImage URL assignments must also assign matching version tokens               | Object initialisers and assignment statements that set a DynamicImage URL property must also set the corresponding `*VersionToken` property in the same construction/update flow. |
-| UWDI003 | DynamicImage UI usages must assign VersionToken                                     | `UmbrellaDynamicImage` Blazor component usages and `DynamicImage` tag helper usages bound to a DynamicImage URL model property must also assign the `VersionToken` input. |
+| UWDI003 | DynamicImage UI usages must assign VersionToken                                     | `UmbrellaDynamicImage`, `UmbrellaFileImagePreviewUpload`, and `DynamicImage` tag helper usages bound to a DynamicImage URL model property must also assign the `VersionToken` input. |
 | UWDI004 | DynamicImage variant discovery coverage is reduced by non-static inputs             | Dynamic Image usages with variant-shaping inputs other than literals or enum members cannot be added safely to the generated catalog. The diagnostic points to the original Razor attribute and the entire occurrence is omitted from generation. |
 | UWDI005 | Dynamic Image catalog configuration is invalid                                     | The generator reports an error for empty or conflicting catalog names, or when more than one catalog owns the same physical Razor file. |
 
@@ -77,6 +77,9 @@ multiple named catalogs with `AddAllowedVariantCatalogs`.
 Razor discovery honours effective `_Imports.razor`, `_ViewImports.cshtml`, `@using`, `@addTagHelper`, and
 `@removeTagHelper` directives. Variant-shaping values must be numeric/string literals or enum members. Compile-time
 constant references and other Razor expressions are intentionally not discoverable and report UWDI004.
+`UmbrellaFileImagePreviewUpload` is treated as a Dynamic Image rendering component: its static preview dimensions and
+format settings contribute variants to the catalog and its URL/version-token pair is checked like a direct
+`UmbrellaDynamicImage` usage.
 
 ### Severity
 

@@ -101,6 +101,92 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
 	}
 
 	[Fact]
+	public async Task FileImagePreviewUploadUsage_WithoutVersionToken_ShouldTriggerDiagnostic()
+	{
+		const string source = """
+public record ProductModel
+{
+    public string? ImageUrl { get; init; }
+    public string? ImageVersionToken { get; init; }
+}
+
+public static class RenderFragmentFactory
+{
+    public static void Build(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, ProductModel item)
+    {
+        builder.OpenComponent<Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload.UmbrellaFileImagePreviewUpload>(0);
+        builder.AddAttribute(1, "Url", item.ImageUrl);
+        builder.CloseComponent();
+    }
+}
+
+namespace Microsoft.AspNetCore.Components.Rendering
+{
+    public class RenderTreeBuilder
+    {
+        public void OpenComponent<TComponent>(int sequence) { }
+        public void AddAttribute(int sequence, string name, object? value) { }
+        public void CloseComponent() { }
+    }
+}
+
+namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+{
+    public class UmbrellaFileImagePreviewUpload { }
+}
+""" + ExplicitlyEnabledRegistrationSource;
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.MissingVersionTokenUsageRule,
+			12,
+			17,
+			"ImageUrl",
+			"ImageVersionToken");
+
+		await VerifyAnalyzerAsync(source, expected);
+	}
+
+	[Fact]
+	public async Task FileImagePreviewUploadUsage_WithVersionToken_ShouldNotTriggerDiagnostic()
+	{
+		const string source = """
+public record ProductModel
+{
+    public string? ImageUrl { get; init; }
+    public string? ImageVersionToken { get; init; }
+}
+
+public static class RenderFragmentFactory
+{
+    public static void Build(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, ProductModel item)
+    {
+        builder.OpenComponent<Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload.UmbrellaFileImagePreviewUpload>(0);
+        builder.AddAttribute(1, "Url", item.ImageUrl);
+        builder.AddAttribute(2, "VersionToken", item.ImageVersionToken);
+        builder.CloseComponent();
+    }
+}
+
+namespace Microsoft.AspNetCore.Components.Rendering
+{
+    public class RenderTreeBuilder
+    {
+        public void OpenComponent<TComponent>(int sequence) { }
+        public void AddAttribute(int sequence, string name, object? value) { }
+        public void CloseComponent() { }
+    }
+}
+
+namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+{
+    public class UmbrellaFileImagePreviewUpload { }
+}
+""" + ExplicitlyEnabledRegistrationSource;
+
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
 	public async Task TagHelperUsage_WithoutVersionToken_ShouldTriggerDiagnostic()
 	{
 		const string source = """

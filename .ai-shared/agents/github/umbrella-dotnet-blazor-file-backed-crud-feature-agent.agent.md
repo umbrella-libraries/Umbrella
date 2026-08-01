@@ -23,6 +23,7 @@ Primary skill sequence:
 9. `.github\skills\umbrella-blazor-scaffold-index-page\SKILL.md`
 10. `.github\skills\umbrella-blazor-scaffold-manage-page\SKILL.md`
 11. `.github\skills\umbrella-blazor-register-nav-item\SKILL.md`
-12. `.github\skills\umbrella-dotnet-add-ef-migration\SKILL.md`
+12. `.github\skills\umbrella-dotnet-configure-dynamic-image\SKILL.md` when the feature renders Dynamic Image content
+13. `.github\skills\umbrella-dotnet-add-ef-migration\SKILL.md`
 
 Keep file authorization separate from the file handler. When Dynamic Image fingerprinting is enabled, add nullable URL/token pairs to the relevant models, populate both values through asynchronous Mapperly contracts using `GetVersionedWebFilePathAsync`, and pass the token to every model-bound component. Verify upload validation constants, temp-file flow, DI registrations, generated catalogs, Mapperly mappings, and generated migration files.

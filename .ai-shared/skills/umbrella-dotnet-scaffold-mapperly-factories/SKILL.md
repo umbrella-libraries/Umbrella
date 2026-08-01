@@ -170,18 +170,22 @@ public partial class <Name>Mapper :
 
         try
         {
-            IReadOnlyCollection<<Name>Entity> entities = source as IReadOnlyCollection<<Name>Entity> ?? source.ToArray();
-            IReadOnlyCollection<Slim<Name>Model> models = MapAllInternal(entities);
+			<Name>Entity[] entities = [.. source];
+			Slim<Name>Model[] models = [.. MapAllInternal(entities)];
+			Task<UmbrellaVersionedUrl?>[] imageTasks =
+			[
+				.. entities.Select(entity => _fileHandler.GetVersionedWebFilePathAsync(
+					entity.Id,
+					entity.ImageProviderFileName,
+					cancellationToken))
+			];
+			UmbrellaVersionedUrl?[] images = await Task.WhenAll(imageTasks).ConfigureAwait(false);
 
-            foreach (var (entity, model) in entities.Zip(models))
-            {
-                UmbrellaVersionedUrl? image = await _fileHandler
-                    .GetVersionedWebFilePathAsync(entity.Id, entity.ImageProviderFileName, cancellationToken)
-                    .ConfigureAwait(false);
-
-                model.ImageUrl = image?.Url;
-                model.ImageVersionToken = image?.VersionToken;
-            }
+			for (int index = 0; index < models.Length; index++)
+			{
+				models[index].ImageUrl = images[index]?.Url;
+				models[index].ImageVersionToken = images[index]?.VersionToken;
+			}
 
             return models;
         }
@@ -197,7 +201,7 @@ public partial class <Name>Mapper :
 }
 ```
 
-Use the async mapper interfaces whenever enrichment performs I/O. Assign each Dynamic Image URL and matching version token in the same flow. Authored public mapper bodies activate UA008/UA016, so inject an `ILogger`, put guards/cancellation before the outer `try`, and log meaningful state. Pure bodyless partial mappings need neither a logger nor a wrapper.
+Use the async mapper interfaces whenever enrichment performs I/O. Assign each Dynamic Image URL and matching version token in the same flow. Resolve independent lookups concurrently only for bounded materialized collections, such as one paginated result, and preserve entity/model ordering; do not start unbounded work over arbitrary streams. Authored public mapper bodies activate UA008/UA016, so inject an `ILogger`, put guards/cancellation before the outer `try`, and log meaningful state. Pure bodyless partial mappings need neither a logger nor a wrapper.
 
 **Multiple mapper classes (when the same interface can't be implemented twice):**
 

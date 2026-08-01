@@ -253,6 +253,8 @@ public async Task<IOperationResult?> UploadFileToTempDirectoryAsync(UmbrellaFile
         if (fileUploadResult.IsSuccess)
         {
             CreateUpdateModel.<FilePropertyName> = fileUploadResult.Result.tempFileName;
+            // Temporary/no-store uploads normally have no token. If the upload contract returns one,
+            // pass it as the second argument so the preview emits the fingerprint directly.
             ImagePreviewUpload.Update(fileUploadResult.Result.url);
         }
 
@@ -292,5 +294,5 @@ protected void OnDeleteImage()
 8. `UmbrellaConcurrencyException` is caught and handled with `ClientErrorMessages.Concurrency`.
 9. `UmbrellaModelLayoutStateView` wraps the form content in the `.razor`.
 10. Client-side mapper classes exist in `Web.Client.Data\Mappings\Api\` for the `<Name>Model → Update<Name>Model` and `Update<Name>ResultModel → Update<Name>Model` mappings.
-11. When the displayed file uses Dynamic Image URL fingerprinting, its model declares `ImageVersionToken`, mappings assign URL/token together, and the component passes `VersionToken`.
+11. When the displayed file uses Dynamic Image URL fingerprinting, its model declares `ImageVersionToken`, mappings assign URL/token together, and `UmbrellaFileImagePreviewUpload` receives and forwards `VersionToken`.
 12. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.

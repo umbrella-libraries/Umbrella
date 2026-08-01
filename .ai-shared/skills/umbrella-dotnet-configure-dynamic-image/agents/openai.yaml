@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure Dynamic Image"
+  short_description: "Configure and validate Umbrella Dynamic Image tooling"
+  default_prompt: "Configure or audit Umbrella Dynamic Image analyzers, source generation, middleware, fingerprinting, catalogs, and caching in this solution."

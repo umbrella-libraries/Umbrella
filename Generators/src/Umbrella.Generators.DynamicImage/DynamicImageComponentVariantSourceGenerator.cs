@@ -25,6 +25,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 
 	// Blazor component
 	private const string DynamicImageComponentTypeName = "Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage";
+	private const string FileImagePreviewUploadComponentTypeName = "Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload.UmbrellaFileImagePreviewUpload";
 
 	// MVC tag helpers
 	private const string DynamicImageTagHelperTypeName = "Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.DynamicImageTagHelper";
@@ -43,6 +44,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 	private const int DefaultResizeMode = 4;
 	private const int DefaultImageFormat = 2;
 	private const int DefaultMaxPixelDensity = 3;
+	private const int FileImagePreviewUploadDefaultMaxPixelDensity = 4;
 
 	/// <inheritdoc />
 	public void Initialize(IncrementalGeneratorInitializationContext context)
@@ -93,7 +95,9 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			return;
 		}
 
-		bool hasComponentType = compilation.GetTypeByMetadataName(DynamicImageComponentTypeName) is not null;
+		bool hasDynamicImageComponentType = compilation.GetTypeByMetadataName(DynamicImageComponentTypeName) is not null;
+		bool hasFileImagePreviewUploadComponentType = compilation.GetTypeByMetadataName(FileImagePreviewUploadComponentTypeName) is not null;
+		bool hasComponentType = hasDynamicImageComponentType || hasFileImagePreviewUploadComponentType;
 		bool hasImageTagHelperType = compilation.GetTypeByMetadataName(DynamicImageTagHelperTypeName) is not null;
 		bool hasPictureSourceTagHelperType = compilation.GetTypeByMetadataName(DynamicImagePictureSourceTagHelperTypeName) is not null;
 		bool hasTagHelperType = hasImageTagHelperType || hasPictureSourceTagHelperType;
@@ -136,7 +140,8 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 
 		ImmutableArray<DynamicImageRazorUsage> usages = DynamicImageRazorSourceParser.Parse(
 			documents,
-			hasComponentType,
+			hasDynamicImageComponentType,
+			hasFileImagePreviewUploadComponentType,
 			hasImageTagHelperType,
 			hasPictureSourceTagHelperType);
 		var resizeModeValues = GetEnumValueMap(resizeModeType);
@@ -158,7 +163,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		Dictionary<string, int> validImageFormats,
 		ISet<VariantEntry> variants)
 	{
-		bool isTagHelper = usage.Kind is not DynamicImageRazorUsageKind.Component;
+		bool isTagHelper = usage.Kind is DynamicImageRazorUsageKind.ImageTagHelper or DynamicImageRazorUsageKind.PictureSourceTagHelper;
 		bool supportsSizeWidths = usage.Kind is not DynamicImageRazorUsageKind.PictureSourceTagHelper;
 		var attributes = new Dictionary<string, DynamicImageRazorAttribute>(StringComparer.OrdinalIgnoreCase);
 
@@ -190,7 +195,9 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		int height = isTagHelper ? 0 : DefaultHeightRequest;
 		int resizeMode = DefaultResizeMode;
 		int imageFormat = DefaultImageFormat;
-		int maxPixelDensity = DefaultMaxPixelDensity;
+		int maxPixelDensity = usage.Kind is DynamicImageRazorUsageKind.FileImagePreviewUploadComponent
+			? FileImagePreviewUploadDefaultMaxPixelDensity
+			: DefaultMaxPixelDensity;
 		HashSet<int>? sizeWidths = null;
 
 		if (attributes.TryGetValue("WidthRequest", out DynamicImageRazorAttribute? widthAttribute))
@@ -354,13 +361,13 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			if (!TryGetInvocationStatement(statements[i], out InvocationExpressionSyntax? invocation) ||
 				invocation is null ||
 				!TryGetInvocationReceiverText(invocation, out string? receiverText) ||
-				!IsOpenComponentInvocation(semanticModel, invocation, cancellationToken))
+				!TryGetDynamicImageRenderingComponentDefaultMaxPixelDensity(semanticModel, invocation, cancellationToken, out int defaultMaxPixelDensity))
 			{
 				continue;
 			}
 
 			int nestingDepth = 1;
-			var parameters = new ComponentVariantParameters();
+			var parameters = new ComponentVariantParameters { MaxPixelDensity = defaultMaxPixelDensity };
 
 			for (int j = i + 1; j < statements.Count; j++)
 			{
@@ -834,7 +841,41 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		return semanticModel.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol methodSymbol &&
 			   string.Equals(methodSymbol.Name, "OpenComponent", StringComparison.Ordinal) &&
 			   methodSymbol.TypeArguments.Length is 1 &&
-			   string.Equals(methodSymbol.TypeArguments[0].ToDisplayString(), DynamicImageComponentTypeName, StringComparison.Ordinal);
+			   IsDynamicImageRenderingComponentType(methodSymbol.TypeArguments[0]);
+	}
+
+	private static bool TryGetDynamicImageRenderingComponentDefaultMaxPixelDensity(
+		SemanticModel semanticModel,
+		InvocationExpressionSyntax invocation,
+		CancellationToken cancellationToken,
+		out int defaultMaxPixelDensity)
+	{
+		defaultMaxPixelDensity = DefaultMaxPixelDensity;
+
+		if (semanticModel.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol methodSymbol ||
+			!string.Equals(methodSymbol.Name, "OpenComponent", StringComparison.Ordinal) ||
+			methodSymbol.TypeArguments.Length is not 1)
+		{
+			return false;
+		}
+
+		string typeName = methodSymbol.TypeArguments[0].ToDisplayString();
+
+		if (string.Equals(typeName, DynamicImageComponentTypeName, StringComparison.Ordinal))
+			return true;
+
+		if (!string.Equals(typeName, FileImagePreviewUploadComponentTypeName, StringComparison.Ordinal))
+			return false;
+
+		defaultMaxPixelDensity = FileImagePreviewUploadDefaultMaxPixelDensity;
+		return true;
+	}
+
+	private static bool IsDynamicImageRenderingComponentType(ITypeSymbol typeSymbol)
+	{
+		string typeName = typeSymbol.ToDisplayString();
+		return string.Equals(typeName, DynamicImageComponentTypeName, StringComparison.Ordinal) ||
+			   string.Equals(typeName, FileImagePreviewUploadComponentTypeName, StringComparison.Ordinal);
 	}
 
 	private static bool IsCloseComponentInvocation(SemanticModel semanticModel, InvocationExpressionSyntax invocation, CancellationToken cancellationToken)

@@ -60,6 +60,35 @@ public class DynamicImageRazorSourceGeneratorTests
 	}
 
 	[Fact]
+	public void RazorFileImagePreviewUploadEmitsItsDynamicImageVariants()
+	{
+		AdditionalText[] files =
+		[
+			new TestAdditionalText("C:/app/_Imports.razor", "@using Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload"),
+			new TestAdditionalText("C:/app/Test.razor", """
+<UmbrellaFileImagePreviewUpload Url="@Model.ImageUrl"
+                                VersionToken="@Model.ImageVersionToken"
+                                WidthRequest="400"
+                                HeightRequest="200"
+                                ResizeMode="DynamicResizeMode.CropFocalPoint"
+                                ImageFormat="DynamicImageFormat.Png" />
+""")
+		];
+
+		Assembly assembly = GenerateAssembly(files, CreateCatalogMetadata(files, "Client"), out ImmutableArray<Diagnostic> diagnostics);
+
+		Assert.Empty(diagnostics);
+		Assert.Equal(
+			[
+				new DynamicImageVariant(400, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Png),
+				new DynamicImageVariant(800, 400, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Png),
+				new DynamicImageVariant(1200, 600, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Png),
+				new DynamicImageVariant(1600, 800, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Png)
+			],
+			GetVariants(assembly, "ClientDynamicImageVariantCatalog"));
+	}
+
+	[Fact]
 	public void RazorComponentWithExpressionSkipsEntireUsage()
 	{
 		AdditionalText[] files =
@@ -356,6 +385,11 @@ public class DynamicImageRazorSourceGeneratorTests
 namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
 {
     public class UmbrellaDynamicImage { }
+}
+
+namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+{
+    public class UmbrellaFileImagePreviewUpload { }
 }
 
 namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
