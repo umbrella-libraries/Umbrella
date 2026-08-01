@@ -1,5 +1,4 @@
 ﻿using System.Security.Claims;
-using System.Security.Cryptography;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Caching.Abstractions;
@@ -298,18 +297,7 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 
 		try
 		{
-			if (fileInfo.IsNew)
-				return null;
-
-			if (fileInfo.LastModified.HasValue)
-				return CreateMetadataVersionToken(fileInfo.LastModified.Value, fileInfo.Length);
-
-			bool exists = await fileInfo.ExistsAsync(cancellationToken).ConfigureAwait(false);
-
-			if (!exists)
-				return null;
-
-			return await CreateContentHashVersionTokenAsync(fileInfo, cancellationToken).ConfigureAwait(false);
+			return await UmbrellaFileVersionTokenUtility.CreateAsync(fileInfo, cancellationToken).ConfigureAwait(false);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { fileInfo.SubPath }))
 		{
@@ -378,32 +366,6 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 	/// <inheritdoc/>
 	public string GetWebFilePath(string fileName, TGroupId groupId) => $"/{Options.WebFilesDirectoryName}{GetFilePath(fileName, groupId)}".ToLowerInvariant();
 
-	private static string CreateMetadataVersionToken(DateTimeOffset lastModified, long contentLength)
-	{
-		long versionHash = lastModified.UtcDateTime.ToFileTimeUtc() ^ contentLength;
-
-		return Convert.ToString(versionHash, 16);
-	}
-
-	private static async Task<string> CreateContentHashVersionTokenAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		using var hasher = SHA256.Create();
-		using Stream sourceStream = await fileInfo.ReadAsStreamAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-		using var hashStream = new CryptoStream(Stream.Null, hasher, CryptoStreamMode.Write);
-
-		await sourceStream.CopyToAsync(hashStream, 81920, cancellationToken).ConfigureAwait(false);
-#if NET8_0_OR_GREATER
-		await hashStream.FlushFinalBlockAsync(cancellationToken).ConfigureAwait(false);
-
-		return Convert.ToHexString(hasher.Hash!).ToLowerInvariant();
-#else
-		hashStream.FlushFinalBlock();
-
-		return BitConverter.ToString(hasher.Hash!).Replace("-", string.Empty).ToLowerInvariant();
-#endif
-	}
 }
 
 /// <summary>

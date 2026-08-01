@@ -22,10 +22,23 @@ UWDI001–UWDI003 are configured with **Error** severity (compile blocking) and 
 
 ### Activation
 
-UWDI001–UWDI003 are gated on explicit URL-fingerprinting enablement. The analyzer detects the real
-`AddUmbrellaWebUtilitiesDynamicImage` registration callback and enables these diagnostics only when its final direct
-assignment to the real `DynamicImageMiddlewareOptions.EnableUrlFingerprinting` property is a compile-time constant
-`true`.
+UWDI001–UWDI003 are gated on explicit URL-fingerprinting enablement. In the project containing the real
+`AddUmbrellaWebUtilitiesDynamicImage` registration callback, its direct assignment to the real
+`DynamicImageMiddlewareOptions.EnableUrlFingerprinting` property is authoritative and diagnostics are enabled only
+when the final assignment is the compile-time constant `true`.
+
+Projects which do not contain the registration can participate in the same contract by setting the compiler-visible
+MSBuild property centrally:
+
+```xml
+<PropertyGroup>
+  <UmbrellaDynamicImageEnableUrlFingerprinting>true</UmbrellaDynamicImageEnableUrlFingerprinting>
+</PropertyGroup>
+```
+
+The analyzer package must be installed directly in each project containing model declarations, mapping assignments,
+or Dynamic Image UI usages that should be checked. A missing, invalid, or `false` build-property value leaves the
+rules disabled. A local registration remains authoritative over the build property.
 
 UWDI001–UWDI003 remain disabled when:
 
@@ -78,7 +91,8 @@ Rule introduction and status are tracked in:
 ## Usage
 
 1. Add the package reference.
-2. Enable URL fingerprinting in your startup code (`EnableUrlFingerprinting = true`).
+2. Enable URL fingerprinting in startup code (`EnableUrlFingerprinting = true`) and, for multi-project applications,
+   set `UmbrellaDynamicImageEnableUrlFingerprinting=true` centrally.
 3. Build or open the solution in an IDE with Roslyn analyzer support (VS / Rider / `dotnet build`).
 4. Fix reported diagnostics — add the missing `*VersionToken` properties, assignments, and component inputs.
 

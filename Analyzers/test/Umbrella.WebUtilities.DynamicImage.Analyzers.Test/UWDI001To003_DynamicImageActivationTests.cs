@@ -14,6 +14,62 @@ public class UWDI001To003_DynamicImageActivationTests : AnalyzerTestBase<Umbrell
 		await VerifyNoDiagnosticsAsync(VersioningViolationsSource + ExplicitlyDisabledRegistrationSource);
 	}
 
+	[Fact]
+	public async Task VersioningRules_WithBuildPropertyEnabled_ShouldTriggerAllDiagnostics()
+	{
+		IReadOnlyDictionary<string, string> globalOptions = new Dictionary<string, string>
+		{
+			["build_property.UmbrellaDynamicImageEnableUrlFingerprinting"] = "true"
+		};
+
+		await VerifyAnalyzerAsync(
+			VersioningViolationsSource,
+			globalOptions,
+			Diagnostic(DynamicImageVersioningAnalyzer.MissingVersionTokenPropertyRule, 3, 20),
+			Diagnostic(DynamicImageVersioningAnalyzer.MissingVersionTokenAssignmentRule, 17, 13),
+			Diagnostic(DynamicImageVersioningAnalyzer.MissingVersionTokenUsageRule, 25, 17));
+	}
+
+	[Theory]
+	[InlineData("false")]
+	[InlineData("not-a-boolean")]
+	public async Task VersioningRules_WithBuildPropertyNotEnabled_ShouldNotTriggerDiagnostics(string value)
+	{
+		IReadOnlyDictionary<string, string> globalOptions = new Dictionary<string, string>
+		{
+			["build_property.UmbrellaDynamicImageEnableUrlFingerprinting"] = value
+		};
+
+		await VerifyAnalyzerAsync(VersioningViolationsSource, globalOptions);
+	}
+
+	[Fact]
+	public async Task ExplicitFalseRegistration_OverridesEnabledBuildProperty()
+	{
+		IReadOnlyDictionary<string, string> globalOptions = new Dictionary<string, string>
+		{
+			["build_property.UmbrellaDynamicImageEnableUrlFingerprinting"] = "true"
+		};
+
+		await VerifyAnalyzerAsync(VersioningViolationsSource + ExplicitlyDisabledRegistrationSource, globalOptions);
+	}
+
+	[Fact]
+	public async Task ExplicitTrueRegistration_OverridesDisabledBuildProperty()
+	{
+		IReadOnlyDictionary<string, string> globalOptions = new Dictionary<string, string>
+		{
+			["build_property.UmbrellaDynamicImageEnableUrlFingerprinting"] = "false"
+		};
+
+		await VerifyAnalyzerAsync(
+			VersioningViolationsSource + ExplicitlyDisabledRegistrationSource.Replace("= false", "= true", StringComparison.Ordinal),
+			globalOptions,
+			Diagnostic(DynamicImageVersioningAnalyzer.MissingVersionTokenPropertyRule, 3, 20),
+			Diagnostic(DynamicImageVersioningAnalyzer.MissingVersionTokenAssignmentRule, 17, 13),
+			Diagnostic(DynamicImageVersioningAnalyzer.MissingVersionTokenUsageRule, 25, 17));
+	}
+
 	private const string VersioningViolationsSource = """
 public record MissingVersionTokenModel
 {

@@ -42,13 +42,24 @@ public abstract class AnalyzerTestBase<T>
 	/// <param name="expected">The expected diagnostic results.</param>
 	/// <returns>A task representing the asynchronous verification operation.</returns>
 	protected static async Task VerifyAnalyzerAsync(string source, params ExpectedDiagnostic[] expected)
+		=> await VerifyAnalyzerAsync(source, new Dictionary<string, string>(), expected);
+
+	/// <summary>
+	/// Runs the analyzer with compiler-visible global build properties.
+	/// </summary>
+	protected static async Task VerifyAnalyzerAsync(
+		string source,
+		IReadOnlyDictionary<string, string> globalOptions,
+		params ExpectedDiagnostic[] expected)
 	{
+		ArgumentNullException.ThrowIfNull(globalOptions);
 		ArgumentNullException.ThrowIfNull(expected);
 
 		CSharpCompilation compilation = CreateCompilation(source);
 		var analyzer = new T();
 
-		CompilationWithAnalyzers compilationWithAnalyzers = compilation.WithAnalyzers([analyzer]);
+		var analyzerOptions = new AnalyzerOptions([], new TestAnalyzerConfigOptionsProvider(globalOptions));
+		CompilationWithAnalyzers compilationWithAnalyzers = compilation.WithAnalyzers([analyzer], analyzerOptions);
 		ImmutableArray<Diagnostic> diagnostics = await compilationWithAnalyzers.GetAnalyzerDiagnosticsAsync();
 
 		// Filter out compiler diagnostics, only keep analyzer diagnostics
@@ -271,6 +282,35 @@ public abstract class AnalyzerTestBase<T>
 		}
 
 		public override Microsoft.CodeAnalysis.Text.SourceText GetText(CancellationToken cancellationToken = default) => _text;
+	}
+
+	private sealed class TestAnalyzerConfigOptionsProvider : AnalyzerConfigOptionsProvider
+	{
+		private readonly AnalyzerConfigOptions _globalOptions;
+
+		public TestAnalyzerConfigOptionsProvider(IReadOnlyDictionary<string, string> globalOptions)
+		{
+			_globalOptions = new TestAnalyzerConfigOptions(globalOptions);
+		}
+
+		public override AnalyzerConfigOptions GlobalOptions => _globalOptions;
+		public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => TestAnalyzerConfigOptions.Empty;
+		public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => TestAnalyzerConfigOptions.Empty;
+	}
+
+	private sealed class TestAnalyzerConfigOptions : AnalyzerConfigOptions
+	{
+		public static TestAnalyzerConfigOptions Empty { get; } = new(new Dictionary<string, string>());
+
+		private readonly IReadOnlyDictionary<string, string> _options;
+
+		public TestAnalyzerConfigOptions(IReadOnlyDictionary<string, string> options)
+		{
+			_options = options;
+		}
+
+		public override bool TryGetValue(string key, out string value)
+			=> _options.TryGetValue(key, out value!);
 	}
 }
 

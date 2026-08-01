@@ -36,6 +36,10 @@ public class DynamicImageMiddlewareOptions : IValidatableUmbrellaOptions, ISanit
 	/// Gets or sets a value indicating whether URL fingerprinting is enabled for generated and canonical dynamic image URLs.
 	/// Defaults to <see langword="true" />.
 	/// </summary>
+	/// <remarks>
+	/// Canonical redirects caused by missing or stale fingerprints are emitted with <c>Cache-Control: no-store</c>.
+	/// When enabled, responses for which no version token can be produced are also prevented from using long-lived cache policies.
+	/// </remarks>
 	public bool EnableUrlFingerprinting { get; set; } = true;
 
 	/// <summary>

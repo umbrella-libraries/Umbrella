@@ -3,6 +3,10 @@
 		<UmbrellaDynamicImageCatalogName Condition="'$(UmbrellaDynamicImageCatalogName)' == ''">$(MSBuildProjectName)</UmbrellaDynamicImageCatalogName>
 	</PropertyGroup>
 
+	<ItemGroup>
+		<CompilerVisibleProperty Include="UmbrellaDynamicImageEnableUrlFingerprinting" />
+	</ItemGroup>
+
 	<ItemGroup Condition="'$(UsingMicrosoftNETSdkRazor)' == 'true'">
 		<AdditionalFiles Include="@(Content->WithMetadataValue('Extension', '.razor'));@(Content->WithMetadataValue('Extension', '.cshtml'))">
 			<UmbrellaDynamicImageCatalogName>$(UmbrellaDynamicImageCatalogName)</UmbrellaDynamicImageCatalogName>

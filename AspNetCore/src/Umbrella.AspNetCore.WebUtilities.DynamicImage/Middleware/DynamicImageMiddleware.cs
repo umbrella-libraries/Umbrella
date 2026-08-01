@@ -144,23 +144,24 @@ public class DynamicImageMiddleware : IDisposable
 				return;
 			}
 
-			bool hasValidators = sourceFile.LastModified.HasValue;
+			string? currentVersionToken = await UmbrellaFileVersionTokenUtility.CreateAsync(sourceFile, context.RequestAborted).ConfigureAwait(false);
+			bool hasLastModified = sourceFile.LastModified.HasValue;
+			bool hasValidators = !string.IsNullOrWhiteSpace(currentVersionToken);
 			bool supportsConditionalRequests = hasValidators
 				&& mapping.Cacheability is MiddlewareHttpCacheability.NoCache
 					or MiddlewareHttpCacheability.Private
 					or MiddlewareHttpCacheability.Public;
-			string? lastModifiedHeaderValue = hasValidators
+			string? lastModifiedHeaderValue = hasLastModified
 				? _headerValueUtility.CreateLastModifiedHeaderValue(sourceFile.LastModified!.Value)
 				: null;
-			string? eTagValue = hasValidators
-				? _headerValueUtility.CreateETagHeaderValue(sourceFile.LastModified!.Value, sourceFile.Length)
-				: null;
-			string? currentVersionToken = eTagValue?.Trim('"');
+			string? eTagValue = hasValidators ? $"\"{currentVersionToken}\"" : null;
 
 			if (TryRedirectToCanonicalUrl(context, requestedImageOptions, currentVersionToken))
 			{
 				return;
 			}
+
+			bool preventLongLivedUnfingerprintedCaching = _options.EnableUrlFingerprinting && string.IsNullOrWhiteSpace(currentVersionToken);
 
 			void ApplyResponseHeaders()
 			{
@@ -169,9 +170,15 @@ public class DynamicImageMiddleware : IDisposable
 				if (formatNegotiationEnabledForRequest)
 					context.Response.Headers.AppendCommaSeparatedValues(HeaderNames.Vary, HeaderNames.Accept);
 
-				if (mapping.Cacheability is MiddlewareHttpCacheability.NoCache && hasValidators)
+				if (preventLongLivedUnfingerprintedCaching)
 				{
-					context.Response.Headers.LastModified = lastModifiedHeaderValue;
+					context.Response.Headers.CacheControl = "no-store";
+				}
+				else if (mapping.Cacheability is MiddlewareHttpCacheability.NoCache && hasValidators)
+				{
+					if (hasLastModified)
+						context.Response.Headers.LastModified = lastModifiedHeaderValue;
+
 					context.Response.Headers.ETag = eTagValue;
 					context.Response.Headers.CacheControl = "no-cache";
 				}
@@ -179,7 +186,9 @@ public class DynamicImageMiddleware : IDisposable
 				{
 					if (hasValidators)
 					{
-						context.Response.Headers.LastModified = lastModifiedHeaderValue;
+						if (hasLastModified)
+							context.Response.Headers.LastModified = lastModifiedHeaderValue;
+
 						context.Response.Headers.ETag = eTagValue;
 					}
 
@@ -210,7 +219,7 @@ public class DynamicImageMiddleware : IDisposable
 					return;
 				}
 
-				if (context.Request.IfModifiedSinceHeaderMatched(sourceFile.LastModified!.Value))
+				if (hasLastModified && context.Request.IfModifiedSinceHeaderMatched(sourceFile.LastModified!.Value))
 				{
 					ApplyResponseHeaders();
 					context.Response.SendStatusCode(HttpStatusCode.NotModified);
@@ -345,6 +354,7 @@ public class DynamicImageMiddleware : IDisposable
 			location = context.Request.PathBase + location;
 
 		context.Response.Headers.Location = location;
+		context.Response.Headers.CacheControl = "no-store";
 		context.Response.StatusCode = (int)_options.CanonicalRedirectStatusCode;
 
 		return true;

@@ -17,6 +17,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 {
 	private const string DynamicImageMiddlewareOptionsMetadataName = "Umbrella.WebUtilities.DynamicImage.Middleware.Options.DynamicImageMiddlewareOptions";
 	private const string EnableUrlFingerprintingPropertyName = "EnableUrlFingerprinting";
+	private const string EnableUrlFingerprintingBuildPropertyName = "build_property.UmbrellaDynamicImageEnableUrlFingerprinting";
 
 	private static readonly string[] _dynamicImagePropertyIndicators =
 	[
@@ -95,7 +96,12 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 		context.RegisterCompilationStartAction(startContext =>
 		{
-			var state = new DynamicImageVersioningState();
+			bool buildPropertyEnabled = startContext.Options.AnalyzerConfigOptionsProvider.GlobalOptions.TryGetValue(
+				EnableUrlFingerprintingBuildPropertyName,
+				out string? buildPropertyValue) &&
+				bool.TryParse(buildPropertyValue, out bool parsedBuildPropertyValue) &&
+				parsedBuildPropertyValue;
+			var state = new DynamicImageVersioningState(buildPropertyEnabled);
 			var activationSymbols = DynamicImageActivationSymbols.Create(startContext.Compilation);
 
 			if (activationSymbols is not null)
@@ -132,15 +138,14 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 		ArgumentSyntax? optionsBuilderArgument = GetOptionsBuilderArgument(invocation, methodSymbol);
 
-		if (optionsBuilderArgument is not null &&
+		bool explicitlyEnabled = optionsBuilderArgument is not null &&
 			HasExplicitTrueFingerprintingAssignment(
 				optionsBuilderArgument.Expression,
 				context.SemanticModel,
 				activationSymbols.EnableUrlFingerprintingProperty,
-				context.CancellationToken))
-		{
-			state.MarkExplicitlyEnabled();
-		}
+				context.CancellationToken);
+
+		state.MarkRegistration(explicitlyEnabled);
 	}
 
 	private static void AnalyzeNamedType(SymbolAnalysisContext context, DynamicImageVersioningState state)
@@ -378,7 +383,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 	private static void ReportDiagnostics(CompilationAnalysisContext context, DynamicImageVersioningState state)
 	{
-		if (!state.IsExplicitlyEnabled)
+		if (!state.IsEnabled)
 			return;
 
 		foreach (Diagnostic diagnostic in state.Diagnostics)
@@ -1122,15 +1127,40 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	private sealed class DynamicImageVersioningState
 	{
 		private readonly ConcurrentBag<Diagnostic> _diagnostics = [];
-		private int _isExplicitlyEnabled;
+		private readonly bool _buildPropertyEnabled;
+		private int _registrationState;
+
+		public DynamicImageVersioningState(bool buildPropertyEnabled)
+		{
+			_buildPropertyEnabled = buildPropertyEnabled;
+		}
 
 		public ImmutableArray<Diagnostic> Diagnostics => [.. _diagnostics];
 
-		public bool IsExplicitlyEnabled => _isExplicitlyEnabled is 1;
+		public bool IsEnabled
+		{
+			get
+			{
+				int registrationState = Volatile.Read(ref _registrationState);
+				return registrationState is 0 ? _buildPropertyEnabled : registrationState is 3;
+			}
+		}
 
 		public void AddDiagnostic(Diagnostic diagnostic) => _diagnostics.Add(diagnostic);
 
-		public void MarkExplicitlyEnabled() => _ = Interlocked.Exchange(ref _isExplicitlyEnabled, 1);
+		public void MarkRegistration(bool explicitlyEnabled)
+		{
+			int flags = explicitlyEnabled ? 3 : 5;
+			int current;
+			int updated;
+
+			do
+			{
+				current = Volatile.Read(ref _registrationState);
+				updated = current | flags;
+			}
+			while (Interlocked.CompareExchange(ref _registrationState, updated, current) != current);
+		}
 	}
 
 	private sealed class VariantDiscoveryUsageState

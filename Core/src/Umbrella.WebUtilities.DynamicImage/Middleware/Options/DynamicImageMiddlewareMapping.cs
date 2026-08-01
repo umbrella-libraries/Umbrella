@@ -16,6 +16,10 @@ public class DynamicImageMiddlewareMapping : IValidatableUmbrellaOptions, ISanit
 	/// <summary>
 	/// Gets or sets the cacheability. Defaults to <see cref="MiddlewareHttpCacheability.NoCache" />.
 	/// </summary>
+	/// <remarks>
+	/// This controls the browser-facing HTTP cache policy for files handled by this mapping. It is independent of the
+	/// server-side resized-image cache. Long-lived public or private caching is safe when URL fingerprinting is enabled.
+	/// </remarks>
 	public MiddlewareHttpCacheability Cacheability { get; set; } = MiddlewareHttpCacheability.NoCache;
 
 	/// <summary>
