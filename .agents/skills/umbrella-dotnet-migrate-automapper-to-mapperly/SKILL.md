@@ -218,7 +218,7 @@ If the original `AfterMap` sets a property on the *source* object (first paramet
 
 Group related AutoMapper profiles by entity/feature and write one `<Feature>Mappers.cs` file per group, following `umbrella-dotnet-scaffold-mapperly-factories` for file location and naming. Apply the conversion reference above for each `CreateMap` pair.
 
-All rules from `umbrella-dotnet-scaffold-mapperly-factories` apply to generated mappings: use an accessible `partial class`, put `[Mapper]` on each class that contains Mapperly-generated partial methods, place `[MapperIgnoreTarget]` on private partial methods only, and apply validation plus state-aware logging to every public wrapper with a body. A fully manual Umbrella mapper-interface implementation with no generated partial methods does not need `[Mapper]` or `partial`. Use the async mapper interfaces when migrated enrichment performs I/O.
+All rules from `umbrella-dotnet-scaffold-mapperly-factories` apply to generated mappings: use an accessible `partial class`, preferring `internal sealed partial class` when the mapper is not an intentional public API; put `[Mapper]` on each class that contains Mapperly-generated partial methods; place `[MapperIgnoreTarget]` on the specific public or private partial mapping method whose target owns the ignored member; and apply validation plus state-aware logging to every public wrapper with a body. A fully manual Umbrella mapper-interface implementation with no generated partial methods does not need `[Mapper]` or `partial`. Use the async mapper interfaces when migrated enrichment performs I/O.
 
 ---
 

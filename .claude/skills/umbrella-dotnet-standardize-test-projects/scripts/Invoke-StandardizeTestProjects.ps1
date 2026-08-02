@@ -10,6 +10,25 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Get-RepoScopedTempReportPath {
+    param(
+        [string]$RootPath,
+        [string]$FileStem
+    )
+
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $rootBytes = [System.Text.Encoding]::UTF8.GetBytes($RootPath.ToUpperInvariant())
+        $hashBytes = $sha256.ComputeHash($rootBytes)
+        $repoRootHash = ([System.BitConverter]::ToString($hashBytes)).Replace('-', '').Substring(0, 12).ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+    }
+
+    return Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "$FileStem-$repoRootHash.json"
+}
+
 $TestCondition = "'`$(IsTestProject)'=='true'"
 $RequiredGlobalTestRunner = 'Microsoft.Testing.Platform'
 $RequiredCentralPackages = [ordered]@{
@@ -1113,7 +1132,7 @@ foreach ($projectFile in $projectFiles) {
 }
 
 if ([string]::IsNullOrWhiteSpace($ReportPath)) {
-    $ReportPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'umbrella-dotnet-standardize-test-projects-report.json'
+    $ReportPath = Get-RepoScopedTempReportPath -RootPath $RepoRoot -FileStem 'umbrella-dotnet-standardize-test-projects-report'
 }
 elseif (-not [System.IO.Path]::IsPathRooted($ReportPath)) {
     $ReportPath = Join-Path -Path $RepoRoot -ChildPath $ReportPath

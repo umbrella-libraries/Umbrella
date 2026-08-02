@@ -243,15 +243,24 @@ if ($migrationFile) {
         $previousErrorActionPreference = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
         try {
-            dotnet format $MigrationsProject style --no-restore --include $migrationFileRelativePath --diagnostics IDE0058 IDE0161
-            $formatExitCode = $LASTEXITCODE
+            dotnet format $MigrationsProject whitespace --no-restore --include $migrationFileRelativePath
+            $whitespaceFormatExitCode = $LASTEXITCODE
+
+            if ($whitespaceFormatExitCode -eq 0) {
+                dotnet format $MigrationsProject style --no-restore --include $migrationFileRelativePath --diagnostics IDE0005 IDE0058 IDE0161
+                $styleFormatExitCode = $LASTEXITCODE
+            }
         }
         finally {
             $ErrorActionPreference = $previousErrorActionPreference
         }
 
-        if ($formatExitCode -ne 0) {
-            throw "dotnet format failed to apply the repository's generated-migration style with exit code $formatExitCode."
+        if ($whitespaceFormatExitCode -ne 0) {
+            throw "dotnet format whitespace failed for the generated migration with exit code $whitespaceFormatExitCode."
+        }
+
+        if ($styleFormatExitCode -ne 0) {
+            throw "dotnet format style failed for the generated migration with exit code $styleFormatExitCode."
         }
     }
     finally {

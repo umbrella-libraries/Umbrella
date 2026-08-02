@@ -74,6 +74,7 @@ private async Task<Album> SeedAlbumAsync()
 - `SearchSlim` `200`: seed ≥1 entity; assert `Items`, `TotalCount`, `PageNumber`, `PageSize`, `MoreItems`. Add a clamping assertion — `pageSize=500` returns at most 50 items and never an error; do not generate 4xx tests for out-of-range numeric paging.
 - `POST` `201`: valid body; assert the create-result model (`Id`, plus `ConcurrencyStamp` where applicable); verify persistence with a follow-up `GET`. The `Location` header is empty by design — do not assert a URL.
 - `PUT` `200`: create → `GET` (capture stamp) → `PUT` with current stamp; assert the result carries a **rotated** stamp; re-`GET` to confirm persistence.
+- Derive create/update result assertions from the audited hooks and mappers. If `AfterCreate`, `AfterUpdate`, or asynchronous mapping populates a Dynamic Image URL/version-token pair, assert both are populated (and that retained/replaced file behavior is correct); do not assume output-only properties remain empty merely because they were absent from the request.
 - `DELETE` `204`: seed → delete → assert empty body → `GET` returns `404`.
 
 ### Error paths

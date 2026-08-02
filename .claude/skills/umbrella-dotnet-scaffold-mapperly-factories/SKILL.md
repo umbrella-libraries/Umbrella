@@ -41,7 +41,7 @@ builder.Services.AddUmbrellaUtilitiesMappingMapperly(
 
 The Roslyn analyzer (`UMA001`/`UMA002`) validates `IUmbrellaMapper` call sites using the `[assembly: UmbrellaMapperlyCatalogReference(typeof(...))]` attribute on the consuming project — if a `MapAsync` call has no registered mapping, it emits an error at compile time.
 
-**Consequence:** mapper classes can be public or internal, but must be accessible from the generated catalog. Keep them top-level (or otherwise accessibly nested), non-abstract, and `partial` when decorated with `[Mapper]`; UMA003 reports invalid declarations.
+**Consequence:** mapper classes can be public or internal, but must be accessible from the generated catalog. Keep them top-level (or otherwise accessibly nested), non-abstract, and `partial` when decorated with `[Mapper]`; UMA003 reports invalid declarations. When a mapper has no reason to be public, prefer `internal sealed partial class` so consumer CA1852 rules are satisfied. Do not emit a bare `internal partial class`; retain public accessibility only when it is part of the intended API.
 
 ---
 
@@ -109,10 +109,25 @@ public partial class <Name>Mapper :
 {
     public partial <Name>Model Map(<Name>Entity source);
     public partial IReadOnlyCollection<Slim<Name>Model> MapAll(IEnumerable<<Name>Entity> source);
+
+    // Keep only the discovered repository-managed targets that exist on this entity.
+    [MapperIgnoreTarget(nameof(<Name>Entity.Id))]
+    [MapperIgnoreTarget(nameof(<Name>Entity.CreatedDateUtc))]
+    [MapperIgnoreTarget(nameof(<Name>Entity.CreatedById))]
+    [MapperIgnoreTarget(nameof(<Name>Entity.UpdatedDateUtc))]
+    [MapperIgnoreTarget(nameof(<Name>Entity.UpdatedById))]
+    [MapperIgnoreTarget(nameof(<Name>Entity.ConcurrencyStamp))]
     public partial <Name>Entity Map(Create<Name>Model source);
+
+    [MapperIgnoreTarget(nameof(<Name>Entity.CreatedDateUtc))]
+    [MapperIgnoreTarget(nameof(<Name>Entity.CreatedById))]
+    [MapperIgnoreTarget(nameof(<Name>Entity.UpdatedDateUtc))]
+    [MapperIgnoreTarget(nameof(<Name>Entity.UpdatedById))]
     public partial void Map(Update<Name>Model source, <Name>Entity destination);
 }
 ```
+
+Audit the actual entity hierarchy before keeping those ignore attributes. They document targets managed by the repository/controller lifecycle rather than the request mapper; remove any attribute for a member the entity does not declare, and add any equivalent application-owned lifecycle target. Do not accept RMG012 warnings as harmless.
 
 **Mapper with properties needing asynchronous manual values (for example versioned file URLs):**
 
@@ -176,7 +191,7 @@ public partial class <Name>Mapper :
         try
         {
 			<Name>Entity[] entities = [.. source];
-			Slim<Name>Model[] models = [.. MapAllInternal(entities)];
+			Slim<Name>Model[] models = [.. entities.Select(MapSlimInternal)];
 			Task<UmbrellaVersionedUrl?>[] imageTasks =
 			[
 				.. entities.Select(entity => _fileHandler.GetVersionedWebFilePathAsync(
@@ -194,7 +209,7 @@ public partial class <Name>Mapper :
 
             return models;
         }
-        catch (Exception exc) when (_logger.WriteError(exc))
+        catch (Exception exc) when (_logger.WriteError(exc, new { source }))
         {
             throw;
         }
@@ -202,11 +217,11 @@ public partial class <Name>Mapper :
 
     [MapperIgnoreTarget(nameof(Slim<Name>Model.ImageUrl))]
     [MapperIgnoreTarget(nameof(Slim<Name>Model.ImageVersionToken))]
-    private partial IReadOnlyCollection<Slim<Name>Model> MapAllInternal(IEnumerable<<Name>Entity> source);
+    private partial Slim<Name>Model MapSlimInternal(<Name>Entity source);
 }
 ```
 
-Use the async mapper interfaces whenever enrichment performs I/O. Assign each Dynamic Image URL and matching version token in the same flow. Resolve independent lookups concurrently only for bounded materialized collections, such as one paginated result, and preserve entity/model ordering; do not start unbounded work over arbitrary streams. Authored public mapper bodies activate UA008/UA016, so inject an `ILogger`, put guards/cancellation before the outer `try`, and log meaningful state. Pure bodyless partial mappings need neither a logger nor a wrapper.
+Use the async mapper interfaces whenever enrichment performs I/O. Assign each Dynamic Image URL and matching version token in the same flow. For collection wrappers, map each element through an attributed single-item partial method; Mapperly method-level ignore attributes on a collection-returning method do not suppress unmapped targets on its element mapping. Resolve independent lookups concurrently only for bounded materialized collections, such as one paginated result, and preserve entity/model ordering; do not start unbounded work over arbitrary streams. Authored public mapper bodies activate UA008/UA016, so inject an `ILogger`, put guards/cancellation before the outer `try`, and log meaningful state. Pure bodyless partial mappings need neither a logger nor a wrapper.
 
 **Multiple mapper classes (when the same interface can't be implemented twice):**
 

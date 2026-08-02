@@ -26,7 +26,7 @@ Before writing files:
    - whether `TargetFramework` is inherited or local;
    - local `NoWarn` entries;
    - package-version style;
-   - global usings that need removal, commonly `Humanizer`.
+   - every inherited global using the new project's references cannot resolve, commonly but not exclusively `Humanizer`.
 6. Check the worktree. Do not overwrite unrelated user changes.
 
 ## Project naming
@@ -66,6 +66,7 @@ Rules:
 - If true CPM is enabled, omit `Version` attributes and add/update `<PackageVersion>` centrally.
 - Append warning suppressions with `$(NoWarn);...`.
 - Keep `CA1515` for public xUnit v3 test classes and `CA1707` for underscore-style test names when the repo uses them.
+- After the first build, inspect both inherited `<Using Include="..." />` items and the generated `obj\<Configuration>\<TargetFramework>\*.GlobalUsings.g.cs`. Remove every unresolved inherited global using explicitly rather than adding unrelated package/project references merely to satisfy it. `Humanizer` is only an example; consumer repositories can inherit application, logging, toolkit, or Umbrella namespaces too.
 - Remove inherited global usings only when the new test project cannot resolve them:
 
 ```xml

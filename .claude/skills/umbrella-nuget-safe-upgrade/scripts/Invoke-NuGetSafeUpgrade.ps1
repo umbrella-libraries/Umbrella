@@ -18,6 +18,25 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path -Path $PSScriptRoot -ChildPath 'NuGetSafeUpgrade.Common.ps1')
 
+function Get-RepoScopedTempReportPath {
+    param(
+        [string]$RootPath,
+        [string]$FileStem
+    )
+
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $rootBytes = [System.Text.Encoding]::UTF8.GetBytes($RootPath.ToUpperInvariant())
+        $hashBytes = $sha256.ComputeHash($rootBytes)
+        $repoRootHash = ([System.BitConverter]::ToString($hashBytes)).Replace('-', '').Substring(0, 12).ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+    }
+
+    return Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "$FileStem-$repoRootHash.json"
+}
+
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
     $RepoRoot = Resolve-NuGetUpgradeRepoRoot
 }
@@ -289,7 +308,7 @@ foreach ($definition in $definitions) {
 $reportObject = [pscustomobject]$report
 
 if ([string]::IsNullOrWhiteSpace($ReportPath)) {
-    $ReportPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'umbrella-nuget-safe-upgrade-report.json'
+    $ReportPath = Get-RepoScopedTempReportPath -RootPath $RepoRoot -FileStem 'umbrella-nuget-safe-upgrade-report'
 }
 elseif (-not [System.IO.Path]::IsPathRooted($ReportPath)) {
     $ReportPath = Join-Path -Path $RepoRoot -ChildPath $ReportPath

@@ -80,6 +80,7 @@ Seed through a scoped `DbContext` from the factory, use the `Umbrella.Testing.As
 - Generate tests only for codes the contract audit marked testable; document exclusions in a comment block at the top of the test class.
 - Assert the validation failure status and body per the host state resolved by the contract audit (Umbrella behavior options default → `422` + `UmbrellaValidationProblemDetails`; explicit `validationFailureStatusCode` → that code; not configured → `400` + plain ASP.NET `ValidationProblemDetails`, no separate malformed-JSON-root test). Never hard-code `422` without checking.
 - Satisfy earlier pipeline gates when targeting later ones (existing id + current stamp + valid model for a `PUT` `403`).
+- Derive create/update result assertions from the audited data-service hooks and mappers. If they populate a Dynamic Image URL/version-token pair, assert both values and the retained/replaced file behavior; do not expect output-only properties to remain empty simply because the request omitted them.
 - Keep tests independent with uniquely seeded data.
 - Put every created or mutated resource behind `try`/`finally`, and use `CancellationToken.None` for cleanup/restoration so test cancellation cannot contaminate later tests.
 - Reuse application-local test-data builders for repeated domain graphs while keeping response assertions, identity requests, and feature-specific request construction separate.

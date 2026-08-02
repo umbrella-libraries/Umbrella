@@ -255,6 +255,9 @@ public partial class AnalyzerGuidanceTest
         string indexPageSkill = ReadSkill("umbrella-blazor-scaffold-index-page");
         string navItemSkill = ReadSkill("umbrella-blazor-register-nav-item");
         string autoMapperMigrationSkill = ReadSkill("umbrella-dotnet-migrate-automapper-to-mapperly");
+        string testProjectSkill = ReadSkill("umbrella-dotnet-scaffold-test-project");
+        string repositoryControllerTestsSkill = ReadSkill("umbrella-dotnet-generate-api-repo-controller-tests");
+        string dataServiceControllerTestsSkill = ReadSkill("umbrella-dotnet-generate-api-data-service-controller-tests");
         string standardizeTestProjectsScript = File.ReadAllText(Path.Combine(
             RepoRoot,
             ".ai-shared",
@@ -279,12 +282,20 @@ public partial class AnalyzerGuidanceTest
 
         Assert.Contains("CancellationToken cancellationToken = default", reference, StringComparison.Ordinal);
         Assert.Contains("[UmbrellaInputModel]", modelSkill, StringComparison.Ordinal);
+        Assert.Contains("using Umbrella.Analyzers;", modelSkill, StringComparison.Ordinal);
+        Assert.DoesNotContain("using Umbrella.Utilities.Annotations;", modelSkill, StringComparison.Ordinal);
         Assert.Contains("public record <Name>PaginatedResultModel : PaginatedResultModel<Slim<Name>Model>;", modelSkill, StringComparison.Ordinal);
         Assert.Contains("Prefer `PaginatedResultModel<Slim<Name>Model>` directly", modelSkill, StringComparison.Ordinal);
         Assert.DoesNotContain("`PaginatedResultModel<T>` is a class", modelSkill, StringComparison.Ordinal);
         Assert.Contains("[UmbrellaAllowNonRequiredProperty(\"reason\")]", reference, StringComparison.Ordinal);
         Assert.Contains("[UmbrellaAllowMutableProperty(\"reason\")]", reference, StringComparison.Ordinal);
         Assert.Contains("IUmbrellaMapperlyNewInstanceAsyncMapper", mapperSkill, StringComparison.Ordinal);
+        Assert.Contains("catch (Exception exc) when (_logger.WriteError(exc, new { source }))", mapperSkill, StringComparison.Ordinal);
+        Assert.DoesNotContain("catch (Exception exc) when (_logger.WriteError(exc))", mapperSkill, StringComparison.Ordinal);
+        Assert.Contains("entities.Select(MapSlimInternal)", mapperSkill, StringComparison.Ordinal);
+        Assert.DoesNotContain("MapAllInternal", mapperSkill, StringComparison.Ordinal);
+        Assert.Contains("[MapperIgnoreTarget(nameof(<Name>Entity.ConcurrencyStamp))]", mapperSkill, StringComparison.Ordinal);
+        Assert.Contains("Do not accept RMG012 warnings as harmless", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("use `umbrella-dotnet-scaffold-file-handler` first", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("including create and update result mappings", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("#pragma warning disable CS0618 // UmbrellaFileHandler currently requires the legacy IHybridCache abstraction.", fileHandlerSkill, StringComparison.Ordinal);
@@ -315,13 +326,21 @@ public partial class AnalyzerGuidanceTest
         Assert.Contains("required nested target", autoMapperMigrationSkill, StringComparison.Ordinal);
         Assert.Contains("test or secondary consumer projects", autoMapperMigrationSkill, StringComparison.Ordinal);
         Assert.Contains("fully manual mapper-interface implementations", autoMapperMigrationSkill, StringComparison.Ordinal);
+        Assert.Contains("internal sealed partial class", mapperSkill, StringComparison.Ordinal);
+        Assert.Contains("internal sealed partial class", autoMapperMigrationSkill, StringComparison.Ordinal);
+        Assert.Contains("every unresolved inherited global using", testProjectSkill, StringComparison.Ordinal);
+        Assert.Contains("generated `obj\\<Configuration>\\<TargetFramework>\\*.GlobalUsings.g.cs`", testProjectSkill, StringComparison.Ordinal);
+        Assert.Contains("Dynamic Image URL/version-token pair", repositoryControllerTestsSkill, StringComparison.Ordinal);
+        Assert.Contains("Dynamic Image URL/version-token pair", dataServiceControllerTestsSkill, StringComparison.Ordinal);
         Assert.Contains("$xml.PreserveWhitespace = $true", standardizeTestProjectsScript, StringComparison.Ordinal);
         Assert.Contains("Remove-XmlNodePreservingLayout -Node $itemGroup", standardizeTestProjectsScript, StringComparison.Ordinal);
         Assert.Contains("function Remove-XmlNodePreservingLayout", standardizeTestProjectsScript, StringComparison.Ordinal);
         Assert.Contains("TrimEnd([char[]]", standardizeTestProjectsScript, StringComparison.Ordinal);
+        Assert.Contains("Get-RepoScopedTempReportPath", standardizeTestProjectsScript, StringComparison.Ordinal);
         Assert.Contains("$candidates = @(Get-ChildItem", addEfMigrationScript, StringComparison.Ordinal);
         Assert.Contains("Current dotnet-ef emits the JSON array directly", addEfMigrationScript, StringComparison.Ordinal);
-        Assert.Contains("--diagnostics IDE0058 IDE0161", addEfMigrationScript, StringComparison.Ordinal);
+        Assert.Contains("dotnet format $MigrationsProject whitespace --no-restore --include $migrationFileRelativePath", addEfMigrationScript, StringComparison.Ordinal);
+        Assert.Contains("--diagnostics IDE0005 IDE0058 IDE0161", addEfMigrationScript, StringComparison.Ordinal);
         Assert.Contains("function Get-EfRelativePath", addEfMigrationScript, StringComparison.Ordinal);
         Assert.DoesNotContain("[System.IO.Path]::GetRelativePath", addEfMigrationScript, StringComparison.Ordinal);
         Assert.Contains("$dbContextListExitCode = $LASTEXITCODE", addEfMigrationScript, StringComparison.Ordinal);
@@ -330,6 +349,7 @@ public partial class AnalyzerGuidanceTest
         Assert.Contains("packageIds = @($PackageId", nuGetUpgradeScript, StringComparison.Ordinal);
         Assert.Contains("projects = @($Project", nuGetUpgradeScript, StringComparison.Ordinal);
         Assert.Contains("[bool]$effectiveAllowPrerelease", nuGetUpgradeScript, StringComparison.Ordinal);
+        Assert.Contains("Get-RepoScopedTempReportPath", nuGetUpgradeScript, StringComparison.Ordinal);
         Assert.Contains("allowPrerelease = $effectiveAllowPrerelease", nuGetUpgradeScript, StringComparison.Ordinal);
     }
 

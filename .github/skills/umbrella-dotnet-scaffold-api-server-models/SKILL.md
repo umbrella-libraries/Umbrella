@@ -124,7 +124,7 @@ public abstract record <Name>ModelBase
 **Mutable input base (when create/update share fields):**
 
 ```csharp
-using Umbrella.Utilities.Annotations;
+using Umbrella.Analyzers;
 using Umbrella.Utilities.Text;
 
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
