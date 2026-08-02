@@ -29,6 +29,8 @@ This skill also updates the server DI registration from `AddScoped` to `ReplaceS
 using <AppName>.Web.Client.Data.Services.Abstractions;
 using <AppName>.Web.Shared.Models.Api.Manage<Name>;
 using Umbrella.Utilities.Data.Pagination;
+using Umbrella.Utilities.DataAnnotations.Abstractions;
+using Umbrella.Utilities.Http.Abstractions;
 
 namespace <AppName>.Web.Client.Data.Services;
 
@@ -67,7 +69,7 @@ internal sealed class Manage<Name>Service : GenericHttpDataService<
 
 **File:** `Web\<AppName>.Web.Client.Data\IServiceCollectionExtensions.cs`
 
-Add one line in alphabetical order among the other `AddScoped` service registrations:
+Add one line in alphabetical order among the other `AddScoped` service registrations. Preserve unrelated registration order and formatting; do not turn this focused scaffold into a wholesale reordering of an existing section.
 
 ```csharp
 _ = services.AddScoped<IManage<Name>Service, Manage<Name>Service>();
@@ -105,3 +107,4 @@ Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` a
 2. `ApiUrl` matches the controller route — confirm against the existing controller file.
 3. `AddScoped<IManage<Name>Service, Manage<Name>Service>()` is present in `Web.Client.Data.IServiceCollectionExtensions.cs`.
 4. The server registration for `IManage<Name>Service` is now `ReplaceScoped` (not `AddScoped`).
+5. The implementation imports the namespaces that own `IUmbrellaValidator`, `IGenericHttpService`, and `IGenericHttpServiceUtility`; do not rely on project-specific global usings unless discovery confirms them.

@@ -19,6 +19,7 @@ Add a resource-based `IAuthorizationHandler` that enforces row-level access cont
 2. Confirm which `CoreItemOperations` are used (`Create`, `Read`, `Update`, `Delete`) — these are the requirement values the base controller passes.
 3. Read the entity type to understand what ownership or relationship fields are available (e.g. `AppUserId`, `LearningProviderId`).
 4. Read `Web\<AppName>.Web.Server\IServiceCollectionExtensions.cs` — find the `// Authorization Handlers` section to see the existing registration style.
+5. Confirm the target controller or controller service already exists and identify the exact `AuthorizationXxxChecksEnabled` override to remove. If it does not exist, stop and use `umbrella-dotnet-scaffold-api-repo-controller` or `umbrella-dotnet-scaffold-api-data-service-controller` first; do not create an ad-hoc controller inside this security-only workflow.
 
 ---
 
@@ -59,14 +60,14 @@ protected override Task HandleRequirementAsync(
     OperationAuthorizationRequirement requirement,
     <Name> resource)
 {
-    bool succeed = requirement.Name switch
+    bool succeed = requirement switch
     {
-        nameof(CoreItemOperations.Read) =>
+        var operation when operation == CoreItemOperations.Read =>
             context.User.GetId<int>() == resource.AppUserId,
 
-        nameof(CoreItemOperations.Create) or
-        nameof(CoreItemOperations.Update) or
-        nameof(CoreItemOperations.Delete) =>
+        var operation when operation == CoreItemOperations.Create ||
+                           operation == CoreItemOperations.Update ||
+                           operation == CoreItemOperations.Delete =>
             context.User.IsInRole(nameof(AppRoleType.Administrator)),
 
         _ => false

@@ -55,7 +55,7 @@ if ($null -ne $Project -and @($Project).Count -gt 0) {
     }
 }
 
-$allowPrerelease = $AllowPrerelease.IsPresent -or $config.Options.AllowPrerelease
+[bool]$effectiveAllowPrerelease = $AllowPrerelease.IsPresent -or [bool]$config.Options.AllowPrerelease
 $overrideIds = @(@($OverrideBlockedPackageId) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToLowerInvariant() })
 
 $report = [ordered]@{
@@ -63,6 +63,12 @@ $report = [ordered]@{
     repoRoot = $RepoRoot
     solutionPath = $SolutionPath
     exclusionsPath = $config.Path
+    options = [ordered]@{
+        packageIds = @($PackageId | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        projects = @($Project | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        overrideBlockedPackageIds = @($OverrideBlockedPackageId | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        allowPrerelease = $effectiveAllowPrerelease
+    }
     successful = New-Object System.Collections.Generic.List[object]
     skipped = New-Object System.Collections.Generic.List[object]
     blocked = New-Object System.Collections.Generic.List[object]
@@ -85,7 +91,7 @@ foreach ($definition in $definitions) {
         Get-NuGetUpgradeAvailableVersions -PackageId $definition.PackageId |
         ForEach-Object { ConvertTo-NuGetUpgradeVersionInfo -Version $_ } |
         Where-Object {
-            ($allowPrerelease -or -not $_.IsPrerelease) -and
+            ($effectiveAllowPrerelease -or -not $_.IsPrerelease) -and
             (Compare-NuGetUpgradeVersionInfo -Left $_ -Right $currentInfo) -gt 0
         } |
         Sort-Object -Property Major, Minor, Patch, Revision, @{ Expression = { if ($_.IsPrerelease) { 0 } else { 1 } } }, Suffix -Descending

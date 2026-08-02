@@ -509,7 +509,9 @@ function Get-XmlDocument {
     param([string]$Path)
 
     $xml = [System.Xml.XmlDocument]::new()
-    $xml.PreserveWhitespace = $false
+    # Project files are developer-authored. Preserve their existing layout so Apply
+    # changes only the settings and references that this workflow owns.
+    $xml.PreserveWhitespace = $true
     $xml.Load($Path)
     return $xml
 }
@@ -555,10 +557,55 @@ function Set-PropertyValue {
 
     if ($null -eq $node) {
         $node = $Xml.CreateElement($Name)
-        [void]$propertyGroup.AppendChild($node)
+        $trailingWhitespace = $propertyGroup.LastChild
+
+        if ($null -ne $trailingWhitespace -and
+            $trailingWhitespace.NodeType -in @([System.Xml.XmlNodeType]::Whitespace, [System.Xml.XmlNodeType]::SignificantWhitespace)) {
+            $elementIndentation = $null
+            $previousElement = @($propertyGroup.ChildNodes |
+                Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element } |
+                Select-Object -Last 1)
+
+            if ($previousElement.Count -gt 0 -and
+                $null -ne $previousElement[0].PreviousSibling -and
+                $previousElement[0].PreviousSibling.NodeType -in @([System.Xml.XmlNodeType]::Whitespace, [System.Xml.XmlNodeType]::SignificantWhitespace)) {
+                $elementIndentation = $previousElement[0].PreviousSibling.Value
+            }
+
+            if ([string]::IsNullOrEmpty($elementIndentation)) {
+                $closingIndentation = $trailingWhitespace.Value
+                $lastNewLineIndex = [Math]::Max($closingIndentation.LastIndexOf("`r`n"), $closingIndentation.LastIndexOf("`n"))
+                $newLine = if ($closingIndentation.Contains("`r`n")) { "`r`n" } else { "`n" }
+                $closingSpaces = if ($lastNewLineIndex -ge 0) { $closingIndentation.Substring($lastNewLineIndex + $newLine.Length) } else { $closingIndentation }
+                $elementIndentation = "$newLine$closingSpaces    "
+            }
+
+            [void]$propertyGroup.InsertBefore($Xml.CreateWhitespace($elementIndentation), $trailingWhitespace)
+            [void]$propertyGroup.InsertBefore($node, $trailingWhitespace)
+        }
+        else {
+            [void]$propertyGroup.AppendChild($node)
+        }
     }
 
     $node.InnerText = $Value
+}
+
+function Remove-XmlNodePreservingLayout {
+    param([System.Xml.XmlNode]$Node)
+
+    $parent = $Node.ParentNode
+    if ($null -eq $parent) {
+        return
+    }
+
+    $leadingWhitespace = $Node.PreviousSibling
+    [void]$parent.RemoveChild($Node)
+
+    if ($null -ne $leadingWhitespace -and
+        $leadingWhitespace.NodeType -in @([System.Xml.XmlNodeType]::Whitespace, [System.Xml.XmlNodeType]::SignificantWhitespace)) {
+        [void]$parent.RemoveChild($leadingWhitespace)
+    }
 }
 
 function Remove-PropertyName {
@@ -570,7 +617,7 @@ function Remove-PropertyName {
     foreach ($propertyGroup in @($Xml.Project.ChildNodes | Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element -and $_.Name -eq 'PropertyGroup' })) {
         foreach ($child in @($propertyGroup.ChildNodes)) {
             if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element -and $child.Name -eq $Name) {
-                [void]$propertyGroup.RemoveChild($child)
+                Remove-XmlNodePreservingLayout -Node $child
             }
         }
     }
@@ -627,8 +674,18 @@ function Remove-PackageReference {
             }
 
             if ($idSet.ContainsKey($include.ToLowerInvariant())) {
-                [void]$itemGroup.RemoveChild($packageReference)
+                Remove-XmlNodePreservingLayout -Node $packageReference
             }
+        }
+
+        $significantChildren = @($itemGroup.ChildNodes | Where-Object {
+            $_.NodeType -eq [System.Xml.XmlNodeType]::Element -or
+            $_.NodeType -eq [System.Xml.XmlNodeType]::Comment -or
+            ($_.NodeType -eq [System.Xml.XmlNodeType]::Text -and -not [string]::IsNullOrWhiteSpace($_.Value))
+        })
+
+        if ($significantChildren.Count -eq 0) {
+            Remove-XmlNodePreservingLayout -Node $itemGroup
         }
     }
 }
@@ -660,7 +717,7 @@ function Normalize-DelimitedProperty {
             }
 
             if ($kept.Count -eq 0 -or ($kept.Count -eq 1 -and $kept[0] -eq ('$(' + $PropertyName + ')'))) {
-                [void]$propertyGroup.RemoveChild($child)
+                Remove-XmlNodePreservingLayout -Node $child
             }
             else {
                 $child.InnerText = ($kept -join ';')
@@ -683,7 +740,7 @@ function Convert-XmlToString {
     $writer = [System.Xml.XmlWriter]::Create($builder, $settings)
     $Xml.Save($writer)
     $writer.Close()
-    return $builder.ToString() + "`r`n"
+    return $builder.ToString().TrimEnd([char[]]@("`r", "`n")) + "`r`n"
 }
 
 function Get-ProjectSemanticState {

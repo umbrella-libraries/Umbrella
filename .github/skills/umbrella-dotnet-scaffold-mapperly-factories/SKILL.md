@@ -20,6 +20,7 @@ Mappers plug into the `UmbrellaMapper` infrastructure via a **source-generated c
 2. Check the project `.csproj` for `Umbrella.Generators.Mapperly` and global usings for `Riok.Mapperly.Abstractions` and `Umbrella.Utilities.Mapping.Mapperly.Abstractions`.
 3. Check the consuming project's `Program.cs` for `AddUmbrellaUtilitiesMappingMapperly(...)` to understand which catalog(s) are already registered.
 4. Check the consuming project's `IServiceCollectionExtensions.cs` for `[assembly: UmbrellaMapperlyCatalogReference(...)]`.
+5. Before choosing an asynchronous file-enrichment mapping, verify that the feature-specific file-handler interface, implementation, and DI registration already exist. If they do not, stop mapper generation and use `umbrella-dotnet-scaffold-file-handler` first; do not invent an unresolved handler reference or expand this mapping-only task into file infrastructure.
 
 ---
 
@@ -81,6 +82,8 @@ Only create mappings for model types that exist. Skip any direction for which no
 | Edit form populate | `IUmbrellaMapperlyNewInstanceMapper<<Name>Model, Update<Name>Model>` (in Client.Data) |
 | Edit form refresh after save | `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` (in Client.Data) |
 
+For any entity-to-model row above—including create and update result mappings—replace the synchronous interface with `IUmbrellaMapperlyNewInstanceAsyncMapper<TSource, TDest>` when the destination contains a file URL/version-token pair or another value requiring asynchronous enrichment. The file-handler preflight still applies. Do not leave image-bearing result mappings synchronous merely because the table shows their non-enriched default form.
+
 ---
 
 ## Step 1 -- Create the mapper file
@@ -112,6 +115,8 @@ public partial class <Name>Mapper :
 ```
 
 **Mapper with properties needing asynchronous manual values (for example versioned file URLs):**
+
+This form requires an existing feature file handler. Complete the discovery preflight above before emitting it.
 
 ```csharp
 using <AppName>.Core.Domain.Entities;
@@ -335,3 +340,4 @@ If the attribute is already present in the consuming project, no change is neede
 7. The consuming project's `IServiceCollectionExtensions.cs` has `[assembly: UmbrellaMapperlyCatalogReference(typeof(...))]` pointing to the generated catalog.
 8. Web client and web server have separate catalogs — each registered and attributed independently.
 9. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with UA/UMA/UWDI analyzers enabled where applicable.
+10. Async file-enrichment mappers reference an existing, DI-registered feature file handler; a missing handler is routed to `umbrella-dotnet-scaffold-file-handler` before mapper work begins.

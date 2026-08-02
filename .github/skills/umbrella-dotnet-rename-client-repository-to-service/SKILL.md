@@ -15,7 +15,7 @@ This skill is typically run as a prerequisite to `umbrella-dotnet-migrate-repo-c
 
 1. Read the existing interface at `Web\<AppName>.Web.Client.Data\Repositories\Abstractions\I<Name>Repository.cs` and the implementation at `Web\<AppName>.Web.Client.Data\Repositories\<Name>Repository.cs`.
 2. Read `Web\<AppName>.Web.Client.Data\IServiceCollectionExtensions.cs` to find the current `AddScoped<I<Name>Repository, <Name>Repository>()` line and the `// Services` section where the new registration will go.
-3. Search all `.razor.cs` files under `Web\<AppName>.Web.Client\` for any that inject `I<Name>Repository` — these all need their using directives and property types updated.
+3. Search the entire solution for `I<Name>Repository` and `<Name>Repository`, including ordinary `.cs`, `.razor`, project/global-using files, and tests. Do not limit discovery to `.razor.cs`; every source and registration reference must be updated.
 
 ---
 
@@ -105,9 +105,9 @@ _ = services.AddScoped<I<Name>Service, <Name>Service>();
 
 ---
 
-## Step 4 -- Update all Blazor component references
+## Step 4 -- Update all consumer references
 
-Search all `.razor.cs` files under `Web\<AppName>.Web.Client\` for references to `I<Name>Repository`. For each file found:
+Update every solution-wide reference found during discovery. Blazor code-behind files commonly require the following changes, but ordinary C#, Razor markup, global usings, server replacement registrations, and tests are equally in scope:
 
 1. Replace the `using` for the old namespace:
    ```csharp

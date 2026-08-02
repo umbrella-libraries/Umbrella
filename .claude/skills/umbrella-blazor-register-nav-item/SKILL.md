@@ -37,7 +37,7 @@ Find the `<AuthorizeView Policy="@<AppName>PolicyNames.<Policy>">` block that ma
 ```
 
 **Rules:**
-- Place the new `<div class="nav-item">` in alphabetical order by label within its section.
+- Place the new `<div class="nav-item">` in alphabetical order by label within the same contiguous group and authorization block. Preserve nested policy blocks and established section structure; do not globally reorder unrelated navigation while adding one item.
 - The `href` must match the index page route exactly (e.g. `/admin/industries`).
 - The `<span>` label is the human-readable plural name of the feature (e.g. `Industries`, `Career Quiz Questions`).
 - `aria-hidden="true"` on the icon element is required for accessibility.
@@ -93,3 +93,4 @@ Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` a
 3. The item is in alphabetical order by label within its section.
 4. The icon has `aria-hidden="true"`.
 5. No new `<div class="nav-header">` was added unless the feature genuinely belongs to a new section that didn't previously exist.
+6. Existing nested authorization blocks and unrelated navigation order were preserved; ordering was evaluated within the new item's actual contiguous peer group.

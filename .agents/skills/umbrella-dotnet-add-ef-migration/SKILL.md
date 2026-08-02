@@ -30,7 +30,7 @@ Migration names must use semantic versioning to match the existing migration his
 1. Inspect the `Migrations` folder to determine the current highest version number.
 2. Confirm the next migration name with the user if it is not already provided.
 3. Run the wrapper script with `-MigrationName`.
-4. The shared script auto-detects the migrations project, startup project, and DbContext.
+4. The shared script auto-detects the migrations project, startup project, and DbContext from current `dotnet ef --json` output, then formats the generated migration for the repository's enforced IDE0058/IDE0161 style.
 5. Report the new and modified files returned by the script.
 6. If the script warns that the migration is empty, stop and ask the user to verify their entity model changes are saved before proceeding.
 7. Remind the user to review the migration content and commit once confirmed.

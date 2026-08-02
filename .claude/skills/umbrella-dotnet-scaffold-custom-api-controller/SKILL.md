@@ -17,7 +17,7 @@ Add an API controller whose endpoint surface does not fit the two generic CRUD p
 
 1. Standard CRUD over one entity, standard endpoint shapes → **do not use this skill**: use `umbrella-dotnet-scaffold-api-repo-controller` (Pattern 1) or `umbrella-dotnet-scaffold-api-data-service-controller` (Pattern 2).
 2. Repository-backed entity, non-standard endpoint shapes, no service abstraction needed → Variant A below.
-3. Operations belong on a controller service (shared interface, SSR pre-rendering, or the logic-in-service convention) with a non-standard endpoint shape → Variant C below.
+3. Operations belong on a controller service (shared interface, SSR pre-rendering, or the logic-in-service convention) with a non-standard endpoint shape, and every delegated operation returns `IOperationResult` or `IOperationResult<T>` → Variant C below. A plain `Task<T>` method is not compatible with `ExecuteOperationAsync`; use Variant B or change the service contract deliberately.
 4. Anything else (service orchestration without a data-service abstraction, Identity, external APIs, no entity) → Variant B below.
 
 A single controller must not mix variants; if part of the surface is standard CRUD, prefer a generic controller plus a separate custom controller.
@@ -55,11 +55,11 @@ public abstract class IndyRecordsDataAccessApiController : UmbrellaDataAccessApi
 }
 ```
 
-The `UmbrellaApiController` intermediate base is identical in shape with the base constructor `(logger, hostingEnvironment)` plus an `IUmbrellaMapper` property if the project's actions map models.
+The `UmbrellaApiController` intermediate base may impose additional constructor dependencies such as `IUmbrellaMapper` even when a particular action does not map. Preserve and pass every dependency required by the discovered app base; do not bypass it by deriving from Umbrella directly.
 
 ## Shared conventions (all variants)
 
-- **Response type declarations**: use `[UmbrellaProducesResponseType(StatusCodes.StatusXxx)]` (never plain `[ProducesResponseType]`) on each action for its method-level codes. 401/403/500 belong at class level on the intermediate base or concrete controller. Per verb:
+- **Response type declarations**: use `[UmbrellaProducesResponseType(StatusCodes.StatusXxx)]` (never plain `[ProducesResponseType]`) on each action for its method-level codes. Verify whether 401/403/500 are already declared on the intermediate base; if not, put them on the concrete controller class. Do not duplicate them at action level. Per verb:
 
 | Verb | Declare on the action |
 |---|---|
@@ -243,7 +243,7 @@ public abstract class IndyRecordsDataServiceApiController<TDataService> : Umbrel
 
 **Rules:**
 
-- `TDataService` is unconstrained — the service may implement a subset of `IGenericDataService`, derive from `UmbrellaRepositoryDataService` (in which case its enablement/authorization flags and hooks behave as in Pattern 2), or be a fully custom interface whose methods return `IOperationResult`/`IOperationResult<T>`.
+- `TDataService` is unconstrained at the base-type level, but every method passed to `ExecuteOperationAsync` must return `Task<IOperationResult>` or `Task<IOperationResult<T>>`. The service may implement a subset of `IGenericDataService`, derive from `UmbrellaRepositoryDataService` (in which case its enablement/authorization flags and hooks behave as in Pattern 2), or be a fully custom result-based interface. Plain `Task<T>` methods require Variant B or an intentional service-contract change.
 - Pass **expression lambdas returning the service's `Task` directly** — `(service, token) => service.FindAsync(token)` — never `async` lambdas, which can bind to the wrong `ExecuteOperationAsync` overload and lose the typed response body.
 - Use the generic overload for operations returning `IOperationResult<T>` (200/201 with body) and the non-generic overload for plain `IOperationResult` (204/200 without body).
 - Give each action an endpoint-specific `500` error message and pass the action's significant inputs as the `logState` anonymous object.

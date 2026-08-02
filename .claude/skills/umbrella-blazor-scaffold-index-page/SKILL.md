@@ -17,6 +17,8 @@ Add a Blazor index page that renders a paginated, sortable, filterable grid for 
 2. Confirm the project-specific grid component base class name (e.g. `IndyRecordsRemoteDataAccessGridComponentBase`).
 3. Read `Web\<AppName>.Web.Shared\Security\Policies\<AppName>PolicyNames.cs` or `SharedPolicyNames.cs` for the correct auth policy constant.
 4. Confirm the feature's index route (e.g. `/admin/industries`) and the manage route (e.g. `/admin/industries/manage`) by checking an analogous existing feature.
+5. Check whether the target feature folder needs a local `_Imports.razor` for its model namespace or other feature-specific imports. Reuse the nearest page-folder pattern; Razor markup does not automatically inherit code-behind `using` directives.
+6. Confirm the manage page already exists or is being scaffolded in the same feature workflow before adding Create/Edit links. Do not leave permanent navigation to a route that is not implemented.
 
 ---
 
@@ -74,7 +76,7 @@ Add a Blazor index page that renders a paginated, sortable, filterable grid for 
 - Route uses lowercase, hyphenated, plural form: `/admin/career-quiz-questions`, `/admin/industries`.
 - `InitialSortProperty` defaults to `x => x.CreatedDateUtc` — change to a more meaningful property if the entity doesn't have a creation date or if another sort makes more sense for the feature.
 - Columns: always include `CreatedDateUtc` first (if available), then any key display fields. Check the `Slim<Name>Model` properties to know what's available.
-- `UmbrellaActionsColumn`: include an Edit link always. Include a View link only if a public-facing detail page exists. Include Delete only if deletion is permitted for this feature.
+- `UmbrellaActionsColumn`: include an Edit link when the manage route exists. Include a View link only if a public-facing detail page exists. Include Delete only after confirming the service exposes delete, the controller endpoint is enabled, and the selected policy/resource-authorization behavior permits it; if those signals disagree, omit the action and ask.
 - A "Create" button in the header links to the manage page route with no ID segment.
 
 ### Optional: public view link in actions column
@@ -109,6 +111,8 @@ public abstract class IndexBase : <AppName>RemoteDataAccessGridComponentBase<Sli
 - No body needed — the base class provides `GridInstance`, `OnGridDataRequestAsync`, and `DeleteItemClickAsync` automatically.
 - No SCSS file unless the feature requires custom page-level styles. Check existing pages — most have none.
 
+If discovery showed that sibling feature folders use a local `_Imports.razor`, add or update it with the feature model namespace required by the markup. Keep it limited to imports actually needed by pages in that folder.
+
 ---
 
 ## Verification
@@ -121,3 +125,4 @@ public abstract class IndexBase : <AppName>RemoteDataAccessGridComponentBase<Sli
 6. The "Create" button href matches the manage page's create route.
 7. Any model-bound Dynamic Image usage passes the matching version token and uses only catalog-discoverable static variant inputs.
 8. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.
+9. Any required feature-local `_Imports.razor` exists, and Create/Edit links resolve to an implemented or concurrently scaffolded manage route.

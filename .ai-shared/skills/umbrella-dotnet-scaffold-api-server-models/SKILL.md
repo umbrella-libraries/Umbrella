@@ -31,7 +31,7 @@ Choose only the types the feature needs. Skip types that do not apply.
 | `Update<Name>Model` | `IUpdateModel<int>` | Update request body — includes `Id` and `ConcurrencyStamp` |
 | `Create<Name>ResultModel` | `ICreateResultModel<int>` | Create operation result |
 | `Update<Name>ResultModel` | `IUpdateResultModel` | Update operation result — returns the new `ConcurrencyStamp` |
-| `<Name>PaginatedResultModel` | extends `PaginatedResultModel<Slim<Name>Model>` | Paginated list response |
+| `<Name>PaginatedResultModel` (optional) | extends `PaginatedResultModel<Slim<Name>Model>` | Feature-specific paginated response, only when the contract needs a named wrapper or extra properties |
 
 **Choosing which model types to scaffold**
 
@@ -39,14 +39,14 @@ Match the models you create to the endpoints you intend to enable. Models for di
 
 | Endpoints enabled | Model types to scaffold |
 |---|---|
-| Full CRUD | All 7 types |
-| Read list only | `Slim<Name>Model`, `<Name>PaginatedResultModel` |
-| Read list + detail | `Slim<Name>Model`, `<Name>PaginatedResultModel`, `<Name>Model` |
+| Full CRUD | All six non-pagination model types in the table; add a named paginated wrapper only when the surrounding contract uses one |
+| Read list only | `Slim<Name>Model`; optionally a named paginated wrapper |
+| Read list + detail | `Slim<Name>Model`, `<Name>Model`; optionally a named paginated wrapper |
 | Create only (e.g. analytics, session recording) | `Create<Name>Model`, `Create<Name>ResultModel` |
-| Read list + create (no update, no detail) | `Slim<Name>Model`, `<Name>PaginatedResultModel`, `Create<Name>Model`, `Create<Name>ResultModel` |
-| Read list + detail + create (no update) | `Slim<Name>Model`, `<Name>PaginatedResultModel`, `<Name>Model`, `Create<Name>Model`, `Create<Name>ResultModel` |
+| Read list + create (no update, no detail) | `Slim<Name>Model`, `Create<Name>Model`, `Create<Name>ResultModel`; optionally a named paginated wrapper |
+| Read list + detail + create (no update) | `Slim<Name>Model`, `<Name>Model`, `Create<Name>Model`, `Create<Name>ResultModel`; optionally a named paginated wrapper |
 
-`<Name>PaginatedResultModel` is always paired with `Slim<Name>Model`. If there is no list endpoint, neither is needed.
+Every list endpoint needs `Slim<Name>Model` and a paginated contract. Prefer `PaginatedResultModel<Slim<Name>Model>` directly when that matches nearby controllers and services. Create a feature-specific derived record only when nearby features consistently name the wrapper or the response needs additional properties. If there is no list endpoint, neither form is needed.
 
 ---
 
@@ -231,15 +231,15 @@ public record Update<Name>ResultModel : IUpdateResultModel
 }
 ```
 
-**Paginated result model:**
+**Optional named paginated result model:**
 
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public class <Name>PaginatedResultModel : PaginatedResultModel<Slim<Name>Model>;
+public record <Name>PaginatedResultModel : PaginatedResultModel<Slim<Name>Model>;
 ```
 
-Note: `PaginatedResultModel<T>` is a class, so the paginated result model must also be a `class` (not a `record`).
+`PaginatedResultModel<T>` is a record in current Umbrella versions, so a derived named model must also be a record. Do not add this wrapper when the controller, data service, and client can use `PaginatedResultModel<Slim<Name>Model>` directly.
 
 ---
 
@@ -254,7 +254,7 @@ Use `required` on public settable properties unless an analyzer-recognized contr
 1. Each model implements the correct interface(s) from the model types table.
 2. `ICreateResultModel<int>` implementations have `int Id { get; set; }` — not `init`.
 3. `IConcurrencyStamp` implementations have `string ConcurrencyStamp { get; set; }` — not `init`.
-4. The paginated result model is a `class` extending `PaginatedResultModel<Slim<Name>Model>`.
+4. A list endpoint uses `PaginatedResultModel<Slim<Name>Model>` directly or a justified derived `record`; no unnecessary wrapper is introduced.
 5. Validation attributes are placed on the base model (not duplicated on each request model).
 6. `Slim<Name>Model` does not inherit from any base — it is independent.
 7. If base classes were introduced: no base class is empty (an empty base adds no value and should be removed).

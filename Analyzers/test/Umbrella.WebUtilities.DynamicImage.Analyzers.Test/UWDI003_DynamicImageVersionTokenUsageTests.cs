@@ -187,6 +187,89 @@ namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
 	}
 
 	[Fact]
+	public async Task RazorFileImagePreviewUpload_WithNullConditionalModelUrlAndNoVersionToken_ShouldTriggerDiagnostic()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+<UmbrellaFileImagePreviewUpload Url="@Model?.ImageUrl"
+                                WidthRequest="400"
+                                HeightRequest="400" />
+""";
+
+		const string componentSource = """
+namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+{
+    public class UmbrellaFileImagePreviewUpload { }
+}
+""";
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.MissingVersionTokenUsageRule,
+			2,
+			33,
+			"ImageUrl",
+			"ImageVersionToken");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			componentSource + ExplicitlyEnabledRegistrationSource,
+			[("C:/app/Test.razor", razor)],
+			expected);
+	}
+
+	[Fact]
+	public async Task RazorDynamicImage_WithItemUrlAndNoVersionToken_ShouldTriggerDiagnostic()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+<UmbrellaDynamicImage Url="@item.ImageUrl"
+                      WidthRequest="400"
+                      HeightRequest="400" />
+""";
+
+		const string componentSource = """
+namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
+{
+    public class UmbrellaDynamicImage { }
+}
+""";
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.MissingVersionTokenUsageRule,
+			2,
+			23,
+			"ImageUrl",
+			"ImageVersionToken");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			componentSource + ExplicitlyEnabledRegistrationSource,
+			[("C:/app/Test.razor", razor)],
+			expected);
+	}
+
+	[Fact]
+	public async Task RazorComponent_WithMatchingVersionToken_ShouldNotTriggerDiagnostic()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+<UmbrellaDynamicImage Url="@item.ImageUrl"
+                      VersionToken="@item.ImageVersionToken"
+                      WidthRequest="400"
+                      HeightRequest="400" />
+""";
+
+		const string componentSource = """
+namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
+{
+    public class UmbrellaDynamicImage { }
+}
+""";
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			componentSource + ExplicitlyEnabledRegistrationSource,
+			[("C:/app/Test.razor", razor)]);
+	}
+
+	[Fact]
 	public async Task TagHelperUsage_WithoutVersionToken_ShouldTriggerDiagnostic()
 	{
 		const string source = """

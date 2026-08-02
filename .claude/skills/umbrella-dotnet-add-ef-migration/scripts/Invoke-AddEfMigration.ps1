@@ -20,6 +20,24 @@ function Resolve-EfRepoRoot {
     return $PWD.Path
 }
 
+function Get-EfRelativePath {
+    param(
+        [string]$BasePath,
+        [string]$Path
+    )
+
+    $resolvedBase = (Resolve-Path -Path $BasePath).Path
+    $resolvedPath = (Resolve-Path -Path $Path).Path
+
+    if (-not $resolvedBase.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
+        $resolvedBase += [System.IO.Path]::DirectorySeparatorChar
+    }
+
+    $baseUri = [System.Uri]::new($resolvedBase)
+    $pathUri = [System.Uri]::new($resolvedPath)
+    return [System.Uri]::UnescapeDataString($baseUri.MakeRelativeUri($pathUri).ToString()) -replace '/', [System.IO.Path]::DirectorySeparatorChar
+}
+
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
     $RepoRoot = Resolve-EfRepoRoot
 }
@@ -29,37 +47,39 @@ else {
 
 # --- Auto-detect migrations project ---
 if ([string]::IsNullOrWhiteSpace($MigrationsProject)) {
-    $candidates = Get-ChildItem -Path $RepoRoot -Recurse -Filter '*.csproj' |
+    $candidates = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter '*.csproj' |
         Where-Object { $_.FullName -notmatch '[\\/]obj[\\/]' -and $_.BaseName -match '\.Migrations$' }
+    )
 
     if ($candidates.Count -eq 0) {
         throw "No migrations project found. Expected a .csproj whose name ends with '.Migrations'. Specify -MigrationsProject explicitly."
     }
     if ($candidates.Count -gt 1) {
-        $names = ($candidates | ForEach-Object { [System.IO.Path]::GetRelativePath($RepoRoot, $_.FullName) }) -join ', '
+        $names = ($candidates | ForEach-Object { Get-EfRelativePath -BasePath $RepoRoot -Path $_.FullName }) -join ', '
         throw "Multiple migrations projects found: $names. Specify -MigrationsProject explicitly."
     }
-    $MigrationsProject = [System.IO.Path]::GetRelativePath($RepoRoot, $candidates[0].FullName)
+    $MigrationsProject = Get-EfRelativePath -BasePath $RepoRoot -Path $candidates[0].FullName
 }
 
 # --- Auto-detect startup project ---
 if ([string]::IsNullOrWhiteSpace($StartupProject)) {
-    $candidates = Get-ChildItem -Path $RepoRoot -Recurse -Filter '*.csproj' |
+    $candidates = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter '*.csproj' |
         Where-Object { $_.FullName -notmatch '[\\/]obj[\\/]' } |
         Where-Object {
             $content = Get-Content -Path $_.FullName -Raw -ErrorAction SilentlyContinue
             $content -match 'Sdk\s*=\s*"Microsoft\.NET\.Sdk\.Web"' -and
             $content -match '<PackageReference\s[^>]*Include\s*=\s*"Microsoft\.EntityFrameworkCore\.Tools"'
         }
+    )
 
     if ($candidates.Count -eq 0) {
         throw "No startup project found. Expected a Microsoft.NET.Sdk.Web project with a Microsoft.EntityFrameworkCore.Tools PackageReference. Specify -StartupProject explicitly."
     }
     if ($candidates.Count -gt 1) {
-        $names = ($candidates | ForEach-Object { [System.IO.Path]::GetRelativePath($RepoRoot, $_.FullName) }) -join ', '
+        $names = ($candidates | ForEach-Object { Get-EfRelativePath -BasePath $RepoRoot -Path $_.FullName }) -join ', '
         throw "Multiple startup project candidates: $names. Specify -StartupProject explicitly."
     }
-    $StartupProject = [System.IO.Path]::GetRelativePath($RepoRoot, $candidates[0].FullName)
+    $StartupProject = Get-EfRelativePath -BasePath $RepoRoot -Path $candidates[0].FullName
 }
 
 # --- Snapshot migration files before running ---
@@ -78,31 +98,52 @@ if ([string]::IsNullOrWhiteSpace($Context)) {
 
     Push-Location $RepoRoot
     try {
-        $output = dotnet ef dbcontext list --project $MigrationsProject --startup-project $StartupProject --json 2>&1
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $output = dotnet ef dbcontext list --project $MigrationsProject --startup-project $StartupProject --json 2>&1
+            $dbContextListExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
     }
     finally {
         Pop-Location
     }
 
-    if ($LASTEXITCODE -ne 0) {
+    if ($dbContextListExitCode -ne 0) {
         throw "dotnet ef dbcontext list failed. Specify -Context explicitly.`nOutput:`n$($output -join [System.Environment]::NewLine)"
     }
 
-    $inJson = $false
-    $jsonLines = [System.Collections.Generic.List[string]]::new()
-    foreach ($line in $output) {
-        $text = "$line"
-        if ($text -match '^//Begin') { $inJson = $true; continue }
-        if ($inJson -and $text -match '^//End') { break }
-        if ($inJson) { $jsonLines.Add($text) }
+    $outputText = $output -join "`n"
+    $jsonText = $null
+    $markerMatch = [regex]::Match($outputText, '(?s)//Begin\s*(?<json>.*?)\s*//End')
+
+    if ($markerMatch.Success) {
+        $jsonText = $markerMatch.Groups['json'].Value
+    }
+    else {
+        # Current dotnet-ef emits the JSON array directly, optionally after build output.
+        $arrayStart = $outputText.IndexOf('[')
+        $arrayEnd = $outputText.LastIndexOf(']')
+        if ($arrayStart -ge 0 -and $arrayEnd -gt $arrayStart) {
+            $jsonText = $outputText.Substring($arrayStart, $arrayEnd - $arrayStart + 1)
+        }
     }
 
-    if ($jsonLines.Count -eq 0) {
-        throw "Could not parse output of 'dotnet ef dbcontext list'. Specify -Context explicitly."
+    if ([string]::IsNullOrWhiteSpace($jsonText)) {
+        throw "Could not parse output of 'dotnet ef dbcontext list'. Specify -Context explicitly.`nOutput:`n$outputText"
     }
 
-    $contexts = ($jsonLines -join "`n") | ConvertFrom-Json
-    $contextNames = @($contexts | ForEach-Object { $_.name })
+    try {
+        $contexts = $jsonText | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        throw "Could not parse JSON output of 'dotnet ef dbcontext list'. Specify -Context explicitly.`nOutput:`n$outputText"
+    }
+
+    $contextNames = @($contexts | ForEach-Object { $_.name } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 
     if ($contextNames.Count -eq 0) {
         throw "No DbContext found in project. Specify -Context explicitly."
@@ -124,13 +165,21 @@ Write-Host ""
 
 Push-Location $RepoRoot
 try {
-    dotnet ef migrations add $MigrationName `
-        --project $MigrationsProject `
-        --startup-project $StartupProject `
-        --context $Context
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        dotnet ef migrations add $MigrationName `
+            --project $MigrationsProject `
+            --startup-project $StartupProject `
+            --context $Context
+        $migrationExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "dotnet ef migrations add failed with exit code $LASTEXITCODE."
+    if ($migrationExitCode -ne 0) {
+        throw "dotnet ef migrations add failed with exit code $migrationExitCode."
     }
 }
 finally {
@@ -157,7 +206,7 @@ Write-Host ""
 if ($newFiles.Count -gt 0) {
     Write-Host "New files:"
     foreach ($f in $newFiles) {
-        Write-Host "  + $([System.IO.Path]::GetRelativePath($RepoRoot, $f) -replace '\\', '/')"
+        Write-Host "  + $((Get-EfRelativePath -BasePath $RepoRoot -Path $f) -replace '\\', '/')"
     }
 }
 
@@ -165,7 +214,7 @@ if ($modifiedFiles.Count -gt 0) {
     Write-Host ""
     Write-Host "Modified files:"
     foreach ($f in $modifiedFiles) {
-        Write-Host "  ~ $([System.IO.Path]::GetRelativePath($RepoRoot, $f) -replace '\\', '/')"
+        Write-Host "  ~ $((Get-EfRelativePath -BasePath $RepoRoot -Path $f) -replace '\\', '/')"
     }
 }
 
@@ -175,9 +224,30 @@ $migrationFile = $newFiles |
     Select-Object -First 1
 
 if ($migrationFile) {
+    $migrationFileRelativePath = Get-EfRelativePath -BasePath $RepoRoot -Path $migrationFile
+    Push-Location $RepoRoot
+    try {
+        $previousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            dotnet format $MigrationsProject style --no-restore --include $migrationFileRelativePath --diagnostics IDE0058 IDE0161
+            $formatExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+
+        if ($formatExitCode -ne 0) {
+            throw "dotnet format failed to apply the repository's generated-migration style with exit code $formatExitCode."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+
     $content = Get-Content -Path $migrationFile -Raw
     if ($content -notmatch 'migrationBuilder\.\w+\(') {
         Write-Host ""
-        Write-Warning "The migration appears to be empty — no pending model changes were detected. Verify your entity changes are saved before committing this migration."
+        Write-Warning "The migration appears to be empty - no pending model changes were detected. Verify your entity changes are saved before committing this migration."
     }
 }

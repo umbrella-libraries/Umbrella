@@ -42,7 +42,7 @@ See `umbrella-dotnet-scaffold-mapperly-factories` for the full interface table. 
 | `CreateMap<S,D>()` — updates an existing object (`_mapper.Map(src, existing)`) | `IUmbrellaMapperlyExistingInstanceMapper<S, D>` |
 | Same interface twice on one class | Split into `<Name>Mapper2`, `<Name>Mapper3` in the same file |
 
-`ReverseMap()` has no Mapperly equivalent. Create explicit interfaces or classes for each direction.
+`ReverseMap()` has no Mapperly equivalent. Create explicit interfaces or classes for each direction. For reverse unflattening into a required nested target, do not assume `[MapProperty]` can construct and satisfy that nested object: use a guarded manual wrapper when generated mapping reports required-member or nested-target diagnostics.
 
 ### ForMember patterns
 
@@ -70,9 +70,9 @@ public partial Dest Map(Source source);
 public partial void Map(Source source, Dest destination);
 ```
 
-**Computed value (any lambda with an expression body):**
+**Computed value (non-trivial lambda expression):**
 
-`MapFrom((src, dest) => <expression>)` has no native Mapperly equivalent. Write a manual public wrapper + private `MapInternal`.
+A direct member-access rename such as `s => s.Email` follows the `[MapProperty]` rule above. Other `MapFrom` expressions—arithmetic, method calls, conditionals, concatenation, or lambdas that use the destination—have no direct Mapperly attribute equivalent; write a manual public wrapper plus private `MapInternal`.
 
 An authored public mapper body activates UA008/UA016. Inject `ILogger<TMapper>` into that mapper and retain it in `_logger`; the examples below include the required outer logging shape. Bodyless partial mappings do not require a logger:
 
@@ -218,7 +218,7 @@ If the original `AfterMap` sets a property on the *source* object (first paramet
 
 Group related AutoMapper profiles by entity/feature and write one `<Feature>Mappers.cs` file per group, following `umbrella-dotnet-scaffold-mapperly-factories` for file location and naming. Apply the conversion reference above for each `CreateMap` pair.
 
-All rules from `umbrella-dotnet-scaffold-mapperly-factories` apply: use an accessible `partial class`, put `[Mapper]` on each class, place `[MapperIgnoreTarget]` on private partial methods only, and apply validation plus state-aware logging to every public wrapper with a body. Use the async mapper interfaces when migrated enrichment performs I/O.
+All rules from `umbrella-dotnet-scaffold-mapperly-factories` apply to generated mappings: use an accessible `partial class`, put `[Mapper]` on each class that contains Mapperly-generated partial methods, place `[MapperIgnoreTarget]` on private partial methods only, and apply validation plus state-aware logging to every public wrapper with a body. A fully manual Umbrella mapper-interface implementation with no generated partial methods does not need `[Mapper]` or `partial`. Use the async mapper interfaces when migrated enrichment performs I/O.
 
 ---
 
@@ -277,7 +277,7 @@ Remove the call to the mapper project's extension method (e.g. `AddHawcroftModel
 
 ## Step 5 — Add the assembly attribute
 
-Follow `umbrella-dotnet-scaffold-mapperly-factories` Step 4. The `[assembly: UmbrellaMapperlyCatalogReference(typeof(...))]` attribute goes in the consuming project's `IServiceCollectionExtensions.cs`.
+Follow `umbrella-dotnet-scaffold-mapperly-factories` Step 4. The `[assembly: UmbrellaMapperlyCatalogReference(typeof(...))]` attribute goes in every assembly that directly calls `IUmbrellaMapper`, including test or secondary consumer projects; referencing it only from the primary app does not satisfy UMA validation in another compilation.
 
 ---
 
@@ -306,7 +306,7 @@ If the project already uses `IUmbrellaMapper` throughout (e.g. via Umbrella base
 
 ## Step 7 — Delete AutoMapper artefacts
 
-1. Delete all `Profile` class files.
+1. Delete all `Profile` class files. Preserve a pre-existing application extension method when it remains an intentional hook after `AddAutoMapper` is removed; delete only infrastructure that truly became unused because of the migration.
 2. Remove `AutoMapper`, `AutoMapper.Extensions.Microsoft.DependencyInjection`, and `Umbrella.Utilities.Mapping.AutoMapper` NuGet references from every project file.
 3. Remove any `using AutoMapper;` directives that are no longer needed.
 
@@ -316,7 +316,7 @@ If the project already uses `IUmbrellaMapper` throughout (e.g. via Umbrella base
 
 - Read `umbrella-dotnet-scaffold-mapperly-factories` before writing any mapper files — all its rules apply here.
 - `[MapperIgnoreTarget]` goes on the private `partial` method, never on the public method or the class.
-- Any `MapFrom` with an expression body (arithmetic, method calls, conditionals, extension methods) becomes a manual wrapper — do not attempt to express it as `[MapProperty]`.
+- A direct member-access `MapFrom` rename becomes `[MapProperty]`; other expression bodies (arithmetic, method calls, conditionals, extension methods) become manual wrappers.
 - `ReverseMap()` has no Mapperly equivalent — each direction needs its own interface or class.
 - All catalogs must be in a single `AddUmbrellaUtilitiesMappingMapperly(...)` call — never add a second call.
 - Do not replicate a side-effect `AfterMap` (one modifying the source object) without a developer decision.
@@ -329,10 +329,11 @@ If the project already uses `IUmbrellaMapper` throughout (e.g. via Umbrella base
 2. No `Profile` class files remain.
 3. No `AutoMapper`, `AutoMapper.Extensions.Microsoft.DependencyInjection`, or `Umbrella.Utilities.Mapping.AutoMapper` package references remain in any `.csproj`.
 4. No `IMapper` injections remain — all sites use `IUmbrellaMapper`.
-5. All `[Mapper]` classes are accessible `partial` types; public and internal top-level types are supported.
+5. All classes containing generated partial mappings are accessible `[Mapper]` partial types; fully manual mapper-interface implementations need neither marker.
 6. `[MapperIgnoreTarget]` is on the private `MapInternal` partial method only.
 7. Authored public wrapper methods validate before the outer `try`, have logger access, and use state-aware exception logging; bodyless partial declarations remain logger-free.
 8. `Program.cs` has a single `AddUmbrellaUtilitiesMappingMapperly(...)` call containing all catalogs.
 9. The consuming project's `IServiceCollectionExtensions.cs` has `[assembly: UmbrellaMapperlyCatalogReference(typeof(...))]`.
 10. Asynchronous enrichment uses the corresponding async mapper interface and propagates its cancellation token.
 11. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with UA/UMA/UWDI analyzers enabled where applicable.
+12. Every direct `IUmbrellaMapper` consumer assembly, including tests, references the generated catalog needed for its mappings.

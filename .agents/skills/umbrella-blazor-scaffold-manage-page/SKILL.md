@@ -17,6 +17,7 @@ Add a Blazor manage page that handles both create and edit for a feature. The pa
 2. Confirm the project-specific client component base class name (e.g. `IndyRecordsClientComponentBase`). `Mapper` (`IUmbrellaMapper`) is a `protected` property on `UmbrellaComponentBase` (the Umbrella framework base) — it is available in all Blazor components in the hierarchy without any injection.
 3. Read `Web\<AppName>.Web.Shared\Security\Policies\<AppName>PolicyNames.cs` or `SharedPolicyNames.cs` for the correct auth policy constant.
 4. Read the create/update model types for the feature to know which properties to include as form fields.
+   Use their exact discovered names. Repositories may use `CreateUpdateManage<Name>ModelBase` or another feature-qualified convention rather than the illustrative `CreateUpdate<Name>ModelBase`; never invent a template type that is absent from the project.
 5. Check `Web\<AppName>.Web.Client.Data\Mappings\Api\` for an existing `<Name>Mapper.cs`. You will need client-side mappers for: `IUmbrellaMapperlyNewInstanceMapper<<Name>Model, Update<Name>Model>` (to populate the edit form) and `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` (to refresh the concurrency stamp after save). If they do not exist, use the `umbrella-dotnet-scaffold-mapperly-factories` skill to create them first.
 
 ---
@@ -75,7 +76,7 @@ Add a Blazor manage page that handles both create and edit for a feature. The pa
 - `@inherits ManageBase` only — no C# logic in the `.razor` beyond the `@{...}` title block.
 - `UmbrellaModelLayoutStateView` wraps the form — always present; it handles the loading/error/success state machine.
 - `CurrentState` and `ReloadCallback` come from the base class — do not define them.
-- Form fields: add one `<div class="form-group">` per editable property. Use `form-floating` for text inputs. Check existing manage pages for the right component per field type (`UmbrellaInputText`, `UmbrellaInputTextArea`, `UmbrellaInputSelect`, etc.).
+- Form fields: add one `<div class="form-group">` per genuinely user-editable property. Use `form-floating` for text inputs. Check existing manage pages for the right component per field type (`UmbrellaInputText`, `UmbrellaInputTextArea`, `UmbrellaInputSelect`, etc.). A file-provider filename is not a raw text field: either implement the complete upload/preview workflow below or omit it from this page and explicitly report that file editing is out of scope.
 - Cancel button always links back to the index route.
 - Submit button label changes based on `Id.HasValue`.
 
@@ -139,7 +140,7 @@ public abstract class ManageBase : <AppName>ClientComponentBase
 
             var result = await Repository.FindByIdAsync(Id.Value);
 
-            if (result.IsSuccess && result.Result != null)
+            if (result.IsSuccess && result.Result is not null)
             {
                 Model = result.Result;
                 CreateUpdateModel = await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result);
@@ -224,7 +225,7 @@ public abstract class ManageBase : <AppName>ClientComponentBase
 - `public abstract class` — the `.razor` file inherits from it via `@inherits`.
 - `[Authorize(PolicyName)]` on the class, not in the `.razor` file.
 - `[Inject] private I<Name>Service Repository { get; set; } = null!;` — the property is always named `Repository` by convention, regardless of the type name.
-- `CreateUpdateModel` is typed as `CreateUpdate<Name>ModelBase?` (the abstract base), so both create and update models can be assigned to it.
+- `CreateUpdateModel` is typed as the exact discovered abstract create/update base (illustrated as `CreateUpdate<Name>ModelBase?`), so both create and update models can be assigned to it.
 - `OnInitializedAsync`: if no `Id`, construct an empty `Create<Name>Model` and set `CurrentState = LayoutState.Success`. If `Id` is set, load from `Repository.FindByIdAsync` and use `await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result)` to populate `CreateUpdateModel`.
 - `SubmitFormAsync`: pattern-match on `CreateUpdateModel` type to call the correct method. After a successful create, navigate to the index route. After a successful update, prefer `_ = await Mapper.MapAsync(result.Result, updateModel)` to refresh the concurrency stamp in place — this requires `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` in `Client.Data`. If that mapper does not exist yet, fall back to `await ReloadAsync()` and leave a `// TODO: Mapper` comment.
 - `Mapper` is a `protected` property on `UmbrellaComponentBase` (the Umbrella framework base) — no injection needed in derived components. The `Mapper.MapAsync` calls require client-side mapper classes in `Web.Client.Data\Mappings\Api\`: `IUmbrellaMapperlyNewInstanceMapper<<Name>Model, Update<Name>Model>` for load, and `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` for post-save refresh. Use the `umbrella-dotnet-scaffold-mapperly-factories` skill to create them.

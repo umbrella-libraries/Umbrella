@@ -49,7 +49,7 @@ public interface I<Name>Service : IGenericDataService<
     Update<Name>ResultModel>;
 ```
 
-Use the same model types that the existing controller uses in its generic parameter list (positions T1–T7). If the controller uses `object` or `NoOp*` for some positions, use the same placeholders here.
+Use the existing controller's concrete model types. Pattern 2's generic controller and `IGenericDataService` contract require real keyed/read/update types and cannot use Pattern 1's `object`/`NoOp*` placeholders. If the old controller disabled an operation with placeholders, locate or scaffold the corresponding concrete models first, then preserve the disabled endpoint behavior through the controller service's `XxxEndpointEnabled => false` override. Stop for the model prerequisite when no correct concrete type exists.
 
 ---
 
@@ -59,7 +59,7 @@ Use the same model types that the existing controller uses in its generic parame
 
 Concrete controller services live directly in the `Services` folder, alongside the `Services\Abstractions\` interfaces folder — even when the project has existing controller services in the legacy `Services\Api\` location.
 
-Extract any lifecycle hook logic from the existing controller into this new class. If the controller had no hooks, the service body will only have the auth-disabled overrides.
+Extract lifecycle hook logic and all endpoint-enablement and authorization-check overrides from the existing controller into this new class. If the controller had no hooks, the service body may contain only those behavioral overrides.
 
 ```csharp
 using <AppName>.Core.Data.Repositories.Abstractions;
@@ -112,7 +112,7 @@ public class <Name>ControllerService : UmbrellaRepositoryDataService<
 }
 ```
 
-**Migrating lifecycle hooks from the old controller:**
+**Migrating controller behavior from the old controller:**
 
 If the original controller had overrides such as:
 
@@ -133,7 +133,7 @@ protected override async Task AfterCreateEntityAsync(<Name> entity, Create<Name>
 }
 ```
 
-Move them verbatim into the controller service. Preserve Dynamic Image URL/version-token pairing and asynchronous file lookups. Any extra dependencies (e.g. `I<Name>FileHandler`) that those hooks needed move to the controller service constructor (after the 9 base params):
+Move lifecycle hooks verbatim into the controller service. Also move every `AuthorizationXxxChecksEnabled` and `XxxEndpointEnabled` override so authorization and disabled endpoints do not change during the migration. Preserve Dynamic Image URL/version-token pairing and asynchronous file lookups. Any extra dependencies (e.g. `I<Name>FileHandler`) that those hooks needed move to the controller service constructor (after the 9 base params):
 
 ```csharp
 private readonly I<Name>FileHandler _fileHandler;
@@ -191,7 +191,7 @@ public class <Name>Controller : <AppName>GenericRepositoryDataServiceApiControll
 }
 ```
 
-**Important:** The model types in the controller (positions T1–T7) must match what the client interface declares. If the original controller used `object` or `NoOp*` for some positions (to disable endpoints), those same values go in the controller's generic params. The controller service uses full concrete types regardless.
+**Important:** The model types in the controller (positions T1–T7) must be the same full concrete types declared by the client interface and implemented by the controller service. If the original Pattern 1 controller used `object` or `NoOp*` to disable endpoints, replace those placeholders with the prerequisite concrete types and preserve the old availability through the matching `XxxEndpointEnabled => false` service override.
 
 ---
 
@@ -220,7 +220,7 @@ Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` a
 ## Verification
 
 1. The old `Manage<Name>Controller` no longer inherits `GenericRepositoryApiController` — it inherits `<AppName>GenericRepositoryDataServiceApiController` with 9 type params.
-2. No lifecycle hooks remain on the controller — they live in `<Name>ControllerService`.
+2. No lifecycle hooks, endpoint-enablement overrides, or authorization-check overrides remain on the controller — they live in `<Name>ControllerService`.
 3. `<Name>ControllerService` is `public class`, lives in `Web\<AppName>.Web.Server\Services\`, inherits `UmbrellaRepositoryDataService` with 11 type params, uses `IHostEnvironment` (not `IWebHostEnvironment`).
 4. Any extra dependencies (file handlers, services) from the old controller are now in the controller service constructor, after the 9 base params.
 5. Server DI uses `ReplaceScoped` if a client service interface exists, `AddScoped` otherwise.

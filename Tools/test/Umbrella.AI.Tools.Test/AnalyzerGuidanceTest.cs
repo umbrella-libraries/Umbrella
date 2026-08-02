@@ -22,6 +22,70 @@ public partial class AnalyzerGuidanceTest
     private static string RepoRoot => GetRepoRoot();
 
     [Fact]
+    public void TestProjectStandardizerPreservesLayoutWhenAddingProperties()
+    {
+        string? powerShellPath = FindPowerShellPath();
+
+        if (powerShellPath is null)
+            return;
+
+        string fixtureRoot = Path.Combine(Path.GetTempPath(), $"umbrella-standardizer-{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(fixtureRoot);
+
+        try
+        {
+            File.WriteAllText(Path.Combine(fixtureRoot, "global.json"), "{}\r\n");
+            File.WriteAllText(
+                Path.Combine(fixtureRoot, "Directory.Build.props"),
+                "<Project>\r\n  <PropertyGroup>\r\n    <TargetFramework>net10.0</TargetFramework>\r\n  </PropertyGroup>\r\n</Project>\r\n");
+            File.WriteAllText(Path.Combine(fixtureRoot, "Directory.Build.targets"), "<Project>\r\n</Project>\r\n");
+            File.WriteAllText(Path.Combine(fixtureRoot, "Directory.Packages.props"), "<Project>\r\n</Project>\r\n");
+
+            string projectPath = Path.Combine(fixtureRoot, "Example.Test.csproj");
+            File.WriteAllText(
+                projectPath,
+                "<Project>\r\n  <PropertyGroup>\r\n    <TargetFramework>net10.0</TargetFramework>\r\n  </PropertyGroup>\r\n</Project>\r\n");
+
+            string scriptPath = Path.Combine(
+                RepoRoot,
+                ".ai-shared",
+                "skills",
+                "umbrella-dotnet-standardize-test-projects",
+                "scripts",
+                "Invoke-StandardizeTestProjects.ps1");
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = powerShellPath,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            };
+            startInfo.ArgumentList.Add("-NoProfile");
+            startInfo.ArgumentList.Add("-File");
+            startInfo.ArgumentList.Add(scriptPath);
+            startInfo.ArgumentList.Add("-Mode");
+            startInfo.ArgumentList.Add("Apply");
+            startInfo.ArgumentList.Add("-RepoRoot");
+            startInfo.ArgumentList.Add(fixtureRoot);
+
+            using var process = System.Diagnostics.Process.Start(startInfo)!;
+            string standardOutput = process.StandardOutput.ReadToEnd();
+            string standardError = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            Assert.True(process.ExitCode == 0, $"Standardizer failed. Output: {standardOutput}{Environment.NewLine}Error: {standardError}");
+
+            string project = File.ReadAllText(projectPath);
+            Assert.Matches("\\r?\\n    <IsTestProject>true</IsTestProject>\\r?\\n  </PropertyGroup>", project);
+            Assert.DoesNotContain("</IsTestProject></PropertyGroup>", project, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(fixtureRoot, recursive: true);
+        }
+    }
+
+    [Fact]
     public void CompatibilityReferenceCoversEveryCurrentDiagnostic()
     {
         string reference = ReadCompatibilityReference();
@@ -99,16 +163,94 @@ public partial class AnalyzerGuidanceTest
         string reference = ReadCompatibilityReference();
         string modelSkill = ReadSkill("umbrella-dotnet-scaffold-api-server-models");
         string mapperSkill = ReadSkill("umbrella-dotnet-scaffold-mapperly-factories");
+        string fileHandlerSkill = ReadSkill("umbrella-dotnet-scaffold-file-handler");
         string managePageSkill = ReadSkill("umbrella-blazor-scaffold-manage-page");
+        string renameClientServiceSkill = ReadSkill("umbrella-dotnet-rename-client-repository-to-service");
+        string resourceAuthorizationSkill = ReadSkill("umbrella-dotnet-scaffold-resource-auth-handler");
+        string migrateRepositoryControllerSkill = ReadSkill("umbrella-dotnet-migrate-repo-controller-to-data-service");
+        string repositoryControllerSkill = ReadSkill("umbrella-dotnet-scaffold-api-repo-controller");
+        string dataServiceControllerSkill = ReadSkill("umbrella-dotnet-scaffold-api-data-service-controller");
+        string customControllerSkill = ReadSkill("umbrella-dotnet-scaffold-custom-api-controller");
+        string clientDataSkill = ReadSkill("umbrella-dotnet-scaffold-client-data");
+        string indexPageSkill = ReadSkill("umbrella-blazor-scaffold-index-page");
+        string navItemSkill = ReadSkill("umbrella-blazor-register-nav-item");
+        string autoMapperMigrationSkill = ReadSkill("umbrella-dotnet-migrate-automapper-to-mapperly");
+        string standardizeTestProjectsScript = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            ".ai-shared",
+            "skills",
+            "umbrella-dotnet-standardize-test-projects",
+            "scripts",
+            "Invoke-StandardizeTestProjects.ps1"));
+        string addEfMigrationScript = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            ".ai-shared",
+            "skills",
+            "umbrella-dotnet-add-ef-migration",
+            "scripts",
+            "Invoke-AddEfMigration.ps1"));
+        string nuGetUpgradeScript = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            ".ai-shared",
+            "skills",
+            "umbrella-nuget-safe-upgrade",
+            "scripts",
+            "Invoke-NuGetSafeUpgrade.ps1"));
 
         Assert.Contains("CancellationToken cancellationToken = default", reference, StringComparison.Ordinal);
         Assert.Contains("[UmbrellaInputModel]", modelSkill, StringComparison.Ordinal);
+        Assert.Contains("public record <Name>PaginatedResultModel : PaginatedResultModel<Slim<Name>Model>;", modelSkill, StringComparison.Ordinal);
+        Assert.Contains("Prefer `PaginatedResultModel<Slim<Name>Model>` directly", modelSkill, StringComparison.Ordinal);
+        Assert.DoesNotContain("`PaginatedResultModel<T>` is a class", modelSkill, StringComparison.Ordinal);
         Assert.Contains("[UmbrellaAllowNonRequiredProperty(\"reason\")]", reference, StringComparison.Ordinal);
         Assert.Contains("[UmbrellaAllowMutableProperty(\"reason\")]", reference, StringComparison.Ordinal);
         Assert.Contains("IUmbrellaMapperlyNewInstanceAsyncMapper", mapperSkill, StringComparison.Ordinal);
+        Assert.Contains("use `umbrella-dotnet-scaffold-file-handler` first", mapperSkill, StringComparison.Ordinal);
+        Assert.Contains("including create and update result mappings", mapperSkill, StringComparison.Ordinal);
+        Assert.Contains("#pragma warning disable CS0618 // UmbrellaFileHandler currently requires the legacy IHybridCache abstraction.", fileHandlerSkill, StringComparison.Ordinal);
+        Assert.Contains("Do not suppress `CS0618` project-wide", fileHandlerSkill, StringComparison.Ordinal);
         Assert.Contains("GetVersionedWebFilePathAsync", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("ImageVersionToken", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("VersionToken=\"@Model?.ImageVersionToken\"", managePageSkill, StringComparison.Ordinal);
+        Assert.Contains("Search the entire solution", renameClientServiceSkill, StringComparison.Ordinal);
+        Assert.Contains("do not create an ad-hoc controller", resourceAuthorizationSkill, StringComparison.Ordinal);
+        Assert.Contains("cannot use Pattern 1's `object`/`NoOp*` placeholders", migrateRepositoryControllerSkill, StringComparison.Ordinal);
+        Assert.Contains("endpoint-enablement and authorization-check overrides", migrateRepositoryControllerSkill, StringComparison.Ordinal);
+        Assert.Contains("base controller enables resource authorization checks by default", repositoryControllerSkill, StringComparison.Ordinal);
+        Assert.Contains("File replacement/deletion hooks are destructive behavior", repositoryControllerSkill, StringComparison.Ordinal);
+        Assert.Contains("base enables resource authorization checks by default", dataServiceControllerSkill, StringComparison.Ordinal);
+        Assert.Contains("result.Result is not null", managePageSkill, StringComparison.Ordinal);
+        Assert.Contains("Use their exact discovered names", managePageSkill, StringComparison.Ordinal);
+        Assert.Contains("A file-provider filename is not a raw text field", managePageSkill, StringComparison.Ordinal);
+        Assert.Contains("A plain `Task<T>` method is not compatible", customControllerSkill, StringComparison.Ordinal);
+        Assert.Contains("if not, put them on the concrete controller class", customControllerSkill, StringComparison.Ordinal);
+        Assert.Contains("using Umbrella.Utilities.DataAnnotations.Abstractions;", clientDataSkill, StringComparison.Ordinal);
+        Assert.Contains("using Umbrella.Utilities.Http.Abstractions;", clientDataSkill, StringComparison.Ordinal);
+        Assert.Contains("Preserve unrelated registration order and formatting", clientDataSkill, StringComparison.Ordinal);
+        Assert.Contains("local `_Imports.razor`", indexPageSkill, StringComparison.Ordinal);
+        Assert.Contains("service exposes delete", indexPageSkill, StringComparison.Ordinal);
+        Assert.Contains("Do not leave permanent navigation", indexPageSkill, StringComparison.Ordinal);
+        Assert.Contains("same contiguous group and authorization block", navItemSkill, StringComparison.Ordinal);
+        Assert.Contains("A direct member-access rename", autoMapperMigrationSkill, StringComparison.Ordinal);
+        Assert.Contains("required nested target", autoMapperMigrationSkill, StringComparison.Ordinal);
+        Assert.Contains("test or secondary consumer projects", autoMapperMigrationSkill, StringComparison.Ordinal);
+        Assert.Contains("fully manual mapper-interface implementations", autoMapperMigrationSkill, StringComparison.Ordinal);
+        Assert.Contains("$xml.PreserveWhitespace = $true", standardizeTestProjectsScript, StringComparison.Ordinal);
+        Assert.Contains("Remove-XmlNodePreservingLayout -Node $itemGroup", standardizeTestProjectsScript, StringComparison.Ordinal);
+        Assert.Contains("function Remove-XmlNodePreservingLayout", standardizeTestProjectsScript, StringComparison.Ordinal);
+        Assert.Contains("TrimEnd([char[]]", standardizeTestProjectsScript, StringComparison.Ordinal);
+        Assert.Contains("$candidates = @(Get-ChildItem", addEfMigrationScript, StringComparison.Ordinal);
+        Assert.Contains("Current dotnet-ef emits the JSON array directly", addEfMigrationScript, StringComparison.Ordinal);
+        Assert.Contains("--diagnostics IDE0058 IDE0161", addEfMigrationScript, StringComparison.Ordinal);
+        Assert.Contains("function Get-EfRelativePath", addEfMigrationScript, StringComparison.Ordinal);
+        Assert.DoesNotContain("[System.IO.Path]::GetRelativePath", addEfMigrationScript, StringComparison.Ordinal);
+        Assert.Contains("$dbContextListExitCode = $LASTEXITCODE", addEfMigrationScript, StringComparison.Ordinal);
+        Assert.Contains("$migrationFileRelativePath", addEfMigrationScript, StringComparison.Ordinal);
+        Assert.DoesNotContain('\u2014', addEfMigrationScript);
+        Assert.Contains("packageIds = @($PackageId", nuGetUpgradeScript, StringComparison.Ordinal);
+        Assert.Contains("projects = @($Project", nuGetUpgradeScript, StringComparison.Ordinal);
+        Assert.Contains("[bool]$effectiveAllowPrerelease", nuGetUpgradeScript, StringComparison.Ordinal);
+        Assert.Contains("allowPrerelease = $effectiveAllowPrerelease", nuGetUpgradeScript, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -193,6 +335,34 @@ public partial class AnalyzerGuidanceTest
 
     private static string ReadSkill(string skillName)
         => File.ReadAllText(Path.Combine(RepoRoot, ".ai-shared", "skills", skillName, "SKILL.md"));
+
+    private static string? FindPowerShellPath()
+    {
+        string executableName = OperatingSystem.IsWindows() ? "pwsh.exe" : "pwsh";
+        string? path = Environment.GetEnvironmentVariable("PATH");
+
+        foreach (string directory in (path ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            string candidate = Path.Combine(directory.Trim('"'), executableName);
+
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            string candidate = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".dotnet",
+                "tools",
+                executableName);
+
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        return null;
+    }
 
     [GeneratedRegex(@"^(?:UA|UDA|UMA|UWDI)\d{3}(?=\s*\|)", RegexOptions.Multiline)]
     private static partial Regex DiagnosticIdRegex();

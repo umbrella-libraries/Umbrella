@@ -80,6 +80,7 @@ using Umbrella.Utilities.Caching.Abstractions;
 
 namespace <AppName>.Core.Logic.FileSystem;
 
+#pragma warning disable CS0618 // UmbrellaFileHandler currently requires the legacy IHybridCache abstraction.
 internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileHandler
 {
     public <Name>FileHandler(
@@ -94,6 +95,7 @@ internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileH
 
     public override string DirectoryName => DirectoryNames.<Name>;
 }
+#pragma warning restore CS0618
 ```
 
 **With post-save image resizing:**
@@ -107,6 +109,7 @@ using Umbrella.Utilities.Caching.Abstractions;
 
 namespace <AppName>.Core.Logic.FileSystem;
 
+#pragma warning disable CS0618 // UmbrellaFileHandler currently requires the legacy IHybridCache abstraction.
 internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileHandler
 {
     private readonly IDynamicImageResizer _dynamicImageResizer;
@@ -138,6 +141,7 @@ internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileH
         await fileInfo.WriteFromByteArrayAsync(resizedBytes, cancellationToken: cancellationToken);
     }
 }
+#pragma warning restore CS0618
 ```
 
 **Rules:**
@@ -149,6 +153,7 @@ internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileH
 - Override `AfterSavingAsync` only when post-save processing is needed; always call `cancellationToken.ThrowIfCancellationRequested()` first
 - `using Umbrella.DynamicImage.Abstractions;` is only needed when overriding `AfterSavingAsync` for image work — confirm the package is referenced in the `.csproj`
 - Dynamic Image consumers obtain their URL/token pair from the inherited `GetVersionedWebFilePathAsync`; do not add a second token algorithm to the concrete handler.
+- Current Umbrella packages still require the obsolete `IHybridCache` in the base constructor. Keep the narrow file-scoped `CS0618` pragma shown above so a new handler does not add a warning. Do not suppress `CS0618` project-wide, and remove the pragma when `UmbrellaFileHandler` moves to the replacement cache API.
 
 ---
 
@@ -179,3 +184,4 @@ Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` a
 5. `AddSingleton<I<Name>FileHandler, <Name>FileHandler>()` is present in `IServiceCollectionExtensions.cs`.
 6. If authorization is needed, the `umbrella-dotnet-scaffold-file-authorization-handler` skill has been used to create a matching `<Name>FileAuthorizationHandler` with the same `DirectoryName`.
 7. If the handler backs Dynamic Image, callers use `GetVersionedWebFilePathAsync` and propagate its URL and token together.
+8. The unavoidable legacy-cache warning is suppressed only around the handler declaration; no project-wide `CS0618` suppression is added.

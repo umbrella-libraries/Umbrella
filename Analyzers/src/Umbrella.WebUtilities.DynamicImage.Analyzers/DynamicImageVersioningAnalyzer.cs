@@ -68,7 +68,8 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		category: "DynamicImageVersioning",
 		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true,
-		description: "UmbrellaDynamicImage and DynamicImage tag helper usages bound to DynamicImage URL model properties must also assign the matching VersionToken input when middleware URL fingerprinting is explicitly enabled.");
+		description: "UmbrellaDynamicImage and DynamicImage tag helper usages bound to DynamicImage URL model properties must also assign the matching VersionToken input when middleware URL fingerprinting is explicitly enabled.",
+		customTags: [WellKnownDiagnosticTags.CompilationEnd]);
 
 	/// <summary>
 	/// Diagnostic rule that warns when DynamicImage variant-shaping inputs are too dynamic for reliable source-generated
@@ -119,7 +120,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 			startContext.RegisterSyntaxNodeAction(syntaxContext => AnalyzeBlock(syntaxContext, state), SyntaxKind.Block);
 			startContext.RegisterCompilationEndAction(compilationContext =>
 			{
-				AnalyzeRazorVariantDiscoveryCoverage(compilationContext);
+				AnalyzeRazorSourceCoverage(compilationContext, state);
 				ReportDiagnostics(compilationContext, state);
 			});
 		});
@@ -259,17 +260,16 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	{
 		var block = (BlockSyntax)context.Node;
 
-		AnalyzeBlazorComponentUsages(context, state, block);
-		AnalyzeTagHelperUsages(context, state, block);
-
 		if (!IsRazorGeneratedSyntaxTree(block.SyntaxTree))
 		{
+			AnalyzeBlazorComponentUsages(context, state, block);
+			AnalyzeTagHelperUsages(context, state, block);
 			AnalyzeBlazorComponentVariantDiscoveryCoverage(context, block);
 			AnalyzeTagHelperVariantDiscoveryCoverage(context, block);
 		}
 	}
 
-	private static void AnalyzeRazorVariantDiscoveryCoverage(CompilationAnalysisContext context)
+	private static void AnalyzeRazorSourceCoverage(CompilationAnalysisContext context, DynamicImageVersioningState state)
 	{
 		bool hasDynamicImageComponentType = context.Compilation.GetTypeByMetadataName(DynamicImageComponentTypeName) is not null;
 		bool hasFileImagePreviewUploadComponentType = context.Compilation.GetTypeByMetadataName(FileImagePreviewUploadComponentTypeName) is not null;
@@ -307,6 +307,27 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 				continue;
 			}
 
+			if (state.IsEnabled &&
+				urlAttribute is not null &&
+				TryGetRazorDynamicImageUrlPropertyName(urlAttribute.Value, out string urlPropertyName, out string versionTokenPropertyName))
+			{
+				string versionTokenName = isTagHelper ? "version-token" : "VersionToken";
+				bool hasVersionToken = usage.Attributes.Any(x => string.Equals(x.Name, versionTokenName, StringComparison.OrdinalIgnoreCase));
+
+				if (!hasVersionToken)
+				{
+					var urlSourceText = SourceText.From(usage.Document.Text);
+					var urlSpan = new TextSpan(urlAttribute.NameStart, urlAttribute.NameLength);
+					var urlLocation = Location.Create(usage.Document.Path, urlSpan, urlSourceText.Lines.GetLinePositionSpan(urlSpan));
+
+					context.ReportDiagnostic(Diagnostic.Create(
+						MissingVersionTokenUsageRule,
+						urlLocation,
+						urlPropertyName,
+						versionTokenPropertyName));
+				}
+			}
+
 			var nonStaticInputs = new List<(string Name, DynamicImageRazorAttribute Attribute)>();
 
 			foreach (DynamicImageRazorAttribute attribute in usage.Attributes)
@@ -339,6 +360,40 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 				location,
 				string.Join(", ", nonStaticInputs.Select(x => x.Name))));
 		}
+	}
+
+	private static bool TryGetRazorDynamicImageUrlPropertyName(string value, out string propertyName, out string versionTokenPropertyName)
+	{
+		propertyName = string.Empty;
+		versionTokenPropertyName = string.Empty;
+		string expression = value.Trim();
+
+		if (expression.StartsWith("@(", StringComparison.Ordinal) && expression.EndsWith(")", StringComparison.Ordinal) && expression.Length > 3)
+			expression = expression.Substring(2, expression.Length - 3).Trim();
+		else if (expression.StartsWith("@", StringComparison.Ordinal))
+			expression = expression.Substring(1).Trim();
+		else
+			return false;
+
+		int propertyEnd = expression.Length;
+		int propertyStart = propertyEnd;
+
+		while (propertyStart > 0 && (char.IsLetterOrDigit(expression[propertyStart - 1]) || expression[propertyStart - 1] is '_'))
+			propertyStart--;
+
+		if (propertyStart is 0 || propertyStart == propertyEnd || expression[propertyStart - 1] is not '.')
+			return false;
+
+		propertyName = expression.Substring(propertyStart, propertyEnd - propertyStart);
+
+		if (!TryGetDynamicImageUrlPrefix(propertyName, out string prefix))
+		{
+			propertyName = string.Empty;
+			return false;
+		}
+
+		versionTokenPropertyName = $"{prefix}VersionToken";
+		return true;
 	}
 
 	private static string NormalizeRazorAttributeName(string name, bool isTagHelper)

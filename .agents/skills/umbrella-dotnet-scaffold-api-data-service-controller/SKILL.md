@@ -106,6 +106,8 @@ public class Manage<Name>ControllerService : UmbrellaRepositoryDataService<
 }
 ```
 
+The `UmbrellaRepositoryDataService` base enables resource authorization checks by default. Each `=> false` override above deliberately suppresses one check because the template assumes the controller's declarative policy is sufficient. When a registered resource authorization handler protects an operation, omit that operation's suppression override so the base check remains enabled.
+
 **Rules:**
 - `public class` (not `internal`) — both the server and client resolve it through the shared interface.
 - Note `IHostEnvironment` in the constructor (not `IWebHostEnvironment` — that is used by the controller, not the service).
@@ -267,8 +269,9 @@ Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` a
 6. The controller service constructor uses `IHostEnvironment` (not `IWebHostEnvironment`); the 9 base params are passed to `: base(...)`.
 7. The controller is thin — no overrides or extra dependencies.
 8. DI registration uses `AddScoped` or `ReplaceScoped` based on whether the client already registers the interface.
-9. No standard CRUD method (`PostAsync`, `GetAsync`, `PutAsync`, `DeleteAsync`, `SearchSlimAsync`) is overridden in the controller service without a `base.XxxAsync(...)` call.
-10. No `using` directive in the controller service references a `Core.Logic` namespace — domain logic belongs in a dedicated Core.Logic service, not here.
+9. Authorization suppressions are deliberate: any operation requiring row-level authorization has no `=> false` override and has a registered resource authorization handler.
+10. No standard CRUD method (`PostAsync`, `GetAsync`, `PutAsync`, `DeleteAsync`, `SearchSlimAsync`) is overridden in the controller service without a `base.XxxAsync(...)` call.
+11. No `using` directive in the controller service references a `Core.Logic` namespace — domain logic belongs in a dedicated Core.Logic service, not here.
 
 ---
 

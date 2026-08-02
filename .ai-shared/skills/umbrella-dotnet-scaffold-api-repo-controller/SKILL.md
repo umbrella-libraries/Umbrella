@@ -15,7 +15,7 @@ This pattern does not have a separate service abstraction and does not support B
 
 1. Read 2–3 existing controllers in `Web\<AppName>.Web.Server\Controllers\Api\` to confirm the project-specific base class name (e.g. `IndyRecordsGenericRepositoryApiController`) and its generic type parameter count (typically 11).
 2. Note any NoOp/`object` usage in existing controllers — these indicate which endpoint-disabling patterns are already established in the project.
-3. Read `Web\<AppName>.Web.Shared\Security\Policies\<AppName>PolicyNames.cs` for available auth policy constant names.
+3. Read `Web\<AppName>.Web.Shared\Security\Policies\<AppName>PolicyNames.cs` and comparable feature controllers. Select the narrowest existing policy that represents the feature's real access boundary; if more than one policy is plausible and the choice changes who can call the API, stop and ask rather than guessing.
 
 ---
 
@@ -73,8 +73,8 @@ public class Manage<Name>Controller : <AppName>GenericRepositoryApiController<
 **Rules:**
 - No DI registration step — controllers are auto-discovered by ASP.NET Core.
 - Extra dependencies (e.g. `I<Name>FileHandler`) go after the 5 base constructor params and are stored as `private readonly` fields.
-- `AfterCreateEntityAsync`, `AfterUpdateEntityAsync`, `AfterDeleteEntityAsync` are added only when needed. Always start with `cancellationToken.ThrowIfCancellationRequested()` and `Guard.IsNotNull(...)` on each parameter.
-- All `AuthorizationXxxChecksEnabled` default to `false` — tighten to `true` only when per-record ownership checks are required.
+- `AfterCreateEntityAsync`, `AfterUpdateEntityAsync`, and `AfterDeleteEntityAsync` are added only when the feature's persistence semantics require them. File replacement/deletion hooks are destructive behavior: confirm the feature's optional/required filename rules and authorization boundary before adding them. Always start with `cancellationToken.ThrowIfCancellationRequested()` and `Guard.IsNotNull(...)` on each parameter.
+- The base controller enables resource authorization checks by default. The full-CRUD template explicitly suppresses all five checks because it assumes the declarative controller policy is sufficient. Omit only the specific suppression overrides backed by registered resource authorization handlers; never describe the base defaults as `false`.
 - Generic type params in order (11 total): `TSlimModel`, `TPaginatedResultModel`, `TModel`, `TCreateModel`, `TCreateResultModel`, `TUpdateModel`, `TUpdateResultModel`, `TRepository`, `TEntity`, `TRepositoryOptions`, `TEntityKey`.
 
 ### Lifecycle hook example (file handling)

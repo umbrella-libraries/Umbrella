@@ -96,7 +96,7 @@ powershell -ExecutionPolicy Bypass -File .claude\skills\umbrella-nuget-safe-upgr
 - `successful`: packages safely upgraded or safe upgrade candidates in Analyze mode
 - `skipped`: packages excluded or with no newer safe version
 - `blocked`: packages that failed compatibility or graph checks
-- `options`: safe follow-up commands for blocked items
+- `options`: the requested package/project filters, prerelease setting, and explicit blocked-package overrides; each blocked item also contains safe follow-up commands
 
 ## Safety rules
 
