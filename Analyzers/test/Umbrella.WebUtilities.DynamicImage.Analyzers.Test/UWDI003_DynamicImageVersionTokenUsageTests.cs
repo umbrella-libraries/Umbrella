@@ -196,12 +196,12 @@ namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
                                 HeightRequest="400" />
 """;
 
-		const string componentSource = """
-namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
-{
-    public class UmbrellaFileImagePreviewUpload { }
-}
-""";
+		string componentSource = CreateGeneratedRazorComponentSource(
+			"public record ProductModel { public string? ImageUrl { get; init; } public string? ImageVersionToken { get; init; } }",
+			"ProductModel?",
+			"Model",
+			"Model?.ImageUrl",
+			"Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload.UmbrellaFileImagePreviewUpload");
 
 		var expected = Diagnostic(
 			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.MissingVersionTokenUsageRule,
@@ -212,6 +212,7 @@ namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
 
 		await VerifyAnalyzerWithAdditionalFilesAsync(
 			componentSource + ExplicitlyEnabledRegistrationSource,
+			"C:/app/Test_razor.g.cs",
 			[("C:/app/Test.razor", razor)],
 			expected);
 	}
@@ -226,10 +227,113 @@ namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
                       HeightRequest="400" />
 """;
 
+		string componentSource = CreateGeneratedRazorComponentSource(
+			"public record ProductModel { public string? ImageUrl { get; init; } public string? ImageVersionToken { get; init; } }",
+			"ProductModel",
+			"item",
+			"item.ImageUrl",
+			"Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage");
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.MissingVersionTokenUsageRule,
+			2,
+			23,
+			"ImageUrl",
+			"ImageVersionToken");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			componentSource + ExplicitlyEnabledRegistrationSource,
+			"C:/app/Test_razor.g.cs",
+			[("C:/app/Test.razor", razor)],
+			expected);
+	}
+
+	[Fact]
+	public async Task RazorDynamicImage_WithNonModelImageUrl_ShouldNotTriggerDiagnostic()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+<UmbrellaDynamicImage Url="@state.ImageUrl" />
+""";
+
+		string componentSource = CreateGeneratedRazorComponentSource(
+			"public sealed class State { public string? ImageUrl { get; init; } }",
+			"State",
+			"state",
+			"state.ImageUrl",
+			"Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			componentSource + ExplicitlyEnabledRegistrationSource,
+			"C:/app/Test_razor.g.cs",
+			[("C:/app/Test.razor", razor)]);
+	}
+
+	[Fact]
+	public async Task RazorDynamicImage_WithNonStringModelImageUrl_ShouldNotTriggerDiagnostic()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+<UmbrellaDynamicImage Url="@item.ImageUrl" />
+""";
+
+		string componentSource = CreateGeneratedRazorComponentSource(
+			"public record ProductModel { public int ImageUrl { get; init; } }",
+			"ProductModel",
+			"item",
+			"item.ImageUrl",
+			"Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			componentSource + ExplicitlyEnabledRegistrationSource,
+			"C:/app/Test_razor.g.cs",
+			[("C:/app/Test.razor", razor)]);
+	}
+
+	[Fact]
+	public async Task RazorDynamicImage_WithModelAndNonModelImageUrlOnSameLine_ShouldOnlyReportModelUsage()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+<UmbrellaDynamicImage Url="@item.ImageUrl" /><UmbrellaDynamicImage Url="@state.ImageUrl" />
+""";
+
 		const string componentSource = """
+public record ProductModel { public string? ImageUrl { get; init; } public string? ImageVersionToken { get; init; } }
+public sealed class State { public string? ImageUrl { get; init; } }
+
+public static class GeneratedComponent
+{
+    public static void Build(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, ProductModel item, State state)
+    {
+        builder.OpenComponent<Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage>(0);
+#line 2 "C:/app/Test.razor"
+              builder.AddAttribute(1, "Url", item.ImageUrl);
+#line default
+#line hidden
+        builder.CloseComponent();
+        builder.OpenComponent<Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage>(2);
+#line 2 "C:/app/Test.razor"
+                                                            builder.AddAttribute(3, "Url", state.ImageUrl);
+#line default
+#line hidden
+        builder.CloseComponent();
+    }
+}
+
+namespace Microsoft.AspNetCore.Components.Rendering
+{
+    public sealed class RenderTreeBuilder
+    {
+        public void OpenComponent<TComponent>(int sequence) { }
+        public void AddAttribute(int sequence, string name, object? value) { }
+        public void CloseComponent() { }
+    }
+}
+
 namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
 {
-    public class UmbrellaDynamicImage { }
+    public sealed class UmbrellaDynamicImage { }
 }
 """;
 
@@ -242,6 +346,7 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
 
 		await VerifyAnalyzerWithAdditionalFilesAsync(
 			componentSource + ExplicitlyEnabledRegistrationSource,
+			"C:/app/Test_razor.g.cs",
 			[("C:/app/Test.razor", razor)],
 			expected);
 	}
@@ -384,4 +489,53 @@ namespace Umbrella.WebUtilities.DynamicImage.Middleware.Options
     }
 }
 """;
+
+	private static string CreateGeneratedRazorComponentSource(
+		string modelSource,
+		string receiverType,
+		string receiverName,
+		string urlExpression,
+		string componentType)
+	{
+		string generatedIndentation = componentType.Contains("FileImagePreviewUpload", StringComparison.Ordinal)
+			? new string(' ', 24)
+			: new string(' ', 14);
+
+		return $$"""
+{{modelSource}}
+
+public static class GeneratedComponent
+{
+    public static void Build(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, {{receiverType}} {{receiverName}})
+    {
+        builder.OpenComponent<{{componentType}}>(0);
+#line 2 "C:/app/Test.razor"
+{{generatedIndentation}}builder.AddAttribute(1, "Url", {{urlExpression}});
+#line default
+#line hidden
+        builder.CloseComponent();
+    }
+}
+
+namespace Microsoft.AspNetCore.Components.Rendering
+{
+    public sealed class RenderTreeBuilder
+    {
+        public void OpenComponent<TComponent>(int sequence) { }
+        public void AddAttribute(int sequence, string name, object? value) { }
+        public void CloseComponent() { }
+    }
+}
+
+namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
+{
+    public sealed class UmbrellaDynamicImage { }
+}
+
+namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+{
+    public sealed class UmbrellaFileImagePreviewUpload { }
+}
+""";
+	}
 }

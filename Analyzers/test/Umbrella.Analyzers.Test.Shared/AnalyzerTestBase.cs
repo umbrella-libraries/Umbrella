@@ -112,11 +112,21 @@ public abstract class AnalyzerTestBase<T>
 		string source,
 		IEnumerable<(string Path, string Text)> additionalFiles,
 		params ExpectedDiagnostic[] expected)
+		=> await VerifyAnalyzerWithAdditionalFilesAsync(source, string.Empty, additionalFiles, expected);
+
+	/// <summary>
+	/// Runs the analyzer with a named C# source file and additional non-C# source files.
+	/// </summary>
+	protected static async Task VerifyAnalyzerWithAdditionalFilesAsync(
+		string source,
+		string sourcePath,
+		IEnumerable<(string Path, string Text)> additionalFiles,
+		params ExpectedDiagnostic[] expected)
 	{
 		ArgumentNullException.ThrowIfNull(additionalFiles);
 		ArgumentNullException.ThrowIfNull(expected);
 
-		CSharpCompilation compilation = CreateCompilation(source);
+		CSharpCompilation compilation = CreateCompilation(source, sourcePath: sourcePath);
 		var analyzer = new T();
 		ImmutableArray<AdditionalText> texts =
 		[
@@ -147,10 +157,14 @@ public abstract class AnalyzerTestBase<T>
 	/// </summary>
 	/// <param name="source">The source code to compile.</param>
 	/// <param name="additionalReferences">Optional additional metadata references to include in the compilation.</param>
+	/// <param name="sourcePath">Optional source path used for generated-code and mapped-location analysis.</param>
 	/// <returns>A compilation object.</returns>
-	private static CSharpCompilation CreateCompilation(string source, IEnumerable<MetadataReference>? additionalReferences = null)
+	private static CSharpCompilation CreateCompilation(
+		string source,
+		IEnumerable<MetadataReference>? additionalReferences = null,
+		string sourcePath = "")
 	{
-		SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(source);
+		SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(source, path: sourcePath);
 
 		string[] referencePaths =
 		[

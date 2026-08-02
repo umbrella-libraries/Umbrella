@@ -46,6 +46,11 @@ public partial class AnalyzerGuidanceTest
                 projectPath,
                 "<Project>\r\n  <PropertyGroup>\r\n    <TargetFramework>net10.0</TargetFramework>\r\n  </PropertyGroup>\r\n</Project>\r\n");
 
+            string projectWithoutPropertyGroupPath = Path.Combine(fixtureRoot, "OnlyItems.Test.csproj");
+            File.WriteAllText(
+                projectWithoutPropertyGroupPath,
+                "<Project>\r\n  <ItemGroup>\r\n    <ProjectReference Include=\"..\\App.csproj\" />\r\n  </ItemGroup>\r\n</Project>\r\n");
+
             string scriptPath = Path.Combine(
                 RepoRoot,
                 ".ai-shared",
@@ -78,6 +83,81 @@ public partial class AnalyzerGuidanceTest
             string project = File.ReadAllText(projectPath);
             Assert.Matches("\\r?\\n    <IsTestProject>true</IsTestProject>\\r?\\n  </PropertyGroup>", project);
             Assert.DoesNotContain("</IsTestProject></PropertyGroup>", project, StringComparison.Ordinal);
+
+            string projectWithoutPropertyGroup = File.ReadAllText(projectWithoutPropertyGroupPath);
+            Assert.Matches(
+                "<Project>\\r?\\n  <PropertyGroup>\\r?\\n    <IsTestProject>true</IsTestProject>\\r?\\n  </PropertyGroup>\\r?\\n  <ItemGroup>",
+                projectWithoutPropertyGroup);
+            Assert.DoesNotContain("</PropertyGroup><ItemGroup>", projectWithoutPropertyGroup, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(fixtureRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void EfMigrationWrapperParsesJsonAfterBracketedBuildWarning()
+    {
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        string? powerShellPath = FindPowerShellPath();
+
+        if (powerShellPath is null)
+            return;
+
+        string fixtureRoot = Path.Combine(Path.GetTempPath(), $"umbrella-ef-parser-{Guid.NewGuid():N}");
+        string fakeBin = Path.Combine(fixtureRoot, "bin");
+        string migrationsDirectory = Path.Combine(fixtureRoot, "App.Migrations");
+        string startupDirectory = Path.Combine(fixtureRoot, "App.Web");
+        _ = Directory.CreateDirectory(fakeBin);
+        _ = Directory.CreateDirectory(migrationsDirectory);
+        _ = Directory.CreateDirectory(startupDirectory);
+
+        try
+        {
+            File.WriteAllText(Path.Combine(migrationsDirectory, "App.Migrations.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />\r\n");
+            File.WriteAllText(Path.Combine(startupDirectory, "App.Web.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk.Web\" />\r\n");
+            File.WriteAllText(
+                Path.Combine(fakeBin, "dotnet.cmd"),
+                "@echo off\r\necho warning NU1903: package warning [D:\\Path\\App.csproj]\r\necho [\r\necho   {\"name\":\"AppDbContext\"}\r\necho ]\r\nexit /b 0\r\n");
+
+            string scriptPath = Path.Combine(
+                RepoRoot,
+                ".ai-shared",
+                "skills",
+                "umbrella-dotnet-add-ef-migration",
+                "scripts",
+                "Invoke-AddEfMigration.ps1");
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = powerShellPath,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            };
+            startInfo.Environment["PATH"] = $"{fakeBin}{Path.PathSeparator}{startInfo.Environment["PATH"]}";
+            startInfo.ArgumentList.Add("-NoProfile");
+            startInfo.ArgumentList.Add("-File");
+            startInfo.ArgumentList.Add(scriptPath);
+            startInfo.ArgumentList.Add("-MigrationName");
+            startInfo.ArgumentList.Add("1.0.0");
+            startInfo.ArgumentList.Add("-RepoRoot");
+            startInfo.ArgumentList.Add(fixtureRoot);
+            startInfo.ArgumentList.Add("-MigrationsProject");
+            startInfo.ArgumentList.Add("App.Migrations\\App.Migrations.csproj");
+            startInfo.ArgumentList.Add("-StartupProject");
+            startInfo.ArgumentList.Add("App.Web\\App.Web.csproj");
+
+            using var process = System.Diagnostics.Process.Start(startInfo)!;
+            string standardOutput = process.StandardOutput.ReadToEnd();
+            string standardError = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            Assert.True(process.ExitCode == 0, $"EF migration wrapper failed. Output: {standardOutput}{Environment.NewLine}Error: {standardError}");
+            Assert.Contains("Context            : AppDbContext", standardOutput, StringComparison.Ordinal);
+            Assert.DoesNotContain("Could not parse JSON output", standardError, StringComparison.Ordinal);
         }
         finally
         {

@@ -530,10 +530,40 @@ function Get-FirstUnconditionedPropertyGroup {
     $propertyGroup = $Xml.CreateElement('PropertyGroup')
     $firstElement = @($Xml.Project.ChildNodes | Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element } | Select-Object -First 1)
     if ($firstElement.Count -gt 0) {
+        $leadingWhitespace = $firstElement[0].PreviousSibling
+        $groupIndentation = if ($null -ne $leadingWhitespace -and
+            $leadingWhitespace.NodeType -in @([System.Xml.XmlNodeType]::Whitespace, [System.Xml.XmlNodeType]::SignificantWhitespace)) {
+            $leadingWhitespace.Value
+        }
+        else {
+            "`r`n  "
+        }
+
         [void]$Xml.Project.InsertBefore($propertyGroup, $firstElement[0])
+        if ($null -eq $leadingWhitespace -or
+            $leadingWhitespace.NodeType -notin @([System.Xml.XmlNodeType]::Whitespace, [System.Xml.XmlNodeType]::SignificantWhitespace)) {
+            [void]$Xml.Project.InsertBefore($Xml.CreateWhitespace($groupIndentation), $propertyGroup)
+        }
+        [void]$Xml.Project.InsertBefore($Xml.CreateWhitespace($groupIndentation), $firstElement[0])
+        [void]$propertyGroup.AppendChild($Xml.CreateWhitespace($groupIndentation))
     }
     else {
-        [void]$Xml.Project.AppendChild($propertyGroup)
+        $trailingWhitespace = $Xml.Project.LastChild
+        $newLine = if ($null -ne $trailingWhitespace -and $trailingWhitespace.Value.Contains("`r`n")) { "`r`n" } else { "`n" }
+        $groupIndentation = "$newLine  "
+
+        if ($null -ne $trailingWhitespace -and
+            $trailingWhitespace.NodeType -in @([System.Xml.XmlNodeType]::Whitespace, [System.Xml.XmlNodeType]::SignificantWhitespace)) {
+            [void]$Xml.Project.InsertBefore($Xml.CreateWhitespace($groupIndentation), $trailingWhitespace)
+            [void]$Xml.Project.InsertBefore($propertyGroup, $trailingWhitespace)
+        }
+        else {
+            [void]$Xml.Project.AppendChild($Xml.CreateWhitespace($groupIndentation))
+            [void]$Xml.Project.AppendChild($propertyGroup)
+            [void]$Xml.Project.AppendChild($Xml.CreateWhitespace($newLine))
+        }
+
+        [void]$propertyGroup.AppendChild($Xml.CreateWhitespace($groupIndentation))
     }
 
     return $propertyGroup
@@ -573,11 +603,30 @@ function Set-PropertyValue {
             }
 
             if ([string]::IsNullOrEmpty($elementIndentation)) {
+                $nextElement = $propertyGroup.NextSibling
+                while ($null -ne $nextElement -and $nextElement.NodeType -ne [System.Xml.XmlNodeType]::Element) {
+                    $nextElement = $nextElement.NextSibling
+                }
+
+                if ($null -ne $nextElement) {
+                    $firstNestedElement = @($nextElement.ChildNodes |
+                        Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element } |
+                        Select-Object -First 1)
+
+                    if ($firstNestedElement.Count -gt 0 -and
+                        $null -ne $firstNestedElement[0].PreviousSibling -and
+                        $firstNestedElement[0].PreviousSibling.NodeType -in @([System.Xml.XmlNodeType]::Whitespace, [System.Xml.XmlNodeType]::SignificantWhitespace)) {
+                        $elementIndentation = $firstNestedElement[0].PreviousSibling.Value
+                    }
+                }
+            }
+
+            if ([string]::IsNullOrEmpty($elementIndentation)) {
                 $closingIndentation = $trailingWhitespace.Value
-                $lastNewLineIndex = [Math]::Max($closingIndentation.LastIndexOf("`r`n"), $closingIndentation.LastIndexOf("`n"))
                 $newLine = if ($closingIndentation.Contains("`r`n")) { "`r`n" } else { "`n" }
+                $lastNewLineIndex = $closingIndentation.LastIndexOf($newLine)
                 $closingSpaces = if ($lastNewLineIndex -ge 0) { $closingIndentation.Substring($lastNewLineIndex + $newLine.Length) } else { $closingIndentation }
-                $elementIndentation = "$newLine$closingSpaces    "
+                $elementIndentation = "$newLine$closingSpaces  "
             }
 
             [void]$propertyGroup.InsertBefore($Xml.CreateWhitespace($elementIndentation), $trailingWhitespace)

@@ -125,10 +125,23 @@ if ([string]::IsNullOrWhiteSpace($Context)) {
     }
     else {
         # Current dotnet-ef emits the JSON array directly, optionally after build output.
-        $arrayStart = $outputText.IndexOf('[')
         $arrayEnd = $outputText.LastIndexOf(']')
-        if ($arrayStart -ge 0 -and $arrayEnd -gt $arrayStart) {
-            $jsonText = $outputText.Substring($arrayStart, $arrayEnd - $arrayStart + 1)
+
+        if ($arrayEnd -ge 0) {
+            $arrayStarts = [regex]::Matches($outputText, '(?m)^[\t ]*\[')
+
+            for ($i = $arrayStarts.Count - 1; $i -ge 0; $i--) {
+                $candidate = $outputText.Substring($arrayStarts[$i].Index, $arrayEnd - $arrayStarts[$i].Index + 1).Trim()
+
+                try {
+                    $null = $candidate | ConvertFrom-Json -ErrorAction Stop
+                    $jsonText = $candidate
+                    break
+                }
+                catch {
+                    # A prior line-start bracket may belong to unrelated build output. Try the preceding candidate.
+                }
+            }
         }
     }
 

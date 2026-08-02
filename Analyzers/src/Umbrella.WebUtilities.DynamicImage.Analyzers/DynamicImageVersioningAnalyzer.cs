@@ -259,11 +259,13 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	private static void AnalyzeBlock(SyntaxNodeAnalysisContext context, DynamicImageVersioningState state)
 	{
 		var block = (BlockSyntax)context.Node;
+		bool isRazorGenerated = IsRazorGeneratedSyntaxTree(block.SyntaxTree);
 
-		if (!IsRazorGeneratedSyntaxTree(block.SyntaxTree))
+		AnalyzeBlazorComponentUsages(context, state, block, isRazorGenerated);
+		AnalyzeTagHelperUsages(context, state, block, isRazorGenerated);
+
+		if (!isRazorGenerated)
 		{
-			AnalyzeBlazorComponentUsages(context, state, block);
-			AnalyzeTagHelperUsages(context, state, block);
 			AnalyzeBlazorComponentVariantDiscoveryCoverage(context, block);
 			AnalyzeTagHelperVariantDiscoveryCoverage(context, block);
 		}
@@ -314,9 +316,11 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 				string versionTokenName = isTagHelper ? "version-token" : "VersionToken";
 				bool hasVersionToken = usage.Attributes.Any(x => string.Equals(x.Name, versionTokenName, StringComparison.OrdinalIgnoreCase));
 
-				if (!hasVersionToken)
+				var urlSourceText = SourceText.From(usage.Document.Text);
+				LinePosition urlPosition = urlSourceText.Lines.GetLinePosition(urlAttribute.NameStart);
+
+				if (!hasVersionToken && state.HasRazorSemanticUsage(usage.Document.Path, urlPosition, urlPropertyName))
 				{
-					var urlSourceText = SourceText.From(usage.Document.Text);
 					var urlSpan = new TextSpan(urlAttribute.NameStart, urlAttribute.NameLength);
 					var urlLocation = Location.Create(usage.Document.Path, urlSpan, urlSourceText.Lines.GetLinePositionSpan(urlSpan));
 
@@ -450,7 +454,11 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 			context.ReportDiagnostic(diagnostic);
 	}
 
-	private static void AnalyzeBlazorComponentUsages(SyntaxNodeAnalysisContext context, DynamicImageVersioningState state, BlockSyntax block)
+	private static void AnalyzeBlazorComponentUsages(
+		SyntaxNodeAnalysisContext context,
+		DynamicImageVersioningState state,
+		BlockSyntax block,
+		bool isRazorGenerated)
 	{
 		var statements = block.Statements;
 
@@ -495,7 +503,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 					if (nestingDepth is 0)
 					{
-						if (urlPropertyName is not null && versionTokenPropertyName is not null && !hasVersionTokenAssignment)
+						if (!isRazorGenerated && urlPropertyName is not null && versionTokenPropertyName is not null && !hasVersionTokenAssignment)
 						{
 							state.AddDiagnostic(Diagnostic.Create(
 								MissingVersionTokenUsageRule,
@@ -524,6 +532,10 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 					urlPropertyName = propertySymbol.Name;
 					versionTokenPropertyName = expectedVersionTokenPropertyName;
 					diagnosticLocation = attributeLocation;
+
+					if (isRazorGenerated)
+						state.AddRazorSemanticUsage(attributeLocation, propertySymbol.Name);
+
 					continue;
 				}
 
@@ -533,7 +545,11 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		}
 	}
 
-	private static void AnalyzeTagHelperUsages(SyntaxNodeAnalysisContext context, DynamicImageVersioningState state, BlockSyntax block)
+	private static void AnalyzeTagHelperUsages(
+		SyntaxNodeAnalysisContext context,
+		DynamicImageVersioningState state,
+		BlockSyntax block,
+		bool isRazorGenerated)
 	{
 		var urlAssignments = new Dictionary<string, (string UrlPropertyName, string VersionTokenPropertyName, Location Location)>(StringComparer.Ordinal);
 		var versionTokenAssignments = new HashSet<string>(StringComparer.Ordinal);
@@ -558,8 +574,15 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 				continue;
 			}
 
-			urlAssignments[receiverText] = (propertySymbol.Name, versionTokenPropertyName, GetAssignmentLocation(assignment.Left));
+			Location location = GetAssignmentLocation(assignment.Left);
+			urlAssignments[receiverText] = (propertySymbol.Name, versionTokenPropertyName, location);
+
+			if (isRazorGenerated)
+				state.AddRazorSemanticUsage(location, propertySymbol.Name);
 		}
+
+		if (isRazorGenerated)
+			return;
 
 		foreach (KeyValuePair<string, (string UrlPropertyName, string VersionTokenPropertyName, Location Location)> entry in urlAssignments)
 		{
@@ -857,6 +880,16 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		ExpressionSyntax unwrappedExpression = UnwrapExpression(expression, semanticModel, cancellationToken);
 
 		propertySymbol = semanticModel.GetSymbolInfo(unwrappedExpression, cancellationToken).Symbol as IPropertySymbol;
+
+		if (propertySymbol is null && unwrappedExpression is ConditionalAccessExpressionSyntax conditionalAccess)
+		{
+			propertySymbol = conditionalAccess.WhenNotNull switch
+			{
+				MemberBindingExpressionSyntax memberBinding => semanticModel.GetSymbolInfo(memberBinding, cancellationToken).Symbol as IPropertySymbol,
+				MemberAccessExpressionSyntax memberAccess => semanticModel.GetSymbolInfo(memberAccess, cancellationToken).Symbol as IPropertySymbol,
+				_ => null
+			};
+		}
 
 		return propertySymbol is not null &&
 			   IsRelevantModelType(propertySymbol.ContainingType) &&
@@ -1194,6 +1227,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	private sealed class DynamicImageVersioningState
 	{
 		private readonly ConcurrentBag<Diagnostic> _diagnostics = [];
+		private readonly ConcurrentDictionary<string, byte> _razorSemanticUsages = new(StringComparer.OrdinalIgnoreCase);
 		private readonly bool _buildPropertyEnabled;
 		private int _registrationState;
 
@@ -1214,6 +1248,22 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		}
 
 		public void AddDiagnostic(Diagnostic diagnostic) => _diagnostics.Add(diagnostic);
+
+		public void AddRazorSemanticUsage(Location location, string propertyName)
+		{
+			FileLinePositionSpan mappedSpan = location.GetMappedLineSpan();
+
+			if (!mappedSpan.IsValid || string.IsNullOrWhiteSpace(mappedSpan.Path))
+				return;
+
+			_ = _razorSemanticUsages.TryAdd(CreateRazorSemanticUsageKey(mappedSpan.Path, mappedSpan.StartLinePosition, propertyName), 0);
+		}
+
+		public bool HasRazorSemanticUsage(string path, LinePosition position, string propertyName)
+			=> _razorSemanticUsages.ContainsKey(CreateRazorSemanticUsageKey(path, position, propertyName));
+
+		private static string CreateRazorSemanticUsageKey(string path, LinePosition position, string propertyName)
+			=> $"{path.Replace('\\', '/')}|{position.Line}|{position.Character}|{propertyName}";
 
 		public void MarkRegistration(bool explicitlyEnabled)
 		{
