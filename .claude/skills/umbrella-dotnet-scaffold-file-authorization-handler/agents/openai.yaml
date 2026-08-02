@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold File Authorization Handler"
+  short_description: "Umbrella workflow for Scaffold File Authorization Handler"
+  default_prompt: "Use $umbrella-dotnet-scaffold-file-authorization-handler to apply the Scaffold File Authorization Handler workflow to this solution."

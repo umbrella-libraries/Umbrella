@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold File Handler"
+  short_description: "Umbrella workflow for Scaffold File Handler"
+  default_prompt: "Use $umbrella-dotnet-scaffold-file-handler to apply the Scaffold File Handler workflow to this solution."

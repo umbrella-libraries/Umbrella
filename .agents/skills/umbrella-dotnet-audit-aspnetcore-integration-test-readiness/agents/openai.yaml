@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit ASP.NET Core Integration Test Readiness"
+  short_description: "Umbrella workflow for Audit ASP.NET Core Integration Test Rea..."
+  default_prompt: "Use $umbrella-dotnet-audit-aspnetcore-integration-test-readiness to apply the Audit ASP.NET Core Integration Test Readiness workflow to this solution."

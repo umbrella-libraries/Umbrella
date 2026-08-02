@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Server Bootstrap"
+  short_description: "Umbrella workflow for Audit Server Bootstrap"
+  default_prompt: "Use $umbrella-dotnet-audit-server-bootstrap to apply the Audit Server Bootstrap workflow to this solution."

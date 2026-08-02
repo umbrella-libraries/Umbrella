@@ -1,0 +1,4 @@
+interface:
+  display_name: "Migrate AutoMapper to Mapperly"
+  short_description: "Umbrella workflow for Migrate AutoMapper to Mapperly"
+  default_prompt: "Use $umbrella-dotnet-migrate-automapper-to-mapperly to apply the Migrate AutoMapper to Mapperly workflow to this solution."

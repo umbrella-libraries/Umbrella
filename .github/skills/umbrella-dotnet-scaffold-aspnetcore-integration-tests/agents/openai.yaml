@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold ASP.NET Core Integration Tests"
+  short_description: "Umbrella workflow for Scaffold ASP.NET Core Integration Tests"
+  default_prompt: "Use $umbrella-dotnet-scaffold-aspnetcore-integration-tests to apply the Scaffold ASP.NET Core Integration Tests workflow to this solution."

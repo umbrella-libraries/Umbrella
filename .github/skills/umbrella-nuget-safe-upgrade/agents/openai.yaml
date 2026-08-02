@@ -1,0 +1,4 @@
+interface:
+  display_name: "NuGet Safe Upgrade"
+  short_description: "Umbrella workflow for NuGet Safe Upgrade"
+  default_prompt: "Use $umbrella-nuget-safe-upgrade to apply the NuGet Safe Upgrade workflow to this solution."

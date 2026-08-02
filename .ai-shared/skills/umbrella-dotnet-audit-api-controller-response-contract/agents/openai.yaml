@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit API Controller Response Contract"
+  short_description: "Umbrella workflow for Audit API Controller Response Contract"
+  default_prompt: "Use $umbrella-dotnet-audit-api-controller-response-contract to apply the Audit API Controller Response Contract workflow to this solution."

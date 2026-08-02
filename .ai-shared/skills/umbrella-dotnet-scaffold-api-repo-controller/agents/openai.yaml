@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold API Repository Controller"
+  short_description: "Umbrella workflow for Scaffold API Repository Controller"
+  default_prompt: "Use $umbrella-dotnet-scaffold-api-repo-controller to apply the Scaffold API Repository Controller workflow to this solution."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Resource Authorization Handler"
+  short_description: "Umbrella workflow for Scaffold Resource Authorization Handler"
+  default_prompt: "Use $umbrella-dotnet-scaffold-resource-auth-handler to apply the Scaffold Resource Authorization Handler workflow to this solution."

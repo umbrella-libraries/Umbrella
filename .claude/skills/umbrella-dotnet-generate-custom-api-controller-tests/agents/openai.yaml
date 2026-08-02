@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate Custom API Controller Integration Tests"
+  short_description: "Umbrella workflow for Generate Custom API Controller Integrat..."
+  default_prompt: "Use $umbrella-dotnet-generate-custom-api-controller-tests to apply the Generate Custom API Controller Integration Tests workflow to this solution."

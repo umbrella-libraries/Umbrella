@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Test Project"
+  short_description: "Umbrella workflow for Scaffold Test Project"
+  default_prompt: "Use $umbrella-dotnet-scaffold-test-project to apply the Scaffold Test Project workflow to this solution."

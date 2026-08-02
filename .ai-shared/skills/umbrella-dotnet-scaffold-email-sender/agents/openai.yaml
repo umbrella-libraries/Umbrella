@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Email Sender"
+  short_description: "Umbrella workflow for Scaffold Email Sender"
+  default_prompt: "Use $umbrella-dotnet-scaffold-email-sender to apply the Scaffold Email Sender workflow to this solution."

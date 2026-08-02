@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate Data Service Controller Integration Tests"
+  short_description: "Umbrella workflow for Generate Data Service Controller Integr..."
+  default_prompt: "Use $umbrella-dotnet-generate-api-data-service-controller-tests to apply the Generate Data Service Controller Integration Tests workflow to this solution."

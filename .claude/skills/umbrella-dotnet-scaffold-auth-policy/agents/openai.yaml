@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Auth Policy"
+  short_description: "Umbrella workflow for Scaffold Auth Policy"
+  default_prompt: "Use $umbrella-dotnet-scaffold-auth-policy to apply the Scaffold Auth Policy workflow to this solution."

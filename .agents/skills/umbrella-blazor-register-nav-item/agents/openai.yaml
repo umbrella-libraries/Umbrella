@@ -1,0 +1,4 @@
+interface:
+  display_name: "Register Blazor Nav Item"
+  short_description: "Umbrella workflow for Register Blazor Nav Item"
+  default_prompt: "Use $umbrella-blazor-register-nav-item to apply the Register Blazor Nav Item workflow to this solution."

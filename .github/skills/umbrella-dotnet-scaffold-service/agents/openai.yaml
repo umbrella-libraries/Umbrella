@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Service"
+  short_description: "Umbrella workflow for Scaffold Service"
+  default_prompt: "Use $umbrella-dotnet-scaffold-service to apply the Scaffold Service workflow to this solution."

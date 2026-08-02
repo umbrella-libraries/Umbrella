@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Blazor Index Page"
+  short_description: "Umbrella workflow for Scaffold Blazor Index Page"
+  default_prompt: "Use $umbrella-blazor-scaffold-index-page to apply the Scaffold Blazor Index Page workflow to this solution."

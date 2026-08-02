@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rename Client Repository to Service"
+  short_description: "Umbrella workflow for Rename Client Repository to Service"
+  default_prompt: "Use $umbrella-dotnet-rename-client-repository-to-service to apply the Rename Client Repository to Service workflow to this solution."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold API Data Service Controller"
+  short_description: "Umbrella workflow for Scaffold API Data Service Controller"
+  default_prompt: "Use $umbrella-dotnet-scaffold-api-data-service-controller to apply the Scaffold API Data Service Controller workflow to this solution."

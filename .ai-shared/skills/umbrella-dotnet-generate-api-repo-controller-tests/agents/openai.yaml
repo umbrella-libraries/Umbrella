@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate Generic Repository Controller Integration Tests"
+  short_description: "Umbrella workflow for Generate Generic Repository Controller..."
+  default_prompt: "Use $umbrella-dotnet-generate-api-repo-controller-tests to apply the Generate Generic Repository Controller Integration Tests workflow to this solution."

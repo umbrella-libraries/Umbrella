@@ -1,4 +1,4 @@
 interface:
   display_name: "Configure Dynamic Image"
-  short_description: "Configure and validate Umbrella Dynamic Image tooling"
-  default_prompt: "Configure or audit Umbrella Dynamic Image analyzers, source generation, middleware, fingerprinting, catalogs, and caching in this solution."
+  short_description: "Umbrella workflow for Configure Dynamic Image"
+  default_prompt: "Use $umbrella-dotnet-configure-dynamic-image to apply the Configure Dynamic Image workflow to this solution."

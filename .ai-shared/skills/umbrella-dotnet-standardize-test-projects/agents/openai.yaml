@@ -1,0 +1,4 @@
+interface:
+  display_name: "Standardize Test Projects"
+  short_description: "Umbrella workflow for Standardize Test Projects"
+  default_prompt: "Use $umbrella-dotnet-standardize-test-projects to apply the Standardize Test Projects workflow to this solution."

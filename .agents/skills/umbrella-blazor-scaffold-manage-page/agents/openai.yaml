@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Blazor Manage Page"
+  short_description: "Umbrella workflow for Scaffold Blazor Manage Page"
+  default_prompt: "Use $umbrella-blazor-scaffold-manage-page to apply the Scaffold Blazor Manage Page workflow to this solution."

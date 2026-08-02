@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Entity"
+  short_description: "Umbrella workflow for Scaffold Entity"
+  default_prompt: "Use $umbrella-dotnet-scaffold-ef-entity to apply the Scaffold Entity workflow to this solution."

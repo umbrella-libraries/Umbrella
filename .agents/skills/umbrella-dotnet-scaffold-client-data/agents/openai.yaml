@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Client Data Service"
+  short_description: "Umbrella workflow for Scaffold Client Data Service"
+  default_prompt: "Use $umbrella-dotnet-scaffold-client-data to apply the Scaffold Client Data Service workflow to this solution."

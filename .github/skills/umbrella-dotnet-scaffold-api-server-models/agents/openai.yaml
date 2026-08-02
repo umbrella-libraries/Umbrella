@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold API Server Models"
+  short_description: "Umbrella workflow for Scaffold API Server Models"
+  default_prompt: "Use $umbrella-dotnet-scaffold-api-server-models to apply the Scaffold API Server Models workflow to this solution."

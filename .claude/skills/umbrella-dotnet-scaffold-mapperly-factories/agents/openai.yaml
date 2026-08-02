@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Mapperly Factories"
+  short_description: "Umbrella workflow for Scaffold Mapperly Factories"
+  default_prompt: "Use $umbrella-dotnet-scaffold-mapperly-factories to apply the Scaffold Mapperly Factories workflow to this solution."

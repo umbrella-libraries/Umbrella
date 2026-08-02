@@ -24,11 +24,13 @@ public class BundleInstallerTest
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "skills", "umbrella-dotnet-scaffold-service", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".claude", "skills", "umbrella-dotnet-configure-dynamic-image", "SKILL.md")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".github", "skills", "umbrella-dotnet-configure-dynamic-image", "references", "dynamic-image-contract.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".agents", "skills", "umbrella-dotnet-scaffold-service", "agents", "openai.yaml")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".mcp.json")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".codex", "config.toml")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, "nuget-upgrade-exclusions.json")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".ai-shared", "bundles", "umbrella", "manifest.json")));
         Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".ai-shared", "bundles", "umbrella", "analyzer-compatibility.md")));
+        Assert.True(File.Exists(Path.Combine(workspace.RootPath, ".ai-shared", "bundles", "umbrella", "skill-validation.json")));
 
         string claudeSkill = File.ReadAllText(Path.Combine(workspace.RootPath, ".claude", "skills", "umbrella-dotnet-add-ef-migration", "SKILL.md"));
         string githubSkill = File.ReadAllText(Path.Combine(workspace.RootPath, ".github", "skills", "umbrella-dotnet-add-ef-migration", "SKILL.md"));

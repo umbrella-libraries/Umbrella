@@ -1,0 +1,4 @@
+interface:
+  display_name: "Migrate Repo Controller to Data Service Controller"
+  short_description: "Umbrella workflow for Migrate Repo Controller to Data Service..."
+  default_prompt: "Use $umbrella-dotnet-migrate-repo-controller-to-data-service to apply the Migrate Repo Controller to Data Service Controller workflow to this solution."

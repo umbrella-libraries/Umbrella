@@ -1,0 +1,4 @@
+interface:
+  display_name: "dotnet Add EF Core Migration"
+  short_description: "Umbrella workflow for dotnet Add EF Core Migration"
+  default_prompt: "Use $umbrella-dotnet-add-ef-migration to apply the dotnet Add EF Core Migration workflow to this solution."

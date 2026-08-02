@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Repository"
+  short_description: "Umbrella workflow for Scaffold Repository"
+  default_prompt: "Use $umbrella-dotnet-scaffold-ef-repository to apply the Scaffold Repository workflow to this solution."

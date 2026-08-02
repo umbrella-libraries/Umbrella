@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Custom API Controller"
+  short_description: "Umbrella workflow for Scaffold Custom API Controller"
+  default_prompt: "Use $umbrella-dotnet-scaffold-custom-api-controller to apply the Scaffold Custom API Controller workflow to this solution."
