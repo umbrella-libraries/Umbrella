@@ -70,8 +70,16 @@ public class DynamicImageAnalyzerPackageBuildTests
 		}
 		finally
 		{
-			if (Directory.Exists(testRoot))
+			try
+			{
 				Directory.Delete(testRoot, recursive: true);
+			}
+			catch (IOException)
+			{
+			}
+			catch (UnauthorizedAccessException)
+			{
+			}
 		}
 	}
 
