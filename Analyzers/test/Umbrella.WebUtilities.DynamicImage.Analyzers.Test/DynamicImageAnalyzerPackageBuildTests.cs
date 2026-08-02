@@ -8,6 +8,7 @@ public class DynamicImageAnalyzerPackageBuildTests
 	public async Task PackagedTargetsExposeFingerprintingBuildPropertyToAnalyzer()
 	{
 		string repositoryRoot = FindRepositoryRoot();
+		string buildConfiguration = GetBuildConfiguration();
 		string testRoot = Path.Combine(Path.GetTempPath(), $"UmbrellaDynamicImageAnalyzerPackageTest-{Guid.NewGuid():N}");
 		string packagesPath = Path.Combine(testRoot, "packages");
 		string consumerPath = Path.Combine(testRoot, "consumer");
@@ -29,13 +30,15 @@ public class DynamicImageAnalyzerPackageBuildTests
 				"pack",
 				analyzerProject,
 				"--configuration",
-				"Debug",
+				buildConfiguration,
 				"--no-build",
 				"--no-restore",
 				"--output",
 				packagesPath,
 				$"-p:PackageVersion={packageVersion}");
-			Assert.Equal(0, packResult.ExitCode);
+			Assert.True(
+				packResult.ExitCode is 0,
+				$"dotnet pack failed with exit code {packResult.ExitCode}.{Environment.NewLine}{packResult.Output}");
 
 			await File.WriteAllTextAsync(
 				Path.Combine(consumerPath, "PackageConsumer.csproj"),
@@ -88,6 +91,13 @@ public class DynamicImageAnalyzerPackageBuildTests
 		}
 
 		throw new DirectoryNotFoundException("Could not locate the Umbrella repository root.");
+	}
+
+	private static string GetBuildConfiguration()
+	{
+		var targetFrameworkDirectory = new DirectoryInfo(AppContext.BaseDirectory);
+		return targetFrameworkDirectory.Parent?.Name
+			?? throw new InvalidOperationException("Failed to determine the build configuration.");
 	}
 
 	private static async Task<ProcessResult> RunDotNetAsync(string workingDirectory, params string[] arguments)

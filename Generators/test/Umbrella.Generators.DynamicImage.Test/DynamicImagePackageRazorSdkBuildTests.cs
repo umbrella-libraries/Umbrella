@@ -8,6 +8,7 @@ public class DynamicImagePackageRazorSdkBuildTests
 	public async Task PackagedTargetsSupplyRazorSourceWithoutDisablingRazorSourceGenerator()
 	{
 		string repositoryRoot = FindRepositoryRoot();
+		string buildConfiguration = GetBuildConfiguration();
 		string testRoot = Path.Combine(Path.GetTempPath(), $"UmbrellaDynamicImagePackageTest-{Guid.NewGuid():N}");
 		string packagesPath = Path.Combine(testRoot, "packages");
 		string consumerPath = Path.Combine(testRoot, "consumer");
@@ -42,7 +43,7 @@ public class DynamicImagePackageRazorSdkBuildTests
 				"pack",
 				generatorProject,
 				"--configuration",
-				"Release",
+				buildConfiguration,
 				"--no-build",
 				"--no-restore",
 				"--output",
@@ -348,6 +349,13 @@ public static class Verification
 		}
 
 		throw new DirectoryNotFoundException("Could not locate the Umbrella repository root.");
+	}
+
+	private static string GetBuildConfiguration()
+	{
+		var targetFrameworkDirectory = new DirectoryInfo(AppContext.BaseDirectory);
+		return targetFrameworkDirectory.Parent?.Name
+			?? throw new InvalidOperationException("Failed to determine the build configuration.");
 	}
 
 	private static async Task RunDotNetAsync(string workingDirectory, params string[] arguments)
