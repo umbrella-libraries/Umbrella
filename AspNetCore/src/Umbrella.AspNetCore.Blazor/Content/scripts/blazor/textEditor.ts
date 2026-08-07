@@ -1,4 +1,4 @@
-import Quill, { type DebugLevel, type QuillOptions } from "quill";
+import Quill, { type DebugLevel, type Delta, type QuillOptions } from "quill";
 
 type DotNetObjectReference = {
 	invokeMethodAsync: (methodName: string, ...args: unknown[]) => Promise<void>;
@@ -6,7 +6,7 @@ type DotNetObjectReference = {
 
 type TextEditorState = {
 	quill: Quill;
-	blurHandler: () => Promise<void>;
+	blurHandler: () => void;
 };
 
 /**
@@ -48,13 +48,17 @@ export class TextEditorInterop
 
 		const quill = new Quill(editorElement, options);
 
-		const blurHandler = async () =>
+		const notifyDeltaChangedAsync = async () =>
 		{
 			if (quill.options.debug === "info")
 				console.log(`info: Quill editor blur event for ${editorElement.id}`);
 
 			await dotNetObjectReference.invokeMethodAsync("DeltaChanged", this.getContent(editorElement));
 		};
+
+		// Wrapped so the listener is void-returning: an async handler passed
+		// directly to addEventListener leaves its rejection unhandled.
+		const blurHandler = () => void notifyDeltaChangedAsync();
 
 		quill.root.addEventListener("blur", blurHandler);
 		this.#stateMap.set(editorElement, { quill, blurHandler });
@@ -89,7 +93,7 @@ export class TextEditorInterop
 	 */
 	public loadContent(editorElement: HTMLElement, content: string): void
 	{
-		this.getState(editorElement).quill.setContents(JSON.parse(content), "api");
+		this.getState(editorElement).quill.setContents(JSON.parse(content) as Delta, "api");
 	}
 
 	/**

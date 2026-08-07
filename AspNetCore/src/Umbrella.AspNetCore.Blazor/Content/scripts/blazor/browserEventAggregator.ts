@@ -4,7 +4,7 @@
 export class BrowserEventAggregator
 {
 	#subscriptionMap = new Map<string, BrowserEventSubscription[]>();
-	#eventHandlerMap = new Map<string, () => Promise<void>>();
+	#eventHandlerMap = new Map<string, () => void>();
 
 	/**
 	 * Adds a subscription for a browser event and attaches a shared window event handler when needed.
@@ -26,7 +26,9 @@ export class BrowserEventAggregator
 
 			if (!eventHandler)
 			{
-				eventHandler = this.notifyEventSubscribersAsync.bind(this, eventName);
+				// Wrapped so the listener is void-returning: an async handler passed
+				// directly to addEventListener leaves its rejection unhandled.
+				eventHandler = () => void this.notifyEventSubscribersAsync(eventName);
 				this.#eventHandlerMap.set(eventName, eventHandler);
 			}
 
@@ -87,7 +89,7 @@ export class BrowserEventAggregator
 
 		if (subscriptions)
 		{
-			for (let item of subscriptions)
+			for (const item of subscriptions)
 			{
 				await item.publishAsync();
 			}
@@ -120,5 +122,5 @@ class BrowserEventSubscription
 }
 
 declare type DotNetObjectReference = {
-	invokeMethodAsync: (methodName: string, ...args: any) => Promise<void>
-}
+	invokeMethodAsync: (methodName: string, ...args: unknown[]) => Promise<void>
+};

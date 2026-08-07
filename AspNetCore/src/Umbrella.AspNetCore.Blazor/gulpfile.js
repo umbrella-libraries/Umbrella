@@ -43,6 +43,29 @@ function createWebpackTask(options = {})
 	};
 }
 
+async function lintTask()
+{
+	const { ESLint } = require("eslint");
+	const eslint = new ESLint({ cwd: __dirname });
+	const results = await eslint.lintFiles(["."]);
+	const formatter = await eslint.loadFormatter("stylish");
+	const output = await formatter.format(results);
+
+	if (output)
+	{
+		console.log(output);
+	}
+
+	const errorCount = results.reduce((total, result) => total + result.errorCount, 0);
+
+	if (errorCount > 0)
+	{
+		throw new Error(`eslint reported ${errorCount} error(s).`);
+	}
+}
+
+gulp.task("lint", lintTask);
+
 const buildWebpack = createWebpackTask();
 const buildAnalyzeWebpack = createWebpackTask({ analyze: true });
 const buildReleaseWebpack = createWebpackTask({ mode: "production" });
@@ -103,11 +126,11 @@ gulp.task("build-scoped-sass", createSassBuildTasks(false));
 
 gulp.task("build-release-scoped-sass", createSassBuildTasks(true));
 
-gulp.task("build", gulp.series(buildWebpack, "build-scoped-sass"));
+gulp.task("build", gulp.series("lint", buildWebpack, "build-scoped-sass"));
 
-gulp.task("build-analyze", gulp.series(buildAnalyzeWebpack, "build-scoped-sass"));
+gulp.task("build-analyze", gulp.series("lint", buildAnalyzeWebpack, "build-scoped-sass"));
 
-gulp.task("build-release", gulp.series(buildReleaseWebpack, "build-release-scoped-sass"));
+gulp.task("build-release", gulp.series("lint", buildReleaseWebpack, "build-release-scoped-sass"));
 
 gulp.task("clean-scoped-sass", async () =>
 {

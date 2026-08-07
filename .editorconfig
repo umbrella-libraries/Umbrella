@@ -15,6 +15,13 @@ indent_size = 4
 insert_final_newline = false
 charset = utf-8-bom
 
+# Web asset files
+# Only the keys ESLint cannot express. Line endings, final newlines and trailing
+# whitespace are enforced by eslint.config.js so they are checkable in a build.
+[*.{ts,js,mjs,cjs}]
+indent_size = 4
+charset = utf-8
+
 ###############################
 # .NET Coding Conventions     #
 ###############################

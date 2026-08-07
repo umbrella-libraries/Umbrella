@@ -1,4 +1,4 @@
-﻿import { UmbrellaBlazorInterop } from "./blazor/index";
+import { UmbrellaBlazorInterop } from "./blazor/index";
 
 declare global
 {
