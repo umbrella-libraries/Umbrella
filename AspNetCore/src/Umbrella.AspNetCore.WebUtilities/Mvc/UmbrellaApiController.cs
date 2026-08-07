@@ -1,9 +1,9 @@
-﻿
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Hosting;
@@ -82,6 +82,8 @@ public abstract class UmbrellaApiController : ControllerBase
 		OperationResultStatus.Forbidden => Forbidden(operationResult.PrimaryValidationMessage ?? "Forbidden"),
 		OperationResultStatus.NoContent => NoContent(),
 		OperationResultStatus.NotAllowed => MethodNotAllowed(operationResult.PrimaryValidationMessage ?? "Method Not Allowed"),
+
+		// FIXME: If we configure the app to emit 422 instead of 400, we need to mirror that behaviour here and override the default.
 		OperationResultStatus.InvalidOperation when operationResult.ValidationResults is { Count: > 0 } => ValidationProblem(operationResult.ValidationResults.ToModelStateDictionary()),
 		OperationResultStatus.InvalidOperation => BadRequest(operationResult.PrimaryValidationMessage ?? "Invalid Operation"),
 		OperationResultStatus.Created => Created(),
@@ -151,7 +153,7 @@ public abstract class UmbrellaApiController : ControllerBase
 	/// Creates a 201 Created <see cref="StatusCodeResult"/>.
 	/// </summary>
 	/// <returns>A <see cref="StatusCodeResult"/> of 201.</returns>
-	protected virtual new StatusCodeResult Created() => StatusCode(201);
+	protected virtual new StatusCodeResult Created() => StatusCode(StatusCodes.Status201Created);
 
 	/// <summary>
 	/// Creates a 201 Created <see cref="CreatedResult"/> with the specified content.
@@ -165,8 +167,13 @@ public abstract class UmbrellaApiController : ControllerBase
 	/// </summary>
 	/// <param name="reason">The reason.</param>
 	/// <param name="code">The error code.</param>
+	/// <param name="errors">
+	/// The per-member validation errors, where each key is the name of a field and the value is an array of error messages for
+	/// that field. Supply these so that the response body matches the shape of the validation failures produced automatically
+	/// by <c>ConfigureUmbrellaApiBehaviorOptions</c>; when omitted the <c>errors</c> property is emitted as an empty object.
+	/// </param>
 	/// <returns>A <see cref="ObjectResult"/> of 400.</returns>
-	protected virtual ObjectResult BadRequest(string reason, string? code = null) => UmbrellaValidationProblem(reason, statusCode: 400, title: "BadRequest", code: code);
+	protected virtual ObjectResult BadRequest(string reason, string? code = null, Dictionary<string, string[]>? errors = null) => UmbrellaValidationProblem(reason, statusCode: StatusCodes.Status400BadRequest, title: "BadRequest", code: code, errors: errors);
 
 	/// <summary>
 	/// Creates a 401 Unauthorized <see cref="ObjectResult"/> with the specified reason.
@@ -174,7 +181,7 @@ public abstract class UmbrellaApiController : ControllerBase
 	/// <param name="reason">The reason.</param>
 	/// <param name="code">The error code.</param>
 	/// <returns>A <see cref="ObjectResult"/> of 401.</returns>
-	protected virtual ObjectResult Unauthorized(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: 401, title: "Unauthorized", code: code);
+	protected virtual ObjectResult Unauthorized(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: StatusCodes.Status401Unauthorized, title: "Unauthorized", code: code);
 
 	/// <summary>
 	/// Creates a 403 Forbidden <see cref="ObjectResult"/> with the specified reason.
@@ -182,7 +189,7 @@ public abstract class UmbrellaApiController : ControllerBase
 	/// <param name="reason">The reason.</param>
 	/// <param name="code">The error code.</param>
 	/// <returns>A <see cref="ObjectResult"/> of 403.</returns>
-	protected virtual ObjectResult Forbidden(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: 403, title: "Forbidden", code: code);
+	protected virtual ObjectResult Forbidden(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: StatusCodes.Status403Forbidden, title: "Forbidden", code: code);
 
 	/// <summary>
 	/// Creates a 404 NotFound <see cref="ObjectResult"/> with the specified reason.
@@ -190,7 +197,7 @@ public abstract class UmbrellaApiController : ControllerBase
 	/// <param name="reason">The reason.</param>
 	/// <param name="code">The error code.</param>
 	/// <returns>A <see cref="ObjectResult"/> of 404.</returns>
-	protected virtual ObjectResult NotFound(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: 404, title: "Not Found", code: code);
+	protected virtual ObjectResult NotFound(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: StatusCodes.Status404NotFound, title: "Not Found", code: code);
 
 	/// <summary>
 	/// Creates a 405 MethodNotAllowed <see cref="ObjectResult"/> with the specified reason.
@@ -198,7 +205,7 @@ public abstract class UmbrellaApiController : ControllerBase
 	/// <param name="reason">The reason.</param>
 	/// <param name="code">The error code.</param>
 	/// <returns>A <see cref="ObjectResult"/> of 405.</returns>
-	protected virtual ObjectResult MethodNotAllowed(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: 405, title: "Method Not Allowed", code: code);
+	protected virtual ObjectResult MethodNotAllowed(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: StatusCodes.Status405MethodNotAllowed, title: "Method Not Allowed", code: code);
 
 	/// <summary>
 	/// Creates a 409 Conflict <see cref="ObjectResult"/> with the specified reason.
@@ -206,14 +213,27 @@ public abstract class UmbrellaApiController : ControllerBase
 	/// <param name="reason">The reason.</param>
 	/// <param name="code">The error code.</param>
 	/// <returns>A <see cref="ObjectResult"/> of 409.</returns>
-	protected virtual ObjectResult Conflict(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: 409, title: "Conflict", code: code);
+	protected virtual ObjectResult Conflict(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: StatusCodes.Status409Conflict, title: "Conflict", code: code);
 
 	/// <summary>
 	/// Creates a 409 Conflict <see cref="ObjectResult"/> with the specified reason with the code set to <see cref="HttpProblemCodes.ConcurrencyStampMismatch"/>.
 	/// </summary>
 	/// <param name="reason">The reason.</param>
 	/// <returns>A <see cref="ObjectResult"/> of 409.</returns>
-	protected virtual ObjectResult ConcurrencyConflict(string reason) => UmbrellaProblem(reason, statusCode: 409, title: "Concurrency Conflict", code: HttpProblemCodes.ConcurrencyStampMismatch);
+	protected virtual ObjectResult ConcurrencyConflict(string reason) => UmbrellaProblem(reason, statusCode: StatusCodes.Status409Conflict, title: "Concurrency Conflict", code: HttpProblemCodes.ConcurrencyStampMismatch);
+
+	/// <summary>
+	/// Creates a 422 Unprocessable Entity <see cref="ObjectResult"/> with the specified reason.
+	/// </summary>
+	/// <param name="reason">The reason.</param>
+	/// <param name="code">The error code.</param>
+	/// <param name="errors">
+	/// The per-member validation errors, where each key is the name of a field and the value is an array of error messages for
+	/// that field. Supply these so that the response body matches the shape of the validation failures produced automatically
+	/// by <c>ConfigureUmbrellaApiBehaviorOptions</c>; when omitted the <c>errors</c> property is emitted as an empty object.
+	/// </param>
+	/// <returns>A <see cref="ObjectResult"/> of 422.</returns>
+	protected virtual ObjectResult UnprocessableEntity(string reason, string? code = null, Dictionary<string, string[]>? errors = null) => UmbrellaValidationProblem(reason, statusCode: StatusCodes.Status422UnprocessableEntity, title: "Unprocessable Entity", code: code, errors: errors);
 
 	/// <summary>
 	/// Creates a 429 TooManyRequests <see cref="ObjectResult"/> with the specified reason.
@@ -221,7 +241,7 @@ public abstract class UmbrellaApiController : ControllerBase
 	/// <param name="reason">The reason.</param>
 	/// <param name="code">The error code.</param>
 	/// <returns>A <see cref="ObjectResult"/> of 429.</returns>
-	protected virtual ObjectResult TooManyRequests(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: 429, title: "Too Many Requests", code: code);
+	protected virtual ObjectResult TooManyRequests(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: StatusCodes.Status429TooManyRequests, title: "Too Many Requests", code: code);
 
 	/// <summary>
 	/// Creates a 500 InternalServerError <see cref="ObjectResult"/> with the specified reason.
@@ -229,7 +249,7 @@ public abstract class UmbrellaApiController : ControllerBase
 	/// <param name="reason">The reason.</param>
 	/// <param name="code">The error code.</param>
 	/// <returns>A <see cref="ObjectResult"/> of 500.</returns>
-	protected virtual ObjectResult InternalServerError(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: 500, title: "Error", code: code);
+	protected virtual ObjectResult InternalServerError(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: StatusCodes.Status500InternalServerError, title: "Error", code: code);
 
 	/// <summary>
 	/// Creates an <see cref="ObjectResult"/> containing an <see cref="UmbrellaProblemDetails"/> instance.

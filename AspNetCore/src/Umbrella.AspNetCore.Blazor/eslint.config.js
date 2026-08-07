@@ -32,18 +32,20 @@ module.exports = tseslint.config(
 		plugins: {
 			"@stylistic": stylistic
 		},
+		// Everything below is reported as an error rather than a warning: eslint only exits
+		// non-zero for errors, so a warning would leave "npm run lint" and the gulp build green.
 		rules: {
 			// House style: Allman braces, tabs, double quotes.
-			"@stylistic/brace-style": ["warn", "allman"],
-			"@stylistic/indent": ["warn", "tab"],
-			"@stylistic/quotes": ["warn", "double"],
-			"@stylistic/semi": ["warn", "always"],
+			"@stylistic/brace-style": ["error", "allman"],
+			"@stylistic/indent": ["error", "tab"],
+			"@stylistic/quotes": ["error", "double"],
+			"@stylistic/semi": ["error", "always"],
 
 			// Whitespace and encoding rules kept here rather than .editorconfig
 			// so that a build can verify them.
-			"@stylistic/eol-last": ["warn", "always"],
-			"@stylistic/no-trailing-spaces": "warn",
-			"@stylistic/linebreak-style": ["warn", "windows"],
+			"@stylistic/eol-last": ["error", "always"],
+			"@stylistic/no-trailing-spaces": "error",
+			"@stylistic/linebreak-style": ["error", "windows"],
 			"unicode-bom": ["error", "never"]
 		}
 	}

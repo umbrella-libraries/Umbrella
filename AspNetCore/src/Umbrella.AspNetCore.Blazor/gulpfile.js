@@ -56,11 +56,13 @@ async function lintTask()
 		console.log(output);
 	}
 
+	// Warnings fail the build too, otherwise a rule configured as "warn" is reported but never enforced.
 	const errorCount = results.reduce((total, result) => total + result.errorCount, 0);
+	const warningCount = results.reduce((total, result) => total + result.warningCount, 0);
 
-	if (errorCount > 0)
+	if (errorCount > 0 || warningCount > 0)
 	{
-		throw new Error(`eslint reported ${errorCount} error(s).`);
+		throw new Error(`eslint reported ${errorCount} error(s) and ${warningCount} warning(s).`);
 	}
 }
 

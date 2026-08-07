@@ -26,9 +26,13 @@ export class BrowserEventAggregator
 
 			if (!eventHandler)
 			{
-				// Wrapped so the listener is void-returning: an async handler passed
-				// directly to addEventListener leaves its rejection unhandled.
-				eventHandler = () => void this.notifyEventSubscribersAsync(eventName);
+				// Wrapped so the listener is void-returning and the rejection is observed: an async
+				// handler passed directly to addEventListener leaves its rejection unhandled, and a
+				// .NET object reference disposed before removeEventListener runs rejects on publish.
+				eventHandler = () =>
+				{
+					this.notifyEventSubscribersAsync(eventName).catch((error: unknown) => console.error(`Failed to notify subscribers of the "${eventName}" browser event.`, error));
+				};
 				this.#eventHandlerMap.set(eventName, eventHandler);
 			}
 

@@ -12,7 +12,7 @@
 		"not dead"
 	],
 	"scripts": {
-		"lint": "eslint .",
+		"lint": "eslint . --max-warnings 0",
 		"lint-fix": "eslint . --fix",
 		"build": "gulp build",
 		"build-analyze": "gulp build-analyze",

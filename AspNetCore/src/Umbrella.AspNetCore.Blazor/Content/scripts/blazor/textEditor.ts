@@ -56,9 +56,13 @@ export class TextEditorInterop
 			await dotNetObjectReference.invokeMethodAsync("DeltaChanged", this.getContent(editorElement));
 		};
 
-		// Wrapped so the listener is void-returning: an async handler passed
-		// directly to addEventListener leaves its rejection unhandled.
-		const blurHandler = () => void notifyDeltaChangedAsync();
+		// Wrapped so the listener is void-returning and the rejection is observed: an async handler
+		// passed directly to addEventListener leaves its rejection unhandled, and a blur raised after
+		// the owning component has been disposed rejects on the DeltaChanged callback.
+		const blurHandler = () =>
+		{
+			notifyDeltaChangedAsync().catch((error: unknown) => console.error(`Failed to notify .NET of the Quill editor blur event for ${editorElement.id}.`, error));
+		};
 
 		quill.root.addEventListener("blur", blurHandler);
 		this.#stateMap.set(editorElement, { quill, blurHandler });
