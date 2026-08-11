@@ -1,0 +1,4 @@
+interface:
+  display_name: "Install Umbrella Analyzers"
+  short_description: "Umbrella workflow for Install Umbrella Analyzers"
+  default_prompt: "Use $umbrella-dotnet-install-analyzers to apply the Install Umbrella Analyzers workflow to this solution."

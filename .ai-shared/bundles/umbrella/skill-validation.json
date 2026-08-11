@@ -12,6 +12,7 @@
     { "name": "umbrella-dotnet-generate-api-data-service-controller-tests", "mode": "mutating", "fixture": "api-controller", "validations": ["source-scope", "build", "tests"] },
     { "name": "umbrella-dotnet-generate-api-repo-controller-tests", "mode": "mutating", "fixture": "api-controller", "validations": ["source-scope", "build", "tests"] },
     { "name": "umbrella-dotnet-generate-custom-api-controller-tests", "mode": "mutating", "fixture": "api-controller", "validations": ["source-scope", "build", "tests"] },
+    { "name": "umbrella-dotnet-install-analyzers", "mode": "mutating", "fixture": "data-access-solution", "validations": ["source-scope", "build", "analyzers"] },
     { "name": "umbrella-dotnet-migrate-automapper-to-mapperly", "mode": "mutating", "fixture": "mapperly-solution", "validations": ["source-scope", "build", "analyzers", "tests"] },
     { "name": "umbrella-dotnet-migrate-repo-controller-to-data-service", "mode": "mutating", "fixture": "api-controller", "validations": ["source-scope", "build", "analyzers", "tests"] },
     { "name": "umbrella-dotnet-rename-client-repository-to-service", "mode": "mutating", "fixture": "blazor-solution", "validations": ["source-scope", "build", "analyzers"] },
