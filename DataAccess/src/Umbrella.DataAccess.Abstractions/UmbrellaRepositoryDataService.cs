@@ -45,13 +45,13 @@ public abstract class UmbrellaRepositoryDataService<TItem, TSlimItem, TPaginated
 	where TItem : class, IKeyedItem<TEntityKey>
 	where TSlimItem : class, IKeyedItem<TEntityKey>
 	where TUpdateItem : class, IKeyedItem<TEntityKey>, IUpdateModel<TEntityKey>
-	where TUpdateResult : IUpdateResultModel, new()
+	where TUpdateResult : IUpdateResultModel
 	where TPaginatedResultModel : PaginatedResultModel<TSlimItem>, new()
 	where TRepository : class, IGenericDbRepository<TEntity, TRepositoryOptions, TEntityKey>
 	where TEntity : class, IEntity<TEntityKey>
 	where TRepositoryOptions : RepoOptions, new()
 	where TEntityKey : IEquatable<TEntityKey>
-	where TCreateResult : ICreateResultModel<TEntityKey>, new()
+	where TCreateResult : ICreateResultModel<TEntityKey>
 {
 	/// <summary>
 	/// Initializes a new instance of the UmbrellaRepositoryDataService class with the specified dependencies.
@@ -245,34 +245,6 @@ public abstract class UmbrellaRepositoryDataService<TItem, TSlimItem, TPaginated
 	protected virtual bool DeleteLock { get; }
 
 	/// <summary>
-	/// Gets a value indicating whether result models created when the <c>Post</c> endpoint is called
-	/// should be automatically mapped from the created entity using the <see cref="UmbrellaRepositoryCoreDataService.Mapper"/>.
-	/// </summary>
-	/// <remarks>
-	/// <para>Defaults to <see langword="true"/>.</para>
-	/// <para>
-	/// This should normally always be set to <see langword="true"/>.
-	/// It exists because output mapping was not supported by previous versions of this code.
-	/// In future versions, this property will be removed with output mapping always being enabled.
-	/// </para>
-	/// </remarks>
-	protected virtual bool EnablePostOutputMapping { get; } = true;
-
-	/// <summary>
-	/// Gets a value indicating whether result models created when the <c>Put</c> endpoint is called
-	/// should be automatically mapped from the updated entity using the <see cref="UmbrellaRepositoryCoreDataService.Mapper"/>.
-	/// </summary>
-	/// <remarks>
-	/// <para>Defaults to <see langword="true"/>.</para>
-	/// <para>
-	/// This should normally always be set to <see langword="true"/>.
-	/// It exists because output mapping was not supported by previous versions of this code.
-	/// In future versions, this property will be removed with output mapping always being enabled.
-	/// </para>
-	/// </remarks>
-	protected virtual bool EnablePutOutputMapping { get; } = true;
-
-	/// <summary>
 	/// Gets the <see cref="IncludeMap{TEntity}"/> used by the <c>SearchSlim</c> endpoint when loading entities from the repository.
 	/// </summary>
 	/// <remarks>
@@ -461,8 +433,7 @@ public abstract class UmbrellaRepositoryDataService<TItem, TSlimItem, TPaginated
 				PostChildRepoOptions,
 				AuthorizationCreateChecksEnabled,
 				PostLock,
-				GetCreateSynchronizationRootKey,
-				EnablePostOutputMapping)
+				GetCreateSynchronizationRootKey)
 				.ConfigureAwait(false);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc))
@@ -667,8 +638,7 @@ public abstract class UmbrellaRepositoryDataService<TItem, TSlimItem, TPaginated
 				PutRepoOptions,
 				PutChildRepoOptions,
 				AuthorizationUpdateChecksEnabled,
-				PutLock,
-				EnablePutOutputMapping).ConfigureAwait(false);
+				PutLock).ConfigureAwait(false);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { item }))
 		{

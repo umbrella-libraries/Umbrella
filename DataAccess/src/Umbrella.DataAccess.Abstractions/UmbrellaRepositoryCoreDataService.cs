@@ -260,13 +260,12 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 		IEnumerable<RepoOptions>? childOptions = null,
 		bool enableAuthorizationChecks = true,
 		bool synchronizeAccess = false,
-		Func<object, (Type type, string key)?>? synchronizationRootKeyCreator = null,
-		bool enableOutputMapping = true)
+		Func<object, (Type type, string key)?>? synchronizationRootKeyCreator = null)
 		where TEntity : class, IEntity<TEntityKey>
 		where TEntityKey : IEquatable<TEntityKey>
 		where TRepository : class, IGenericDbRepository<TEntity, TRepositoryOptions, TEntityKey>
 		where TRepositoryOptions : RepoOptions, new()
-		where TResultModel : ICreateResultModel<TEntityKey>, new()
+		where TResultModel : ICreateResultModel<TEntityKey>
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		Guard.IsNotNull(repository);
@@ -322,21 +321,9 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 
 			if (saveResult.Status is OperationResultStatus.Created)
 			{
-				TResultModel? result = default;
-
-				if (enableOutputMapping)
-				{
-					result = mapperOutputCallback is null
-						? await Mapper.MapAsync<TEntity, TResultModel>(entity, cancellationToken).ConfigureAwait(false)
-						: mapperOutputCallback(entity);
-				}
-				else
-				{
-					result = new TResultModel { Id = entity.Id };
-
-					if (result is IConcurrencyStamp concurrencyStampResult && entity is IConcurrencyStamp concurrencyStampEntity)
-						concurrencyStampResult.ConcurrencyStamp = concurrencyStampEntity.ConcurrencyStamp;
-				}
+				TResultModel? result = mapperOutputCallback is null
+					? await Mapper.MapAsync<TEntity, TResultModel>(entity, cancellationToken).ConfigureAwait(false)
+					: mapperOutputCallback(entity);
 
 				if (afterCreateEntityCallback is not null)
 					await afterCreateEntityCallback(entity, result).ConfigureAwait(false);
@@ -386,14 +373,13 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 		TRepositoryOptions? options = null,
 		IEnumerable<RepoOptions>? childOptions = null,
 		bool enableAuthorizationChecks = true,
-		bool synchronizeAccess = false,
-		bool enableOutputMapping = true)
+		bool synchronizeAccess = false)
 		where TEntity : class, IEntity<TEntityKey>
 		where TEntityKey : IEquatable<TEntityKey>
 		where TRepository : class, IGenericDbRepository<TEntity, TRepositoryOptions, TEntityKey>
 		where TRepositoryOptions : RepoOptions, new()
 		where TModel : IUpdateModel<TEntityKey>
-		where TResultModel : IUpdateResultModel, new()
+		where TResultModel : IUpdateResultModel
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
@@ -451,21 +437,9 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 
 			if (saveResult.Status is OperationResultStatus.GenericSuccess)
 			{
-				TResultModel? result = default;
-
-				if (enableOutputMapping)
-				{
-					result = mapperOutputCallback is null
-						? await Mapper.MapAsync<TEntity, TResultModel>(entity, cancellationToken).ConfigureAwait(false)
-						: mapperOutputCallback(entity);
-				}
-				else
-				{
-					result = new TResultModel();
-
-					if (entity is IConcurrencyStamp concurrencyStampEntity)
-						result.ConcurrencyStamp = concurrencyStampEntity.ConcurrencyStamp;
-				}
+				TResultModel? result = mapperOutputCallback is null
+					? await Mapper.MapAsync<TEntity, TResultModel>(entity, cancellationToken).ConfigureAwait(false)
+					: mapperOutputCallback(entity);
 
 				if (afterUpdateEntityCallback is not null)
 					await afterUpdateEntityCallback(entity, result).ConfigureAwait(false);

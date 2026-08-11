@@ -41,9 +41,9 @@ namespace Umbrella.AspNetCore.WebUtilities.Mvc;
 [UmbrellaProducesResponseType(StatusCodes.Status500InternalServerError)]
 public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPaginatedResultModel, TModel, TCreateModel, TCreateResultModel, TUpdateModel, TUpdateResultModel, TRepository, TEntity, TRepositoryOptions, TEntityKey> : UmbrellaDataAccessApiController
 	where TPaginatedResultModel : PaginatedResultModel<TSlimModel>, new()
-	where TCreateResultModel : ICreateResultModel<TEntityKey>, new()
+	where TCreateResultModel : ICreateResultModel<TEntityKey>
 	where TUpdateModel : IUpdateModel<TEntityKey>
-	where TUpdateResultModel : IUpdateResultModel, new()
+	where TUpdateResultModel : IUpdateResultModel
 	where TRepository : class, IGenericDbRepository<TEntity, TRepositoryOptions, TEntityKey>
 	where TEntity : class, IEntity<TEntityKey>
 	where TRepositoryOptions : RepoOptions, new()
@@ -188,34 +188,6 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// Defaults to <see langword="false"/>.
 	/// </remarks>
 	protected virtual bool DeleteLock { get; }
-
-	/// <summary>
-	/// Gets a value indicating whether result models created when the <c>Post</c> endpoint is called
-	/// should be automatically mapped from the created entity using the <see cref="UmbrellaDataAccessApiController.Mapper"/>.
-	/// </summary>
-	/// <remarks>
-	/// <para>Defaults to <see langword="true"/>.</para>
-	/// <para>
-	/// This should normally always be set to <see langword="true"/>.
-	/// It exists because output mapping was not supported by previous versions of this code.
-	/// In future versions, this property will be removed with output mapping always being enabled.
-	/// </para>
-	/// </remarks>
-	protected virtual bool EnablePostOutputMapping { get; } = true;
-
-	/// <summary>
-	/// Gets a value indicating whether result models created when the <c>Put</c> endpoint is called
-	/// should be automatically mapped from the updated entity using the <see cref="UmbrellaDataAccessApiController.Mapper"/>.
-	/// </summary>
-	/// <remarks>
-	/// <para>Defaults to <see langword="true"/>.</para>
-	/// <para>
-	/// This should normally always be set to <see langword="true"/>.
-	/// It exists because output mapping was not supported by previous versions of this code.
-	/// In future versions, this property will be removed with output mapping always being enabled.
-	/// </para>
-	/// </remarks>
-	protected virtual bool EnablePutOutputMapping { get; } = true;
 
 	/// <summary>
 	/// Gets the <see cref="IncludeMap{TEntity}"/> used by the <c>SearchSlim</c> endpoint when loading entities from the repository.
@@ -512,8 +484,7 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 			PostRepoOptions,
 			PostChildRepoOptions,
 			AuthorizationCreateChecksEnabled,
-			PostLock,
-			EnablePostOutputMapping)
+			PostLock)
 		: Task.FromResult<IActionResult>(MethodNotAllowed("Unsupported Endpoint"));
 
 	/// <summary>
@@ -552,8 +523,7 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 			PutRepoOptions,
 			PutChildRepoOptions,
 			AuthorizationUpdateChecksEnabled,
-			PutLock,
-			EnablePutOutputMapping)
+			PutLock)
 		: Task.FromResult<IActionResult>(MethodNotAllowed("Unsupported Endpoint"));
 
 	/// <summary>

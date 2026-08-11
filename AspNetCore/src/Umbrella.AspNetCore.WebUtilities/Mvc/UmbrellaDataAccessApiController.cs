@@ -249,8 +249,7 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 	/// <item>Perform authorization, if enabled via the <paramref name="enableAuthorizationChecks"/> property, on the entity.</item>
 	/// <item>Saves the new entity to the <typeparamref name="TRepository"/>.</item>
 	/// <item>
-	/// Creates the <typeparamref name="TResultModel"/> by mapping the entity, if <paramref name="enableOutputMapping"/> is <see langword="true"/>, using the <paramref name="mapperOutputCallback"/> if specified falling back to using the <see cref="Mapper"/>.
-	/// If <paramref name="enableOutputMapping"/> is <see langword="true"/>, a new instance of <typeparamref name="TResultModel"/> and only assigning the <c>Id</c> and <c>ConcurrencyStamp</c> properties.
+	/// Creates the <typeparamref name="TResultModel"/> by mapping the entity using the <paramref name="mapperOutputCallback"/> if specified falling back to using the <see cref="Mapper"/>.
 	/// </item>
 	/// <item>
 	/// Invokes the <paramref name="afterCreateEntityCallback"/> that can be specified to augment the <typeparamref name="TResultModel"/>.
@@ -275,11 +274,6 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 	/// <param name="childOptions">The child options.</param>
 	/// <param name="enableAuthorizationChecks">Specifies whether imperative authorization checks are performed on entities persisted to the repository.</param>
 	/// <param name="synchronizeAccess">Specifies whether exclusive access should be enabled using code that synchronizes using a key generated using the <see cref="GetCreateSynchronizationRootKey"/> method. This method must be overridden on the controller to make this work.</param>
-	/// <param name="enableOutputMapping">
-	/// Specifies whether the newly created <typeparamref name="TEntity"/> is mapped to an instance of <typeparamref name="TResultModel"/> using the <see cref="Mapper"/>,
-	/// or if this is done by this method internally by creating a new instance of <typeparamref name="TResultModel"/> and only assigning the <c>Id</c> and <c>ConcurrencyStamp</c> properties.
-	/// Please leave this set to <see langword="true"/> use a mapping implementation for a richer experience.
-	/// </param>
 	/// <returns>
 	/// The action result containing the endpoint response which either be a <typeparamref name="TResultModel"/> when successful or
 	/// a <see cref="ProblemDetails"/> response and / or erroneous state code as appropriate.
@@ -296,13 +290,12 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 		TRepositoryOptions? options = null,
 		IEnumerable<RepoOptions>? childOptions = null,
 		bool enableAuthorizationChecks = true,
-		bool synchronizeAccess = false,
-		bool enableOutputMapping = true)
+		bool synchronizeAccess = false)
 		where TEntity : class, IEntity<TEntityKey>
 		where TEntityKey : IEquatable<TEntityKey>
 		where TRepository : class, IGenericDbRepository<TEntity, TRepositoryOptions, TEntityKey>
 		where TRepositoryOptions : RepoOptions, new()
-		where TResultModel : ICreateResultModel<TEntityKey>, new()
+		where TResultModel : ICreateResultModel<TEntityKey>
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		Guard.IsNotNull(repository);
@@ -322,8 +315,7 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 				childOptions,
 				enableAuthorizationChecks,
 				synchronizeAccess,
-				GetCreateSynchronizationRootKey,
-				enableOutputMapping)
+				GetCreateSynchronizationRootKey)
 				.ConfigureAwait(false);
 
 			return OperationResult<TResultModel>(result);
@@ -350,8 +342,7 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 	/// <item>Perform authorization, if enabled via the <paramref name="enableAuthorizationChecks"/> property, on the entity.</item>
 	/// <item>Saves the updated entity to the <typeparamref name="TRepository"/>.</item>
 	/// <item>
-	/// Creates the <typeparamref name="TResultModel"/> by mapping the entity, if <paramref name="enableOutputMapping"/> is <see langword="true"/>, using the <paramref name="mapperOutputCallback"/> if specified falling back to using the <see cref="Mapper"/>.
-	/// If <paramref name="enableOutputMapping"/> is <see langword="true"/>, a new instance of <typeparamref name="TResultModel"/> and only assigning the <c>Id</c> and <c>ConcurrencyStamp</c> properties.
+	/// Creates the <typeparamref name="TResultModel"/> by mapping the entity using the <paramref name="mapperOutputCallback"/> if specified falling back to using the <see cref="Mapper"/>.
 	/// </item>
 	/// <item>
 	/// Invokes the <paramref name="afterUpdateEntityCallback"/> that can be specified to augment the <typeparamref name="TResultModel"/>.
@@ -377,11 +368,6 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 	/// <param name="childOptions">The child options.</param>
 	/// <param name="enableAuthorizationChecks">Specifies whether imperative authorization checks are performed on entities persisted to the repository.</param>
 	/// <param name="synchronizeAccess">Specifies whether exclusive access should be enabled using code that synchronizes using the <c>Id</c> and type name of the entity.</param>
-	/// <param name="enableOutputMapping">
-	/// Specifies whether the newly created <typeparamref name="TEntity"/> is mapped to an instance of <typeparamref name="TResultModel"/> using the <see cref="Mapper"/>,
-	/// or if this is done by this method by creating a new instance of <typeparamref name="TResultModel"/> and only assigning the <c>ConcurrencyStamp</c> property.
-	/// Please leave this set to <see langword="true"/> use a mapping implementation for a richer experience.
-	/// </param>
 	/// <returns>
 	/// The action result containing the endpoint response which either be a <typeparamref name="TResultModel"/> when successful or
 	/// a <see cref="ProblemDetails"/> response and / or erroneous state code as appropriate.
@@ -399,14 +385,13 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 		TRepositoryOptions? options = null,
 		IEnumerable<RepoOptions>? childOptions = null,
 		bool enableAuthorizationChecks = true,
-		bool synchronizeAccess = false,
-		bool enableOutputMapping = true)
+		bool synchronizeAccess = false)
 		where TEntity : class, IEntity<TEntityKey>
 		where TEntityKey : IEquatable<TEntityKey>
 		where TRepository : class, IGenericDbRepository<TEntity, TRepositoryOptions, TEntityKey>
 		where TRepositoryOptions : RepoOptions, new()
 		where TModel : IUpdateModel<TEntityKey>
-		where TResultModel : IUpdateResultModel, new()
+		where TResultModel : IUpdateResultModel
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		Guard.IsNotNull(repository);
@@ -426,8 +411,7 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 				options,
 				childOptions,
 				enableAuthorizationChecks,
-				synchronizeAccess,
-				enableOutputMapping)
+				synchronizeAccess)
 				.ConfigureAwait(false);
 
 			return OperationResult<TResultModel>(result);

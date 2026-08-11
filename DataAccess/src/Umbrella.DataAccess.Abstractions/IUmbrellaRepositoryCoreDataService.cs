@@ -28,8 +28,7 @@ public interface IUmbrellaRepositoryCoreDataService
 	/// <item>Perform authorization, if enabled via the <paramref name="enableAuthorizationChecks"/> property, on the entity.</item>
 	/// <item>Saves the new entity to the <typeparamref name="TRepository"/>.</item>
 	/// <item>
-	/// Creates the <typeparamref name="TResultModel"/> by mapping the entity, if <paramref name="enableOutputMapping"/> is <see langword="true"/>, using the <paramref name="mapperOutputCallback"/> if specified falling back to using the <see cref="IUmbrellaMapper"/>.
-	/// If <paramref name="enableOutputMapping"/> is <see langword="true"/>, a new instance of <typeparamref name="TResultModel"/> and only assigning the <c>Id</c> and <c>ConcurrencyStamp</c> properties.
+	/// Creates the <typeparamref name="TResultModel"/> by mapping the entity using the <paramref name="mapperOutputCallback"/> if specified falling back to using the <see cref="IUmbrellaMapper"/>.
 	/// </item>
 	/// <item>
 	/// Invokes the <paramref name="afterCreateEntityCallback"/> that can be specified to augment the <typeparamref name="TResultModel"/>.
@@ -55,18 +54,13 @@ public interface IUmbrellaRepositoryCoreDataService
 	/// <param name="enableAuthorizationChecks">Specifies whether imperative authorization checks are performed on entities persisted to the repository.</param>
 	/// <param name="synchronizeAccess">Specifies whether exclusive access should be enabled using code that synchronizes using a key generated using the <paramref name="synchronizationRootKeyCreator"/> parameter.</param>
 	/// <param name="synchronizationRootKeyCreator">The synchronization root key creator used to create a key for the <see cref="ISynchronizationManager"/> to synchronize access to this method.</param>
-	/// <param name="enableOutputMapping">
-	/// Specifies whether the newly created <typeparamref name="TEntity"/> is mapped to an instance of <typeparamref name="TResultModel"/> using an instance of <see cref="IUmbrellaMapper"/>,
-	/// or if this is done by this method internally by creating a new instance of <typeparamref name="TResultModel"/> and only assigning the <c>Id</c> and <c>ConcurrencyStamp</c> properties.
-	/// Please leave this set to <see langword="true"/> use a mapping implementation for a richer experience.
-	/// </param>
 	/// <returns>The operation result</returns>
-	Task<IOperationResult<TResultModel?>> CreateAsync<TEntity, TEntityKey, TRepository, TRepositoryOptions, TModel, TResultModel>(TModel model, Lazy<TRepository> repository, CancellationToken cancellationToken, Func<Task<IOperationResult?>>? beforeMappingCallback = null, Func<TModel, TEntity>? mapperInputCallback = null, Func<TEntity, Task<IOperationResult?>>? beforeCreateEntityCallback = null, Func<TEntity, TResultModel>? mapperOutputCallback = null, Func<TEntity, TResultModel, Task>? afterCreateEntityCallback = null, TRepositoryOptions? options = null, IEnumerable<RepoOptions>? childOptions = null, bool enableAuthorizationChecks = true, bool synchronizeAccess = false, Func<object, (Type type, string key)?>? synchronizationRootKeyCreator = null, bool enableOutputMapping = true)
+	Task<IOperationResult<TResultModel?>> CreateAsync<TEntity, TEntityKey, TRepository, TRepositoryOptions, TModel, TResultModel>(TModel model, Lazy<TRepository> repository, CancellationToken cancellationToken, Func<Task<IOperationResult?>>? beforeMappingCallback = null, Func<TModel, TEntity>? mapperInputCallback = null, Func<TEntity, Task<IOperationResult?>>? beforeCreateEntityCallback = null, Func<TEntity, TResultModel>? mapperOutputCallback = null, Func<TEntity, TResultModel, Task>? afterCreateEntityCallback = null, TRepositoryOptions? options = null, IEnumerable<RepoOptions>? childOptions = null, bool enableAuthorizationChecks = true, bool synchronizeAccess = false, Func<object, (Type type, string key)?>? synchronizationRootKeyCreator = null)
 		where TEntity : class, IEntity<TEntityKey>
 		where TEntityKey : IEquatable<TEntityKey>
 		where TRepository : class, IGenericDbRepository<TEntity, TRepositoryOptions, TEntityKey>
 		where TRepositoryOptions : RepoOptions, new()
-		where TResultModel : ICreateResultModel<TEntityKey>, new();
+		where TResultModel : ICreateResultModel<TEntityKey>;
 
 	/// <summary>
 	/// Used to delete an existing <typeparamref name="TEntity"/> in the repository based on the provided <paramref name="id"/> which returns
@@ -236,8 +230,7 @@ public interface IUmbrellaRepositoryCoreDataService
 	/// <item>Perform authorization, if enabled via the <paramref name="enableAuthorizationChecks"/> property, on the entity.</item>
 	/// <item>Saves the updated entity to the <typeparamref name="TRepository"/>.</item>
 	/// <item>
-	/// Creates the <typeparamref name="TResultModel"/> by mapping the entity, if <paramref name="enableOutputMapping"/> is <see langword="true"/>, using the <paramref name="mapperOutputCallback"/> if specified falling back to using the <see cref="IUmbrellaMapper"/>.
-	/// If <paramref name="enableOutputMapping"/> is <see langword="true"/>, a new instance of <typeparamref name="TResultModel"/> and only assigning the <c>Id</c> and <c>ConcurrencyStamp</c> properties.
+	/// Creates the <typeparamref name="TResultModel"/> by mapping the entity using the <paramref name="mapperOutputCallback"/> if specified falling back to using the <see cref="IUmbrellaMapper"/>.
 	/// </item>
 	/// <item>
 	/// Invokes the <paramref name="afterUpdateEntityCallback"/> that can be specified to augment the <typeparamref name="TResultModel"/>.
@@ -263,17 +256,12 @@ public interface IUmbrellaRepositoryCoreDataService
 	/// <param name="childOptions">The child options.</param>
 	/// <param name="enableAuthorizationChecks">Specifies whether imperative authorization checks are performed on entities persisted to the repository.</param>
 	/// <param name="synchronizeAccess">Specifies whether exclusive access should be enabled using code that synchronizes using the <c>Id</c> and type name of the entity.</param>
-	/// <param name="enableOutputMapping">
-	/// Specifies whether the newly created <typeparamref name="TEntity"/> is mapped to an instance of <typeparamref name="TResultModel"/> using the <see cref="IUmbrellaMapper"/>,
-	/// or if this is done by this method by creating a new instance of <typeparamref name="TResultModel"/> and only assigning the <c>ConcurrencyStamp</c> property.
-	/// Please leave this set to <see langword="true"/> use a mapping implementation for a richer experience.
-	/// </param>
 	/// <returns>The operation result</returns>
-	Task<IOperationResult<TResultModel?>> UpdateAsync<TEntity, TEntityKey, TRepository, TRepositoryOptions, TModel, TResultModel>(TModel model, Lazy<TRepository> repository, CancellationToken cancellationToken, Func<TEntity, Task<IOperationResult?>>? beforeMappingCallback = null, Func<TModel, TEntity, TEntity>? mapperInputCallback = null, Func<TEntity, Task<IOperationResult?>>? beforeUpdateEntityCallback = null, Func<TEntity, TResultModel>? mapperOutputCallback = null, Func<TEntity, TResultModel, Task>? afterUpdateEntityCallback = null, IncludeMap<TEntity>? map = null, TRepositoryOptions? options = null, IEnumerable<RepoOptions>? childOptions = null, bool enableAuthorizationChecks = true, bool synchronizeAccess = false, bool enableOutputMapping = true)
+	Task<IOperationResult<TResultModel?>> UpdateAsync<TEntity, TEntityKey, TRepository, TRepositoryOptions, TModel, TResultModel>(TModel model, Lazy<TRepository> repository, CancellationToken cancellationToken, Func<TEntity, Task<IOperationResult?>>? beforeMappingCallback = null, Func<TModel, TEntity, TEntity>? mapperInputCallback = null, Func<TEntity, Task<IOperationResult?>>? beforeUpdateEntityCallback = null, Func<TEntity, TResultModel>? mapperOutputCallback = null, Func<TEntity, TResultModel, Task>? afterUpdateEntityCallback = null, IncludeMap<TEntity>? map = null, TRepositoryOptions? options = null, IEnumerable<RepoOptions>? childOptions = null, bool enableAuthorizationChecks = true, bool synchronizeAccess = false)
 		where TEntity : class, IEntity<TEntityKey>
 		where TEntityKey : IEquatable<TEntityKey>
 		where TRepository : class, IGenericDbRepository<TEntity, TRepositoryOptions, TEntityKey>
 		where TRepositoryOptions : RepoOptions, new()
 		where TModel : IUpdateModel<TEntityKey>
-		where TResultModel : IUpdateResultModel, new();
+		where TResultModel : IUpdateResultModel;
 }
