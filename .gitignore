@@ -22,3 +22,4 @@ node_modules
 /FileSystem/bash.exe.stackdump
 /update_todo.py
 *.stackdump
+*.log
