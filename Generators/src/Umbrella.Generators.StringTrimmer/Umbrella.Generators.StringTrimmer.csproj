@@ -9,12 +9,16 @@
 
 	<PropertyGroup>
 		<PackageId>Umbrella.Generators.StringTrimmer</PackageId>
-		<Description>This package generates TrimAllStringProperties on partial classes and records that implement IUmbrellaTrimmable and do not provide the method manually. UmbrellaDoNotTrim, technical mutation properties, and concurrency stamps are excluded.</Description>
+		<Description>This package generates TrimAllStringProperties on partial classes and records that implement IUmbrellaTrimmable and do not provide the method manually. UmbrellaDoNotTrim, technical mutation properties, and concurrency stamps are excluded, including stamps reached through the read-only IReadOnlyConcurrencyStamp contract.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.6.0" PrivateAssets="all" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" PrivateAssets="all" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Include="..\..\..\Analyzers\analysis\ModelStandardsSymbolAnalysis.cs" Link="ModelStandardsSymbolAnalysis.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

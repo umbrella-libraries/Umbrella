@@ -8,7 +8,11 @@ public interface ICreateResultModel<TKey>
 	where TKey : IEquatable<TKey>
 {
 	/// <summary>
-	/// Gets or sets the identifier.
+	/// Gets the identifier.
 	/// </summary>
-	TKey Id { get; set; }
+	/// <remarks>
+	/// This is read-only because result models are always populated by a mapper. Implementations should declare
+	/// the property as <c>public required TKey Id { get; init; }</c>.
+	/// </remarks>
+	TKey Id { get; }
 }

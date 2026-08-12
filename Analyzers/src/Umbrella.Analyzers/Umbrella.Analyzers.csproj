@@ -19,6 +19,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Compile Include="..\..\..\Analyzers\analysis\ModelStandardsSymbolAnalysis.cs" Link="ModelStandardsSymbolAnalysis.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<None Include="bin\$(Configuration)\netstandard2.0\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
 		<None Include="bin\$(Configuration)\netstandard2.0\$(AssemblyName).dll" Pack="true" PackagePath="lib/netstandard2.0" Visible="false" />
 	</ItemGroup>

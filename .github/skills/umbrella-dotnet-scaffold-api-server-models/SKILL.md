@@ -25,7 +25,7 @@ Choose only the types the feature needs. Skip types that do not apply.
 
 | Type name | Interfaces | Purpose |
 |---|---|---|
-| `<Name>Model` | `IKeyedItem<int>`, `IConcurrencyStamp` | Full read model — returned by GET single |
+| `<Name>Model` | `IKeyedItem<int>`, `IReadOnlyConcurrencyStamp` | Full read model — returned by GET single |
 | `Slim<Name>Model` | `IKeyedItem<int>` | Slim read model — used as the item in paginated list responses |
 | `Create<Name>Model` | (none) | Create request body |
 | `Update<Name>Model` | `IUpdateModel<int>` | Update request body — includes `Id` and `ConcurrencyStamp` |
@@ -53,10 +53,13 @@ Every list endpoint needs `Slim<Name>Model` and a paginated contract. Prefer `Pa
 **Interface property requirements — accessor rules:**
 
 - `IKeyedItem<int>` → `int Id { get; }` — `init` is fine here
-- `IConcurrencyStamp` → `string ConcurrencyStamp { get; set; }` — mutable `set` required; `init` does NOT satisfy this interface
-- `ICreateResultModel<int>` → `int Id { get; set; }` — mutable `set` required
+- `IReadOnlyConcurrencyStamp` → `string ConcurrencyStamp { get; }` → declare `required string ConcurrencyStamp { get; init; }`. This is the contract for read and result models.
+- `IConcurrencyStamp` → `string ConcurrencyStamp { get; set; }` — mutable `set` required; `init` does NOT satisfy this interface. Use it **only** on EF/Dataverse entities and on `IUpdateModel<TKey>` request models that need the stamp assigned after construction.
+- `ICreateResultModel<int>` → `int Id { get; }` → declare `required int Id { get; init; }`
 - `IUpdateModel<int>` inherits `IKeyedItem<int>` + `IConcurrencyStamp` → needs `int Id { get; }` and `string ConcurrencyStamp { get; set; }`
-- `IUpdateResultModel` inherits `IConcurrencyStamp` → needs `string ConcurrencyStamp { get; set; }`
+- `IUpdateResultModel` inherits `IReadOnlyConcurrencyStamp` → declare `required string ConcurrencyStamp { get; init; }`
+
+Result models are always populated by a mapper, never by the controller base, so their `Id` and `ConcurrencyStamp` are init-only. Reaching the stamp through the mutable `IConcurrencyStamp` on a read or result model blocks `init` and will trigger UA013.
 
 ---
 
@@ -145,10 +148,10 @@ The `partial` declaration above assumes the trimming source generator is install
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record <Name>Model : <Name>ModelBase, IKeyedItem<int>, IConcurrencyStamp
+public record <Name>Model : <Name>ModelBase, IKeyedItem<int>, IReadOnlyConcurrencyStamp
 {
     public required int Id { get; init; }
-    public required string ConcurrencyStamp { get; set; }
+    public required string ConcurrencyStamp { get; init; }
     // Dynamic Image pairs populated by asynchronous enrichment, when used:
     // [UmbrellaAllowNonRequiredProperty("Populated after the generated mapping.")]
     // [UmbrellaAllowMutableProperty("Populated after the generated mapping.")]
@@ -196,17 +199,17 @@ public record Update<Name>Model : CreateUpdate<Name>ModelBase, IUpdateModel<int>
 }
 ```
 
-Note: `ConcurrencyStamp` must use `set` (not `init`) to satisfy `IConcurrencyStamp`. Mark it `required` and add `[Required]` so client-side validation enforces it.
+Note: on this **request** model `ConcurrencyStamp` must use `set` (not `init`), because `IUpdateModel<TKey>` inherits the mutable `IConcurrencyStamp` so a Blazor form can two-way bind it and re-stamp it after a save. Mark it `required` and add `[Required]` so client-side validation enforces it. Result models are the opposite — they use `init`, see below.
 
 **Create result model:**
 
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record Create<Name>ResultModel : ICreateResultModel<int>
+public record Create<Name>ResultModel : ICreateResultModel<int>, IReadOnlyConcurrencyStamp
 {
-    public int Id { get; set; }
-    public string ConcurrencyStamp { get; set; } = null!;
+    public required int Id { get; init; }
+    public required string ConcurrencyStamp { get; init; }
     // Dynamic Image pairs populated after saving, when used:
     // [UmbrellaAllowNonRequiredProperty("Populated after the file is saved.")]
     // [UmbrellaAllowMutableProperty("Populated after the file is saved.")]
@@ -217,8 +220,6 @@ public record Create<Name>ResultModel : ICreateResultModel<int>
 }
 ```
 
-Note: `Id` must use `set` (not `init`) to satisfy `ICreateResultModel<int>`.
-
 **Update result model:**
 
 ```csharp
@@ -226,7 +227,7 @@ namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
 public record Update<Name>ResultModel : IUpdateResultModel
 {
-    public string ConcurrencyStamp { get; set; } = null!;
+    public required string ConcurrencyStamp { get; init; }
     // any other values the server recomputes on update
 }
 ```
@@ -247,13 +248,30 @@ public record <Name>PaginatedResultModel : PaginatedResultModel<Slim<Name>Model>
 
 Use `required` on public settable properties unless an analyzer-recognized contract exempts them. `[UmbrellaInputModel]` deliberately permits form/request properties to be populated after construction. For an exceptional non-input property, use `[UmbrellaAllowNonRequiredProperty("reason")]`; do not omit `required` merely because a default initializer exists.
 
+A property being nullable or frequently absent is **not** a reason to drop `required`. `public required string? Name { get; init; }` is valid and forces the mapper to make an explicit decision. Reserve `[UmbrellaAllowNonRequiredProperty]` for properties genuinely assigned after construction, and make the reason say what assigns them.
+
+---
+
+## Migrating an existing result model
+
+Older result models were written as `public string ConcurrencyStamp { get; set; } = null!;` with `[UmbrellaAllowNonRequiredProperty("Populated after parameterless construction by the generic repository controller.")]`. That justification no longer holds: the controller base no longer constructs result models, so there is no parameterless-construction path and no `new()` constraint. To migrate:
+
+1. `Update<Name>ResultModel` → `public required string ConcurrencyStamp { get; init; }`. Delete the suppression attribute and the `= null!` initialiser.
+2. `Create<Name>ResultModel` → `public required TKey Id { get; init; }`, plus the same change for the stamp.
+3. If a read or create-result model lists `IConcurrencyStamp` in its base list, change it to `IReadOnlyConcurrencyStamp`. Leaving the mutable interface in place keeps the setter slot and blocks `init`.
+4. Leave `Update<Name>Model : IUpdateModel<TKey>` alone — its stamp keeps `{ get; set; }` for Blazor two-way binding and for the `updateModel.ConcurrencyStamp = result.Result.ConcurrencyStamp;` refresh after a save.
+5. Any result-model property assigned by an `AfterCreateEntityAsync` / `AfterUpdateEntityAsync` override (e.g. `result.ImageUrl`) keeps `{ get; set; }` with `[UmbrellaAllowMutableProperty("reason")]`. Convert only `Id` and `ConcurrencyStamp`.
+6. If a type genuinely cannot move, `[UmbrellaAllowMutableProperty("reason")]` suppresses the UA013 setter half.
+
+Also remove any `, new()` constraint on `TCreateResultModel` / `TUpdateResultModel` in an app-specific controller base that wraps `UmbrellaGenericRepositoryApiController` — `required` members cannot satisfy `new()` (CS9040).
+
 ---
 
 ## Verification
 
 1. Each model implements the correct interface(s) from the model types table.
-2. `ICreateResultModel<int>` implementations have `int Id { get; set; }` — not `init`.
-3. `IConcurrencyStamp` implementations have `string ConcurrencyStamp { get; set; }` — not `init`.
+2. `ICreateResultModel<int>` implementations have `required int Id { get; init; }` — not `set`.
+3. Read and result models implement `IReadOnlyConcurrencyStamp` (directly or via `IUpdateResultModel`) and declare `required string ConcurrencyStamp { get; init; }` — not `set`. Only entities and `IUpdateModel<TKey>` request models implement the mutable `IConcurrencyStamp` with `{ get; set; }`.
 4. A list endpoint uses `PaginatedResultModel<Slim<Name>Model>` directly or a justified derived `record`; no unnecessary wrapper is introduced.
 5. Validation attributes are placed on the base model (not duplicated on each request model).
 6. `Slim<Name>Model` does not inherit from any base — it is independent.

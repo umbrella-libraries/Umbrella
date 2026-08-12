@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Umbrella.ModelStandards.Analysis;
 
 namespace Umbrella.Analyzers;
 
@@ -128,7 +129,7 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			INamedTypeSymbol? doNotTrimAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
 				"Umbrella.Utilities.Text.UmbrellaDoNotTrimAttribute");
 			INamedTypeSymbol? concurrencyStampSymbol = startContext.Compilation.GetTypeByMetadataName(
-				"Umbrella.Utilities.Data.Concurrency.IConcurrencyStamp");
+				ModelStandardsSymbolAnalysis.ConcurrencyStampInterfaceName);
 			INamedTypeSymbol? inputModelAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
 				"Umbrella.Analyzers.UmbrellaInputModelAttribute");
 			INamedTypeSymbol? allowNonRequiredPropertyAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
@@ -303,7 +304,7 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 				property.SetMethod is { IsInitOnly: false } &&
 				!HasAttribute(property, allowMutablePropertyAttributeSymbol) &&
 				!HasAttribute(property, doNotTrimAttributeSymbol) &&
-				!ImplementsInterfaceProperty(property, typeSymbol, concurrencyStampSymbol));
+				!ModelStandardsSymbolAnalysis.ImplementsInterfaceProperty(property, typeSymbol, concurrencyStampSymbol));
 
 	private static bool ImplementsInterfaceDirectly(INamedTypeSymbol typeSymbol, INamedTypeSymbol interfaceSymbol) =>
 		typeSymbol.Interfaces.Any(
@@ -311,22 +312,6 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 				SymbolEqualityComparer.Default.Equals(interfaceType, interfaceSymbol) ||
 				interfaceType.AllInterfaces.Any(inheritedInterface =>
 					SymbolEqualityComparer.Default.Equals(inheritedInterface, interfaceSymbol)));
-
-	private static bool ImplementsInterfaceProperty(
-		IPropertySymbol propertySymbol,
-		INamedTypeSymbol typeSymbol,
-		INamedTypeSymbol? interfaceSymbol)
-	{
-		if (interfaceSymbol is null)
-			return false;
-
-		return interfaceSymbol.GetMembers()
-			.OfType<IPropertySymbol>()
-			.Any(interfaceProperty =>
-				SymbolEqualityComparer.Default.Equals(
-					typeSymbol.FindImplementationForInterfaceMember(interfaceProperty),
-					propertySymbol));
-	}
 
 	private static bool ImplementsInterfacePropertyWithSetter(
 		INamedTypeSymbol typeSymbol,

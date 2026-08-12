@@ -20,10 +20,10 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 
 		namespace Umbrella.Utilities.Data.Concurrency
 		{
-			public interface IConcurrencyStamp
-			{
-				string ConcurrencyStamp { get; set; }
-			}
+			// Declared on single lines to hold this block at its current length. Every Diagnostic(...)
+			// expectation in this file uses absolute line numbers. Do not reformat or add lines here.
+			public interface IReadOnlyConcurrencyStamp { string ConcurrencyStamp { get; } }
+			public interface IConcurrencyStamp : IReadOnlyConcurrencyStamp { new string ConcurrencyStamp { get; set; } }
 		}
 
 		""";
@@ -219,6 +219,63 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 			""";
 
 		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task StampReachedOnlyViaReadOnlyInterface_ShouldNotTriggerDiagnostic()
+	{
+		// IUpdateResultModel derives the read-only stamp contract, so the property fills the base interface slot
+		// and not the mutable one. This only passes when the exclusion walks inherited interfaces.
+		const string source = TrimmingStubs + """
+			public interface IUpdateResultModel : Umbrella.Utilities.Data.Concurrency.IReadOnlyConcurrencyStamp
+			{
+			}
+
+			[UmbrellaInputModel]
+			public record UpdateModel : IUpdateResultModel
+			{
+				public string ConcurrencyStamp { get; set; } = "";
+			}
+			""";
+
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task StampImplementingReadOnlyInterfaceDirectly_ShouldNotTriggerDiagnostic()
+	{
+		const string source = TrimmingStubs + """
+			[UmbrellaInputModel]
+			public record UpdateModel : Umbrella.Utilities.Data.Concurrency.IReadOnlyConcurrencyStamp
+			{
+				public string ConcurrencyStamp { get; set; } = "";
+			}
+			""";
+
+		await VerifyNoDiagnosticsAsync(source);
+	}
+
+	[Fact]
+	public async Task UnrelatedReadOnlyConcurrencyInterface_ShouldNotSuppressDiagnostic()
+	{
+		// A same-named interface in the global namespace must not suppress. Guards against anyone
+		// re-implementing the exclusion as a property-name match instead of a symbol match.
+		const string source = TrimmingStubs + """
+			public interface IReadOnlyConcurrencyStamp
+			{
+				string ConcurrencyStamp { get; }
+			}
+
+			[UmbrellaInputModel]
+			public record UpdateModel : IReadOnlyConcurrencyStamp
+			{
+				public string ConcurrencyStamp { get; set; } = "";
+			}
+			""";
+
+		await VerifyAnalyzerAsync(
+			source,
+			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 29, 15, "UpdateModel"));
 	}
 
 	[Fact]

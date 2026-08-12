@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using Umbrella.ModelStandards.Analysis;
 
 namespace Umbrella.Generators.StringTrimmer;
 
@@ -15,7 +16,6 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 	private const string InterfaceName = "Umbrella.Utilities.Text.IUmbrellaTrimmable";
 	private const string DoNotTrimAttributeName = "Umbrella.Utilities.Text.UmbrellaDoNotTrimAttribute";
 	private const string AllowMutablePropertyAttributeName = "Umbrella.Analyzers.UmbrellaAllowMutablePropertyAttribute";
-	private const string ConcurrencyStampInterfaceName = "Umbrella.Utilities.Data.Concurrency.IConcurrencyStamp";
 	private const string AllowedMicrosoftNamespace = "Microsoft.AspNetCore.Identity";
 
 	/// <inheritdoc />
@@ -53,7 +53,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 				trimmableSymbol,
 				compilation.GetTypeByMetadataName(DoNotTrimAttributeName),
 				compilation.GetTypeByMetadataName(AllowMutablePropertyAttributeName),
-				compilation.GetTypeByMetadataName(ConcurrencyStampInterfaceName));
+				compilation.GetTypeByMetadataName(ModelStandardsSymbolAnalysis.ConcurrencyStampInterfaceName));
 
 			foreach (var typeInfo in typeList.Distinct())
 			{
@@ -416,7 +416,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 		TrimmingSymbolContext trimmingSymbols) =>
 		HasAttribute(propertySymbol, trimmingSymbols.DoNotTrimAttribute) ||
 		HasAttribute(propertySymbol, trimmingSymbols.AllowMutablePropertyAttribute) ||
-		ImplementsInterfaceProperty(propertySymbol, typeSymbol, trimmingSymbols.ConcurrencyStampInterface);
+		ModelStandardsSymbolAnalysis.ImplementsInterfaceProperty(propertySymbol, typeSymbol, trimmingSymbols.ConcurrencyStampInterface);
 
 	private static bool HasTrimmableBaseType(INamedTypeSymbol typeSymbol, INamedTypeSymbol trimmableInterface)
 	{
@@ -435,22 +435,6 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 		attributeSymbol is not null &&
 		symbol.GetAttributes().Any(attribute =>
 			SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeSymbol));
-
-	private static bool ImplementsInterfaceProperty(
-		IPropertySymbol propertySymbol,
-		INamedTypeSymbol typeSymbol,
-		INamedTypeSymbol? interfaceSymbol)
-	{
-		if (interfaceSymbol is null)
-			return false;
-
-		return interfaceSymbol.GetMembers()
-			.OfType<IPropertySymbol>()
-			.Any(interfaceProperty =>
-				SymbolEqualityComparer.Default.Equals(
-					typeSymbol.FindImplementationForInterfaceMember(interfaceProperty),
-					propertySymbol));
-	}
 
 	private static bool IsSystemType(INamedTypeSymbol type, string? allowNamespace = null)
 	{

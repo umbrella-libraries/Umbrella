@@ -9,5 +9,5 @@ public class NoopCreateResultModel<TKey> : ICreateResultModel<TKey>
 	where TKey : IEquatable<TKey>
 {
 	/// <inheritdoc />
-	public TKey Id { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+	public TKey Id => throw new NotImplementedException();
 }

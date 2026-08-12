@@ -8,5 +8,5 @@
 public class NoopUpdateResultModel : IUpdateResultModel
 {
 	/// <inheritdoc />
-	public string ConcurrencyStamp { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+	public string ConcurrencyStamp => throw new NotImplementedException();
 }
