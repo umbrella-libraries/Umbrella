@@ -13,11 +13,8 @@ public static partial class StringExtensions
 {
 	// lang=regex
 	private const string HtmlTagPattern = @"<.*?>";
-	// lang=regex
-	private const string EllipsisPattern = @"[\.]+$";
 
 	private static readonly Regex _htmlTagPatternRegex = CreateHtmlTagPatternRegex();
-	private static readonly Regex _ellipsisPatternRegex = CreateEllipsisPatternRegex();
 
 	/// <summary>
 	/// Removes zero-width whitespace characters from the specified <paramref name="value"/>.
@@ -395,12 +392,7 @@ public static partial class StringExtensions
 #if NET7_0_OR_GREATER
 	[GeneratedRegex(HtmlTagPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
 	private static partial Regex CreateHtmlTagPatternRegex();
-
-	[GeneratedRegex(EllipsisPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-	private static partial Regex CreateEllipsisPatternRegex();
 #else
 	private static Regex CreateHtmlTagPatternRegex() => new(HtmlTagPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-	private static Regex CreateEllipsisPatternRegex() => new(EllipsisPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
 #endif
 }

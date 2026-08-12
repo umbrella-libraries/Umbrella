@@ -11,8 +11,8 @@
 
 	<ItemGroup>
 		<PackageReference Include="NetVips" Version="3.2.0" />
-		<PackageReference Include="NetVips.Native.win-x64" Version="8.18.4" />
-		<PackageReference Include="NetVips.Native.linux-x64" Version="8.18.4" />
+		<PackageReference Include="NetVips.Native.win-x64" Version="8.18.5" />
+		<PackageReference Include="NetVips.Native.linux-x64" Version="8.18.5" />
 	</ItemGroup>
 
 	<ItemGroup>
