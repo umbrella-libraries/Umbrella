@@ -105,7 +105,8 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 		Func<TEntityResult, TItemModel, CancellationToken, Task<IOperationResult?>>? afterCreateSlimModelAsyncDelegate = null,
 		TRepositoryOptions? options = null,
 		IEnumerable<RepoOptions>? childOptions = null,
-		bool enableAuthorizationChecks = true)
+		bool enableAuthorizationChecks = true,
+		Func<int, int, SortExpression<TEntityResult>[]?, FilterExpression<TEntity>[]?, FilterExpressionCombinator?, CancellationToken, Task<IOperationResult?>>? beforeReadAllAsyncDelegate = null)
 		where TEntityResult : class, IEntity<TEntityKey>
 		where TEntity : class, IEntity<TEntityKey>
 		where TEntityKey : IEquatable<TEntityKey>
@@ -117,6 +118,14 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 
 		try
 		{
+			if (beforeReadAllAsyncDelegate is not null)
+			{
+				IOperationResult? beforeReadAllResult = await beforeReadAllAsyncDelegate(pageNumber, pageSize, sorters, filters, filterCombinator, cancellationToken).ConfigureAwait(false);
+
+				if (beforeReadAllResult is not null)
+					return beforeReadAllResult.ToTypedOperationResult<TPaginatedResultModel>();
+			}
+
 			PaginatedResultModel<TEntityResult> result = await loadReadAllDataAsyncDelegate(pageNumber, pageSize, sorters, filters, filterCombinator, options, childOptions, cancellationToken).ConfigureAwait(false);
 
 			// Authorization Checks
@@ -180,7 +189,8 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 		TRepositoryOptions? options = null,
 		IEnumerable<RepoOptions>? childOptions = null,
 		bool enableAuthorizationChecks = true,
-		bool synchronizeAccess = false)
+		bool synchronizeAccess = false,
+		Func<TEntityKey, CancellationToken, Task<IOperationResult?>>? beforeReadAsyncDelegate = null)
 		where TEntity : class, IEntity<TEntityKey>
 		where TEntityKey : IEquatable<TEntityKey>
 		where TRepository : class, IGenericDbRepository<TEntity, TRepositoryOptions, TEntityKey>
@@ -193,6 +203,14 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 
 		try
 		{
+			if (beforeReadAsyncDelegate is not null)
+			{
+				IOperationResult? beforeReadResult = await beforeReadAsyncDelegate(id, cancellationToken).ConfigureAwait(false);
+
+				if (beforeReadResult is not null)
+					return beforeReadResult.ToTypedOperationResult<TModel>();
+			}
+
 			if (synchronizeAccess && id.ToString() is string syncKey)
 				syncRoot = await SynchronizationManager.GetSynchronizationRootAndWaitAsync<TEntity>(syncKey, cancellationToken).ConfigureAwait(false);
 

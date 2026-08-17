@@ -396,6 +396,7 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// <seealso cref="UmbrellaDataAccessApiController.ReadAllAsync"/>
 	[HttpGet("SearchSlim")]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
 	public virtual Task<IActionResult> SearchSlimAsync(int pageNumber, int pageSize, [FromQuery] SortExpression<TEntity>[]? sorters = null, [FromQuery] FilterExpression<TEntity>[]? filters = null, FilterExpressionCombinator? filterCombinator = null, CancellationToken cancellationToken = default)
 		=> SlimReadEndpointEnabled
 		? ReadAllAsync<TEntity, TEntity, TEntityKey, TRepositoryOptions, TSlimModel, TPaginatedResultModel>(
@@ -411,7 +412,8 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 			AfterReadSlimEntityAsync,
 			SearchSlimRepoOptions,
 			SearchSlimChildRepoOptions,
-			AuthorizationSlimReadChecksEnabled)
+			AuthorizationSlimReadChecksEnabled,
+			BeforeSearchSlimAsync)
 		: Task.FromResult<IActionResult>(MethodNotAllowed("Unsupported Endpoint"));
 
 	/// <summary>
@@ -432,6 +434,7 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// <seealso cref="UmbrellaDataAccessApiController.ReadAsync"/>
 	[HttpGet]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
 	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
 	public virtual Task<IActionResult> GetAsync(TEntityKey id, CancellationToken cancellationToken = default)
 		=> ReadEndpointEnabled
@@ -447,7 +450,8 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 			GetRepoOptions,
 			GetChildRepoOptions,
 			AuthorizationReadChecksEnabled,
-			GetLock)
+			GetLock,
+			BeforeReadAsync)
 		: Task.FromResult<IActionResult>(MethodNotAllowed("Unsupported Endpoint"));
 
 	/// <summary>
@@ -588,6 +592,32 @@ public abstract class UmbrellaGenericRepositoryApiController<TSlimModel, TPagina
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The entity with the specified <paramref name="id"/>.</returns>
 	protected virtual Task<TEntity?> LoadReadEntityAsync(TEntityKey id, bool trackChanges, IncludeMap<TEntity>? includeMap, TRepositoryOptions? options, IEnumerable<RepoOptions>? childOptions, CancellationToken cancellationToken) => Repository.Value.FindByIdAsync(id, trackChanges, includeMap, options, childOptions, cancellationToken);
+
+	/// <summary>
+	/// This is called by the <c>SearchSlim</c> endpoint before any entities are loaded from the <typeparamref name="TRepository"/>.
+	/// </summary>
+	/// <remarks>
+	/// By default, this does nothing. Override this method to validate the search request and return a non-null result to short-circuit the operation.
+	/// </remarks>
+	/// <param name="pageNumber">The page number.</param>
+	/// <param name="pageSize">Size of the page.</param>
+	/// <param name="sorters">The sorters.</param>
+	/// <param name="filters">The filters.</param>
+	/// <param name="filterCombinator">The filter combinator.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>An optional <see cref="IOperationResult"/> containing an error. Return <see langword="null"/> to continue the operation.</returns>
+	protected virtual Task<IOperationResult?> BeforeSearchSlimAsync(int pageNumber, int pageSize, SortExpression<TEntity>[]? sorters, FilterExpression<TEntity>[]? filters, FilterExpressionCombinator? filterCombinator, CancellationToken cancellationToken) => Task.FromResult<IOperationResult?>(null);
+
+	/// <summary>
+	/// This is called by the <c>Get</c> endpoint before the entity is loaded from the <typeparamref name="TRepository"/>.
+	/// </summary>
+	/// <remarks>
+	/// By default, this does nothing. Override this method to validate the read request and return a non-null result to short-circuit the operation.
+	/// </remarks>
+	/// <param name="id">The identifier.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>An optional <see cref="IOperationResult"/> containing an error. Return <see langword="null"/> to continue the operation.</returns>
+	protected virtual Task<IOperationResult?> BeforeReadAsync(TEntityKey id, CancellationToken cancellationToken) => Task.FromResult<IOperationResult?>(null);
 
 	/// <summary>
 	/// This is called by the <c>SearchSlim</c> endpoint immediately after the <typeparamref name="TPaginatedResultModel"/> has been created containing the mapped

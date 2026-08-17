@@ -91,6 +91,7 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 	/// </remarks>
 	[HttpGet("SearchSlim")]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
 	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
 	public virtual Task<IActionResult> SearchSlimAsync(int pageNumber, int pageSize, [FromQuery] IEnumerable<SortExpressionDescriptor>? sorters = null, [FromQuery] IEnumerable<FilterExpressionDescriptor>? filters = null, FilterExpressionCombinator? filterCombinator = null, CancellationToken cancellationToken = default)
 		=> ExecuteOperationAsync<TPaginatedResultModel>(
@@ -115,6 +116,7 @@ public abstract class UmbrellaGenericRepositoryDataServiceApiController<TSlimIte
 	/// </remarks>
 	[HttpGet]
 	[UmbrellaProducesResponseType(StatusCodes.Status200OK)]
+	[UmbrellaProducesResponseType(StatusCodes.Status400BadRequest)]
 	[UmbrellaProducesResponseType(StatusCodes.Status404NotFound)]
 	[UmbrellaProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
 	public virtual Task<IActionResult> GetAsync(TEntityKey id, CancellationToken cancellationToken = default)

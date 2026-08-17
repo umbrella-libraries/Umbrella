@@ -123,6 +123,7 @@ public interface IUmbrellaRepositoryCoreDataService
 	/// <remarks>
 	/// The lifecycle of this method internally is as follows:
 	/// <list type="number">
+	/// <item>Invokes the <paramref name="beforeReadAllAsyncDelegate"/> to validate the request before loading any data.</item>
 	/// <item>Invokes the <paramref name="loadReadAllDataAsyncDelegate"/> to load all <typeparamref name="TEntityResult"/> instances from the repository.</item>
 	/// <item>Perform authorization, if enabled via the <paramref name="enableAuthorizationChecks"/> property, on all loaded entities.</item>
 	/// <item>Creates the <typeparamref name="TPaginatedResultModel"/> and maps the <typeparamref name="TEntityResult"/> instances to <typeparamref name="TItemModel"/> instances using the the <paramref name="mapReadAllEntitiesDelegate"/>, falling back to using the <see cref="IUmbrellaMapper"/> if not specified.</item>
@@ -149,8 +150,9 @@ public interface IUmbrellaRepositoryCoreDataService
 	/// <param name="options">The repository options.</param>
 	/// <param name="childOptions">The child repository options.</param>
 	/// <param name="enableAuthorizationChecks">Specifies whether imperative authorization checks are performed on entities loaded from the repository.</param>
+	/// <param name="beforeReadAllAsyncDelegate">The optional delegate invoked before loading data. Return a non-null result to short-circuit the operation.</param>
 	/// <returns>The operation result</returns>
-	Task<IOperationResult<TPaginatedResultModel?>> ReadAllAsync<TEntityResult, TEntity, TEntityKey, TRepositoryOptions, TItemModel, TPaginatedResultModel>(int pageNumber, int pageSize, SortExpression<TEntityResult>[]? sorters, FilterExpression<TEntity>[]? filters, FilterExpressionCombinator? filterCombinator, Func<int, int, SortExpression<TEntityResult>[]?, FilterExpression<TEntity>[]?, FilterExpressionCombinator?, TRepositoryOptions?, IEnumerable<RepoOptions>?, CancellationToken, Task<PaginatedResultModel<TEntityResult>>> loadReadAllDataAsyncDelegate, CancellationToken cancellationToken, Func<IReadOnlyCollection<TEntityResult>, TItemModel[]>? mapReadAllEntitiesDelegate = null, Func<PaginatedResultModel<TEntityResult>, TPaginatedResultModel, SortExpression<TEntityResult>[]?, FilterExpression<TEntity>[]?, FilterExpressionCombinator?, CancellationToken, Task>? afterCreateSearchSlimPaginatedModelAsyncDelegate = null, Func<TEntityResult, TItemModel, CancellationToken, Task<IOperationResult?>>? afterCreateSlimModelAsyncDelegate = null, TRepositoryOptions? options = null, IEnumerable<RepoOptions>? childOptions = null, bool enableAuthorizationChecks = true)
+	Task<IOperationResult<TPaginatedResultModel?>> ReadAllAsync<TEntityResult, TEntity, TEntityKey, TRepositoryOptions, TItemModel, TPaginatedResultModel>(int pageNumber, int pageSize, SortExpression<TEntityResult>[]? sorters, FilterExpression<TEntity>[]? filters, FilterExpressionCombinator? filterCombinator, Func<int, int, SortExpression<TEntityResult>[]?, FilterExpression<TEntity>[]?, FilterExpressionCombinator?, TRepositoryOptions?, IEnumerable<RepoOptions>?, CancellationToken, Task<PaginatedResultModel<TEntityResult>>> loadReadAllDataAsyncDelegate, CancellationToken cancellationToken, Func<IReadOnlyCollection<TEntityResult>, TItemModel[]>? mapReadAllEntitiesDelegate = null, Func<PaginatedResultModel<TEntityResult>, TPaginatedResultModel, SortExpression<TEntityResult>[]?, FilterExpression<TEntity>[]?, FilterExpressionCombinator?, CancellationToken, Task>? afterCreateSearchSlimPaginatedModelAsyncDelegate = null, Func<TEntityResult, TItemModel, CancellationToken, Task<IOperationResult?>>? afterCreateSlimModelAsyncDelegate = null, TRepositoryOptions? options = null, IEnumerable<RepoOptions>? childOptions = null, bool enableAuthorizationChecks = true, Func<int, int, SortExpression<TEntityResult>[]?, FilterExpression<TEntity>[]?, FilterExpressionCombinator?, CancellationToken, Task<IOperationResult?>>? beforeReadAllAsyncDelegate = null)
 		where TEntityResult : class, IEntity<TEntityKey>
 		where TEntity : class, IEntity<TEntityKey>
 		where TEntityKey : IEquatable<TEntityKey>
@@ -164,6 +166,7 @@ public interface IUmbrellaRepositoryCoreDataService
 	/// <remarks>
 	/// The lifecycle of this method internally is as follows:
 	/// <list type="number">
+	/// <item>Invokes the <paramref name="beforeReadAsyncDelegate"/> to validate the request before loading the entity.</item>
 	/// <item>Synchronize execution of this method if enabled using <paramref name="synchronizeAccess"/>.</item>
 	/// <item>Load the <typeparamref name="TEntity"/> from the <typeparamref name="TRepository"/>.</item>
 	/// <item>Perform authorization, if enabled via the <paramref name="enableAuthorizationChecks"/> property, on the entity.</item>
@@ -188,8 +191,9 @@ public interface IUmbrellaRepositoryCoreDataService
 	/// <param name="childOptions">The child options.</param>
 	/// <param name="enableAuthorizationChecks">Specifies whether imperative authorization checks are performed on entities loaded from the repository.</param>
 	/// <param name="synchronizeAccess">Specifies whether exclusive access should be enabled using code that synchronizes using the <paramref name="id"/> and type name of the entity.</param>
+	/// <param name="beforeReadAsyncDelegate">The optional delegate invoked before loading the entity. Return a non-null result to short-circuit the operation.</param>
 	/// <returns>The operation result</returns>
-	Task<IOperationResult<TModel?>> ReadAsync<TEntity, TEntityKey, TRepository, TRepositoryOptions, TModel>(TEntityKey id, Lazy<TRepository> repository, CancellationToken cancellationToken, Func<TEntityKey, bool, IncludeMap<TEntity>?, TRepositoryOptions?, IEnumerable<RepoOptions>?, CancellationToken, Task<TEntity?>>? loadReadEntityAsyncDelegate = null, Func<TEntity, TModel>? mapperCallback = null, Func<TEntity, TModel, Task<IOperationResult?>>? afterReadEntityCallback = null, bool trackChanges = false, IncludeMap<TEntity>? map = null, TRepositoryOptions? options = null, IEnumerable<RepoOptions>? childOptions = null, bool enableAuthorizationChecks = true, bool synchronizeAccess = false)
+	Task<IOperationResult<TModel?>> ReadAsync<TEntity, TEntityKey, TRepository, TRepositoryOptions, TModel>(TEntityKey id, Lazy<TRepository> repository, CancellationToken cancellationToken, Func<TEntityKey, bool, IncludeMap<TEntity>?, TRepositoryOptions?, IEnumerable<RepoOptions>?, CancellationToken, Task<TEntity?>>? loadReadEntityAsyncDelegate = null, Func<TEntity, TModel>? mapperCallback = null, Func<TEntity, TModel, Task<IOperationResult?>>? afterReadEntityCallback = null, bool trackChanges = false, IncludeMap<TEntity>? map = null, TRepositoryOptions? options = null, IEnumerable<RepoOptions>? childOptions = null, bool enableAuthorizationChecks = true, bool synchronizeAccess = false, Func<TEntityKey, CancellationToken, Task<IOperationResult?>>? beforeReadAsyncDelegate = null)
 		where TEntity : class, IEntity<TEntityKey>
 		where TEntityKey : IEquatable<TEntityKey>
 		where TRepository : class, IGenericDbRepository<TEntity, TRepositoryOptions, TEntityKey>

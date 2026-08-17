@@ -557,7 +557,8 @@ public abstract class UmbrellaRepositoryDataService<TItem, TSlimItem, TPaginated
 				AfterReadSlimEntityAsync,
 				SearchSlimRepoOptions,
 				SearchSlimChildRepoOptions,
-				AuthorizationSlimReadChecksEnabled).ConfigureAwait(false);
+				AuthorizationSlimReadChecksEnabled,
+				BeforeSearchSlimAsync).ConfigureAwait(false);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { pageNumber, pageSize, sorters, filters, filterCombinator }))
 		{
@@ -587,7 +588,8 @@ public abstract class UmbrellaRepositoryDataService<TItem, TSlimItem, TPaginated
 				GetRepoOptions,
 				GetChildRepoOptions,
 				AuthorizationReadChecksEnabled,
-				GetLock).ConfigureAwait(false);
+				GetLock,
+				BeforeReadAsync).ConfigureAwait(false);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { id }))
 		{
@@ -674,6 +676,32 @@ public abstract class UmbrellaRepositoryDataService<TItem, TSlimItem, TPaginated
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The entity with the specified <paramref name="id"/>.</returns>
 	protected virtual Task<TEntity?> LoadReadEntityAsync(TEntityKey id, bool trackChanges, IncludeMap<TEntity>? includeMap, TRepositoryOptions? options, IEnumerable<RepoOptions>? childOptions, CancellationToken cancellationToken) => Repository.Value.FindByIdAsync(id, trackChanges, includeMap, options, childOptions, cancellationToken);
+
+	/// <summary>
+	/// This is called by <see cref="FindAllSlimAsync"/> before any entities are loaded from the <typeparamref name="TRepository"/>.
+	/// </summary>
+	/// <remarks>
+	/// By default, this does nothing. Override this method to validate the search request and return a non-null result to short-circuit the operation.
+	/// </remarks>
+	/// <param name="pageNumber">The page number.</param>
+	/// <param name="pageSize">Size of the page.</param>
+	/// <param name="sorters">The sorters.</param>
+	/// <param name="filters">The filters.</param>
+	/// <param name="filterCombinator">The filter combinator.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>An optional <see cref="IOperationResult"/> containing an error. Return <see langword="null"/> to continue the operation.</returns>
+	protected virtual Task<IOperationResult?> BeforeSearchSlimAsync(int pageNumber, int pageSize, SortExpression<TEntity>[]? sorters, FilterExpression<TEntity>[]? filters, FilterExpressionCombinator? filterCombinator, CancellationToken cancellationToken) => Task.FromResult<IOperationResult?>(null);
+
+	/// <summary>
+	/// This is called by <see cref="FindByIdAsync"/> before the entity is loaded from the <typeparamref name="TRepository"/>.
+	/// </summary>
+	/// <remarks>
+	/// By default, this does nothing. Override this method to validate the read request and return a non-null result to short-circuit the operation.
+	/// </remarks>
+	/// <param name="id">The identifier.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>An optional <see cref="IOperationResult"/> containing an error. Return <see langword="null"/> to continue the operation.</returns>
+	protected virtual Task<IOperationResult?> BeforeReadAsync(TEntityKey id, CancellationToken cancellationToken) => Task.FromResult<IOperationResult?>(null);
 
 	/// <summary>
 	/// This is called by the <c>SearchSlim</c> endpoint immediately after the <typeparamref name="TPaginatedResultModel"/> has been created containing the mapped
