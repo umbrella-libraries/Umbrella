@@ -67,6 +67,8 @@ Result models are always populated by a mapper, never by the controller base, so
 
 All analyzer-matched model types use `record`; project type does not determine whether they are `partial`. Use `partial` only when a source generator actually needs to add an implementation.
 
+The `[UmbrellaInputModel]`, `[UmbrellaAllowNonRequiredProperty]` and `[UmbrellaAllowMutableProperty]` attributes used below are in the `Umbrella.Analyzers` namespace but ship in the **`Umbrella.Analyzers.Abstractions`** package. Before scaffolding, confirm the models project can resolve them; if not, add that package (without `PrivateAssets` — it is a runtime dependency) per `umbrella-dotnet-install-analyzers`. Do not work around an unresolved attribute by hand-declaring a local copy.
+
 Models bound to UI or request inputs and intentionally using mutable setters belong to an `[UmbrellaInputModel]` hierarchy. The attribute permits `set` and non-`required` input properties, but it does not permit mutable collection contracts or missing getters. A type that declares mutable trimmable string properties must directly implement `IUmbrellaTrimmable`. Make that type `partial` when the installed trimming generator supplies the implementation; otherwise provide the interface implementation manually without forcing `partial`.
 
 Read and result models normally remain immutable records with `required ... { get; init; }`. Do not mark them as input models merely because the same feature also has a Blazor form.

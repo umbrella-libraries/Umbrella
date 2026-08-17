@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<!-- The attributes intentionally stay in the Umbrella.Analyzers namespace so that the analyzer's
+		     GetTypeByMetadataName lookups and all existing consumer code continue to work unchanged. -->
+		<RootNamespace>Umbrella.Analyzers</RootNamespace>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<PackageId>Umbrella.Analyzers.Abstractions</PackageId>
+		<!-- These attributes are packaged separately from Umbrella.Analyzers because applying an attribute writes a
+		     permanent assembly reference into the consuming assembly. Umbrella.Analyzers is a development dependency and
+		     is therefore stripped from publish output, so shipping the attributes there caused a FileNotFoundException at
+		     runtime whenever the consuming assembly was reflected over. -->
+		<Description>Attributes applied in consuming code to opt model types and properties out of the Umbrella model standards analyzers. Reference this package normally - do not set PrivateAssets on it, because an applied attribute must remain loadable at runtime.</Description>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="..\..\..\icon.png" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+</Project>

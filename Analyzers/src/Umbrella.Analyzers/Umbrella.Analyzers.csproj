@@ -23,8 +23,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- Analyzer assets only. This assembly must never be packed into lib/ - it is a development
+		     dependency and is stripped from publish output, so anything a consumer references from it
+		     would fail to load at runtime. Consumer-facing attributes live in Umbrella.Analyzers.Abstractions. -->
 		<None Include="bin\$(Configuration)\netstandard2.0\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-		<None Include="bin\$(Configuration)\netstandard2.0\$(AssemblyName).dll" Pack="true" PackagePath="lib/netstandard2.0" Visible="false" />
 	</ItemGroup>
 
 	<ItemGroup>

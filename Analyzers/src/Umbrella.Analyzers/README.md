@@ -10,6 +10,19 @@ Most rules are configured with **Error** severity (compile blocking); UA015, UA0
 <PackageReference Include="Umbrella.Analyzers" Version="1.0.0" PrivateAssets="all" />
 ```
 
+If you apply any of the model opt-out attributes (`[UmbrellaInputModel]`, `[UmbrellaAllowNonRequiredProperty]`,
+`[UmbrellaAllowMutableProperty]`), also reference the companion package from every project that applies them:
+
+```xml
+<PackageReference Include="Umbrella.Analyzers.Abstractions" Version="1.0.0" />
+```
+
+**Do not set `PrivateAssets` on `Umbrella.Analyzers.Abstractions`.** Applying an attribute writes a permanent
+assembly reference into the consuming assembly, so the attribute assembly must reach publish output. Marking it
+private, or shipping the attributes from the analyzer package itself (which is a development dependency and is
+stripped from publish output), produces a `FileNotFoundException` at runtime as soon as anything reflects over the
+decorated type — for example ASP.NET Core building model metadata during `MapControllers`.
+
 ## Rules
 
 | ID    | Title                                                                 | Description                                                                                                   |
@@ -39,6 +52,9 @@ Most rules are configured with **Error** severity (compile blocking); UA015, UA0
 Use the type-level input marker for models populated by UI/model binding. Use a narrowly scoped
 property attribute, with a justification, for exceptional properties. Attribute matching uses the
 exact `Umbrella.Analyzers` symbol; similarly named application attributes have no effect.
+
+These attributes are supplied by the `Umbrella.Analyzers.Abstractions` package (in the `Umbrella.Analyzers`
+namespace), not by the analyzer package — see [Installation](#installation).
 
 | Attribute | Effect |
 |-----------|--------|

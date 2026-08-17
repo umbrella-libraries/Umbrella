@@ -17,6 +17,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- The opt-out attributes live here rather than in the analyzer assemblies, so test
+		     compilations need this reference to resolve them. See CreateCompilation. -->
+		<ProjectReference Include="..\..\src\Umbrella.Analyzers.Abstractions\Umbrella.Analyzers.Abstractions.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Using Include="Xunit" />
 	</ItemGroup>
 	

@@ -171,7 +171,11 @@ public abstract class AnalyzerTestBase<T>
 			.. (((string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))?.Split(Path.PathSeparator) ?? []),
 			typeof(Diagnostic).Assembly.Location,
 			typeof(CSharpCompilation).Assembly.Location,
-			typeof(T).Assembly.Location
+			typeof(T).Assembly.Location,
+
+			// The analyzer opt-out attributes are packaged separately from the analyzers, so they are
+			// not reachable via typeof(T).Assembly. Test sources that apply them need this reference.
+			typeof(global::Umbrella.Analyzers.UmbrellaInputModelAttribute).Assembly.Location
 		];
 
 		MetadataReference[] references =

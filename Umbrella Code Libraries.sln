@@ -322,6 +322,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.CodingStandards.To
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.CodingStandards.Tools.Test", "Tools\test\Umbrella.CodingStandards.Tools.Test\Umbrella.CodingStandards.Tools.Test.csproj", "{D1E7DA7C-3812-4B25-BB8F-CE71877C14CB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.Analyzers.Abstractions", "Analyzers\src\Umbrella.Analyzers.Abstractions\Umbrella.Analyzers.Abstractions.csproj", "{09536CFA-BA16-4966-A125-D699BE69AD8D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		AzureDevOps|Any CPU = AzureDevOps|Any CPU
@@ -2027,6 +2029,24 @@ Global
 		{D1E7DA7C-3812-4B25-BB8F-CE71877C14CB}.Release|x64.Build.0 = Release|Any CPU
 		{D1E7DA7C-3812-4B25-BB8F-CE71877C14CB}.Release|x86.ActiveCfg = Release|Any CPU
 		{D1E7DA7C-3812-4B25-BB8F-CE71877C14CB}.Release|x86.Build.0 = Release|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.AzureDevOps|Any CPU.ActiveCfg = AzureDevOps|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.AzureDevOps|Any CPU.Build.0 = AzureDevOps|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.AzureDevOps|x64.ActiveCfg = AzureDevOps|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.AzureDevOps|x64.Build.0 = AzureDevOps|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.AzureDevOps|x86.ActiveCfg = AzureDevOps|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.AzureDevOps|x86.Build.0 = AzureDevOps|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.Debug|x64.Build.0 = Debug|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.Debug|x86.Build.0 = Debug|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.Release|x64.ActiveCfg = Release|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.Release|x64.Build.0 = Release|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.Release|x86.ActiveCfg = Release|Any CPU
+		{09536CFA-BA16-4966-A125-D699BE69AD8D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -2165,6 +2185,7 @@ Global
 		{C5A1F8CA-4E30-4A58-BA09-386DB45FBDCC} = {D590B21D-BACB-2984-AA9D-5CD62006016B}
 		{3EAC3983-FB85-4FB3-BA50-A91D938DDB14} = {67824254-6371-76FD-C40D-F076954CCDE1}
 		{D1E7DA7C-3812-4B25-BB8F-CE71877C14CB} = {F9AB5661-066F-FE61-8147-DE58B0B17705}
+		{09536CFA-BA16-4966-A125-D699BE69AD8D} = {D8FC59AF-00A0-4187-8622-15AF5457E48F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {44122B62-15B4-40B8-86EA-4E3A743B0C7C}
