@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Umbrella.AI.Tools.Models;
+namespace Umbrella.AI.Tools.Bundling.Models;
 
 public sealed class AiBundleManifest
 {

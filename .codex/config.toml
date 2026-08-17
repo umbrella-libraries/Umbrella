@@ -1,14 +1,8 @@
-# ai-bundle:umbrella:codex-mcp:start
-[mcp_servers."aspire"]
-"command" = "aspire"
-"args" = ["agent", "mcp"]
-
-[mcp_servers."playwright"]
+# ai-bundle:codex-mcp:start
+[mcp_servers."ado-remarkablexcp"]
 "command" = "npx"
-"args" = ["-y", "@playwright/mcp@latest"]
-
-[mcp_servers."microsoft-learn"]
-"url" = "https://learn.microsoft.com/api/mcp"
+"args" = ["-y", "@azure-devops/mcp", "remarkablexcp", "--authentication", "envvar"]
+"env" = { "ADO_MCP_AUTH_TOKEN" = "${REMARKABLEXCP_ADO_PAT}" }
 
 [mcp_servers."ado-remote-mcp"]
 "url" = "https://mcp.dev.azure.com/"
@@ -19,20 +13,26 @@
 "args" = ["-y", "@azure-devops/mcp", "zinofi", "--authentication", "envvar"]
 "env" = { "ADO_MCP_AUTH_TOKEN" = "${ZINOFI_ADO_PAT}" }
 
-[mcp_servers."ado-remarkablexcp"]
+[mcp_servers."aspire"]
+"command" = "aspire"
+"args" = ["agent", "mcp"]
+
+[mcp_servers."azure"]
 "command" = "npx"
-"args" = ["-y", "@azure-devops/mcp", "remarkablexcp", "--authentication", "envvar"]
-"env" = { "ADO_MCP_AUTH_TOKEN" = "${REMARKABLEXCP_ADO_PAT}" }
+"args" = ["-y", "@azure/mcp@latest", "server", "start"]
 
 [mcp_servers."chrome-devtools"]
 "command" = "npx"
 "args" = ["-y", "chrome-devtools-mcp@latest"]
 
+[mcp_servers."microsoft-learn"]
+"url" = "https://learn.microsoft.com/api/mcp"
+
 [mcp_servers."nuget"]
 "command" = "dnx"
 "args" = ["NuGet.Mcp.Server", "--source", "https://api.nuget.org/v3/index.json", "--yes"]
 
-[mcp_servers."azure"]
+[mcp_servers."playwright"]
 "command" = "npx"
-"args" = ["-y", "@azure/mcp@latest", "server", "start"]
-# ai-bundle:umbrella:codex-mcp:end
+"args" = ["-y", "@playwright/mcp@latest"]
+# ai-bundle:codex-mcp:end

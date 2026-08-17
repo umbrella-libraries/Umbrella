@@ -1,6 +1,7 @@
 {
   "bundleId": "umbrella",
   "displayName": "Umbrella AI Skills and Agents",
+  "catalogName": "Umbrella",
   "managedDirectories": [
     ".ai-shared\\bundles\\umbrella"
   ],
@@ -54,5 +55,10 @@
     }
   ],
   "mcpSourcePath": ".mcp.json",
-  "exclusionsStarterPath": ".ai-shared\\bundles\\umbrella\\templates\\nuget-upgrade-exclusions.starter.json"
+  "starterFiles": [
+    {
+      "sourcePath": ".ai-shared\\bundles\\umbrella\\templates\\nuget-upgrade-exclusions.starter.json",
+      "targetPath": "nuget-upgrade-exclusions.json"
+    }
+  ]
 }

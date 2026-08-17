@@ -5,17 +5,32 @@ using System.Text.RegularExpressions;
 using Tomlyn;
 using Tomlyn.Model;
 
-namespace Umbrella.AI.Tools.Services;
+namespace Umbrella.AI.Tools.Bundling.Services;
 
+/// <summary>
+/// Manages the shared, co-owned MCP region in <c>.codex/config.toml</c>.
+/// </summary>
+/// <remarks>
+/// The region holds the deterministic union of the servers contributed by every installed bundle.
+/// A per-bundle region cannot work here: TOML has no way to express the same <c>[mcp_servers.x]</c>
+/// table twice, so two bundles declaring a shared server would produce an unparseable document.
+/// Servers are rendered in ordinal name order so the result does not depend on install order.
+/// </remarks>
 internal static partial class CodexMcpConfigManager
 {
     public const string RelativePath = ".codex\\config.toml";
 
+    private const string StartMarker = "# ai-bundle:codex-mcp:start";
+    private const string EndMarker = "# ai-bundle:codex-mcp:end";
+
+    /// <summary>
+    /// Renders servers as Codex <c>[mcp_servers.*]</c> tables in ordinal name order.
+    /// </summary>
     public static string RenderManagedContent(JsonObject servers)
     {
         var builder = new StringBuilder();
 
-        foreach ((string serverName, JsonNode? serverNode) in servers)
+        foreach ((string serverName, JsonNode? serverNode) in servers.OrderBy(x => x.Key, StringComparer.Ordinal))
         {
             if (serverNode is not JsonObject server)
             {
@@ -56,22 +71,37 @@ internal static partial class CodexMcpConfigManager
     public static string ComputeManagedHash(string content)
         => HashUtility.ComputeStringHash(NormalizeNewLines(content).Trim());
 
+    /// <summary>
+    /// Rebuilds <c>.codex/config.toml</c> so the shared region contains <paramref name="unionServers"/>.
+    /// </summary>
+    /// <param name="existingContent">Current file content, or empty when the file does not exist.</param>
+    /// <param name="unionServers">Every server owned by any installed bundle, including this one.</param>
+    /// <param name="ownServers">The servers this bundle contributes, used for tracked drift detection.</param>
+    /// <param name="expectedOwnHash">Manifest hash of this bundle's contribution, or null on first install.</param>
+    /// <param name="force">Take ownership of drifted or unowned content.</param>
+    /// <param name="allowUntrackedManagedBlockReplacement">Allow replacing a region this bundle does not yet track.</param>
+    /// <param name="previouslyOwnedServers">
+    /// Servers this bundle's manifest currently records. A server the region still declares because
+    /// this bundle used to own it is being cleaned up by this very operation, so it must not be
+    /// mistaken for user-authored content.
+    /// </param>
     public static bool TryBuildUpdatedConfig(
         string existingContent,
-        string bundleId,
-        JsonObject servers,
-        string? expectedManagedHash,
+        JsonObject unionServers,
+        JsonObject ownServers,
+        string? expectedOwnHash,
         bool force,
         bool allowUntrackedManagedBlockReplacement,
+        IEnumerable<string> previouslyOwnedServers,
         out string updatedContent,
         out List<string> conflicts)
     {
         conflicts = [];
-        string renderedContent;
+        string unionContent;
 
         try
         {
-            renderedContent = RenderManagedContent(servers);
+            unionContent = RenderManagedContent(unionServers);
         }
         catch (InvalidOperationException exception)
         {
@@ -80,49 +110,56 @@ internal static partial class CodexMcpConfigManager
             return false;
         }
 
-        bool hasManagedBlock = TryGetManagedContent(existingContent, bundleId, out string? managedContent);
-        string renderedHash = ComputeManagedHash(renderedContent);
+        // A legacy per-bundle region predates the shared region. Absorb any that remain: every server
+        // they declared is already in .mcp.json, so the union re-render reproduces them.
+        string workingContent = AbsorbLegacyRegions(existingContent, out bool absorbedLegacy);
+        bool hasSharedRegion = TryGetManagedContent(workingContent, out string? regionContent);
+        bool migrating = absorbedLegacy && !hasSharedRegion;
 
-        if (expectedManagedHash is not null)
+        var regionServerNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (hasSharedRegion)
         {
-            if (!hasManagedBlock)
+            if (!TryReadMcpServerNames(regionContent!, out HashSet<string> parsedRegionNames, out string? regionParseError))
             {
-                if (!force)
-                {
-                    conflicts.Add($"Managed Codex MCP block is missing: {RelativePath}");
-                }
+                conflicts.Add($"Could not parse the managed Codex MCP region in {RelativePath}: {regionParseError}");
+                updatedContent = existingContent;
+                return false;
             }
-            else if (!force && ComputeManagedHash(managedContent!) != expectedManagedHash)
-            {
-                conflicts.Add($"Managed Codex MCP block was modified: {RelativePath}");
-            }
-        }
-        else if (hasManagedBlock
-            && !allowUntrackedManagedBlockReplacement
-            && !force
-            && ComputeManagedHash(managedContent!) != renderedHash)
-        {
-            conflicts.Add($"Unowned Codex MCP block already exists: {RelativePath}");
+
+            regionServerNames = parsedRegionNames;
         }
 
-        string unmanagedContent = RemoveManagedBlock(existingContent, bundleId);
+        if (!migrating && !force)
+        {
+            ValidateRegionOwnership(
+                expectedOwnHash,
+                hasSharedRegion,
+                regionServerNames,
+                unionServers,
+                ownServers,
+                allowUntrackedManagedBlockReplacement,
+                previouslyOwnedServers,
+                conflicts);
+        }
 
-        if (!TryReadMcpServerNames(unmanagedContent, out HashSet<string> existingServerNames, out string? parseError))
+        string unmanagedContent = RemoveManagedRegion(workingContent);
+
+        if (!TryReadMcpServerNames(unmanagedContent, out HashSet<string> outsideServerNames, out string? parseError))
         {
             conflicts.Add($"Could not parse {RelativePath}: {parseError}");
             updatedContent = existingContent;
             return false;
         }
 
-        string[] collisions = servers
+        string[] collisions = [.. unionServers
             .Select(x => x.Key)
-            .Where(existingServerNames.Contains)
-            .Order(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+            .Where(outsideServerNames.Contains)
+            .Order(StringComparer.OrdinalIgnoreCase)];
 
         if (collisions.Length > 0 && !force)
         {
-            conflicts.AddRange(collisions.Select(x => $"Codex MCP server already exists outside the managed block: {x}"));
+            conflicts.AddRange(collisions.Select(x => $"Codex MCP server already exists outside the managed region: {x}"));
         }
 
         if (conflicts.Count > 0)
@@ -135,14 +172,14 @@ internal static partial class CodexMcpConfigManager
         {
             unmanagedContent = RemoveServerTables(unmanagedContent, collisions);
 
-            if (!TryReadMcpServerNames(unmanagedContent, out existingServerNames, out parseError))
+            if (!TryReadMcpServerNames(unmanagedContent, out outsideServerNames, out parseError))
             {
                 conflicts.Add($"Could not parse {RelativePath} after taking ownership: {parseError}");
                 updatedContent = existingContent;
                 return false;
             }
 
-            string[] remainingCollisions = collisions.Where(existingServerNames.Contains).ToArray();
+            string[] remainingCollisions = [.. collisions.Where(outsideServerNames.Contains)];
 
             if (remainingCollisions.Length > 0)
             {
@@ -152,9 +189,9 @@ internal static partial class CodexMcpConfigManager
             }
         }
 
-        updatedContent = hasManagedBlock && collisions.Length == 0
-            ? ReplaceManagedBlock(existingContent, bundleId, renderedContent)
-            : AppendManagedBlock(unmanagedContent, bundleId, renderedContent);
+        updatedContent = hasSharedRegion && collisions.Length == 0
+            ? ReplaceManagedRegion(workingContent, unionContent)
+            : AppendManagedRegion(unmanagedContent, unionContent);
 
         if (!TryParseToml(updatedContent, out parseError))
         {
@@ -166,12 +203,63 @@ internal static partial class CodexMcpConfigManager
         return true;
     }
 
-    public static bool TryGetManagedContent(string content, string bundleId, out string? managedContent)
+    private static void ValidateRegionOwnership(
+        string? expectedOwnHash,
+        bool hasSharedRegion,
+        HashSet<string> regionServerNames,
+        JsonObject unionServers,
+        JsonObject ownServers,
+        bool allowUntrackedManagedBlockReplacement,
+        IEnumerable<string> previouslyOwnedServers,
+        List<string> conflicts)
     {
-        string startMarker = GetStartMarker(bundleId);
-        string endMarker = GetEndMarker(bundleId);
-        int startIndex = content.IndexOf(startMarker, StringComparison.Ordinal);
-        int endIndex = content.IndexOf(endMarker, StringComparison.Ordinal);
+        if (expectedOwnHash is not null)
+        {
+            if (!hasSharedRegion)
+            {
+                conflicts.Add($"Managed Codex MCP region is missing: {RelativePath}");
+                return;
+            }
+
+            string[] missing = [.. ownServers
+                .Select(x => x.Key)
+                .Where(x => !regionServerNames.Contains(x))
+                .Order(StringComparer.OrdinalIgnoreCase)];
+
+            if (missing.Length > 0)
+            {
+                conflicts.Add(
+                    $"Managed Codex MCP region no longer declares owned servers ({string.Join(", ", missing)}): {RelativePath}");
+            }
+        }
+        // Untracked: a region may legitimately already exist because another bundle owns it, and sync
+        // regenerates it outright, so neither case is user-authored content.
+        else if (!hasSharedRegion || allowUntrackedManagedBlockReplacement)
+        {
+            return;
+        }
+
+        // A server inside the markers that no installed bundle accounts for is user-authored content
+        // whether or not this bundle already tracks the region, so the check runs on both paths. A
+        // server this bundle is dropping in this same operation is still accounted for.
+        var accountedFor = new HashSet<string>(previouslyOwnedServers, StringComparer.OrdinalIgnoreCase);
+        accountedFor.UnionWith(unionServers.Select(x => x.Key));
+
+        string[] unowned = [.. regionServerNames
+            .Where(x => !accountedFor.Contains(x))
+            .Order(StringComparer.OrdinalIgnoreCase)];
+
+        if (unowned.Length > 0)
+        {
+            conflicts.Add(
+                $"Managed Codex MCP region contains servers owned by no bundle ({string.Join(", ", unowned)}): {RelativePath}");
+        }
+    }
+
+    public static bool TryGetManagedContent(string content, out string? managedContent)
+    {
+        int startIndex = content.IndexOf(StartMarker, StringComparison.Ordinal);
+        int endIndex = content.IndexOf(EndMarker, StringComparison.Ordinal);
 
         if (startIndex < 0 || endIndex < 0 || endIndex < startIndex)
         {
@@ -179,15 +267,62 @@ internal static partial class CodexMcpConfigManager
             return false;
         }
 
-        int contentStart = startIndex + startMarker.Length;
-        managedContent = content[contentStart..endIndex].Trim('\r', '\n');
+        managedContent = content[(startIndex + StartMarker.Length)..endIndex].Trim('\r', '\n');
         return true;
     }
 
-    public static string RemoveManagedBlock(string content, string bundleId)
+    /// <summary>
+    /// Reads the server names declared inside the shared region, if present.
+    /// </summary>
+    public static bool TryGetManagedServerNames(string content, out HashSet<string> serverNames, out string? error)
     {
-        string startMarker = GetStartMarker(bundleId);
-        string endMarker = GetEndMarker(bundleId);
+        if (!TryGetManagedContent(content, out string? managedContent))
+        {
+            serverNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            error = null;
+            return false;
+        }
+
+        return TryReadMcpServerNames(managedContent!, out serverNames, out error);
+    }
+
+    public static string RemoveManagedRegion(string content) => RemoveRegion(content, StartMarker, EndMarker);
+
+    /// <summary>
+    /// Removes every legacy per-bundle <c>ai-bundle:&lt;id&gt;:codex-mcp</c> region, regardless of bundle id.
+    /// </summary>
+    public static string AbsorbLegacyRegions(string content, out bool absorbedLegacy)
+    {
+        absorbedLegacy = false;
+        string working = content;
+
+        while (true)
+        {
+            Match match = LegacyStartMarkerRegex().Match(working);
+
+            if (!match.Success)
+            {
+                return working;
+            }
+
+            string bundleId = match.Groups["bundleId"].Value;
+            string legacyStart = $"# ai-bundle:{bundleId}:codex-mcp:start";
+            string legacyEnd = $"# ai-bundle:{bundleId}:codex-mcp:end";
+            string updated = RemoveRegion(working, legacyStart, legacyEnd);
+
+            if (updated == working)
+            {
+                // Start marker with no matching end marker: leave it alone rather than loop forever.
+                return working;
+            }
+
+            absorbedLegacy = true;
+            working = updated;
+        }
+    }
+
+    private static string RemoveRegion(string content, string startMarker, string endMarker)
+    {
         int startIndex = content.IndexOf(startMarker, StringComparison.Ordinal);
         int endIndex = content.IndexOf(endMarker, StringComparison.Ordinal);
 
@@ -206,7 +341,7 @@ internal static partial class CodexMcpConfigManager
         return content.Remove(lineStart, lineEnd - lineStart);
     }
 
-    private static string AppendManagedBlock(string unmanagedContent, string bundleId, string renderedContent)
+    private static string AppendManagedRegion(string unmanagedContent, string renderedContent)
     {
         string newLine = DetectNewLine(unmanagedContent);
         var builder = new StringBuilder();
@@ -226,7 +361,7 @@ internal static partial class CodexMcpConfigManager
             }
         }
 
-        _ = builder.Append(GetStartMarker(bundleId));
+        _ = builder.Append(StartMarker);
         _ = builder.Append(newLine);
 
         if (renderedContent.Length > 0)
@@ -235,27 +370,25 @@ internal static partial class CodexMcpConfigManager
             _ = builder.Append(newLine);
         }
 
-        _ = builder.Append(GetEndMarker(bundleId));
+        _ = builder.Append(EndMarker);
         _ = builder.Append(newLine);
         return builder.ToString();
     }
 
-    private static string ReplaceManagedBlock(string content, string bundleId, string renderedContent)
+    private static string ReplaceManagedRegion(string content, string renderedContent)
     {
-        string startMarker = GetStartMarker(bundleId);
-        string endMarker = GetEndMarker(bundleId);
-        int startIndex = content.IndexOf(startMarker, StringComparison.Ordinal);
-        int endIndex = content.IndexOf(endMarker, startIndex + startMarker.Length, StringComparison.Ordinal);
+        int startIndex = content.IndexOf(StartMarker, StringComparison.Ordinal);
+        int endIndex = content.IndexOf(EndMarker, startIndex + StartMarker.Length, StringComparison.Ordinal);
         string newLine = DetectNewLine(content);
-        string replacement = startMarker + newLine;
+        string replacement = StartMarker + newLine;
 
         if (renderedContent.Length > 0)
         {
             replacement += renderedContent.Replace("\n", newLine, StringComparison.Ordinal) + newLine;
         }
 
-        replacement += endMarker;
-        return content[..startIndex] + replacement + content[(endIndex + endMarker.Length)..];
+        replacement += EndMarker;
+        return content[..startIndex] + replacement + content[(endIndex + EndMarker.Length)..];
     }
 
     private static string RemoveServerTables(string content, IReadOnlyCollection<string> serverNames)
@@ -272,6 +405,12 @@ internal static partial class CodexMcpConfigManager
             if (tableMatch.Success)
             {
                 skipSection = TryGetServerName(tableMatch, out string? serverName) && names.Contains(serverName!);
+            }
+            else if (AnyTableHeaderRegex().IsMatch(line))
+            {
+                // Any other table header ends the skipped section. Without this, everything after a
+                // removed server table, such as [model_providers.*] or [profiles.*], would be dropped.
+                skipSection = false;
             }
 
             if (!skipSection)
@@ -408,10 +547,6 @@ internal static partial class CodexMcpConfigManager
 
     private static string QuoteString(string value) => JsonSerializer.Serialize(value);
 
-    private static string GetStartMarker(string bundleId) => $"# ai-bundle:{bundleId}:codex-mcp:start";
-
-    private static string GetEndMarker(string bundleId) => $"# ai-bundle:{bundleId}:codex-mcp:end";
-
     private static string NormalizeNewLines(string content)
         => content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
 
@@ -429,6 +564,14 @@ internal static partial class CodexMcpConfigManager
 
     [GeneratedRegex(@"^\s*\[\[?\s*mcp_servers\s*\.\s*(?:""(?<double>(?:\\.|[^""])*)""|'(?<single>[^']*)'|(?<bare>[A-Za-z0-9_-]+))", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
     private static partial Regex TableHeaderRegex();
+
+    [GeneratedRegex(@"^\s*\[\[?\s*(?:""(?:\\.|[^""])*""|'[^']*'|[A-Za-z0-9_-]+)", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
+    private static partial Regex AnyTableHeaderRegex();
+
+    // \r? matters: the marker line is CRLF in a Windows-authored file, and RegexOptions.Multiline
+    // anchors $ before the \n, leaving the \r to match explicitly.
+    [GeneratedRegex(@"^#[ \t]*ai-bundle:(?<bundleId>[^:\r\n]+):codex-mcp:start[ \t]*\r?$", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
+    private static partial Regex LegacyStartMarkerRegex();
 
     [GeneratedRegex(@"\n[ \t]*\n(?:[ \t]*\n)+", RegexOptions.CultureInvariant)]
     private static partial Regex MultipleBlankLinesRegex();

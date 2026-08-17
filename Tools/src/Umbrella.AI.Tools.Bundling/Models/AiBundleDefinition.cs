@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Umbrella.AI.Tools.Models;
+namespace Umbrella.AI.Tools.Bundling.Models;
 
 public sealed class AiBundleDefinition
 {
@@ -9,6 +9,19 @@ public sealed class AiBundleDefinition
 
     [JsonPropertyName("displayName")]
     public string DisplayName { get; set; } = "";
+
+    /// <summary>
+    /// Short name used as the heading prefix in generated skill and agent catalogue blocks, e.g.
+    /// <c>Umbrella</c> renders <c>## Umbrella Skills</c>. Falls back to <see cref="BundleId"/>.
+    /// </summary>
+    [JsonPropertyName("catalogName")]
+    public string CatalogName { get; set; } = "";
+
+    /// <summary>
+    /// Resolves the catalogue heading prefix, falling back to the bundle id when unset.
+    /// </summary>
+    [JsonIgnore]
+    public string ResolvedCatalogName => string.IsNullOrWhiteSpace(CatalogName) ? BundleId : CatalogName;
 
     [JsonPropertyName("managedDirectories")]
     public List<string> ManagedDirectories { get; set; } = [];
@@ -25,8 +38,24 @@ public sealed class AiBundleDefinition
     [JsonPropertyName("mcpSourcePath")]
     public string McpSourcePath { get; set; } = "";
 
-    [JsonPropertyName("exclusionsStarterPath")]
-    public string ExclusionsStarterPath { get; set; } = "";
+    /// <summary>
+    /// Files copied into the target repository on install only when the destination does not already
+    /// exist. Used for starter configuration a consuming repository then owns outright.
+    /// </summary>
+    [JsonPropertyName("starterFiles")]
+    public List<StarterFileDefinition> StarterFiles { get; set; } = [];
+}
+
+/// <summary>
+/// A starter file copied on install when absent, then left entirely to the consuming repository.
+/// </summary>
+public sealed class StarterFileDefinition
+{
+    [JsonPropertyName("sourcePath")]
+    public string SourcePath { get; set; } = "";
+
+    [JsonPropertyName("targetPath")]
+    public string TargetPath { get; set; } = "";
 }
 
 public sealed class AdapterDirectoryDefinition

@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace Umbrella.AI.Tools.Services;
+namespace Umbrella.AI.Tools.Bundling.Services;
 
 internal static class HashUtility
 {

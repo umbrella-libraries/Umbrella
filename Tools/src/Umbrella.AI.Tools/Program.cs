@@ -1,18 +1,12 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Umbrella.AI.Tools;
-using Umbrella.AI.Tools.Services;
+using System.Reflection;
+using Umbrella.AI.Tools.Bundling;
+using Umbrella.AI.Tools.Bundling.Models;
 
-using IHost host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices(services =>
-    {
-        _ = services.AddSingleton(_ => new AiBundleInstaller(
-            AiBundleAssetLocator.ResolveAssetRoot(),
-            "Umbrella.AI.Tools",
-            typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0"));
-        _ = services.AddSingleton<Main>();
-    })
-    .Build();
-
-var main = host.Services.GetRequiredService<Main>();
-return await main.ExecuteAsync(args);
+return await AiBundleCommandLineHost.RunAsync(args, new BundleHostOptions
+{
+    BundleId = "umbrella",
+    DisplayName = "Umbrella AI skills and agents",
+    InstallerPackageId = "Umbrella.AI.Tools",
+    InstallerVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0",
+    AssetRootEnvironmentVariable = "UMBRELLA_AI_ASSET_ROOT"
+});

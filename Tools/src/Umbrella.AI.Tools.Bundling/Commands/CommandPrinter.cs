@@ -1,6 +1,6 @@
-using Umbrella.AI.Tools.Models;
+using Umbrella.AI.Tools.Bundling.Models;
 
-namespace Umbrella.AI.Tools.Commands;
+namespace Umbrella.AI.Tools.Bundling.Commands;
 
 internal static class CommandPrinter
 {

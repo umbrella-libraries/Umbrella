@@ -1,16 +1,45 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Diagnostics;
-using Umbrella.AI.Tools.Models;
+using Umbrella.AI.Tools.Bundling.Models;
 
-namespace Umbrella.AI.Tools.Services;
+namespace Umbrella.AI.Tools.Bundling.Services;
 
-public sealed partial class AiBundleInstaller(string assetRoot, string installerPackageId, string installerVersion)
+/// <summary>
+/// Installs, updates, inspects, and removes an AI bundle in a target repository. The engine holds no
+/// knowledge of any particular bundle's content: everything specific to a bundle comes from
+/// <see cref="BundleHostOptions"/> and the bundle's <c>bundle.json</c>.
+/// </summary>
+public sealed partial class AiBundleInstaller
 {
-    private const string BundleDefinitionRelativePath = ".ai-shared\\bundles\\umbrella\\bundle.json";
+    private readonly BundleHostOptions _options;
+    private readonly Lazy<string> _assetRoot;
     private readonly JsonSerializerOptions _serializerOptions = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
+
+    /// <summary>
+    /// Creates an installer that resolves its asset root on first use, so commands that work purely
+    /// from a repository checkout (such as <c>sync</c>) never require shipped assets to be present.
+    /// </summary>
+    public AiBundleInstaller(BundleHostOptions options, Lazy<string> assetRoot)
+    {
+        Guard.IsNotNull(options);
+        Guard.IsNotNull(assetRoot);
+        _options = options;
+        _assetRoot = assetRoot;
+    }
+
+    /// <summary>
+    /// Creates an installer against an already resolved asset root.
+    /// </summary>
+    public AiBundleInstaller(BundleHostOptions options, string assetRoot)
+        : this(options, new Lazy<string>(() => assetRoot))
+    {
+    }
+
+    private string BundleDefinitionRelativePath => _options.BundleDefinitionRelativePath;
 
     public OperationResult Install(CommandOptions options)
     {
@@ -30,10 +59,10 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
 
         if (repoRoot is null)
         {
-            return Failure($"Could not locate '{NormalizePath(BundleDefinitionRelativePath)}' in '{Path.GetFullPath(startDirectory)}' or any parent directory. Run sync from within an installed repository or pass --root-dir <repo-root>.");
+            return Failure($"Could not locate '{BundleDefinitionRelativePath}' in '{Path.GetFullPath(startDirectory)}' or any parent directory. Run sync from within an installed repository or pass --root-dir <repo-root>.");
         }
 
-        string bundleDefPath = Path.Combine(repoRoot, NormalizePath(BundleDefinitionRelativePath));
+        string bundleDefPath = Path.Combine(repoRoot, BundleDefinitionRelativePath);
         AiBundleDefinition bundle = JsonSerializer.Deserialize<AiBundleDefinition>(File.ReadAllText(bundleDefPath), _serializerOptions)
             ?? throw new InvalidOperationException($"Failed to read bundle definition at {bundleDefPath}.");
 
@@ -44,6 +73,14 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         foreach (AdapterDirectoryDefinition adapter in bundle.AdapterDirectories)
         {
             string sourceDirectory = Path.Combine(repoRoot, NormalizePath(adapter.Source));
+
+            if (!Directory.Exists(sourceDirectory))
+            {
+                return Failure(
+                    $"Adapter source directory '{NormalizePath(adapter.Source)}' does not exist under '{repoRoot}'. "
+                    + "'sync' regenerates adapters from canonical sources, so it must run in the repository that authors "
+                    + "the bundle rather than a repository the bundle was installed into.");
+            }
 
             foreach (AdapterTarget target in adapter.Targets)
             {
@@ -69,7 +106,7 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
             string skillsSource = Path.Combine(repoRoot, NormalizePath(
                 bundle.AdapterDirectories
                     .FirstOrDefault(a => a.Targets.Any(t => t.Destination.Equals(firstBlockSkillsDir, StringComparison.OrdinalIgnoreCase)))
-                    ?.Source ?? ".ai-shared\\skills"));
+                    ?.Source ?? Path.Combine(".ai-shared", "skills")));
             List<(string Name, string Description)> skills = ReadSkillMetadata(skillsSource);
 
             foreach (SkillListBlockDefinition blockConfig in bundle.SkillListBlocks)
@@ -79,10 +116,11 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
                     : ReadAgentMetadata(Path.Combine(repoRoot, NormalizePath(blockConfig.AgentsDirectory)));
                 string blockPath = Path.Combine(repoRoot, NormalizePath(blockConfig.TargetPath));
                 _ = Directory.CreateDirectory(Path.GetDirectoryName(blockPath)!);
-                File.WriteAllText(blockPath, GenerateSkillListBlock(skills, blockConfig.SkillsDirectory, agents, blockConfig.AgentsDirectory));
+                File.WriteAllText(blockPath, GenerateSkillListBlock(bundle.ResolvedCatalogName, skills, blockConfig.SkillsDirectory, agents, blockConfig.AgentsDirectory));
                 result.Messages.Add($"Generated: {NormalizePath(blockConfig.TargetPath)}");
             }
         }
+
         // Re-check every target against a fresh read of its source. This catches sources
         // that were modified while the sync was running, which would otherwise leave a
         // stale target behind a "Success" result.
@@ -114,13 +152,23 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
                     + "Edit that object and run sync to regenerate compatibility outputs.");
             }
 
-            JsonObject managedServers = sourceServers.DeepClone().AsObject();
+            JsonObject allServers = sourceServers.DeepClone().AsObject();
+            List<AiBundleManifest> otherManifests = [.. LoadAllManifests(repoRoot).Where(x => !IsThisBundle(x, bundle))];
+
+            // Sync regenerates derived outputs; it never transfers ownership. A server another installed
+            // bundle already owns, and this manifest does not, stays recorded against that bundle alone.
+            JsonObject ownServers = RestrictServers(allServers, allServers
+                .Select(x => x.Key)
+                .Where(x => manifest is null || OwnsServer(manifest, x) || !otherManifests.Any(y => OwnsServer(y, x))));
+
+            JsonObject unionServers = BuildUnionServers(allServers, ownServers, otherManifests);
 
             string codexPath = Path.Combine(repoRoot, NormalizePath(CodexMcpConfigManager.RelativePath));
             string existingCodexConfig = File.Exists(codexPath) ? File.ReadAllText(codexPath) : string.Empty;
 
-            if (!CodexMcpConfigManager.TryBuildUpdatedConfig(existingCodexConfig, bundle.BundleId, managedServers,
-                expectedManagedHash: null, force: false, allowUntrackedManagedBlockReplacement: true,
+            if (!CodexMcpConfigManager.TryBuildUpdatedConfig(existingCodexConfig, unionServers, ownServers,
+                expectedOwnHash: null, force: false, allowUntrackedManagedBlockReplacement: true,
+                previouslyOwnedServers: [],
                 out string updatedCodexConfig, out List<string> codexConflicts))
             {
                 result.Success = false;
@@ -131,7 +179,8 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
             JsonObject legacyServers = GetOrCreateMcpServers(mcpRoot);
             legacyServers.Clear();
 
-            foreach ((string serverName, JsonNode? serverNode) in managedServers)
+            // The compatibility mirror is a complete copy of canonical 'servers', ownership aside.
+            foreach ((string serverName, JsonNode? serverNode) in allServers)
             {
                 legacyServers[serverName] = serverNode?.DeepClone();
             }
@@ -146,13 +195,12 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
             {
                 manifest.ManagedMcpServers =
                 [
-                    .. managedServers.Select(x => new NameHashRecord { Name = x.Key, Hash = HashUtility.ComputeJsonHash(x.Value!) })
+                    .. ownServers.Select(x => new NameHashRecord { Name = x.Key, Hash = HashUtility.ComputeJsonHash(x.Value!) })
                 ];
-                string managedCodexContent = CodexMcpConfigManager.RenderManagedContent(managedServers);
                 manifest.ManagedCodexMcp = new PathHashRecord
                 {
-                    Path = CodexMcpConfigManager.RelativePath,
-                    Hash = CodexMcpConfigManager.ComputeManagedHash(managedCodexContent)
+                    Path = NormalizePath(CodexMcpConfigManager.RelativePath),
+                    Hash = CodexMcpConfigManager.ComputeManagedHash(CodexMcpConfigManager.RenderManagedContent(ownServers))
                 };
             }
         }
@@ -162,8 +210,11 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
             foreach (PathHashRecord record in manifest.ManagedFiles)
             {
                 string targetPath = Path.Combine(repoRoot, NormalizePath(record.Path));
+
                 if (File.Exists(targetPath))
+                {
                     record.Hash = HashUtility.ComputeFileHash(targetPath);
+                }
             }
 
             File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest, _serializerOptions));
@@ -173,13 +224,13 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         return result;
     }
 
-    private static string? LocateRepoRoot(string startDirectory)
+    private string? LocateRepoRoot(string startDirectory)
     {
         var directory = new DirectoryInfo(Path.GetFullPath(startDirectory));
 
         while (directory is not null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, NormalizePath(BundleDefinitionRelativePath))))
+            if (File.Exists(Path.Combine(directory.FullName, BundleDefinitionRelativePath)))
             {
                 return directory.FullName;
             }
@@ -202,49 +253,13 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         foreach (string skillDir in Directory.GetDirectories(skillsDirectory))
         {
             string skillMdPath = Path.Combine(skillDir, "SKILL.md");
+
             if (!File.Exists(skillMdPath))
             {
                 continue;
             }
 
-            string name = "", description = "";
-            bool inFrontmatter = false;
-
-            foreach (string line in File.ReadLines(skillMdPath))
-            {
-                if (line.Trim() == "---")
-                {
-                    if (!inFrontmatter)
-                    {
-                        inFrontmatter = true;
-                        continue;
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-
-                if (!inFrontmatter)
-                {
-                    break;
-                }
-
-                Match match = FrontmatterPropertyRegex().Match(line);
-                if (match.Success)
-                {
-                    string rawValue = match.Groups[2].Value;
-                    string value = rawValue.Length >= 2 && rawValue[0] == '\'' && rawValue[^1] == '\''
-                        ? rawValue[1..^1]
-                        : rawValue;
-
-                    switch (match.Groups[1].Value)
-                    {
-                        case "name": name = value; break;
-                        case "description": description = value; break;
-                    }
-                }
-            }
+            (string name, string description) = ReadFrontmatterMetadata(skillMdPath);
 
             if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(description))
             {
@@ -301,6 +316,7 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
             }
 
             Match match = FrontmatterPropertyRegex().Match(line);
+
             if (!match.Success)
             {
                 continue;
@@ -322,39 +338,41 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
     }
 
     private static string GenerateSkillListBlock(
+        string catalogName,
         List<(string Name, string Description)> skills,
         string skillsDirectory,
         List<(string Name, string Description, string FileName)> agents,
         string? agentsDirectory)
     {
         var sb = new StringBuilder();
-        _ = sb.AppendLine("## Umbrella Skills");
+        _ = sb.AppendLine(CultureInfo.InvariantCulture, $"## {catalogName} Skills");
         _ = sb.AppendLine();
-        _ = sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"The following skills are available in `{skillsDirectory}`. Read a skill's `SKILL.md` for full instructions before using it.");
+        _ = sb.AppendLine(CultureInfo.InvariantCulture, $"The following skills are available in `{skillsDirectory}`. Read a skill's `SKILL.md` for full instructions before using it.");
         _ = sb.AppendLine();
 
         foreach ((string name, string description) in skills)
         {
-            _ = sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"- `{name}` -- {description}");
+            _ = sb.AppendLine(CultureInfo.InvariantCulture, $"- `{name}` -- {description}");
         }
 
         if (agents.Count > 0 && !string.IsNullOrWhiteSpace(agentsDirectory))
         {
             _ = sb.AppendLine();
-            _ = sb.AppendLine("## Umbrella Agents");
+            _ = sb.AppendLine(CultureInfo.InvariantCulture, $"## {catalogName} Agents");
             _ = sb.AppendLine();
-            _ = sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"The following agent playbooks are available in `{agentsDirectory}`. For a matching task, read the relevant playbook before starting work.");
+            _ = sb.AppendLine(CultureInfo.InvariantCulture, $"The following agent playbooks are available in `{agentsDirectory}`. For a matching task, read the relevant playbook before starting work.");
             _ = sb.AppendLine();
 
             foreach ((string name, string description, string fileName) in agents)
             {
                 string agentPath = NormalizePath(Path.Combine(agentsDirectory, fileName));
-                _ = sb.AppendLine(System.Globalization.CultureInfo.InvariantCulture, $"- `{name}` -- {description} Playbook: `{agentPath}`.");
+                _ = sb.AppendLine(CultureInfo.InvariantCulture, $"- `{name}` -- {description} Playbook: `{agentPath}`.");
             }
         }
 
         return sb.ToString().TrimEnd() + "\n";
     }
+
     public OperationResult GetStatus(CommandOptions options)
     {
         Guard.IsNotNull(options);
@@ -375,7 +393,7 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
 
         foreach (PathHashRecord fileRecord in manifest.ManagedFiles)
         {
-            string targetPath = Path.Combine(targetRoot, fileRecord.Path);
+            string targetPath = Path.Combine(targetRoot, NormalizePath(fileRecord.Path));
 
             if (File.Exists(targetPath) && HashUtility.ComputeFileHash(targetPath) == fileRecord.Hash)
             {
@@ -393,7 +411,7 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
 
         foreach (PathHashRecord blockRecord in manifest.ManagedBlocks)
         {
-            string targetPath = Path.Combine(targetRoot, blockRecord.Path);
+            string targetPath = Path.Combine(targetRoot, NormalizePath(blockRecord.Path));
 
             if (TryGetManagedBlock(targetPath, bundle.BundleId, out string? content) && HashUtility.ComputeStringHash(content!) == blockRecord.Hash)
             {
@@ -411,6 +429,8 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         JsonObject? servers = mcpRoot is null ? null : GetOrCreateServers(mcpRoot);
         int healthyServers = 0;
         int driftedServers = 0;
+        int coOwnedServers = 0;
+        List<AiBundleManifest> otherManifests = [.. LoadAllManifests(targetRoot).Where(x => !IsThisBundle(x, bundle))];
 
         foreach (NameHashRecord serverRecord in manifest.ManagedMcpServers)
         {
@@ -419,6 +439,11 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
             if (serverNode is not null && HashUtility.ComputeJsonHash(serverNode) == serverRecord.Hash)
             {
                 healthyServers++;
+
+                if (otherManifests.Any(x => OwnsServer(x, serverRecord.Name)))
+                {
+                    coOwnedServers++;
+                }
             }
             else
             {
@@ -434,16 +459,40 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         {
             string codexPath = Path.Combine(targetRoot, NormalizePath(manifest.ManagedCodexMcp.Path));
             string codexContent = File.Exists(codexPath) ? File.ReadAllText(codexPath) : string.Empty;
+            JsonObject ownServers = RestrictServers(servers, manifest.ManagedMcpServers.Select(x => x.Name));
+            string expectedOwnHash = CodexMcpConfigManager.ComputeManagedHash(CodexMcpConfigManager.RenderManagedContent(ownServers));
 
-            if (CodexMcpConfigManager.TryGetManagedContent(codexContent, bundle.BundleId, out string? managedContent)
-                && CodexMcpConfigManager.ComputeManagedHash(managedContent!) == manifest.ManagedCodexMcp.Hash)
+            if (!CodexMcpConfigManager.TryGetManagedServerNames(codexContent, out HashSet<string> regionNames, out string? regionError))
             {
-                healthyCodexConfigs++;
+                driftedCodexConfigs++;
+                result.Conflicts.Add(regionError is null
+                    ? $"Managed Codex MCP region is missing: {manifest.ManagedCodexMcp.Path}"
+                    : $"Managed Codex MCP region could not be parsed: {regionError}");
+            }
+            else if (manifest.ManagedMcpServers.Any(x => !regionNames.Contains(x.Name)))
+            {
+                driftedCodexConfigs++;
+                result.Conflicts.Add($"Managed Codex MCP region no longer declares all owned servers: {manifest.ManagedCodexMcp.Path}");
+            }
+            else if (expectedOwnHash != manifest.ManagedCodexMcp.Hash)
+            {
+                driftedCodexConfigs++;
+                result.Conflicts.Add($"Managed Codex MCP contribution drifted: {manifest.ManagedCodexMcp.Path}");
+            }
+            // The recorded hash covers this bundle's contribution rendered in isolation, so it cannot
+            // see an edit made inside the shared region itself. Compare the region as it sits in the
+            // file against a fresh render of the union every installed bundle accounts for.
+            else if (!CodexMcpConfigManager.TryGetManagedContent(codexContent, out string? regionContent)
+                || CodexMcpConfigManager.ComputeManagedHash(regionContent!)
+                    != CodexMcpConfigManager.ComputeManagedHash(
+                        CodexMcpConfigManager.RenderManagedContent(BuildUnionServers(servers, ownServers, otherManifests))))
+            {
+                driftedCodexConfigs++;
+                result.Conflicts.Add($"Managed Codex MCP region content drifted: {manifest.ManagedCodexMcp.Path}");
             }
             else
             {
-                driftedCodexConfigs++;
-                result.Conflicts.Add($"Managed Codex MCP config drifted: {manifest.ManagedCodexMcp.Path}");
+                healthyCodexConfigs++;
             }
         }
 
@@ -451,8 +500,14 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         result.Messages.Add($"Manifest: {manifestPath}");
         result.Messages.Add($"Files healthy: {healthyFiles}, drifted: {driftedFiles}");
         result.Messages.Add($"Managed blocks healthy: {healthyBlocks}, drifted: {driftedBlocks}");
-        result.Messages.Add($"Owned MCP servers healthy: {healthyServers}, drifted: {driftedServers}");
+        result.Messages.Add($"Owned MCP servers healthy: {healthyServers}, drifted: {driftedServers}, co-owned with another bundle: {coOwnedServers}");
         result.Messages.Add($"Codex MCP configs healthy: {healthyCodexConfigs}, drifted: {driftedCodexConfigs}");
+
+        if (otherManifests.Count > 0)
+        {
+            result.Messages.Add($"Other bundles installed here: {string.Join(", ", otherManifests.Select(x => x.BundleId).Order(StringComparer.OrdinalIgnoreCase))}");
+        }
+
         result.Success = result.Conflicts.Count == 0;
         return result;
     }
@@ -473,10 +528,11 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         }
 
         AiBundleManifest manifest = LoadManifest(manifestPath)!;
+        List<AiBundleManifest> survivingManifests = [.. LoadAllManifests(targetRoot).Where(x => !IsThisBundle(x, bundle))];
 
         foreach (PathHashRecord record in manifest.ManagedFiles)
         {
-            string targetPath = Path.Combine(targetRoot, record.Path);
+            string targetPath = Path.Combine(targetRoot, NormalizePath(record.Path));
 
             if (File.Exists(targetPath) && !options.Force && HashUtility.ComputeFileHash(targetPath) != record.Hash)
             {
@@ -486,7 +542,7 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
 
         foreach (PathHashRecord record in manifest.ManagedBlocks)
         {
-            string targetPath = Path.Combine(targetRoot, record.Path);
+            string targetPath = Path.Combine(targetRoot, NormalizePath(record.Path));
 
             if (TryGetManagedBlock(targetPath, bundle.BundleId, out string? content)
                 && !options.Force
@@ -512,14 +568,27 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         }
 
         string codexPath = Path.Combine(targetRoot, NormalizePath(manifest.ManagedCodexMcp?.Path ?? CodexMcpConfigManager.RelativePath));
-        string codexContent = File.Exists(codexPath) ? File.ReadAllText(codexPath) : string.Empty;
 
-        if (manifest.ManagedCodexMcp is not null
-            && !options.Force
-            && (!CodexMcpConfigManager.TryGetManagedContent(codexContent, bundle.BundleId, out string? managedCodexContent)
-                || CodexMcpConfigManager.ComputeManagedHash(managedCodexContent!) != manifest.ManagedCodexMcp.Hash))
+        // A repository installed by an earlier tool version still carries a legacy per-bundle region.
+        // Absorb it exactly as install and update do, so removal neither reads it as a missing shared
+        // region nor leaves its server tables behind.
+        string codexContent = CodexMcpConfigManager.AbsorbLegacyRegions(
+            File.Exists(codexPath) ? File.ReadAllText(codexPath) : string.Empty,
+            out bool absorbedLegacyCodex);
+        bool migratingCodex = absorbedLegacyCodex && !CodexMcpConfigManager.TryGetManagedContent(codexContent, out _);
+
+        if (manifest.ManagedCodexMcp is not null && !options.Force && !migratingCodex)
         {
-            result.Conflicts.Add($"Managed Codex MCP config was modified or removed: {manifest.ManagedCodexMcp.Path}");
+            if (!CodexMcpConfigManager.TryGetManagedServerNames(codexContent, out HashSet<string> regionNames, out string? regionError))
+            {
+                result.Conflicts.Add(regionError is null
+                    ? $"Managed Codex MCP region was removed: {manifest.ManagedCodexMcp.Path}"
+                    : $"Managed Codex MCP region could not be parsed: {regionError}");
+            }
+            else if (manifest.ManagedMcpServers.Any(x => !regionNames.Contains(x.Name)))
+            {
+                result.Conflicts.Add($"Managed Codex MCP region no longer declares all owned servers: {manifest.ManagedCodexMcp.Path}");
+            }
         }
 
         if (result.Conflicts.Count > 0)
@@ -530,7 +599,7 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
 
         foreach (PathHashRecord record in manifest.ManagedFiles)
         {
-            string targetPath = Path.Combine(targetRoot, record.Path);
+            string targetPath = Path.Combine(targetRoot, NormalizePath(record.Path));
 
             if (File.Exists(targetPath))
             {
@@ -542,7 +611,7 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
 
         foreach (PathHashRecord record in manifest.ManagedBlocks)
         {
-            string targetPath = Path.Combine(targetRoot, record.Path);
+            string targetPath = Path.Combine(targetRoot, NormalizePath(record.Path));
 
             if (File.Exists(targetPath))
             {
@@ -555,6 +624,12 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         {
             foreach (NameHashRecord record in manifest.ManagedMcpServers)
             {
+                if (survivingManifests.Any(x => OwnsServer(x, record.Name)))
+                {
+                    result.Messages.Add($"Retained co-owned MCP server: {record.Name}");
+                    continue;
+                }
+
                 _ = servers.Remove(record.Name);
                 _ = legacyServers?.Remove(record.Name);
                 result.Messages.Add($"Removed MCP server: {record.Name}");
@@ -573,7 +648,28 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
 
         if (manifest.ManagedCodexMcp is not null && File.Exists(codexPath))
         {
-            string updatedCodexContent = CodexMcpConfigManager.RemoveManagedBlock(codexContent, bundle.BundleId);
+            // Re-render the shared region from whatever the surviving bundles still own.
+            JsonObject remainingUnion = RestrictServers(servers, survivingManifests.SelectMany(x => x.ManagedMcpServers).Select(x => x.Name));
+            string updatedCodexContent;
+
+            if (remainingUnion.Count == 0)
+            {
+                updatedCodexContent = CodexMcpConfigManager.RemoveManagedRegion(codexContent);
+                result.Messages.Add($"Removed Codex MCP region: {manifest.ManagedCodexMcp.Path}");
+            }
+            else if (CodexMcpConfigManager.TryBuildUpdatedConfig(codexContent, remainingUnion, remainingUnion,
+                expectedOwnHash: null, force: true, allowUntrackedManagedBlockReplacement: true,
+                previouslyOwnedServers: manifest.ManagedMcpServers.Select(x => x.Name),
+                out updatedCodexContent, out List<string> codexConflicts))
+            {
+                result.Messages.Add($"Rebuilt Codex MCP region for remaining bundles: {manifest.ManagedCodexMcp.Path}");
+            }
+            else
+            {
+                result.Success = false;
+                result.Conflicts.AddRange(codexConflicts);
+                return result;
+            }
 
             if (string.IsNullOrWhiteSpace(updatedCodexContent) && options.CleanEmptyMcp)
             {
@@ -584,8 +680,6 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
             {
                 File.WriteAllText(codexPath, updatedCodexContent);
             }
-
-            result.Messages.Add($"Removed Codex MCP config: {manifest.ManagedCodexMcp.Path}");
         }
 
         if (File.Exists(manifestPath))
@@ -616,9 +710,7 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
             return Failure($"Bundle '{bundle.BundleId}' is not installed in {targetRoot}. Run install first.");
         }
 
-        var otherManifests = LoadAllManifests(targetRoot)
-            .Where(x => !x.BundleId.Equals(bundle.BundleId, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        List<AiBundleManifest> otherManifests = [.. LoadAllManifests(targetRoot).Where(x => !IsThisBundle(x, bundle))];
 
         Dictionary<string, ManagedFileEntry> sourceFiles = EnumerateAllManagedFiles(bundle);
         JsonObject sourceServers = LoadSourceServers(bundle.McpSourcePath);
@@ -628,12 +720,53 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         ValidateManagedBlocks(targetRoot, bundle, currentManifest, options, result);
         ValidateManagedMcp(targetRoot, sourceServers, currentManifest, otherManifests, options, result);
 
+        string targetMcpPath = Path.Combine(targetRoot, ".mcp.json");
+        JsonObject targetMcpRoot = LoadMcpRoot(targetMcpPath) ?? [];
+        JsonObject targetServers = GetOrCreateServers(targetMcpRoot);
+        JsonObject targetMcpServers = GetOrCreateMcpServers(targetMcpRoot);
+
+        // Project the post-merge server set so the Codex region can be validated and rendered before
+        // anything is written. Every conflict must be known before the first mutation.
+        JsonObject projectedServers = targetServers.DeepClone().AsObject();
+        List<string> staleServerNames = currentManifest is null
+            ? []
+            : [.. currentManifest.ManagedMcpServers.Select(x => x.Name).Where(x => !sourceServers.ContainsKey(x))];
+
+        // A bundle that contributes no MCP servers has no MCP responsibilities: it must not create an
+        // empty .mcp.json or an empty Codex region in the target repository. Servers it used to own
+        // still need cleaning up, so a pending removal keeps it in the MCP path.
+        bool managesMcp = sourceServers.Count > 0 || staleServerNames.Count > 0;
+
+        foreach (string staleServerName in staleServerNames)
+        {
+            // A stale server another bundle still owns stays in .mcp.json, so it must stay in the
+            // projection too: the shared Codex region has to keep declaring it for that bundle.
+            if (!otherManifests.Any(x => OwnsServer(x, staleServerName)))
+            {
+                _ = projectedServers.Remove(staleServerName);
+            }
+        }
+
+        foreach ((string serverName, JsonNode? serverNode) in sourceServers)
+        {
+            if (serverNode is not null)
+            {
+                projectedServers[serverName] = serverNode.DeepClone();
+            }
+        }
+
+        JsonObject unionServers = BuildUnionServers(projectedServers, sourceServers, otherManifests);
+        JsonObject ownServers = RestrictServers(projectedServers, sourceServers.Select(x => x.Key));
+
         string targetCodexPath = Path.Combine(targetRoot, NormalizePath(CodexMcpConfigManager.RelativePath));
         string existingCodexConfig = File.Exists(targetCodexPath) ? File.ReadAllText(targetCodexPath) : string.Empty;
+        string updatedCodexConfig = existingCodexConfig;
 
-        if (!CodexMcpConfigManager.TryBuildUpdatedConfig(existingCodexConfig, bundle.BundleId, sourceServers,
-            currentManifest?.ManagedCodexMcp?.Hash, options.Force, allowUntrackedManagedBlockReplacement: false,
-            out string updatedCodexConfig, out List<string> codexConflicts))
+        if (managesMcp
+            && !CodexMcpConfigManager.TryBuildUpdatedConfig(existingCodexConfig, unionServers, ownServers,
+                currentManifest?.ManagedCodexMcp?.Hash, options.Force, allowUntrackedManagedBlockReplacement: false,
+                previouslyOwnedServers: currentManifest?.ManagedMcpServers.Select(x => x.Name) ?? [],
+                out updatedCodexConfig, out List<string> codexConflicts))
         {
             result.Conflicts.AddRange(codexConflicts);
         }
@@ -647,9 +780,9 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         var newManifest = new AiBundleManifest
         {
             BundleId = bundle.BundleId,
-            BundleVersion = installerVersion,
-            InstallerPackageId = installerPackageId,
-            InstallerVersion = installerVersion,
+            BundleVersion = _options.InstallerVersion,
+            InstallerPackageId = _options.InstallerPackageId,
+            InstallerVersion = _options.InstallerVersion,
             InstalledAt = DateTimeOffset.UtcNow
         };
 
@@ -662,12 +795,21 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
             result.Messages.Add($"Managed file {operationName}ed: {relativePath}");
         }
 
-        string exclusionsPath = Path.Combine(targetRoot, "nuget-upgrade-exclusions.json");
-
-        if (!File.Exists(exclusionsPath))
+        foreach (StarterFileDefinition starter in bundle.StarterFiles)
         {
-            CopyTextAsset(bundle.ExclusionsStarterPath, exclusionsPath);
-            result.Messages.Add("Created nuget-upgrade-exclusions.json starter file.");
+            if (string.IsNullOrWhiteSpace(starter.SourcePath) || string.IsNullOrWhiteSpace(starter.TargetPath))
+            {
+                result.Messages.Add("Skipped starter file with an empty sourcePath or targetPath.");
+                continue;
+            }
+
+            string starterTargetPath = Path.Combine(targetRoot, NormalizePath(starter.TargetPath));
+
+            if (!File.Exists(starterTargetPath))
+            {
+                CopyTextAsset(starter.SourcePath, starterTargetPath);
+                result.Messages.Add($"Created starter file: {NormalizePath(starter.TargetPath)}");
+            }
         }
 
         foreach (ManagedBlockDefinition block in bundle.ManagedBlocks)
@@ -680,41 +822,47 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
             result.Messages.Add($"Managed doc block {operationName}ed: {NormalizePath(block.TargetPath)}");
         }
 
-        string targetMcpPath = Path.Combine(targetRoot, ".mcp.json");
-        JsonObject targetMcpRoot = LoadMcpRoot(targetMcpPath) ?? [];
-        JsonObject targetServers = GetOrCreateServers(targetMcpRoot);
-        JsonObject targetMcpServers = GetOrCreateMcpServers(targetMcpRoot);
-
-        if (currentManifest is not null)
+        if (managesMcp)
         {
-            foreach (NameHashRecord staleServer in currentManifest.ManagedMcpServers.Where(x => !sourceServers.ContainsKey(x.Name)))
+            foreach (string staleServerName in staleServerNames)
             {
-                _ = targetServers.Remove(staleServer.Name);
-                _ = targetMcpServers.Remove(staleServer.Name);
-                result.Messages.Add($"Removed obsolete managed MCP server: {staleServer.Name}");
-            }
-        }
+                if (otherManifests.Any(x => OwnsServer(x, staleServerName)))
+                {
+                    result.Messages.Add($"Retained co-owned MCP server no longer in this bundle: {staleServerName}");
+                    continue;
+                }
 
-        foreach ((string serverName, JsonNode? serverNode) in sourceServers)
-        {
-            if (serverNode is null)
-            {
-                continue;
+                _ = targetServers.Remove(staleServerName);
+                _ = targetMcpServers.Remove(staleServerName);
+                result.Messages.Add($"Removed obsolete managed MCP server: {staleServerName}");
             }
 
-            targetServers[serverName] = serverNode.DeepClone();
-            newManifest.ManagedMcpServers.Add(new NameHashRecord { Name = serverName, Hash = HashUtility.ComputeJsonHash(serverNode) });
-            targetMcpServers[serverName] = serverNode.DeepClone();
-            result.Messages.Add($"Managed MCP server {operationName}ed: {serverName}");
+            foreach ((string serverName, JsonNode? serverNode) in sourceServers)
+            {
+                if (serverNode is null)
+                {
+                    continue;
+                }
+
+                targetServers[serverName] = serverNode.DeepClone();
+                newManifest.ManagedMcpServers.Add(new NameHashRecord { Name = serverName, Hash = HashUtility.ComputeJsonHash(serverNode) });
+                targetMcpServers[serverName] = serverNode.DeepClone();
+
+                string coOwnership = otherManifests.Any(x => OwnsServer(x, serverName)) ? " (co-owned)" : string.Empty;
+                result.Messages.Add($"Managed MCP server {operationName}ed: {serverName}{coOwnership}");
+            }
+
+            SaveMcpJson(targetMcpPath, targetMcpRoot);
+
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(targetCodexPath)!);
+            File.WriteAllText(targetCodexPath, updatedCodexConfig);
+            newManifest.ManagedCodexMcp = new PathHashRecord
+            {
+                Path = NormalizePath(CodexMcpConfigManager.RelativePath),
+                Hash = CodexMcpConfigManager.ComputeManagedHash(CodexMcpConfigManager.RenderManagedContent(ownServers))
+            };
+            result.Messages.Add($"Managed Codex MCP config {operationName}ed: {CodexMcpConfigManager.RelativePath}");
         }
-
-        SaveMcpJson(targetMcpPath, targetMcpRoot);
-
-        _ = Directory.CreateDirectory(Path.GetDirectoryName(targetCodexPath)!);
-        File.WriteAllText(targetCodexPath, updatedCodexConfig);
-        string codexManagedContent = CodexMcpConfigManager.RenderManagedContent(sourceServers);
-        newManifest.ManagedCodexMcp = new PathHashRecord { Path = CodexMcpConfigManager.RelativePath, Hash = CodexMcpConfigManager.ComputeManagedHash(codexManagedContent) };
-        result.Messages.Add($"Managed Codex MCP config {operationName}ed: {CodexMcpConfigManager.RelativePath}");
 
         _ = Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(newManifest, _serializerOptions));
@@ -722,6 +870,50 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         result.Success = true;
         return result;
     }
+
+    /// <summary>
+    /// Builds the set of servers rendered into the shared Codex region: everything owned by this bundle
+    /// plus everything still owned by any other installed bundle. Definitions come from the merged
+    /// <c>.mcp.json</c>, which is the canonical source.
+    /// </summary>
+    private static JsonObject BuildUnionServers(JsonObject? mergedServers, JsonObject ownServers, List<AiBundleManifest> otherManifests)
+    {
+        var ownedNames = new HashSet<string>(ownServers.Select(x => x.Key), StringComparer.OrdinalIgnoreCase);
+
+        foreach (AiBundleManifest manifest in otherManifests)
+        {
+            ownedNames.UnionWith(manifest.ManagedMcpServers.Select(x => x.Name));
+        }
+
+        return RestrictServers(mergedServers, ownedNames);
+    }
+
+    private static JsonObject RestrictServers(JsonObject? servers, IEnumerable<string> serverNames)
+    {
+        var names = new HashSet<string>(serverNames, StringComparer.OrdinalIgnoreCase);
+        var restricted = new JsonObject();
+
+        if (servers is null)
+        {
+            return restricted;
+        }
+
+        foreach ((string serverName, JsonNode? serverNode) in servers)
+        {
+            if (names.Contains(serverName) && serverNode is not null)
+            {
+                restricted[serverName] = serverNode.DeepClone();
+            }
+        }
+
+        return restricted;
+    }
+
+    private static bool OwnsServer(AiBundleManifest manifest, string serverName)
+        => manifest.ManagedMcpServers.Any(x => x.Name.Equals(serverName, StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsThisBundle(AiBundleManifest manifest, AiBundleDefinition bundle)
+        => manifest.BundleId.Equals(bundle.BundleId, StringComparison.OrdinalIgnoreCase);
 
     private static void ValidateManagedFiles(string targetRoot, Dictionary<string, ManagedFileEntry> sourceFiles, AiBundleManifest? currentManifest, List<AiBundleManifest> otherManifests, CommandOptions options, OperationResult result)
     {
@@ -734,7 +926,7 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
 
             if (otherOwner is not null && !options.Force)
             {
-                result.Conflicts.Add($"Managed file is owned by another bundle: {normalizedRelativePath}");
+                result.Conflicts.Add($"Managed file is owned by bundle '{otherOwner.BundleId}': {normalizedRelativePath}");
                 continue;
             }
 
@@ -765,24 +957,30 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
     private static string ApplySubstitutions(ManagedFileEntry entry)
     {
         string content = File.ReadAllText(entry.SourcePath);
+
         foreach ((string token, string replacement) in entry.Substitutions!)
+        {
             content = content.Replace(token, replacement, StringComparison.Ordinal);
+        }
+
         return content;
     }
 
     private static string ComputeInstallHash(ManagedFileEntry entry)
-    {
-        if (entry.Substitutions?.Count > 0)
-            return HashUtility.ComputeStringHash(ApplySubstitutions(entry));
-        return HashUtility.ComputeFileHash(entry.SourcePath);
-    }
+        => entry.Substitutions?.Count > 0
+            ? HashUtility.ComputeStringHash(ApplySubstitutions(entry))
+            : HashUtility.ComputeFileHash(entry.SourcePath);
 
     private static void WriteFile(string targetPath, ManagedFileEntry entry)
     {
         if (entry.Substitutions?.Count > 0)
+        {
             File.WriteAllText(targetPath, ApplySubstitutions(entry));
+        }
         else
+        {
             File.Copy(entry.SourcePath, targetPath, overwrite: true);
+        }
     }
 
     private static byte[] ComputeTargetBytes(ManagedFileEntry entry)
@@ -841,12 +1039,21 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
             }
 
             JsonNode? existingNode = targetServers[serverName];
-            AiBundleManifest? otherOwner = otherManifests.FirstOrDefault(x => x.ManagedMcpServers.Any(y => y.Name.Equals(serverName, StringComparison.OrdinalIgnoreCase)));
+            AiBundleManifest? otherOwner = otherManifests.FirstOrDefault(x => OwnsServer(x, serverName));
             NameHashRecord? currentRecord = currentManifest?.ManagedMcpServers.FirstOrDefault(x => x.Name.Equals(serverName, StringComparison.OrdinalIgnoreCase));
+            string templateHash = HashUtility.ComputeJsonHash(templateNode);
 
-            if (otherOwner is not null && !options.Force)
+            // A server owned by another bundle is co-ownable when both bundles describe it identically.
+            // Only a genuine disagreement about the definition needs the user to intervene, so an entry
+            // missing from .mcp.json is not one: there is nothing to disagree with, and it is recreated.
+            if (otherOwner is not null
+                && !options.Force
+                && existingNode is not null
+                && HashUtility.ComputeJsonHash(existingNode) != templateHash)
             {
-                result.Conflicts.Add($"MCP server is owned by another bundle: {serverName}");
+                result.Conflicts.Add(
+                    $"MCP server '{serverName}' is owned by bundle '{otherOwner.BundleId}' with a different definition. "
+                    + "Align the definitions in both bundles, or use --force to take ownership.");
                 continue;
             }
 
@@ -867,7 +1074,7 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
                 continue;
             }
 
-            if (!options.Force && existingHash != HashUtility.ComputeJsonHash(templateNode))
+            if (!options.Force && existingHash != templateHash)
             {
                 result.Conflicts.Add($"Unowned MCP server already exists: {serverName}");
             }
@@ -907,11 +1114,10 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
             return [];
         }
 
-        return Directory.GetFiles(bundlesRoot, "manifest.json", SearchOption.AllDirectories)
+        return [.. Directory.GetFiles(bundlesRoot, "manifest.json", SearchOption.AllDirectories)
             .Select(LoadManifest)
             .Where(x => x is not null)
-            .Cast<AiBundleManifest>()
-            .ToList();
+            .Cast<AiBundleManifest>()];
     }
 
     private AiBundleManifest? LoadManifest(string manifestPath)
@@ -923,18 +1129,18 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
 
         foreach (string directory in bundle.ManagedDirectories)
         {
-            string sourceDirectory = ResolveAssetPath(directory);
+            string sourceDirectory = RequireAssetDirectory(directory, "managedDirectories");
 
             foreach (string file in Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories))
             {
-                string relativePath = NormalizePath(Path.GetRelativePath(assetRoot, file));
+                string relativePath = NormalizePath(Path.GetRelativePath(_assetRoot.Value, file));
                 results[relativePath] = new ManagedFileEntry(file, null);
             }
         }
 
         foreach (AdapterDirectoryDefinition adapter in bundle.AdapterDirectories)
         {
-            string sourceDirectory = ResolveAssetPath(adapter.Source);
+            string sourceDirectory = RequireAssetDirectory(adapter.Source, "adapterDirectories");
 
             foreach (AdapterTarget target in adapter.Targets)
             {
@@ -956,11 +1162,21 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         return results;
     }
 
+    private string RequireAssetDirectory(string relativePath, string bundleProperty)
+    {
+        string resolved = ResolveAssetPath(relativePath);
+
+        return Directory.Exists(resolved)
+            ? resolved
+            : throw new InvalidOperationException(
+                $"Bundle source directory '{NormalizePath(relativePath)}' declared in {bundleProperty} was not found under asset root '{_assetRoot.Value}'.");
+    }
+
     private sealed record ManagedFileEntry(string SourcePath, Dictionary<string, string>? Substitutions);
 
     private static string ResolveTargetRoot(string targetPath) => Path.GetFullPath(targetPath);
 
-    private string ResolveAssetPath(string relativePath) => Path.Combine(assetRoot, NormalizePath(relativePath));
+    private string ResolveAssetPath(string relativePath) => Path.Combine(_assetRoot.Value, NormalizePath(relativePath));
 
     private static bool LooksLikeRepository(string path)
         => Directory.Exists(Path.Combine(path, ".git"))
@@ -1016,8 +1232,7 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
         }
 
         int contentStart = startIndex + startMarker.Length;
-        string extracted = fileContent[contentStart..endIndex].Trim('\r', '\n');
-        content = extracted;
+        content = fileContent[contentStart..endIndex].Trim('\r', '\n');
         return true;
     }
 
@@ -1080,17 +1295,19 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
 
     private JsonObject LoadSourceServers(string relativePath)
     {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return [];
+        }
+
         JsonNode node = JsonNode.Parse(File.ReadAllText(ResolveAssetPath(relativePath)))
             ?? throw new InvalidOperationException($"Failed to parse MCP source: {relativePath}");
 
         JsonObject root = node.AsObject();
 
-        if (root["servers"] is not JsonObject servers)
-        {
-            throw new InvalidOperationException($"MCP source '{relativePath}' must define a 'servers' object.");
-        }
-
-        return servers;
+        return root["servers"] is JsonObject servers
+            ? servers
+            : throw new InvalidOperationException($"MCP source '{relativePath}' must define a 'servers' object.");
     }
 
     private static JsonObject? LoadMcpRoot(string mcpPath)
@@ -1108,21 +1325,13 @@ public sealed partial class AiBundleInstaller(string assetRoot, string installer
 
     private static JsonObject GetOrCreateServers(JsonObject rootObject)
     {
-        if (rootObject["servers"] is null)
-        {
-            rootObject["servers"] = new JsonObject();
-        }
-
+        rootObject["servers"] ??= new JsonObject();
         return rootObject["servers"]!.AsObject();
     }
 
     private static JsonObject GetOrCreateMcpServers(JsonObject rootObject)
     {
-        if (rootObject["mcpServers"] is null)
-        {
-            rootObject["mcpServers"] = new JsonObject();
-        }
-
+        rootObject["mcpServers"] ??= new JsonObject();
         return rootObject["mcpServers"]!.AsObject();
     }
 

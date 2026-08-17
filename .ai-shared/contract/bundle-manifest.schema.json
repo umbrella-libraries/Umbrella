@@ -44,12 +44,14 @@
       }
     },
     "managedMcpServers": {
+      "description": "Canonical .mcp.json servers this bundle owns. The same server may appear in several bundle manifests when all owners describe it identically; it is deleted from .mcp.json only when the last owner is removed.",
       "type": "array",
       "items": {
         "$ref": "#/$defs/nameHashRecord"
       }
     },
     "managedCodexMcp": {
+      "description": "The shared Codex MCP region. 'path' is the region's file, always .codex/config.toml. 'hash' is this bundle's own contribution rendered in isolation, never the hash of the whole region, so another bundle installing or removing does not register as drift here.",
       "oneOf": [
         { "$ref": "#/$defs/pathHashRecord" },
         { "type": "null" }

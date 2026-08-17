@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <NoWarn>CS1591</NoWarn>
+    <PackageId>Umbrella.AI.Tools.Bundling</PackageId>
+    <Description>The content-agnostic engine used to install and manage AI skills, agents, and MCP configuration bundles in target repositories. Consumed by repository-specific installer tools.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.4.2" />
+    <PackageReference Include="System.CommandLine" Version="2.0.11" />
+    <PackageReference Include="Tomlyn" Version="2.10.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Umbrella.AI.Tools.Bundling.Test" />
+  </ItemGroup>
+</Project>

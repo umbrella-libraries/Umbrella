@@ -1,4 +1,4 @@
-namespace Umbrella.AI.Tools;
+namespace Umbrella.AI.Tools.Bundling;
 
 public sealed class CommandOptions
 {
