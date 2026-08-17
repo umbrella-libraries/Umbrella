@@ -13,8 +13,8 @@
 
 	<ItemGroup>
 		<PackageReference Include="NetArchTest.Rules" Version="1.3.2" />
-		<PackageReference Include="xunit.v3.assert" Version="3.2.2" />
-		<PackageReference Include="xunit.v3.extensibility.core" Version="3.2.2" />
+		<PackageReference Include="xunit.v3.assert" Version="4.0.0" />
+		<PackageReference Include="xunit.v3.extensibility.core" Version="4.0.0" />
 	</ItemGroup>
 
 </Project>

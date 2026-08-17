@@ -10,10 +10,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Testcontainers" Version="4.13.0" />
-		<PackageReference Include="Testcontainers.MsSql" Version="4.13.0" />
-		<PackageReference Include="xunit.v3.assert" Version="3.2.2" />
-		<PackageReference Include="xunit.v3.extensibility.core" Version="3.2.2" />
+		<PackageReference Include="Testcontainers" Version="4.14.0" />
+		<PackageReference Include="Testcontainers.MsSql" Version="4.14.0" />
+		<PackageReference Include="xunit.v3.assert" Version="4.0.0" />
+		<PackageReference Include="xunit.v3.extensibility.core" Version="4.0.0" />
 		<ProjectReference Include="..\Umbrella.Testing.Xunit\Umbrella.Testing.Xunit.csproj" />
 		<ProjectReference Include="..\..\..\AspNetCore\src\Umbrella.AspNetCore.WebUtilities\Umbrella.AspNetCore.WebUtilities.csproj" />
 	</ItemGroup>

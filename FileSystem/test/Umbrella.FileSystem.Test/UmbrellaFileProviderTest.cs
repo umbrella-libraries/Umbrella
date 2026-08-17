@@ -1,4 +1,4 @@
-
+﻿
 using System.Collections.ObjectModel;
 using Azure.Identity;
 using CommunityToolkit.Diagnostics;
@@ -14,9 +14,11 @@ using Umbrella.FileSystem.SharePoint;
 using Umbrella.Internal.Mocks;
 using Umbrella.Utilities.Compilation;
 using Umbrella.Utilities.Helpers;
+using Xunit.Sdk;
+using Xunit.v3;
 using Xunit.v3.Priority;
 
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+[assembly: Parallelization(Mode = ParallelMode.None)]
 //[assembly: TestCaseOrderer(typeof(Xunit.v3.Priority.PriorityOrderer))]
 //[assembly: TestCollectionOrderer("Xunit.Extensions.Ordering.CollectionOrderer", "Xunit.Extensions.Ordering")]
 //[assembly: TestFramework("Xunit.Extensions.Ordering.TestFramework", "Xunit.Extensions.Ordering")]
