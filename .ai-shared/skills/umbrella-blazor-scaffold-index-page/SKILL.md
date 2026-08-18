@@ -9,7 +9,7 @@ description: 'Scaffold a Blazor index/listing page (.razor + .razor.cs) for a fe
 
 Add a Blazor index page that renders a paginated, sortable, filterable grid for a feature. The page uses `UmbrellaGrid` via the project-specific `<AppName>RemoteDataAccessGridComponentBase` base class, which handles all data fetching, sorting, filtering, and delete wiring automatically.
 
-**Prerequisite:** A client data service interface (`I<Name>Service`) must exist — either from `umbrella-dotnet-scaffold-api-data-service-controller` + `umbrella-dotnet-scaffold-client-data`, or from `umbrella-dotnet-rename-client-repository-to-service`. The slim model (`Slim<Name>Model`) and paginated result model must also exist.
+**Prerequisite:** A client data service interface (`I<Name>Service`) must exist — either from `umbrella-dotnet-scaffold-api-data-service-controller` + `umbrella-dotnet-scaffold-client-data`, or from `umbrella-dotnet-rename-client-repository-to-service`. The slim model (`Slim<Name>Model`) and paginated result model must also exist. The slim record must have a record-level `[Display(Name = "<Friendly Singular>")]` attribute so inherited grid actions and dialogs use the entity's friendly name.
 
 ## Discovery (read these before writing anything)
 
@@ -19,6 +19,7 @@ Add a Blazor index page that renders a paginated, sortable, filterable grid for 
 4. Confirm the feature's index route (e.g. `/admin/industries`) and the manage route (e.g. `/admin/industries/manage`) by checking an analogous existing feature.
 5. Check whether the target feature folder needs a local `_Imports.razor` for its model namespace or other feature-specific imports. Reuse the nearest page-folder pattern; Razor markup does not automatically inherit code-behind `using` directives.
 6. Confirm the manage page already exists or is being scaffolded in the same feature workflow before adding Create/Edit links. Do not leave permanent navigation to a route that is not implemented.
+7. Confirm `Slim<Name>Model` declares the friendly singular record name with `[Display(Name = "<Friendly Singular>")]`; add it through `umbrella-dotnet-scaffold-api-server-models` if missing.
 
 ---
 
@@ -126,3 +127,4 @@ If discovery showed that sibling feature folders use a local `_Imports.razor`, a
 7. Any model-bound Dynamic Image usage passes the matching version token and uses only catalog-discoverable static variant inputs.
 8. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.
 9. Any required feature-local `_Imports.razor` exists, and Create/Edit links resolve to an implemented or concurrently scaffolded manage route.
+10. `Slim<Name>Model` has a record-level `[Display(Name = "<Friendly Singular>")]` attribute for friendly inherited UI text.

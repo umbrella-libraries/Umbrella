@@ -9,15 +9,14 @@ description: 'Scaffold a Blazor manage page (.razor + .razor.cs) for create/edit
 
 Add a Blazor manage page that handles both create and edit for a feature. The page uses `EditForm` with `UmbrellaModelLayoutStateView` to manage loading states, and dispatches to `Repository.CreateAsync` or `Repository.UpdateAsync` based on whether an ID parameter is present.
 
-**Prerequisite:** A client data service interface (`I<Name>Service`) must exist with `CreateAsync` and `UpdateAsync` methods (i.e. the service interface extends `IGenericDataService` with non-NoOp create/update model types). The concrete create and update models must exist. When one form binds both types, they should share a small input interface (illustrated as `I<Name>InputModel`) rather than an abstract input-model base.
+**Prerequisite:** A client data service interface (`I<Name>Service`) must exist with `CreateAsync` and `UpdateAsync` methods (i.e. the service interface extends `IGenericDataService` with non-NoOp create/update model types). The concrete create and update models must exist and derive from a shared `CreateUpdate<Name>ModelBase` used by the combined form.
 
 ## Discovery (read these before writing anything)
 
 1. Read 2–3 existing manage pages under `Web\<AppName>.Web.Client\Pages\Admin\` to understand the form field patterns, file upload handling if applicable, and navigation after save.
 2. Confirm the project-specific client component base class name (e.g. `IndyRecordsClientComponentBase`). `Mapper` (`IUmbrellaMapper`) is a `protected` property on `UmbrellaComponentBase` (the Umbrella framework base) — it is available in all Blazor components in the hierarchy without any injection.
 3. Read `Web\<AppName>.Web.Shared\Security\Policies\<AppName>PolicyNames.cs` or `SharedPolicyNames.cs` for the correct auth policy constant.
-4. Read the create/update model types for the feature to know which properties to include as form fields and whether they already share an input interface.
-   Use their exact discovered names, including the exact shared-interface name. Repositories may use `IManage<Name>InputModel` or another feature-qualified convention rather than the illustrative `I<Name>InputModel`; never invent a template type that is absent from the project. If no common interface exists and one form genuinely needs it, add the narrowest interface containing only the shared bindable properties. Keep `[UmbrellaInputModel]` on each concrete create/update record; it is not inherited and is invalid on abstract types.
+4. Read the create/update model hierarchy for the feature to know which properties to include as form fields and identify the exact shared create/update base name. Use their exact discovered names and follow the repository's convention (for example, `CreateUpdateManageIndustryModelBase`); do not introduce an input interface as a substitute. If the base is missing, use `umbrella-dotnet-scaffold-api-server-models` to add the shared model hierarchy first.
 5. Check `Web\<AppName>.Web.Client.Data\Mappings\Api\` for an existing `<Name>Mapper.cs`. You will need client-side mappers for: `IUmbrellaMapperlyNewInstanceMapper<<Name>Model, Update<Name>Model>` (to populate the edit form) and `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` (to refresh the concurrency stamp after save). If they do not exist, use the `umbrella-dotnet-scaffold-mapperly-factories` skill to create them first.
 
 ---
@@ -122,7 +121,7 @@ public abstract class ManageBase : <AppName>ClientComponentBase
     private I<Name>Service Repository { get; set; } = null!;
 
     protected <Name>Model? Model { get; private set; }
-    protected I<Name>InputModel? CreateUpdateModel { get; private set; }
+    protected CreateUpdate<Name>ModelBase? CreateUpdateModel { get; private set; }
 
     protected IReadOnlyCollection<ValidationResult>? ValidationResults { get; private set; }
 
@@ -225,7 +224,7 @@ public abstract class ManageBase : <AppName>ClientComponentBase
 - `public abstract class` — the `.razor` file inherits from it via `@inherits`.
 - `[Authorize(PolicyName)]` on the class, not in the `.razor` file.
 - `[Inject] private I<Name>Service Repository { get; set; } = null!;` — the property is always named `Repository` by convention, regardless of the type name.
-- `CreateUpdateModel` is typed as the exact discovered shared input interface (illustrated as `I<Name>InputModel?`), so both sealed concrete create and update models can be assigned to it without using an abstract input-model base.
+- `CreateUpdateModel` is typed as the exact discovered shared create/update base (illustrated as `CreateUpdate<Name>ModelBase?`), so both sealed concrete create and update models can be assigned without duplicating their shared property contract.
 - `OnInitializedAsync`: if no `Id`, construct an empty `Create<Name>Model` and set `CurrentState = LayoutState.Success`. If `Id` is set, load from `Repository.FindByIdAsync` and use `await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result)` to populate `CreateUpdateModel`.
 - `SubmitFormAsync`: pattern-match on `CreateUpdateModel` type to call the correct method. After a successful create, navigate to the index route. After a successful update, prefer `_ = await Mapper.MapAsync(result.Result, updateModel)` to refresh the concurrency stamp in place — this requires `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` in `Client.Data`. If that mapper does not exist yet, fall back to `await ReloadAsync()` and leave a `// TODO: Mapper` comment.
 - `Mapper` is a `protected` property on `UmbrellaComponentBase` (the Umbrella framework base) — no injection needed in derived components. The `Mapper.MapAsync` calls require client-side mapper classes in `Web.Client.Data\Mappings\Api\`: `IUmbrellaMapperlyNewInstanceMapper<<Name>Model, Update<Name>Model>` for load, and `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` for post-save refresh. Use the `umbrella-dotnet-scaffold-mapperly-factories` skill to create them.
@@ -288,7 +287,7 @@ protected void OnDeleteImage()
 1. Two `@page` directives — create route (no ID) and edit route (`{Id:int}`).
 2. `[Authorize(PolicyName)]` is on the code-behind class, not in the `.razor` file.
 3. `[Inject]` property is named `Repository` and typed as the service interface.
-4. `CreateUpdateModel` is typed as the shared input interface (`I<Name>InputModel?`), not as an abstract input-model base or one concrete request type.
+4. `CreateUpdateModel` is typed as the shared create/update model base (`CreateUpdate<Name>ModelBase?`), not an input interface or one concrete request type.
 5. `OnInitializedAsync` uses `await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result)` to populate the edit form — no manual property assignment.
 6. `OnInitializedAsync` sets `CurrentState = LayoutState.Success` on both the create and edit success paths, and `LayoutState.Error` on failure.
 7. `SubmitFormAsync` pattern-matches on `Create<Name>Model` vs `Update<Name>Model` — navigates after create; after update calls `_ = await Mapper.MapAsync(result.Result, updateModel)` to refresh the model in place.

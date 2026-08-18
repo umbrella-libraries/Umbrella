@@ -14,8 +14,9 @@ This skill covers the model types only. For mapping entities to models using Map
 ## Discovery (read these before writing anything)
 
 1. Read 2-3 existing feature model folders in the shared models directory (e.g., `Web.Shared\Models\Api\`) to understand the naming conventions, which model types are used, and whether base class hierarchies are common.
-2. Note whether the project uses `required` properties, `init` vs `set`, `abstract record` base types, and which validation attributes are standard (e.g., `[Required]`, `[ShortStringLength]`).
+2. Note whether the project uses `required` properties, `init` vs `set`, `abstract record` base types, and which validation attributes are standard (e.g., `[Required]`, `[ShortStringLength]`). Prefer the nearest established feature hierarchy over inventing an interface-based alternative.
 3. Check whether the project has a constants file pattern per feature (e.g., `<Feature>Constants.cs`) for error message strings used in validation attributes.
+4. Determine the friendly singular entity name used by grids and dialogs. The slim list record must declare it with a record-level `[Display(Name = "<Friendly Singular>")]` attribute.
 
 ---
 
@@ -75,24 +76,26 @@ Read and result models normally remain immutable records with `required ... { ge
 
 ---
 
-## Base class hierarchies (use when they add value)
+## Base class hierarchies (use when models share fields)
 
-Use an immutable abstract base only for read/result records. Do not place mutable input properties on an abstract model base. When a Blazor page needs a common create/update type, use an interface for the bindable property contract and declare the validated mutable properties on each concrete input record. This duplication is intentional because runtime validation reads attributes from the concrete DTO.
+When the full read, create, and update models share properties, put those properties and their validation attributes on a mutable abstract `<Name>ModelBase`. Add an abstract `CreateUpdate<Name>ModelBase : <Name>ModelBase` as the common Blazor form type. Do not replace this hierarchy with an `I<Name>InputModel`; the base records carry the shared implementation, validation, trimming contract, and form-binding surface.
 
-**When to introduce bases or interfaces:**
-- Use an abstract immutable base when multiple read/result records genuinely share implementation.
-- Use an input interface only when UI or orchestration code needs one create/update property type.
-- Otherwise prefer independent sealed records.
+Use `[UmbrellaAllowNonRequiredProperty]` and `[UmbrellaAllowMutableProperty]` with specific binding reasons on shared mutable base properties. Mark the abstract base `partial` and implement `IUmbrellaTrimmable` when its strings are handled by the trimming generator. Keep `[UmbrellaInputModel]` off abstract types; apply it directly only to a concrete input record that declares additional mutable properties requiring the marker.
+
+**When to introduce bases:**
+- Use `<Name>ModelBase` whenever the full read, create, and update records share editable properties.
+- Use `CreateUpdate<Name>ModelBase` when one UI form binds both create and update records, even if it is currently an empty specialization.
+- Use a result-model base only when create/update result records genuinely share returned properties.
+- Prefer independent sealed records only when the models do not share implementation.
 
 **Typical hierarchy (used when warranted):**
 
 ```
-<Name>ModelBase (immutable abstract record)
-└── sealed <Name>Model : <Name>ModelBase, IKeyedItem<int>, IReadOnlyConcurrencyStamp
-
-I<Name>InputModel (mutable property contract when shared UI typing is needed)
-├── [UmbrellaInputModel] sealed Create<Name>Model : I<Name>InputModel
-└── [UmbrellaInputModel] sealed Update<Name>Model : I<Name>InputModel, IUpdateModel<int>
+<Name>ModelBase (mutable abstract partial record, shared properties + validation)
+├── sealed <Name>Model : <Name>ModelBase, IKeyedItem<int>, IReadOnlyConcurrencyStamp
+└── CreateUpdate<Name>ModelBase (abstract record, common form type)
+    ├── sealed Create<Name>Model : CreateUpdate<Name>ModelBase
+    └── sealed Update<Name>Model : CreateUpdate<Name>ModelBase, IUpdateModel<int>
 
 CreateUpdate<Name>ResultModelBase (abstract record)
 ├── sealed Create<Name>ResultModel : CreateUpdate<Name>ResultModelBase, ICreateResultModel<int>
@@ -100,9 +103,9 @@ CreateUpdate<Name>ResultModelBase (abstract record)
 ```
 
 Notes:
-- `<Name>ModelBase` holds immutable read-model properties. Do not reuse mutable UI-bound properties here.
-- Concrete create/update inputs each own their mutable properties and validation attributes. They do not inherit the read-model base because their accessor contracts differ.
-- `I<Name>InputModel` contains signatures only and is used only when shared UI typing is required.
+- `<Name>ModelBase` holds properties common to the full read, create, and update models. Its mutable accessors support Blazor binding, while analyzer suppressions document that concrete models populate them through binding or mapping.
+- `CreateUpdate<Name>ModelBase` gives a combined manage page one concrete common contract without duplicating shared fields or introducing an input interface.
+- Concrete create/update records own only fields unique to their operation, such as `Id`, `ConcurrencyStamp`, or `ReplaceExistingImage`.
 - `Slim<Name>Model` usually does NOT inherit from `<Name>ModelBase` — it exists independently with only the fields needed in list views
 - `CreateUpdate<Name>ResultModelBase` holds properties returned by both create and update results (e.g., `ConcurrencyStamp`, any computed properties like `ImageUrl`)
 - A two-tier result base is only worth adding if there are genuinely shared result properties; if both results only return `ConcurrencyStamp`, a base is unlikely to add value
@@ -116,29 +119,31 @@ Notes:
 **Abstract base (shared display + editable properties with validation):**
 
 ```csharp
+using Umbrella.Analyzers;
+using Umbrella.Utilities.Text;
+
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public abstract record <Name>ModelBase
+public abstract partial record <Name>ModelBase : IUmbrellaTrimmable
 {
     [Required(ErrorMessage = "<Name>Constants.NameRequiredErrorMessage")]
     [MaxLength(200)]
-    public required string Name { get; init; }
+    [UmbrellaAllowNonRequiredProperty("Shared base property is populated through binding by a concrete input model.")]
+    [UmbrellaAllowMutableProperty("Shared base property supports binding by a concrete input model.")]
+    public string Name { get; set; } = null!;
     // other shared read properties
 }
 ```
 
-**Optional shared input interface (only when create/update share a UI surface):**
+**Shared create/update base (when one form handles both operations):**
 
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public interface I<Name>InputModel
+public abstract record CreateUpdate<Name>ModelBase : <Name>ModelBase
 {
-    string? Name { get; set; }
 }
 ```
-
-Keep validation attributes on each concrete input property. Do not move them solely to the interface because runtime object validation inspects the concrete DTO. Omit the interface when no shared consumer needs it.
 
 **Full read model:**
 
@@ -164,6 +169,7 @@ public sealed record <Name>Model : <Name>ModelBase, IKeyedItem<int>, IReadOnlyCo
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
+[Display(Name = "<Friendly Singular>")]
 public sealed record Slim<Name>Model : IKeyedItem<int>
 {
     public required int Id { get; init; }
@@ -176,19 +182,14 @@ public sealed record Slim<Name>Model : IKeyedItem<int>
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-using Umbrella.Analyzers;
 using Umbrella.Utilities.Text;
 
-[UmbrellaInputModel]
-public sealed partial record Create<Name>Model : I<Name>InputModel, IUmbrellaTrimmable
+public sealed partial record Create<Name>Model : CreateUpdate<Name>ModelBase, IUmbrellaTrimmable
 {
-    [Required(ErrorMessage = "<Name>Constants.NameRequiredErrorMessage")]
-    [MaxLength(200)]
-    public string? Name { get; set; }
 }
 ```
 
-The `partial` declaration assumes the trimming source generator supplies `IUmbrellaTrimmable`. If the type has no mutable trimmable strings, omit the interface and `partial`. If generation is unavailable, implement the interface manually.
+The shared base owns the common mutable properties and validation. The concrete create record remains empty unless create-only fields exist. The `partial` declaration assumes the trimming source generator supplies `IUmbrellaTrimmable`; follow the nearest established feature when the generator handles inherited properties.
 
 **Update model:**
 
@@ -199,11 +200,8 @@ using Umbrella.Analyzers;
 using Umbrella.Utilities.Text;
 
 [UmbrellaInputModel]
-public sealed partial record Update<Name>Model : I<Name>InputModel, IUpdateModel<int>, IUmbrellaTrimmable
+public sealed partial record Update<Name>Model : CreateUpdate<Name>ModelBase, IUpdateModel<int>, IKeyedItem<int>, IUmbrellaTrimmable
 {
-    [Required(ErrorMessage = "<Name>Constants.NameRequiredErrorMessage")]
-    [MaxLength(200)]
-    public string? Name { get; set; }
     public required int Id { get; init; }
     [Required]
     public required string ConcurrencyStamp { get; set; }
@@ -258,7 +256,7 @@ public sealed record <Name>PaginatedResultModel : PaginatedResultModel<Slim<Name
 
 ## `required` keyword guidance
 
-Use `required` on public settable properties unless an analyzer-recognized contract exempts them. `[UmbrellaInputModel]` deliberately permits form/request properties to be populated after construction. For an exceptional non-input property, use `[UmbrellaAllowNonRequiredProperty("reason")]`; do not omit `required` merely because a default initializer exists.
+Use `required` on public settable properties unless an analyzer-recognized contract or a justified suppression exempts them. Shared mutable properties on an abstract model base use `[UmbrellaAllowNonRequiredProperty]` and `[UmbrellaAllowMutableProperty]` because concrete models populate them through binding or mapping. `[UmbrellaInputModel]` permits additional properties declared directly by a concrete form/request model. For any other exceptional non-input property, use `[UmbrellaAllowNonRequiredProperty("reason")]`; do not omit `required` merely because a default initializer exists.
 
 A property being nullable or frequently absent is **not** a reason to drop `required`. `public required string? Name { get; init; }` is valid and forces the mapper to make an explicit decision. Reserve `[UmbrellaAllowNonRequiredProperty]` for properties genuinely assigned after construction, and make the reason say what assigns them.
 
@@ -286,10 +284,10 @@ Also remove any `, new()` constraint on `TCreateResultModel` / `TUpdateResultMod
 3. `ICreateResultModel<int>` implementations have `required int Id { get; init; }` — not `set`.
 4. Read and result models implement `IReadOnlyConcurrencyStamp` (directly or via `IUpdateResultModel`) and declare `required string ConcurrencyStamp { get; init; }` — not `set`. Only entities and concrete update-input models implement mutable `IConcurrencyStamp`.
 5. A list endpoint uses `PaginatedResultModel<Slim<Name>Model>` directly or a justified sealed derived record; no unnecessary wrapper is introduced.
-6. Validation attributes remain on concrete input properties. If create/update duplicate the properties, duplicate the validation attributes too.
-7. `Slim<Name>Model` does not inherit from any base — it is independent.
-8. No abstract type carries `[UmbrellaInputModel]`; every mutable UI/request DTO is a concrete directly marked input model, and read/result models are not marked as inputs.
-9. If shared UI typing is needed, use an input interface rather than a mutable abstract model base.
+6. Properties shared by the full read, create, and update models live once on `<Name>ModelBase`, together with their validation attributes and justified mutable/non-required suppressions.
+7. `Slim<Name>Model` does not inherit from the shared base and declares `[Display(Name = "<Friendly Singular>")]` on the record.
+8. No abstract type carries `[UmbrellaInputModel]`; apply the marker directly only to concrete inputs that declare additional mutable properties requiring it.
+9. A combined create/update UI uses `CreateUpdate<Name>ModelBase`; no `I<Name>InputModel` is introduced for shared form typing.
 10. Every concrete type that declares mutable trimmable strings directly implements `IUmbrellaTrimmable`; only source-generated implementations force that type to be `partial`.
 11. Collection properties expose read-only contracts unless an individual property has a justified `[UmbrellaAllowMutableProperty("reason")]`.
 12. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.
