@@ -1,6 +1,6 @@
 ---
 name: umbrella-dotnet-scaffold-api-server-models
-description: 'Scaffold API model records (request/response types) for a new feature, following the Umbrella shared models pattern with optional base class hierarchies.'
+description: 'Scaffold sealed API model records (request/response types) for a new feature, following the Umbrella shared-model, input-binding, immutability, and concurrency contracts.'
 ---
 
 # Scaffold API Server Models
@@ -65,11 +65,11 @@ Result models are always populated by a mapper, never by the controller base, so
 
 ## Record declaration and input-model style
 
-All analyzer-matched model types use `record`; project type does not determine whether they are `partial`. Use `partial` only when a source generator actually needs to add an implementation.
+All analyzer-matched model types use `record`. Concrete record classes are `sealed` by default; abstract records and record structs are exempt. Use `[UmbrellaAllowUnsealedModel("reason")]` only when a concrete model is intentionally inherited. Project type does not determine whether a model is `partial`; use `partial` only when a source generator actually needs to add an implementation.
 
-The `[UmbrellaInputModel]`, `[UmbrellaAllowNonRequiredProperty]` and `[UmbrellaAllowMutableProperty]` attributes used below are in the `Umbrella.Analyzers` namespace but ship in the **`Umbrella.Analyzers.Abstractions`** package. Before scaffolding, confirm the models project can resolve them; if not, add that package (without `PrivateAssets` — it is a runtime dependency) per `umbrella-dotnet-install-analyzers`. Do not work around an unresolved attribute by hand-declaring a local copy.
+The `[UmbrellaInputModel]`, `[UmbrellaAllowUnsealedModel]`, `[UmbrellaAllowNonRequiredProperty]` and `[UmbrellaAllowMutableProperty]` attributes used below are in the `Umbrella.Analyzers` namespace but ship in the **`Umbrella.Analyzers.Abstractions`** package. Before scaffolding, confirm the repository has the package as a global reference without `PrivateAssets` per `umbrella-dotnet-install-analyzers`. Do not work around an unresolved attribute by hand-declaring a local copy.
 
-Models bound to UI or request inputs and intentionally using mutable setters belong to an `[UmbrellaInputModel]` hierarchy. The attribute permits `set` and non-`required` input properties, but it does not permit mutable collection contracts or missing getters. A type that declares mutable trimmable string properties must directly implement `IUmbrellaTrimmable`. Make that type `partial` when the installed trimming generator supplies the implementation; otherwise provide the interface implementation manually without forcing `partial`.
+Mark only a concrete UI-bound or request-input model directly with `[UmbrellaInputModel]`; the marker is not inherited and is invalid on abstract types. It permits `set` and non-`required` input properties, but does not permit mutable collection contracts or missing getters. Do not add it by default to read or result models. A concrete input type that declares mutable trimmable string properties directly implements `IUmbrellaTrimmable`. Make that type `partial` when the installed trimming generator supplies the implementation; otherwise provide the interface implementation manually without forcing `partial`.
 
 Read and result models normally remain immutable records with `required ... { get; init; }`. Do not mark them as input models merely because the same feature also has a Blazor form.
 
@@ -77,31 +77,32 @@ Read and result models normally remain immutable records with `required ... { ge
 
 ## Base class hierarchies (use when they add value)
 
-When create and update models share the same editable properties, or when the read model shares display properties with the request models, a base class hierarchy reduces duplication and centralises validation attributes.
+Use an immutable abstract base only for read/result records. Do not place mutable input properties on an abstract model base. When a Blazor page needs a common create/update type, use an interface for the bindable property contract and declare the validated mutable properties on each concrete input record. This duplication is intentional because runtime validation reads attributes from the concrete DTO.
 
-**When to introduce base classes:**
-- The feature has both create and update models that share most properties
-- Validation attributes (e.g., `[Required]`, `[MaxLength]`, `[Display]`) would otherwise be duplicated across multiple models
-- The full read model shares display properties with the request models
+**When to introduce bases or interfaces:**
+- Use an abstract immutable base when multiple read/result records genuinely share implementation.
+- Use an input interface only when UI or orchestration code needs one create/update property type.
+- Otherwise prefer independent sealed records.
 
 **Typical hierarchy (used when warranted):**
 
 ```
 <Name>ModelBase (immutable abstract record)
-└── <Name>Model : <Name>ModelBase, IKeyedItem<int>, IConcurrencyStamp
+└── sealed <Name>Model : <Name>ModelBase, IKeyedItem<int>, IReadOnlyConcurrencyStamp
 
-[UmbrellaInputModel] CreateUpdate<Name>ModelBase (mutable abstract input record)
-├── Create<Name>Model : CreateUpdate<Name>ModelBase
-└── Update<Name>Model : CreateUpdate<Name>ModelBase, IUpdateModel<int>
+I<Name>InputModel (mutable property contract when shared UI typing is needed)
+├── [UmbrellaInputModel] sealed Create<Name>Model : I<Name>InputModel
+└── [UmbrellaInputModel] sealed Update<Name>Model : I<Name>InputModel, IUpdateModel<int>
 
 CreateUpdate<Name>ResultModelBase (abstract record)
-├── Create<Name>ResultModel : CreateUpdate<Name>ResultModelBase, ICreateResultModel<int>
-└── Update<Name>ResultModel : CreateUpdate<Name>ResultModelBase, IUpdateResultModel
+├── sealed Create<Name>ResultModel : CreateUpdate<Name>ResultModelBase, ICreateResultModel<int>
+└── sealed Update<Name>ResultModel : CreateUpdate<Name>ResultModelBase, IUpdateResultModel
 ```
 
 Notes:
 - `<Name>ModelBase` holds immutable read-model properties. Do not reuse mutable UI-bound properties here.
-- `[UmbrellaInputModel] CreateUpdate<Name>ModelBase` holds properties shared by create/update inputs. It does not inherit the read-model base because their accessor contracts differ.
+- Concrete create/update inputs each own their mutable properties and validation attributes. They do not inherit the read-model base because their accessor contracts differ.
+- `I<Name>InputModel` contains signatures only and is used only when shared UI typing is required.
 - `Slim<Name>Model` usually does NOT inherit from `<Name>ModelBase` — it exists independently with only the fields needed in list views
 - `CreateUpdate<Name>ResultModelBase` holds properties returned by both create and update results (e.g., `ConcurrencyStamp`, any computed properties like `ImageUrl`)
 - A two-tier result base is only worth adding if there are genuinely shared result properties; if both results only return `ConcurrencyStamp`, a base is unlikely to add value
@@ -126,31 +127,25 @@ public abstract record <Name>ModelBase
 }
 ```
 
-**Mutable input base (when create/update share fields):**
+**Optional shared input interface (only when create/update share a UI surface):**
 
 ```csharp
-using Umbrella.Analyzers;
-using Umbrella.Utilities.Text;
-
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-[UmbrellaInputModel]
-public abstract partial record CreateUpdate<Name>ModelBase : IUmbrellaTrimmable
+public interface I<Name>InputModel
 {
-    [Required(ErrorMessage = "<Name>Constants.NameRequiredErrorMessage")]
-    [MaxLength(200)]
-    public string? Name { get; set; }
+    string? Name { get; set; }
 }
 ```
 
-The `partial` declaration above assumes the trimming source generator is installed. If it is not, implement `IUmbrellaTrimmable` manually and omit `partial`. If the input type declares no mutable trimmable strings, omit the interface and `partial`.
+Keep validation attributes on each concrete input property. Do not move them solely to the interface because runtime object validation inspects the concrete DTO. Omit the interface when no shared consumer needs it.
 
 **Full read model:**
 
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record <Name>Model : <Name>ModelBase, IKeyedItem<int>, IReadOnlyConcurrencyStamp
+public sealed record <Name>Model : <Name>ModelBase, IKeyedItem<int>, IReadOnlyConcurrencyStamp
 {
     public required int Id { get; init; }
     public required string ConcurrencyStamp { get; init; }
@@ -169,7 +164,7 @@ public record <Name>Model : <Name>ModelBase, IKeyedItem<int>, IReadOnlyConcurren
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record Slim<Name>Model : IKeyedItem<int>
+public sealed record Slim<Name>Model : IKeyedItem<int>
 {
     public required int Id { get; init; }
     // only the fields shown in list views
@@ -181,19 +176,34 @@ public record Slim<Name>Model : IKeyedItem<int>
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record Create<Name>Model : CreateUpdate<Name>ModelBase
+using Umbrella.Analyzers;
+using Umbrella.Utilities.Text;
+
+[UmbrellaInputModel]
+public sealed partial record Create<Name>Model : I<Name>InputModel, IUmbrellaTrimmable
 {
-    // add properties specific to creation only; leave empty if everything is on the base
+    [Required(ErrorMessage = "<Name>Constants.NameRequiredErrorMessage")]
+    [MaxLength(200)]
+    public string? Name { get; set; }
 }
 ```
+
+The `partial` declaration assumes the trimming source generator supplies `IUmbrellaTrimmable`. If the type has no mutable trimmable strings, omit the interface and `partial`. If generation is unavailable, implement the interface manually.
 
 **Update model:**
 
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record Update<Name>Model : CreateUpdate<Name>ModelBase, IUpdateModel<int>
+using Umbrella.Analyzers;
+using Umbrella.Utilities.Text;
+
+[UmbrellaInputModel]
+public sealed partial record Update<Name>Model : I<Name>InputModel, IUpdateModel<int>, IUmbrellaTrimmable
 {
+    [Required(ErrorMessage = "<Name>Constants.NameRequiredErrorMessage")]
+    [MaxLength(200)]
+    public string? Name { get; set; }
     public required int Id { get; init; }
     [Required]
     public required string ConcurrencyStamp { get; set; }
@@ -208,7 +218,7 @@ Note: on this **request** model `ConcurrencyStamp` must use `set` (not `init`), 
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record Create<Name>ResultModel : ICreateResultModel<int>, IReadOnlyConcurrencyStamp
+public sealed record Create<Name>ResultModel : ICreateResultModel<int>, IReadOnlyConcurrencyStamp
 {
     public required int Id { get; init; }
     public required string ConcurrencyStamp { get; init; }
@@ -227,7 +237,7 @@ public record Create<Name>ResultModel : ICreateResultModel<int>, IReadOnlyConcur
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record Update<Name>ResultModel : IUpdateResultModel
+public sealed record Update<Name>ResultModel : IUpdateResultModel
 {
     public required string ConcurrencyStamp { get; init; }
     // any other values the server recomputes on update
@@ -239,7 +249,7 @@ public record Update<Name>ResultModel : IUpdateResultModel
 ```csharp
 namespace <AppName>.Web.Shared.Models.Api.<Feature>;
 
-public record <Name>PaginatedResultModel : PaginatedResultModel<Slim<Name>Model>;
+public sealed record <Name>PaginatedResultModel : PaginatedResultModel<Slim<Name>Model>;
 ```
 
 `PaginatedResultModel<T>` is a record in current Umbrella versions, so a derived named model must also be a record. Do not add this wrapper when the controller, data service, and client can use `PaginatedResultModel<Slim<Name>Model>` directly.
@@ -272,13 +282,14 @@ Also remove any `, new()` constraint on `TCreateResultModel` / `TUpdateResultMod
 ## Verification
 
 1. Each model implements the correct interface(s) from the model types table.
-2. `ICreateResultModel<int>` implementations have `required int Id { get; init; }` — not `set`.
-3. Read and result models implement `IReadOnlyConcurrencyStamp` (directly or via `IUpdateResultModel`) and declare `required string ConcurrencyStamp { get; init; }` — not `set`. Only entities and `IUpdateModel<TKey>` request models implement the mutable `IConcurrencyStamp` with `{ get; set; }`.
-4. A list endpoint uses `PaginatedResultModel<Slim<Name>Model>` directly or a justified derived `record`; no unnecessary wrapper is introduced.
-5. Validation attributes are placed on the base model (not duplicated on each request model).
-6. `Slim<Name>Model` does not inherit from any base — it is independent.
-7. If base classes were introduced: no base class is empty (an empty base adds no value and should be removed).
-8. UI/request models with mutable setters are in an `[UmbrellaInputModel]` hierarchy; read/result models are not marked as input models without a concrete binding reason.
-9. Every type that declares mutable trimmable strings directly implements `IUmbrellaTrimmable`; only source-generated implementations force that type to be `partial`.
-10. Collection properties expose read-only contracts unless an individual property has a justified `[UmbrellaAllowMutableProperty("reason")]`.
-11. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.
+2. Every concrete model record class is `sealed`, or carries a specific `[UmbrellaAllowUnsealedModel("reason")]`; abstract records and record structs are exempt.
+3. `ICreateResultModel<int>` implementations have `required int Id { get; init; }` — not `set`.
+4. Read and result models implement `IReadOnlyConcurrencyStamp` (directly or via `IUpdateResultModel`) and declare `required string ConcurrencyStamp { get; init; }` — not `set`. Only entities and concrete update-input models implement mutable `IConcurrencyStamp`.
+5. A list endpoint uses `PaginatedResultModel<Slim<Name>Model>` directly or a justified sealed derived record; no unnecessary wrapper is introduced.
+6. Validation attributes remain on concrete input properties. If create/update duplicate the properties, duplicate the validation attributes too.
+7. `Slim<Name>Model` does not inherit from any base — it is independent.
+8. No abstract type carries `[UmbrellaInputModel]`; every mutable UI/request DTO is a concrete directly marked input model, and read/result models are not marked as inputs.
+9. If shared UI typing is needed, use an input interface rather than a mutable abstract model base.
+10. Every concrete type that declares mutable trimmable strings directly implements `IUmbrellaTrimmable`; only source-generated implementations force that type to be `partial`.
+11. Collection properties expose read-only contracts unless an individual property has a justified `[UmbrellaAllowMutableProperty("reason")]`.
+12. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.

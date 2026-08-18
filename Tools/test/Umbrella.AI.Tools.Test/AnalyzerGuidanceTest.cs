@@ -14,9 +14,9 @@ public partial class AnalyzerGuidanceTest
 
     private static readonly string[] _obsoleteContracts =
     [
-        "UA021",
         "UmbrellaExcludeFromModelStandards",
-        "UmbrellaAllowMutableCollection"
+        "UmbrellaAllowMutableCollection",
+        "[UmbrellaInputModel] CreateUpdate<Name>ModelBase"
     ];
 
     private static string RepoRoot => GetRepoRoot();
@@ -282,9 +282,19 @@ public partial class AnalyzerGuidanceTest
 
         Assert.Contains("CancellationToken cancellationToken = default", reference, StringComparison.Ordinal);
         Assert.Contains("[UmbrellaInputModel]", modelSkill, StringComparison.Ordinal);
+        Assert.Contains("[UmbrellaAllowUnsealedModel", modelSkill, StringComparison.Ordinal);
         Assert.Contains("using Umbrella.Analyzers;", modelSkill, StringComparison.Ordinal);
+        Assert.Contains("public sealed record", modelSkill, StringComparison.Ordinal);
+        Assert.Contains("IReadOnlyConcurrencyStamp", modelSkill, StringComparison.Ordinal);
+        Assert.Contains("I<Name>InputModel", modelSkill, StringComparison.Ordinal);
+
+        string compatibilityReference = File.ReadAllText(
+            Path.Combine(RepoRoot, ".ai-shared", "bundles", "umbrella", "analyzer-compatibility.md"));
+        Assert.Contains("UA021", compatibilityReference, StringComparison.Ordinal);
+        Assert.Contains("UA022", compatibilityReference, StringComparison.Ordinal);
+        Assert.Contains("UA023", compatibilityReference, StringComparison.Ordinal);
         Assert.DoesNotContain("using Umbrella.Utilities.Annotations;", modelSkill, StringComparison.Ordinal);
-        Assert.Contains("public record <Name>PaginatedResultModel : PaginatedResultModel<Slim<Name>Model>;", modelSkill, StringComparison.Ordinal);
+        Assert.Contains("public sealed record <Name>PaginatedResultModel : PaginatedResultModel<Slim<Name>Model>;", modelSkill, StringComparison.Ordinal);
         Assert.Contains("Prefer `PaginatedResultModel<Slim<Name>Model>` directly", modelSkill, StringComparison.Ordinal);
         Assert.DoesNotContain("`PaginatedResultModel<T>` is a class", modelSkill, StringComparison.Ordinal);
         Assert.Contains("[UmbrellaAllowNonRequiredProperty(\"reason\")]", reference, StringComparison.Ordinal);

@@ -1,6 +1,6 @@
 ---
 name: umbrella-dotnet-install-analyzers
-description: 'Install the Umbrella Roslyn analyzer packages (Umbrella.Analyzers, Umbrella.DataAccess.Analyzers, Umbrella.Utilities.Mapping.Mapperly.Analyzers, Umbrella.WebUtilities.DynamicImage.Analyzers) and the Umbrella.Analyzers.Abstractions package supplying the model opt-out attributes (UmbrellaInputModel, UmbrellaAllowNonRequiredProperty, UmbrellaAllowMutableProperty) into a consuming .NET repository with the correct per-package scope. Also use when those opt-out attributes fail to resolve in a consuming project.'
+description: 'Install the Umbrella Roslyn analyzer packages (Umbrella.Analyzers, Umbrella.DataAccess.Analyzers, Umbrella.Utilities.Mapping.Mapperly.Analyzers, Umbrella.WebUtilities.DynamicImage.Analyzers) and the Umbrella.Analyzers.Abstractions package supplying the model marker and exception attributes into a consuming .NET repository with the correct per-package scope. Also use when those attributes fail to resolve in a consuming project.'
 ---
 
 # Install Umbrella Analyzers
@@ -18,7 +18,7 @@ opt-out attributes, and it must **not** be private. See Step 1 for why.
 | Package | Scope | Rule |
 |---|---|---|
 | `Umbrella.Analyzers` | Global | Every project in the solution — general coding-standard/model-immutability rules (`UA*`) apply everywhere. |
-| `Umbrella.Analyzers.Abstractions` | Global, **not** private | Supplies `[UmbrellaInputModel]`, `[UmbrellaAllowNonRequiredProperty]` and `[UmbrellaAllowMutableProperty]` (namespace `Umbrella.Analyzers`). Needed by every project that applies them, and must reach publish output. |
+| `Umbrella.Analyzers.Abstractions` | Global, **not** private | Supplies `[UmbrellaInputModel]`, `[UmbrellaAllowUnsealedModel]`, `[UmbrellaAllowNonRequiredProperty]` and `[UmbrellaAllowMutableProperty]` (namespace `Umbrella.Analyzers`). Needed by every project that applies them, and must reach publish output. |
 | `Umbrella.Utilities.Mapping.Mapperly.Analyzers` | Global | Every project. It is inert outside Mapperly `[Mapper]` usage, so global installation is safe and avoids per-project drift as new mapping consumers are added. |
 | `Umbrella.DataAccess.Analyzers` | Per-project | Only projects that **implement** repositories (`UDA*` checks naming/encapsulation on concrete repository classes). |
 | `Umbrella.WebUtilities.DynamicImage.Analyzers` | Per-project | Only projects with an actual Dynamic Image surface: Razor/Blazor markup using `<UmbrellaDynamicImage>`/`<UmbrellaFileImagePreviewUpload>`, or a mapping project that assigns `*Url`/`*VersionToken` model pairs together. |
@@ -50,7 +50,7 @@ In `Directory.Packages.props`, add these to the existing unconditioned `<ItemGro
 ```
 
 **Never put `PrivateAssets` on `Umbrella.Analyzers.Abstractions`, and never rely on the analyzer package to supply the
-attributes.** Applying `[UmbrellaInputModel]`, `[UmbrellaAllowNonRequiredProperty]` or `[UmbrellaAllowMutableProperty]`
+attributes.** Applying `[UmbrellaInputModel]`, `[UmbrellaAllowUnsealedModel]`, `[UmbrellaAllowNonRequiredProperty]` or `[UmbrellaAllowMutableProperty]`
 writes a permanent assembly reference into the consuming assembly, so the attribute assembly has to reach publish
 output. `Umbrella.Analyzers` is a `developmentDependency` and is stripped from publish output, so if the attributes
 resolve from it the solution builds and every test passes, then the deployed app dies at startup with

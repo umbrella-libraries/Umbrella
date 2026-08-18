@@ -19,7 +19,7 @@ public class UA012_UA013_InputModelTests : AnalyzerTestBase<UmbrellaModelStandar
 	}
 
 	[Fact]
-	public async Task InputModelAttribute_ShouldBeInherited()
+	public async Task InputModelAttribute_OnAbstractBase_ShouldNotApplyToDerivedModel()
 	{
 		const string source = """
 			using Umbrella.Analyzers;
@@ -36,7 +36,13 @@ public class UA012_UA013_InputModelTests : AnalyzerTestBase<UmbrellaModelStandar
 			}
 			""";
 
-		await VerifyNoDiagnosticsAsync(source);
+		await VerifyAnalyzerAsync(
+			source,
+			Diagnostic(UmbrellaModelStandardsAnalyzer.InputModelMustBeConcreteRule, 4, 24, "InputModelBase"),
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeRequiredRule, 6, 16, "Name", "InputModelBase"),
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeGetterInitOnlyRule, 6, 16, "Name", "InputModelBase"),
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeRequiredRule, 11, 13, "Age", "UserModel"),
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeGetterInitOnlyRule, 11, 13, "Age", "UserModel"));
 	}
 
 	[Fact]

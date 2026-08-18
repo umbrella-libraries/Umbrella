@@ -75,7 +75,7 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 	}
 
 	[Fact]
-	public async Task InputMarkerOnBaseType_ShouldApplyToDerivedType()
+	public async Task InputMarkerOnBaseType_ShouldNotApplyToDerivedType()
 	{
 		const string source = TrimmingStubs + """
 			[UmbrellaInputModel]
@@ -91,7 +91,8 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 
 		await VerifyAnalyzerAsync(
 			source,
-			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 28, 15, "UserModel"));
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeRequiredRule, 30, 16, "Name", "UserModel"),
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeGetterInitOnlyRule, 30, 16, "Name", "UserModel"));
 	}
 
 	[Fact]
@@ -111,7 +112,7 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 	}
 
 	[Fact]
-	public async Task DerivedTypeAddingMutableString_ShouldRequireDirectImplementation()
+	public async Task DerivedTypeAddingMutableString_ShouldRequireDirectInputMarker()
 	{
 		const string source = TrimmingStubs + """
 			[UmbrellaInputModel]
@@ -128,7 +129,8 @@ public class UA015_ModelTrimmingRequirementsTests : AnalyzerTestBase<UmbrellaMod
 
 		await VerifyAnalyzerAsync(
 			source,
-			Diagnostic(UmbrellaModelStandardsAnalyzer.MutableStringModelMustImplementTrimmableRule, 29, 15, "UserModel"));
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeRequiredRule, 31, 16, "Name", "UserModel"),
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeGetterInitOnlyRule, 31, 16, "Name", "UserModel"));
 	}
 
 	[Fact]

@@ -1,12 +1,33 @@
 namespace Umbrella.Analyzers;
 
 /// <summary>
-/// Indicates that a model is designed for input binding and therefore permits non-required,
-/// settable properties.
+/// Indicates that a concrete model is designed for input binding and therefore permits non-required,
+/// settable properties. The marker is direct and does not flow through inheritance.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = true)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false)]
 public sealed class UmbrellaInputModelAttribute : Attribute
 {
+}
+
+/// <summary>
+/// Indicates that a concrete model record intentionally remains unsealed so it can be inherited.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class, Inherited = false)]
+public sealed class UmbrellaAllowUnsealedModelAttribute : Attribute
+{
+	/// <summary>
+	/// Gets the justification for allowing the model to remain unsealed.
+	/// </summary>
+	public string Justification { get; }
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="UmbrellaAllowUnsealedModelAttribute"/> class.
+	/// </summary>
+	/// <param name="justification">The justification for allowing the model to remain unsealed.</param>
+	public UmbrellaAllowUnsealedModelAttribute(string justification)
+	{
+		Justification = justification ?? throw new ArgumentNullException(nameof(justification));
+	}
 }
 
 /// <summary>

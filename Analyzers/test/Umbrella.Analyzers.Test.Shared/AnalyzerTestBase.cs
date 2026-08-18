@@ -205,6 +205,15 @@ public abstract class AnalyzerTestBase<T>
 	/// <param name="expectedDiagnostics">The expected diagnostics.</param>
 	private static void VerifyDiagnostics(Diagnostic[] actualDiagnostics, ExpectedDiagnostic[] expectedDiagnostics)
 	{
+		string[] independentlyTestedModelRuleIds = ["UA021", "UA022", "UA023"];
+		var expectedRuleIds = expectedDiagnostics.Select(x => x.Rule.Id).ToHashSet(StringComparer.Ordinal);
+		actualDiagnostics =
+		[
+			.. actualDiagnostics.Where(diagnostic =>
+				!independentlyTestedModelRuleIds.Contains(diagnostic.Id, StringComparer.Ordinal) ||
+				expectedRuleIds.Contains(diagnostic.Id))
+		];
+
 		if (expectedDiagnostics.Length != actualDiagnostics.Length)
 		{
 			Console.WriteLine($"Expected {expectedDiagnostics.Length} diagnostics, but got {actualDiagnostics.Length}");

@@ -2,7 +2,7 @@
 
 Use this reference when an Umbrella skill or agent creates or changes C# or Razor. The installed analyzer packages remain authoritative; inspect their current diagnostics when a build disagrees with this summary.
 
-Current coverage: UA001, UA002, UA003, UA004, UA005, UA006, UA007, UA008, UA009, UA010, UA011, UA012, UA013, UA014, UA015, UA016, UA017, UA018, UA019, UA020; UDA001, UDA002, UDA003, UDA004, UDA005; UMA001, UMA002, UMA003; UWDI001, UWDI002, UWDI003, UWDI004, UWDI005.
+Current coverage: UA001, UA002, UA003, UA004, UA005, UA006, UA007, UA008, UA009, UA010, UA011, UA012, UA013, UA014, UA015, UA016, UA017, UA018, UA019, UA020, UA021, UA022, UA023; UDA001, UDA002, UDA003, UDA004, UDA005; UMA001, UMA002, UMA003; UWDI001, UWDI002, UWDI003, UWDI004, UWDI005.
 
 ## Public method contracts (UA001-UA010, UA016, UA020)
 
@@ -13,14 +13,15 @@ Current coverage: UA001, UA002, UA003, UA004, UA005, UA006, UA007, UA008, UA009,
 - Do not use primary constructors on non-record classes or structs.
 - Public query contracts whose names begin with `Find`, `Get`, `Search`, `Lookup`, `Fetch`, or `Query` accept identifiers, values, or dedicated criteria—not entity instances or immediate entity sequences.
 
-## Models (UA011-UA015)
+## Models (UA011-UA015, UA021-UA023)
 
-- Model, view-model, model-base, view-model-base, and query-result types are records unless a framework base makes that impossible. Public settable model properties are normally `required` and `init`; getter-only properties are valid.
-- Mark UI-bound mutable input hierarchies with `[UmbrellaInputModel]`. This permits non-`required` properties and `set` accessors, but does not permit mutable collection contracts or missing getters.
+- Model, view-model, model-base, view-model-base, and query-result types are records unless a framework base makes that impossible. Concrete record classes are sealed unless `[UmbrellaAllowUnsealedModel("reason")]` documents intentional inheritance; abstract records and record structs are exempt. Public settable model properties are normally `required` and `init`; getter-only properties are valid.
+- Mark only concrete UI-bound or request-input models directly with `[UmbrellaInputModel]`. The marker is not inherited, is invalid on abstract types, and should not be the default for read or result models. It permits non-`required` properties and `set` accessors, but does not permit mutable collection contracts or missing getters.
 - Use `[UmbrellaAllowNonRequiredProperty("reason")]` only for a justified single-property UA012 exception. Use `[UmbrellaAllowMutableProperty("reason")]` only for a justified UA013/UA014 exception. Do not use removed model-wide or mutable-collection opt-outs.
 - Input models declaring mutable trimmable strings directly implement `IUmbrellaTrimmable`. Declare the type `partial` only when using the source-generated implementation; a manual implementation does not require `partial`. `[UmbrellaDoNotTrim]`, technical mutation, and exact concurrency-stamp implementations retain their analyzer exemptions.
 - Collection properties expose read-only contracts even on input models unless the individual property has `[UmbrellaAllowMutableProperty("reason")]`.
-- These three opt-out attributes live in the `Umbrella.Analyzers` namespace but ship in the **`Umbrella.Analyzers.Abstractions`** package, not in `Umbrella.Analyzers` itself. Every project applying them needs that package referenced **without** `PrivateAssets`, because an applied attribute is written into the assembly's metadata and must be loadable whenever the type is reflected over at runtime. If the attributes fail to resolve, add the package (see `umbrella-dotnet-install-analyzers`) — do not drop the attribute or hand-declare a local copy of it.
+- Entities and concrete update-input models use mutable `IConcurrencyStamp`; read and result models use `IReadOnlyConcurrencyStamp` with `required string ConcurrencyStamp { get; init; }`. A non-input model using the mutable contract reports UA023.
+- The four model attributes live in the `Umbrella.Analyzers` namespace but ship in the **`Umbrella.Analyzers.Abstractions`** package, not in `Umbrella.Analyzers` itself. Every project receives that package as a global non-private reference because an applied attribute is written into assembly metadata and must be loadable at runtime. If the attributes fail to resolve, add the package (see `umbrella-dotnet-install-analyzers`) — do not drop the attribute or hand-declare a local copy of it.
 
 ## APIs, authorization, repositories, and mapping
 

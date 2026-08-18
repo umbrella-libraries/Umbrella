@@ -68,7 +68,7 @@ public sealed class UmbrellaAllowMutablePropertyAttribute : Attribute { }";
 	}
 
 	[Fact]
-	public async Task PropertyImplementingInterfaceSetter_ShouldNotTriggerUA013()
+	public async Task PropertyImplementingInterfaceSetter_ShouldTriggerUA013WhenModelIsNotInput()
 	{
 		const string source = """
 			public interface IConcurrencyStamp
@@ -82,11 +82,13 @@ public sealed class UmbrellaAllowMutablePropertyAttribute : Attribute { }";
 			}
 			""";
 
-		await VerifyNoDiagnosticsAsync(source);
+		await VerifyAnalyzerAsync(
+			source,
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeGetterInitOnlyRule, 8, 25, "ConcurrencyStamp", "UserModel"));
 	}
 
 	[Fact]
-	public async Task PropertyImplementingDerivedInterfaceSetter_ShouldNotTriggerUA013()
+	public async Task PropertyImplementingDerivedInterfaceSetter_ShouldTriggerUA013WhenModelIsNotInput()
 	{
 		const string source = """
 			public interface IConcurrencyStamp
@@ -104,7 +106,9 @@ public sealed class UmbrellaAllowMutablePropertyAttribute : Attribute { }";
 			}
 			""";
 
-		await VerifyNoDiagnosticsAsync(source);
+		await VerifyAnalyzerAsync(
+			source,
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeGetterInitOnlyRule, 12, 25, "ConcurrencyStamp", "UserModel"));
 	}
 
 	[Fact]
@@ -113,6 +117,8 @@ public sealed class UmbrellaAllowMutablePropertyAttribute : Attribute { }";
 		// IConcurrencyStamp re-declares the stamp with a setter, so direct implementers keep the UA013 suppression.
 		// This is what allows entities to stay mutable.
 		const string source = """
+			using Umbrella.Analyzers;
+
 			public interface IReadOnlyConcurrencyStamp
 			{
 				string ConcurrencyStamp { get; }
@@ -123,6 +129,7 @@ public sealed class UmbrellaAllowMutablePropertyAttribute : Attribute { }";
 				new string ConcurrencyStamp { get; set; }
 			}
 
+			[UmbrellaInputModel]
 			public record UserModel : IConcurrencyStamp
 			{
 				public required string ConcurrencyStamp { get; set; }
@@ -224,7 +231,8 @@ public sealed class UmbrellaAllowMutablePropertyAttribute : Attribute { }";
 
 		await VerifyAnalyzerAsync(
 			source,
-			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeRequiredRule, 8, 16, "ConcurrencyStamp", "UserModel"));
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeRequiredRule, 8, 16, "ConcurrencyStamp", "UserModel"),
+			Diagnostic(UmbrellaModelStandardsAnalyzer.PropertiesMustBeGetterInitOnlyRule, 8, 16, "ConcurrencyStamp", "UserModel"));
 	}
 
 	[Fact]

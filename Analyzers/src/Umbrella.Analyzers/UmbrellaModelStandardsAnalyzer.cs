@@ -21,6 +21,9 @@ namespace Umbrella.Analyzers;
 /// <item><description>UA013: Model properties must have getter and be init-only to prevent mutation</description></item>
 /// <item><description>UA014: Collection properties must use a read-only collection type</description></item>
 /// <item><description>UA015: Input models declaring mutable strings must implement IUmbrellaTrimmable</description></item>
+/// <item><description>UA021: Input-model markers may only be applied to concrete model types</description></item>
+/// <item><description>UA022: Concrete model record classes must be sealed</description></item>
+/// <item><description>UA023: Non-input models must use the read-only concurrency-stamp contract</description></item>
 /// </list>
 /// <para>
 /// The analyzer targets types with names ending in: Model, ModelBase, ViewModel, ViewModelBase, or QueryResult.
@@ -108,9 +111,45 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		isEnabledByDefault: true,
 		description: "Input model classes and records that declare public mutable string properties should directly implement IUmbrellaTrimmable so user-supplied strings can be trimmed.");
 
+	/// <summary>
+	/// Diagnostic rule that prevents the input-model marker from being applied to abstract types.
+	/// </summary>
+	public static readonly DiagnosticDescriptor InputModelMustBeConcreteRule = new(
+		id: "UA021",
+		title: "Input model marker requires a concrete type",
+		messageFormat: "The input model type '{0}' must be concrete because UmbrellaInputModel does not apply through inheritance",
+		category: "UmbrellaModelStandards",
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true,
+		description: "UmbrellaInputModel is a direct marker for a concrete UI or request input model and must not be applied to an abstract base type.");
+
+	/// <summary>
+	/// Diagnostic rule that requires concrete model record classes to be sealed by default.
+	/// </summary>
+	public static readonly DiagnosticDescriptor ConcreteModelMustBeSealedRule = new(
+		id: "UA022",
+		title: "Concrete model record classes must be sealed",
+		messageFormat: "The concrete model record type '{0}' should be sealed",
+		category: "UmbrellaModelStandards",
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true,
+		description: "Concrete model record classes should be sealed so inheritance cannot reopen their invariants. Use UmbrellaAllowUnsealedModel only for intentional model inheritance.");
+
+	/// <summary>
+	/// Diagnostic rule that reserves the mutable concurrency-stamp contract for concrete input models.
+	/// </summary>
+	public static readonly DiagnosticDescriptor NonInputModelMustUseReadOnlyConcurrencyStampRule = new(
+		id: "UA023",
+		title: "Non-input models must use IReadOnlyConcurrencyStamp",
+		messageFormat: "The non-input model type '{0}' should implement IReadOnlyConcurrencyStamp instead of IConcurrencyStamp",
+		category: "UmbrellaModelStandards",
+		defaultSeverity: DiagnosticSeverity.Error,
+		isEnabledByDefault: true,
+		description: "Read and result models use IReadOnlyConcurrencyStamp with an init-only property. IConcurrencyStamp is reserved for entities and concrete input models that require mutation after construction.");
+
 	/// <inheritdoc />
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-		[ModelMustBeRecordRule, PropertiesMustBeRequiredRule, PropertiesMustBeGetterInitOnlyRule, CollectionsMustBeReadOnlyRule, MutableStringModelMustImplementTrimmableRule];
+		[ModelMustBeRecordRule, PropertiesMustBeRequiredRule, PropertiesMustBeGetterInitOnlyRule, CollectionsMustBeReadOnlyRule, MutableStringModelMustImplementTrimmableRule, InputModelMustBeConcreteRule, ConcreteModelMustBeSealedRule, NonInputModelMustUseReadOnlyConcurrencyStampRule];
 
 	/// <inheritdoc />
 	public override void Initialize(AnalysisContext context)
@@ -132,6 +171,8 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 				ModelStandardsSymbolAnalysis.ConcurrencyStampInterfaceName);
 			INamedTypeSymbol? inputModelAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
 				"Umbrella.Analyzers.UmbrellaInputModelAttribute");
+			INamedTypeSymbol? allowUnsealedModelAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
+				"Umbrella.Analyzers.UmbrellaAllowUnsealedModelAttribute");
 			INamedTypeSymbol? allowNonRequiredPropertyAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
 				"Umbrella.Analyzers.UmbrellaAllowNonRequiredPropertyAttribute");
 			INamedTypeSymbol? allowMutablePropertyAttributeSymbol = startContext.Compilation.GetTypeByMetadataName(
@@ -139,7 +180,12 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			var collectionAnalysis = new CollectionTypeAnalysis(startContext.Compilation);
 
 			startContext.RegisterSyntaxNodeAction(
-				ctx => AnalyzeTypeDeclaration(ctx, razorPageModelSymbol),
+				ctx => AnalyzeTypeDeclaration(
+					ctx,
+					razorPageModelSymbol,
+					inputModelAttributeSymbol,
+					allowUnsealedModelAttributeSymbol,
+					concurrencyStampSymbol),
 				SyntaxKind.ClassDeclaration,
 				SyntaxKind.RecordDeclaration);
 			startContext.RegisterSyntaxNodeAction(
@@ -149,6 +195,7 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 					inputModelAttributeSymbol,
 					allowNonRequiredPropertyAttributeSymbol,
 					allowMutablePropertyAttributeSymbol,
+					concurrencyStampSymbol,
 					collectionAnalysis),
 				SyntaxKind.PropertyDeclaration);
 
@@ -171,10 +218,27 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 
 	private static void AnalyzeTypeDeclaration(
 		SyntaxNodeAnalysisContext context,
-		INamedTypeSymbol? razorPageModelSymbol)
+		INamedTypeSymbol? razorPageModelSymbol,
+		INamedTypeSymbol? inputModelAttributeSymbol,
+		INamedTypeSymbol? allowUnsealedModelAttributeSymbol,
+		INamedTypeSymbol? concurrencyStampSymbol)
 	{
 		if (context.Node is not TypeDeclarationSyntax typeDecl)
 			return;
+
+		if (context.SemanticModel.GetDeclaredSymbol(typeDecl) is not INamedTypeSymbol typeSymbol)
+			return;
+
+		bool hasInputModelAttribute = HasAttribute(typeSymbol, inputModelAttributeSymbol);
+		bool isPrimaryDeclaration = IsPrimaryDeclaration(typeSymbol, typeDecl);
+
+		if (isPrimaryDeclaration && hasInputModelAttribute && typeSymbol.IsAbstract)
+		{
+			context.ReportDiagnostic(Diagnostic.Create(
+				InputModelMustBeConcreteRule,
+				typeDecl.Identifier.GetLocation(),
+				typeSymbol.Name));
+		}
 
 		if (!IsApplicableModelType(typeDecl, context.SemanticModel, razorPageModelSymbol))
 			return;
@@ -184,6 +248,31 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			var diagnostic = Diagnostic.Create(ModelMustBeRecordRule, typeDecl.Identifier.GetLocation(), typeDecl.Identifier.Text);
 			context.ReportDiagnostic(diagnostic);
 		}
+
+		if (isPrimaryDeclaration &&
+			typeDecl is RecordDeclarationSyntax &&
+			typeSymbol.TypeKind == TypeKind.Class &&
+			!typeSymbol.IsAbstract &&
+			!typeSymbol.IsSealed &&
+			!HasAttribute(typeSymbol, allowUnsealedModelAttributeSymbol))
+		{
+			context.ReportDiagnostic(Diagnostic.Create(
+				ConcreteModelMustBeSealedRule,
+				typeDecl.Identifier.GetLocation(),
+				typeSymbol.Name));
+		}
+
+		bool isConcreteInputModel = hasInputModelAttribute && !typeSymbol.IsAbstract;
+
+		if (isPrimaryDeclaration &&
+			!isConcreteInputModel &&
+			ImplementsInterface(typeSymbol, concurrencyStampSymbol))
+		{
+			context.ReportDiagnostic(Diagnostic.Create(
+				NonInputModelMustUseReadOnlyConcurrencyStampRule,
+				typeDecl.Identifier.GetLocation(),
+				typeSymbol.Name));
+		}
 	}
 
 	private static void AnalyzePropertyDeclaration(
@@ -192,6 +281,7 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		INamedTypeSymbol? inputModelAttributeSymbol,
 		INamedTypeSymbol? allowNonRequiredPropertyAttributeSymbol,
 		INamedTypeSymbol? allowMutablePropertyAttributeSymbol,
+		INamedTypeSymbol? concurrencyStampSymbol,
 		CollectionTypeAnalysis collectionAnalysis)
 	{
 		var propertyDecl = (PropertyDeclarationSyntax)context.Node;
@@ -213,9 +303,13 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			return;
 
 		bool isInterfaceProperty = typeSymbol.TypeKind == TypeKind.Interface;
-		bool isInputModel = HasAttributeInTypeHierarchy(typeSymbol, inputModelAttributeSymbol);
+		bool isInputModel = !typeSymbol.IsAbstract && HasAttribute(typeSymbol, inputModelAttributeSymbol);
 		bool allowsMutation = HasAttribute(propertySymbol, allowMutablePropertyAttributeSymbol);
-		bool interfaceRequiresSetter = ImplementsInterfacePropertyWithSetter(typeSymbol, propertySymbol);
+		bool isMutableConcurrencyStamp = ImplementsInterface(typeSymbol, concurrencyStampSymbol) &&
+			ModelStandardsSymbolAnalysis.ImplementsInterfaceProperty(
+				propertySymbol,
+				typeSymbol,
+				concurrencyStampSymbol);
 
 		if (!isInterfaceProperty &&
 			!isInputModel &&
@@ -236,7 +330,7 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			!isInputModel &&
 			propertyDecl.AccessorList != null &&
 			propertyDecl.AccessorList.Accessors.Any(a => a.Kind() == SyntaxKind.SetAccessorDeclaration && !HasInitModifier(a)) &&
-			!interfaceRequiresSetter &&
+			!isMutableConcurrencyStamp &&
 			!allowsMutation;
 
 		if (hasMissingGetter || hasSetterWithoutInit)
@@ -273,7 +367,8 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 			return;
 
 		if (context.SemanticModel.GetDeclaredSymbol(typeDecl) is not INamedTypeSymbol typeSymbol ||
-			!HasAttributeInTypeHierarchy(typeSymbol, inputModelAttributeSymbol) ||
+			typeSymbol.IsAbstract ||
+			!HasAttribute(typeSymbol, inputModelAttributeSymbol) ||
 			!HasTrimmableStringProperty(
 				typeSymbol,
 				allowMutablePropertyAttributeSymbol,
@@ -313,25 +408,18 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 				interfaceType.AllInterfaces.Any(inheritedInterface =>
 					SymbolEqualityComparer.Default.Equals(inheritedInterface, interfaceSymbol)));
 
-	private static bool ImplementsInterfacePropertyWithSetter(
-		INamedTypeSymbol typeSymbol,
-		IPropertySymbol propertySymbol)
-	{
-		foreach (INamedTypeSymbol interfaceType in typeSymbol.AllInterfaces)
-		{
-			foreach (IPropertySymbol interfaceProperty in interfaceType.GetMembers().OfType<IPropertySymbol>())
-			{
-				if (interfaceProperty.SetMethod is not null &&
-					SymbolEqualityComparer.Default.Equals(
-						typeSymbol.FindImplementationForInterfaceMember(interfaceProperty),
-						propertySymbol))
-				{
-					return true;
-				}
-			}
-		}
+	private static bool ImplementsInterface(INamedTypeSymbol typeSymbol, INamedTypeSymbol? interfaceSymbol) =>
+		interfaceSymbol is not null &&
+		typeSymbol.AllInterfaces.Any(interfaceType =>
+			SymbolEqualityComparer.Default.Equals(interfaceType, interfaceSymbol));
 
-		return false;
+	private static bool IsPrimaryDeclaration(INamedTypeSymbol typeSymbol, TypeDeclarationSyntax typeDeclaration)
+	{
+		SyntaxReference? primaryDeclaration = typeSymbol.DeclaringSyntaxReferences.FirstOrDefault();
+
+		return primaryDeclaration is not null &&
+			primaryDeclaration.SyntaxTree == typeDeclaration.SyntaxTree &&
+			primaryDeclaration.Span == typeDeclaration.Span;
 	}
 
 	private static bool IsModelType(string typeName)
@@ -379,20 +467,5 @@ public class UmbrellaModelStandardsAnalyzer : DiagnosticAnalyzer
 		return attributeSymbol is not null &&
 			symbol.GetAttributes().Any(attribute =>
 				SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeSymbol));
-	}
-
-	private static bool HasAttributeInTypeHierarchy(
-		INamedTypeSymbol typeSymbol,
-		INamedTypeSymbol? attributeSymbol)
-	{
-		for (INamedTypeSymbol? currentType = typeSymbol;
-			currentType is not null;
-			currentType = currentType.BaseType)
-		{
-			if (HasAttribute(currentType, attributeSymbol))
-				return true;
-		}
-
-		return false;
 	}
 }
