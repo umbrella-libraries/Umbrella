@@ -2,7 +2,7 @@
 
 A collection of Roslyn analyzers enforcing Umbrella coding standards, async patterns, and model immutability across .NET solutions.
 
-Most rules are configured with **Error** severity (compile blocking); UA015, UA017, and UA019 are **Warning** severity. Add the package as a PrivateAssets dependency so it does not flow transitively.
+Most rules are configured with **Error** severity (compile blocking); UA015, UA017, UA019, and UA024 are **Warning** severity. Add the package as a PrivateAssets dependency so it does not flow transitively.
 
 ## Installation
 
@@ -50,6 +50,7 @@ decorated type — for example ASP.NET Core building model metadata during `MapC
 | UA021 | Input model marker requires a concrete type                           | `[UmbrellaInputModel]` is a direct marker for a concrete input type. It is invalid on abstract types and never flows through inheritance. |
 | UA022 | Concrete model record classes must be sealed                          | Concrete model record classes are sealed by default. Abstract records and record structs are excluded; use `[UmbrellaAllowUnsealedModel("reason")]` only for intentional concrete model inheritance. |
 | UA023 | Non-input models must use IReadOnlyConcurrencyStamp                   | A model implementing mutable `IConcurrencyStamp` must be a concrete directly marked input model. Read and result models use `IReadOnlyConcurrencyStamp` with `required ... { get; init; }`. |
+| UA024 | Data expression parameters must use the collection form              | A single `SortExpression<TItem>` or `FilterExpression<TItem>` must not be declared as a controller action parameter. ApiExplorer flattens a non-collection complex parameter into one description per property, and the walk reaches the expression tree and then `System.Type`, whose reflection graph does not terminate in practical time — OpenAPI document generation hangs rather than failing. Declare an array or `IEnumerable<>` (the form the Umbrella generic controller families use, which is not flattened), or use `SortExpressionDescriptor` / `FilterExpressionDescriptor`. |
 
 ### Model attributes (UA012–UA014)
 Use the type-level input marker for models populated by UI/model binding. Use a narrowly scoped
@@ -71,7 +72,7 @@ whitespace is meaningful, such as passwords. The string-trimmer generator leaves
 properties unchanged, and UA015 does not count them as trimming candidates.
 
 ### Severity
-UA001–UA014, UA016, UA018, and UA020–UA023 emit diagnostics as `Error` so builds fail until issues are resolved. UA015, UA017, and UA019 emit as `Warning` — they flag structural issues but do not block the build by default. Adjust severities via ruleset / .editorconfig if you need a different adoption path.
+UA001–UA014, UA016, UA018, and UA020–UA023 emit diagnostics as `Error` so builds fail until issues are resolved. UA015, UA017, UA019, and UA024 emit as `Warning` — they flag structural issues but do not block the build by default. Adjust severities via ruleset / .editorconfig if you need a different adoption path.
 
 ## Release Tracking
 Rule introduction and status are tracked in:

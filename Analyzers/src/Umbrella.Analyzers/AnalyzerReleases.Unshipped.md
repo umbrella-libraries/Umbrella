@@ -28,3 +28,4 @@ UA020 | DataAccess | Error | EntityQueryParameterAnalyzer — entity values and 
 UA021 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — [UmbrellaInputModel] may only be applied directly to a concrete type and never flows through inheritance
 UA022 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — concrete model record classes must be sealed unless [UmbrellaAllowUnsealedModel] documents intentional inheritance
 UA023 | UmbrellaModelStandards | Error | UmbrellaModelStandardsAnalyzer — non-input model types must use IReadOnlyConcurrencyStamp rather than mutable IConcurrencyStamp
+UA024 | UmbrellaApiStandards | Warning | DataExpressionQueryParameterAnalyzer — a single SortExpression<TItem>/FilterExpression<TItem> action parameter is flattened by ApiExplorer and hangs OpenAPI document generation; the collection form and the descriptor types are unaffected
