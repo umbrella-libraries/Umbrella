@@ -1,5 +1,9 @@
 ﻿@inherits Umbrella.AspNetCore.Blazor.Components.ResponsiveImage.UmbrellaResponsiveImage
 
-<div class="u-dynamic-image @CssClass">
+<picture class="u-dynamic-image @CssClass">
+    @foreach (DynamicImagePictureSource source in PictureSources)
+    {
+        <source type="@source.ContentType" srcset="@source.SrcSet" />
+    }
     <img src="@SrcValue" srcset="@SrcSetValue" loading="@(LazyLoadingEnabled ? "lazy" : null)" decoding="@(LazyLoadingEnabled ? "async" : null)" @attributes="AdditionalAttributes" />
-</div>
+</picture>

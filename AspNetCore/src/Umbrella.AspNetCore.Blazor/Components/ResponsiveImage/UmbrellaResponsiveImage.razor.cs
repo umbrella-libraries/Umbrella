@@ -18,7 +18,7 @@ public partial class UmbrellaResponsiveImage : ComponentBase
 	protected IResponsiveImageHelper ResponsiveImageHelper { get; [RequiresUnreferencedCode(TrimConstants.DI)] set; } = null!;
 
 	/// <summary>
-	/// Gets or sets the CSS class that is applied to the div that wraps the generated img tag.
+	/// Gets or sets the CSS class that is applied to the root container element around the generated img tag.
 	/// To apply a CSS class directly to the img tag, use the "class" attribute.
 	/// </summary>
 	[Parameter]

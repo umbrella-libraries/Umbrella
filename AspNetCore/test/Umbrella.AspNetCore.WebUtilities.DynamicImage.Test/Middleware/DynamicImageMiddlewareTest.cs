@@ -177,9 +177,9 @@ public class DynamicImageMiddlewareTest
 	}
 
 	[Theory]
-	[InlineData("image/webp", DynamicImageFormat.WebP)]
-	[InlineData("image/avif", DynamicImageFormat.Avif)]
-	public async Task InvokeAsync_ValidatesRequestedFormatBeforeNegotiatingResponseFormat(string acceptHeader, DynamicImageFormat negotiatedFormat)
+	[InlineData("image/webp")]
+	[InlineData("image/avif")]
+	public async Task InvokeAsync_UsesUrlFormatRegardlessOfAcceptHeader(string acceptHeader)
 	{
 		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
 		var sourceFile = new Mock<IUmbrellaFileInfo>(MockBehavior.Strict);
@@ -188,19 +188,18 @@ public class DynamicImageMiddlewareTest
 		_ = fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync(sourceFile.Object);
 
 		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
-		_ = resizer.Setup(x => x.SupportsFormat(negotiatedFormat)).Returns(true);
-
-		DynamicImageOptions negotiatedOptions = new("/images/test.png", 100, 200, DynamicResizeMode.Crop, negotiatedFormat);
+		_ = resizer.Setup(x => x.SupportsFormat(DynamicImageFormat.Jpeg)).Returns(true);
+		DynamicImageOptions requestedOptions = new("/images/test.png", 100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg);
 		DynamicImageItem cachedItem = new()
 		{
 			Content = new byte[] { 1, 2, 3 },
-			ImageOptions = negotiatedOptions
+			ImageOptions = requestedOptions
 		};
 
 		_ = resizer
 			.Setup(x => x.GetCachedItemAsync(
 				sourceFile.Object,
-				It.Is<DynamicImageOptions>(options => options == negotiatedOptions),
+				It.Is<DynamicImageOptions>(options => options == requestedOptions),
 				It.IsAny<CancellationToken>()))
 			.ReturnsAsync(cachedItem);
 
@@ -218,7 +217,7 @@ public class DynamicImageMiddlewareTest
 		await middleware.InvokeAsync(context);
 
 		Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-		Assert.Equal(negotiatedFormat is DynamicImageFormat.WebP ? "image/webp" : "image/avif", context.Response.ContentType);
+		Assert.Equal("image/jpeg", context.Response.ContentType);
 		Assert.Equal(3, context.Response.ContentLength);
 
 		string[] varyValues = context.Response.Headers.Vary
@@ -226,7 +225,7 @@ public class DynamicImageMiddlewareTest
 			.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
 		Assert.Contains("Origin", varyValues, StringComparer.OrdinalIgnoreCase);
-		Assert.Contains(HeaderNames.Accept, varyValues, StringComparer.OrdinalIgnoreCase);
+		Assert.DoesNotContain(HeaderNames.Accept, varyValues, StringComparer.OrdinalIgnoreCase);
 		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Once);
 		resizer.VerifyAll();
 	}
@@ -247,7 +246,7 @@ public class DynamicImageMiddlewareTest
 		_ = headerValueUtility.Setup(x => x.CreateLastModifiedHeaderValue(lastModified)).Returns(lastModifiedHeaderValue);
 
 		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
-		_ = resizer.Setup(x => x.SupportsFormat(DynamicImageFormat.WebP)).Returns(true);
+		_ = resizer.Setup(x => x.SupportsFormat(DynamicImageFormat.Jpeg)).Returns(true);
 		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
 		options.EnableUrlFingerprinting = false;
 		DynamicImageMiddleware middleware = CreateMiddleware(options, headerValueUtility.Object, resizer.Object);
@@ -270,10 +269,10 @@ public class DynamicImageMiddlewareTest
 			.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
 		Assert.Contains("Origin", varyValues, StringComparer.OrdinalIgnoreCase);
-		Assert.Contains(HeaderNames.Accept, varyValues, StringComparer.OrdinalIgnoreCase);
+		Assert.DoesNotContain(HeaderNames.Accept, varyValues, StringComparer.OrdinalIgnoreCase);
 		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Once);
 		headerValueUtility.VerifyAll();
-		resizer.Verify(x => x.SupportsFormat(DynamicImageFormat.WebP), Times.Once);
+		resizer.Verify(x => x.SupportsFormat(DynamicImageFormat.Jpeg), Times.Once);
 		resizer.VerifyNoOtherCalls();
 	}
 
@@ -293,6 +292,7 @@ public class DynamicImageMiddlewareTest
 		_ = headerValueUtility.Setup(x => x.CreateLastModifiedHeaderValue(lastModified)).Returns(lastModifiedHeaderValue);
 
 		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
+		_ = resizer.Setup(x => x.SupportsFormat(DynamicImageFormat.Jpeg)).Returns(true);
 		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
 		options.EnableUrlFingerprinting = false;
 		DynamicImageMiddleware middleware = CreateMiddleware(options, headerValueUtility.Object, resizer.Object);
@@ -306,10 +306,11 @@ public class DynamicImageMiddlewareTest
 		Assert.Equal("no-cache", context.Response.Headers.CacheControl);
 		Assert.Equal(eTagValue, context.Response.Headers.ETag);
 		Assert.Equal(lastModifiedHeaderValue, context.Response.Headers.LastModified);
-		Assert.Equal(HeaderNames.Accept, context.Response.Headers.Vary);
+		Assert.False(context.Response.Headers.ContainsKey(HeaderNames.Vary));
 		Assert.Equal(0, context.Response.Body.Length);
 		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Once);
 		headerValueUtility.VerifyAll();
+		resizer.Verify(x => x.SupportsFormat(DynamicImageFormat.Jpeg), Times.Once);
 		resizer.VerifyNoOtherCalls();
 	}
 
@@ -317,11 +318,10 @@ public class DynamicImageMiddlewareTest
 	[InlineData("101/200/Crop")]
 	[InlineData("100/201/Crop")]
 	[InlineData("100/200/UseWidth")]
-	public async Task InvokeAsync_ReturnsNotFoundForUnregisteredTransform_WhenResponseFormatWouldBeNegotiated(string transform)
+	public async Task InvokeAsync_ReturnsNotFoundForUnregisteredTransform(string transform)
 	{
 		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
 		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
-		_ = resizer.Setup(x => x.SupportsFormat(DynamicImageFormat.WebP)).Returns(true);
 		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
 		_ = options.AddAllowedVariants(
 		[
@@ -376,12 +376,32 @@ public class DynamicImageMiddlewareTest
 	}
 
 	[Fact]
-	public async Task InvokeAsync_DoesNotNegotiateFormat_WhenOverrideIsDisabled()
+	public async Task InvokeAsync_ReturnsNotFoundWithoutAccessingSource_WhenRequestedFormatIsNotSupportedByResizer()
+	{
+		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
+		_ = resizer.Setup(x => x.SupportsFormat(DynamicImageFormat.Avif)).Returns(false);
+		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
+		_ = options.AddAllowedVariants(
+		[
+			new DynamicImageVariant(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Avif)
+		]);
+		DynamicImageMiddleware middleware = CreateMiddleware(options, resizer: resizer.Object);
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.avif");
+
+		await middleware.InvokeAsync(context);
+
+		Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+		fileProvider.Verify(x => x.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+		resizer.VerifyAll();
+	}
+
+	[Fact]
+	public async Task InvokeAsync_DoesNotNegotiateFormat()
 	{
 		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
 		_ = fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync((IUmbrellaFileInfo?)null);
 		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
-		options.EnableJpgPngWebPOrAvifOverride = false;
 		_ = options.AddAllowedVariants(
 		[
 			new DynamicImageVariant(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
@@ -484,6 +504,7 @@ public class DynamicImageMiddlewareTest
 		DynamicImageOptions imageOptions = new("/images/test.png", 100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, versionToken: versionToken);
 		DynamicImageItem cachedItem = new() { Content = new byte[] { 1, 2, 3 }, ImageOptions = imageOptions };
 		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
+		_ = resizer.Setup(x => x.SupportsFormat(DynamicImageFormat.Jpeg)).Returns(true);
 		_ = resizer.Setup(x => x.GetCachedItemAsync(file.Object, imageOptions, It.IsAny<CancellationToken>())).ReturnsAsync(cachedItem);
 		var headerValueUtility = new Mock<IHttpHeaderValueUtility>(MockBehavior.Strict);
 		_ = headerValueUtility.Setup(x => x.CreateLastModifiedHeaderValue(lastModified)).Returns(lastModified.ToString("R"));
@@ -515,6 +536,7 @@ public class DynamicImageMiddlewareTest
 		DynamicImageOptions imageOptions = new("/images/test.png", 100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg);
 		DynamicImageItem cachedItem = new() { Content = new byte[] { 1, 2, 3 }, ImageOptions = imageOptions };
 		var resizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
+		_ = resizer.Setup(x => x.SupportsFormat(DynamicImageFormat.Jpeg)).Returns(true);
 		_ = resizer.Setup(x => x.GetCachedItemAsync(file.Object, imageOptions, It.IsAny<CancellationToken>())).ReturnsAsync(cachedItem);
 		DynamicImageMiddlewareOptions options = CreateOptions(fileProvider.Object);
 		options.Mappings[0].Cacheability = MiddlewareHttpCacheability.Public;
@@ -537,6 +559,7 @@ public class DynamicImageMiddlewareTest
 		RequestDelegate next = _ => Task.CompletedTask;
 
 		var defaultResizer = new Mock<IDynamicImageResizer>(MockBehavior.Strict);
+		_ = defaultResizer.Setup(x => x.SupportsFormat(It.IsAny<DynamicImageFormat>())).Returns(true);
 		var defaultHeaderValueUtility = new Mock<IHttpHeaderValueUtility>(MockBehavior.Strict);
 		IMimeTypeUtility mimeTypeUtility = CoreUtilitiesMocks.CreateMimeTypeUtility(
 			("jpg", "image/jpeg"),

@@ -62,7 +62,6 @@ Follow the application's existing file-provider construction and dependency-reso
 _ = services.AddUmbrellaWebUtilitiesDynamicImage((_, options) =>
 {
     options.EnableUrlFingerprinting = true;
-    options.EnableJpgPngWebPOrAvifOverride = true;
     options.Mappings =
     [
         new DynamicImageMiddlewareMapping
@@ -92,9 +91,19 @@ _ = services.AddUmbrellaWebUtilitiesDynamicImage((_, options) =>
 });
 ```
 
+Configure picture-source formats in the MVC tag-helper and Blazor options. WebP is the safe default for every resizer; enable AVIF only when the server uses NetVips:
+
+```csharp
+options.PictureSourceFormats =
+[
+    DynamicImageFormat.Avif,
+    DynamicImageFormat.WebP
+];
+```
+
 Use either the named catalogs or the aggregate catalog. Do not register both unless duplicate registration is intentional; the `HashSet` deduplicates entries, but duplication obscures ownership.
 
-Catalog variants authorize transforms requested by the URL. JPEG/PNG responses transparently negotiated to WebP or AVIF do not require duplicate negotiated-format variants. An explicitly requested format must itself be registered.
+Catalog variants authorize transforms requested by the URL. Automatic `UmbrellaDynamicImage`, `UmbrellaFileImagePreviewUpload`, and `dynamic-image` usages register their fallback, WebP, and AVIF variants because runtime picture-source options can select those explicit URLs. Manual `dynamic-source` usages register only their declared format.
 
 ## URL and version-token propagation
 
@@ -131,10 +140,10 @@ Static external HTTP(S) URLs do not create local variants.
 - A missing or stale token redirects to the canonical URL with `Cache-Control: no-store`.
 - If fingerprinting is enabled but no token can be produced, the response must not receive long-lived caching.
 - `Public` permits shared/CDN caching; `Private` permits browser caching only; `NoStore` forbids storage.
-- Negotiable JPEG/PNG responses include `Vary: Accept` while preserving existing `Vary` values.
+- The response format is determined only by the requested URL; middleware does not inspect `Accept` or emit `Vary: Accept`.
 - ETag is emitted from the shared version-token algorithm. Last-Modified is also emitted when provider metadata supplies it.
 - Matching `If-None-Match`, or `If-Modified-Since` when supported, returns `304 Not Modified`.
-- Altered transform inputs remain subject to global limits and generated allow-list validation before response-format negotiation.
+- Altered transform inputs and explicit formats remain subject to global limits and generated allow-list validation.
 
 ## Verification probes
 

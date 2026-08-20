@@ -11,6 +11,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\Internal\src\Umbrella.Internal.Mocks\Umbrella.Internal.Mocks.csproj" />
+		<ProjectReference Include="..\..\src\Umbrella.AspNetCore.Blazor\Umbrella.AspNetCore.Blazor.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.AspNetCore.WebUtilities.DynamicImage\Umbrella.AspNetCore.WebUtilities.DynamicImage.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.AspNetCore.WebUtilities\Umbrella.AspNetCore.WebUtilities.csproj" />
 	</ItemGroup>
@@ -21,4 +22,3 @@
 	</ItemGroup>
 
 </Project>
-

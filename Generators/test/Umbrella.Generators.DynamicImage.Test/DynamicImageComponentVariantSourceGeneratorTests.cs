@@ -35,7 +35,7 @@ public static class RenderFragmentFactory
 
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(100, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP),
 			new DynamicImageVariant(200, 100, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP)
@@ -62,7 +62,7 @@ public static class RenderFragmentFactory
 
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
 			new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
@@ -93,7 +93,7 @@ public static class RenderFragmentFactory
 
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Png),
 			new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Png),
@@ -184,7 +184,7 @@ public static class RenderFragmentFactory
 
 		// 0 and -5 must be excluded; only sizeWidth=100 is valid
 		// base: (200, 100, Crop, Jpeg); size-width: density1 → (100, 50, Crop, Jpeg)
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
 			new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
@@ -215,7 +215,7 @@ public static class RenderFragmentFactory
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
 		// All SizeWidths entries are invalid → fall back to density path
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
 			new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
@@ -253,7 +253,7 @@ public static class RenderFragmentFactory
 
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(300, 200, DynamicResizeMode.Crop, DynamicImageFormat.Png),
 			new DynamicImageVariant(600, 400, DynamicResizeMode.Crop, DynamicImageFormat.WebP)
@@ -277,7 +277,7 @@ public static class RenderFragmentFactory
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
 		// Defaults: W=1, H=1, Crop, Jpeg, MaxPixelDensity=3
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(1, 1, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
 			new DynamicImageVariant(2, 2, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
@@ -315,7 +315,7 @@ public static class RenderFragmentFactory
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
 		// Both components produce (100, 50, Crop, Jpeg) — should appear only once
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
 		], variants);
@@ -351,7 +351,7 @@ public static class RenderFragmentFactory
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
 		// First component (HTTPS URL) → no variants; second component → emits one variant
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(400, 300, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
 		], variants);
@@ -383,7 +383,7 @@ public class MyView : RazorPageBase
 
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(200, 100, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP)
 			,
@@ -418,7 +418,7 @@ public class MyView : RazorPageBase
 
 		// base: (200,100), sizeWidth=100 × densities 1-3 → 100x50, 200x100, 300x150
 		// sizeWidth=200 × densities 1-3 → 200x100, 400x200, 600x300; deduped
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Png),
 			new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Png),
@@ -450,7 +450,7 @@ public class MyView : RazorPageBase
 
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(320, 240, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
 			new DynamicImageVariant(640, 480, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
@@ -479,7 +479,7 @@ public class MyView : RazorPageBase
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
 		// Defaults: ResizeMode=Crop (4), ImageFormat=Jpeg (2)
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(320, 240, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
 			new DynamicImageVariant(640, 480, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
@@ -602,7 +602,7 @@ public class MyView : RazorPageBase
 
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(300, 200, DynamicResizeMode.Crop, DynamicImageFormat.Png),
 			new DynamicImageVariant(600, 400, DynamicResizeMode.Crop, DynamicImageFormat.Png),
@@ -638,7 +638,7 @@ public class MyView : RazorPageBase
 
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
 			new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
@@ -683,7 +683,7 @@ public static class RenderFragmentFactory
 
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(400, 300, DynamicResizeMode.Crop, DynamicImageFormat.Png),
 			new DynamicImageVariant(800, 600, DynamicResizeMode.Crop, DynamicImageFormat.Png),
@@ -716,7 +716,7 @@ public class MyView : RazorPageBase
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
 		// Only sizeWidth=100 is valid; densities 1-3 → 100x50, 200x100, 300x150; plus base 200x100 (deduped)
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 		[
 			new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
 			new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
@@ -776,6 +776,27 @@ public abstract class RazorPageBase
 			.ThenBy(x => (int)x.ResizeMode)
 			.ThenBy(x => (int)x.Format)
 			.ToArray();
+	}
+
+	private static void AssertAutomaticPictureVariants(IEnumerable<DynamicImageVariant> expectedFallbackVariants, IEnumerable<DynamicImageVariant> actualVariants)
+	{
+		DynamicImageVariant[] expected =
+		[
+			.. expectedFallbackVariants
+				.SelectMany(x => new[]
+				{
+					x,
+					new DynamicImageVariant(x.Width, x.Height, x.ResizeMode, DynamicImageFormat.WebP),
+					new DynamicImageVariant(x.Width, x.Height, x.ResizeMode, DynamicImageFormat.Avif)
+				})
+				.Distinct()
+				.OrderBy(x => x.Width)
+				.ThenBy(x => x.Height)
+				.ThenBy(x => (int)x.ResizeMode)
+				.ThenBy(x => (int)x.Format)
+		];
+
+		Assert.Equal(expected, actualVariants);
 	}
 
 	private static CSharpCompilation CreateCompilation(string source)

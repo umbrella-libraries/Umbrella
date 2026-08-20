@@ -26,13 +26,6 @@ public class DynamicImageMiddlewareOptions : IValidatableUmbrellaOptions, ISanit
 	public string DynamicImagePathPrefix { get; set; } = DynamicImageConstants.DefaultPathPrefix;
 
 	/// <summary>
-	/// Gets or sets a value indicating whether Jpg images should be returned in WebP or Avif format for supported browsers.
-	/// Defaults to <see langword="true"/>.
-	/// </summary>
-	/// <remarks>Avif will be preferred over WebP where supported.</remarks>
-	public bool EnableJpgPngWebPOrAvifOverride { get; set; } = true;
-
-	/// <summary>
 	/// Gets or sets a value indicating whether URL fingerprinting is enabled for generated and canonical dynamic image URLs.
 	/// Defaults to <see langword="true" />.
 	/// </summary>
@@ -52,10 +45,7 @@ public class DynamicImageMiddlewareOptions : IValidatableUmbrellaOptions, ISanit
 	/// <summary>
 	/// Gets or sets the globally allowed dynamic image variants used when <see cref="EnableValidation"/> is enabled.
 	/// </summary>
-	/// <remarks>
-	/// Variants describe the transform explicitly requested by the URL. Transparent WebP or AVIF response negotiation
-	/// performed by the middleware does not require equivalent entries for those negotiated response formats.
-	/// </remarks>
+	/// <remarks>Variants describe the transform explicitly requested by the URL.</remarks>
 	public HashSet<DynamicImageVariant> AllowedVariants { get; set; } = [];
 
 	/// <summary>

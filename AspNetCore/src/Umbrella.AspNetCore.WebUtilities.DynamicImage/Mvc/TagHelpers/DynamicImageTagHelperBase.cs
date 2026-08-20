@@ -207,14 +207,15 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	/// <param name="sourcePath">The source path.</param>
 	/// <param name="width">The width.</param>
 	/// <param name="height">The height.</param>
+	/// <param name="imageFormat">The optional output image format.</param>
 	/// <returns>The dynamic image options.</returns>
-	protected DynamicImageOptions CreateDynamicImageOptions(string sourcePath, int width, int height)
+	protected DynamicImageOptions CreateDynamicImageOptions(string sourcePath, int width, int height, DynamicImageFormat? imageFormat = null)
 		=> new(
 			sourcePath,
 			width,
 			height,
 			ResizeMode,
-			ImageFormat,
+			imageFormat ?? ImageFormat,
 			FilterQuality,
 			QualityRequest,
 			FocalPointX,

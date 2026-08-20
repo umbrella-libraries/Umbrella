@@ -56,7 +56,7 @@ Enumerate the status-helper and `OperationResult`/`OperationResultFailure` calls
 5. **Never infer statuses from route shape.** Anti-enumeration endpoints deliberately return success for missing resources; only generate `404` tests where the action actually returns `NotFound`.
 6. **Do not assume base-class conventions** — custom clamps, ad-hoc guards (`id < 1` → `400`), domain-state `401`s. The action body is the source of truth.
 7. **External dependencies gate codes** (CAPTCHA → `400`, email senders, payment gateways) — only testable with controllable fakes registered in the factory; never call the real service.
-8. **The `500` contract is standard**: catch-all filters with `returnValue: !IsDevelopment`; shape assertions need a non-`Development` host and a throwing fake. Optional coverage.
+8. **The `500` contract is standard**: catch-all filters with `returnValue: !IsDevelopment`; shape assertions need a non-`Development` host. Prefer a deterministic in-scope trigger when one exists—for example, submit a nonexistent related ID that the mapper writes to a scalar foreign key and let the real relational constraint reject persistence. Assert the Umbrella problem-details response and verify that no partial state change was committed. Otherwise use a throwing fake. Optional coverage.
 9. **Actions returning `OperationResult(...)` from logic services** map through the standard table (`GenericSuccess` → `200`, `Created` → `201`, `NoContent` → `204`, `NotFound` → `404`, `Conflict`/`ConcurrencyConflict` → `409`, `Forbidden` → `403`, `NotAllowed` → `405`, `InvalidOperation` → `400`, `GenericFailure` → `500`). Drive the service into each state, or substitute a fake returning each `IOperationResult` when the real state is impractical to arrange.
 
 ## Variant C — deriving contracts from `ExecuteOperationAsync` composition
@@ -70,7 +70,7 @@ The action's contract is the union of: the composed operation's statuses, the en
 
 ## Test generation (all variants)
 
-Use the per-status recipes from `umbrella-dotnet-generate-api-repo-controller-tests` — they describe mechanisms, not endpoints, and apply directly: seeded happy paths via a scoped `DbContext`, `401` anonymous (attribute-gated) vs in-action, `403` per identity class, `404` non-existent key, `409` stamp rotation asserting `code = ConcurrencyStampMismatch`, `400`/`422` per the resolved host state, optional `500` via throwing fake + non-`Development` host.
+Use the per-status recipes from `umbrella-dotnet-generate-api-repo-controller-tests` — they describe mechanisms, not endpoints, and apply directly: seeded happy paths via a scoped `DbContext`, `401` anonymous (attribute-gated) vs in-action, `403` per identity class, `404` non-existent key, `409` stamp rotation asserting `code = ConcurrencyStampMismatch`, `400`/`422` per the resolved host state, optional `500` via a deterministic persistence-constraint trigger or a throwing fake + non-`Development` host.
 
 Shared conventions: test class per controller in the SQL Server Testcontainers collection, `<Method>Async_<Scenario>_Returns<Status>` naming, and the `Umbrella.Testing.AspNetCore.Http` problem-details assertion extensions. Use the plain ASP.NET validation helper when Umbrella behavior options are absent. Capture returned problem details when asserting their fields; otherwise assign the awaited result to `_` for analyzer-clean code:
 

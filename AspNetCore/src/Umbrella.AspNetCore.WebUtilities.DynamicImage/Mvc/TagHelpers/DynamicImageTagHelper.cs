@@ -1,4 +1,6 @@
 using CommunityToolkit.Diagnostics;
+using Microsoft.AspNetCore.Html;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -11,10 +13,10 @@ using Umbrella.WebUtilities.Hosting;
 namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
 
 /// <summary>
-/// A tag helper used to generate img tags have the correct URLs for use with the DynamicImage infrastructure.
+/// A tag helper used to generate picture elements with format-specific URLs for use with the Dynamic Image infrastructure.
 /// </summary>
 /// <seealso cref="DynamicImageTagHelperBase" />
-[OutputElementHint("img")]
+[OutputElementHint("picture")]
 [HtmlTargetElement("dynamic-image", Attributes = RequiredAttributeNames, TagStructure = TagStructure.WithoutEndTag)]
 public class DynamicImageTagHelper : DynamicImageTagHelperBase
 {
@@ -60,38 +62,89 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 		Guard.IsNotNull(context);
 		Guard.IsNotNull(output);
 
-		//If we don't have any size information just call into the base method
-		IReadOnlyCollection<int>? lstSizeWidth = SizeWidths is not null ? ResponsiveImageHelper.GetParsedIntegerItems(SizeWidths) : null;
+		string? sourceUrl = output.Attributes["src"]?.Value?.ToString()?.Trim();
 
-		if (lstSizeWidth is null || lstSizeWidth.Count is 0)
+		if (string.IsNullOrWhiteSpace(sourceUrl))
+			throw new InvalidOperationException("A source URL is required.");
+
+		bool isExternalUrl = sourceUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+			|| sourceUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+		string sourcePath;
+
+		if (isExternalUrl)
 		{
-			await base.ProcessAsync(context, output).ConfigureAwait(false);
+			sourcePath = sourceUrl;
+			output.TagName = "img";
+			output.Attributes.SetAttribute("srcset", ResponsiveImageHelper.GetPixelDensitySrcSetValue(sourceUrl, ImageMaxPixelDensity));
 		}
-		else if (SizeWidths is not null)
+		else
 		{
-			string sourcePath = await BuildCoreTagAsync(output).ConfigureAwait(false);
+			sourcePath = await BuildCoreTagAsync(output).ConfigureAwait(false);
+			output.Attributes.SetAttribute("srcset", GetSrcSetValue(sourcePath, ImageFormat));
+		}
 
-			string cacheKey = CacheKeyUtility.Create<DynamicImageTagHelper>($"{sourcePath}:{VersionToken}:{WidthRequest}:{HeightRequest}:{ResizeMode}:{ImageFormat}:{FilterQuality}:{QualityRequest}:{FocalPointX}:{FocalPointY}:{ImageMaxPixelDensity}:{SizeWidths}");
-			string? srcsetValue = Cache.GetOrCreate(
-				cacheKey,
-				entry =>
+		if (ImageLazyLoading)
+		{
+			output.Attributes.SetAttribute("loading", "lazy");
+			output.Attributes.SetAttribute("decoding", "async");
+		}
+
+		var content = new HtmlContentBuilder();
+
+		if (!isExternalUrl)
+		{
+			foreach (DynamicImageFormat format in DynamicImageTagHelperOptions.PictureSourceFormats.Where(x => x != ImageFormat))
+			{
+				var source = new TagBuilder("source")
 				{
-					_ = entry
-						.SetAbsoluteExpiration(TimeSpan.FromHours(1))
-						.SetPriority(CacheItemPriority.Low);
-
-					return ResponsiveImageHelper.GetSizeSrcSetValue(sourcePath, SizeWidths, ImageMaxPixelDensity, WidthRequest, HeightRequest, x =>
-					{
-						DynamicImageOptions options = CreateDynamicImageOptions(sourcePath, x.imageWidth, x.imageHeight);
-
-						string virtualPath = GenerateVirtualPath(options);
-
-						return ResolveImageUrl(virtualPath);
-					});
-				});
-
-			if (!string.IsNullOrWhiteSpace(srcsetValue))
-				output.Attributes.Add("srcset", srcsetValue);
+					TagRenderMode = TagRenderMode.SelfClosing
+				};
+				source.Attributes.Add("type", format is DynamicImageFormat.Avif ? "image/avif" : "image/webp");
+				source.Attributes.Add("srcset", GetSrcSetValue(sourcePath, format));
+				_ = content.AppendHtml(source);
+			}
 		}
+
+		var image = new TagBuilder("img")
+		{
+			TagRenderMode = TagRenderMode.SelfClosing
+		};
+
+		foreach (TagHelperAttribute attribute in output.Attributes)
+			image.Attributes[attribute.Name] = attribute.Value?.ToString() ?? string.Empty;
+
+		_ = content.AppendHtml(image);
+		output.Attributes.Clear();
+		output.TagName = "picture";
+		output.TagMode = TagMode.StartTagAndEndTag;
+		_ = output.Content.SetHtmlContent(content);
+	}
+
+	private string GetSrcSetValue(string sourcePath, DynamicImageFormat format)
+	{
+		string cacheKey = CacheKeyUtility.Create<DynamicImageTagHelper>($"{sourcePath}:{VersionToken}:{WidthRequest}:{HeightRequest}:{ResizeMode}:{format}:{FilterQuality}:{QualityRequest}:{FocalPointX}:{FocalPointY}:{ImageMaxPixelDensity}:{SizeWidths}");
+
+		return Cache.GetOrCreate(
+			cacheKey,
+			entry =>
+			{
+				_ = entry
+					.SetAbsoluteExpiration(TimeSpan.FromHours(1))
+					.SetPriority(CacheItemPriority.Low);
+
+				IReadOnlyCollection<int> sizeWidths = ResponsiveImageHelper.GetParsedIntegerItems(SizeWidths ?? "");
+				DynamicImageOptions options = CreateDynamicImageOptions(sourcePath, WidthRequest, HeightRequest, format);
+				string src = ResolveImageUrl(GenerateVirtualPath(options));
+
+				string? srcSet = sizeWidths.Count is 0
+					? ResponsiveImageHelper.GetPixelDensitySrcSetValue(src, ImageMaxPixelDensity)
+					: ResponsiveImageHelper.GetSizeSrcSetValue(sourcePath, SizeWidths ?? "", ImageMaxPixelDensity, WidthRequest, HeightRequest, x =>
+					{
+						DynamicImageOptions sizeOptions = CreateDynamicImageOptions(sourcePath, x.imageWidth, x.imageHeight, format);
+						return ResolveImageUrl(GenerateVirtualPath(sizeOptions));
+					});
+
+				return string.IsNullOrWhiteSpace(srcSet) ? src : srcSet;
+			}) ?? string.Empty;
 	}
 }

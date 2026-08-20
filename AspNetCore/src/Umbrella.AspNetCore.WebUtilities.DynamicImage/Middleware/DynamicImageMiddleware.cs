@@ -2,7 +2,6 @@ using System.Threading.RateLimiting;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Microsoft.Net.Http.Headers;
 using Umbrella.AspNetCore.WebUtilities.Extensions;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.FileSystem.Abstractions;
@@ -89,20 +88,6 @@ public class DynamicImageMiddleware : IDisposable
 				return;
 			}
 
-			DynamicImageFormat? overrideFormat = null;
-			bool formatNegotiationEnabledForRequest = _options.EnableJpgPngWebPOrAvifOverride
-				&& (path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
-
-			if (formatNegotiationEnabledForRequest)
-			{
-				overrideFormat = context switch
-				{
-					var _ when context.Request.AcceptsAvif() && _dynamicImageResizer.SupportsFormat(DynamicImageFormat.Avif) => DynamicImageFormat.Avif,
-					var _ when context.Request.AcceptsWebP() && _dynamicImageResizer.SupportsFormat(DynamicImageFormat.WebP) => DynamicImageFormat.WebP,
-					_ => null
-				};
-			}
-
 			string relativeUrl = path + context.Request.QueryString;
 			var (status, requestedImageOptions) = _dynamicImageUtility.TryParseUrl(_options.DynamicImagePathPrefix, relativeUrl);
 
@@ -132,9 +117,13 @@ public class DynamicImageMiddleware : IDisposable
 				return;
 			}
 
-			DynamicImageOptions imageOptions = overrideFormat.HasValue
-				? CreateDynamicImageOptions(requestedImageOptions, overrideFormat.Value)
-				: requestedImageOptions;
+			if (!_dynamicImageResizer.SupportsFormat(requestedImageOptions.Format))
+			{
+				context.Response.SendStatusCode(HttpStatusCode.NotFound);
+				return;
+			}
+
+			DynamicImageOptions imageOptions = requestedImageOptions;
 
 			IUmbrellaFileInfo? sourceFile = await mapping.FileProviderMapping.FileProvider.GetAsync(imageOptions.SourcePath, context.RequestAborted);
 
@@ -166,9 +155,6 @@ public class DynamicImageMiddleware : IDisposable
 			void ApplyResponseHeaders()
 			{
 				context.Response.Headers.XContentTypeOptions = "nosniff";
-
-				if (formatNegotiationEnabledForRequest)
-					context.Response.Headers.AppendCommaSeparatedValues(HeaderNames.Vary, HeaderNames.Accept);
 
 				if (preventLongLivedUnfingerprintedCaching)
 				{
@@ -297,19 +283,6 @@ public class DynamicImageMiddleware : IDisposable
 			throw new UmbrellaWebException("An error has occurred whilst executing the request.", exc);
 		}
 	}
-
-	private static DynamicImageOptions CreateDynamicImageOptions(in DynamicImageOptions options, DynamicImageFormat format)
-		=> new(
-			options.SourcePath,
-			options.Width,
-			options.Height,
-			options.ResizeMode,
-			format,
-			options.FilterQuality,
-			options.QualityRequest,
-			options.FocalPointX,
-			options.FocalPointY,
-			options.VersionToken);
 
 	private static DynamicImageOptions CreateCanonicalImageOptions(in DynamicImageOptions options, bool enableUrlFingerprinting, string? versionToken)
 	{

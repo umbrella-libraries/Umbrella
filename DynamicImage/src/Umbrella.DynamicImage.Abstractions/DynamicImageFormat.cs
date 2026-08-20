@@ -34,9 +34,8 @@ public enum DynamicImageFormat
 	/// An avif file.
 	/// </summary>
 	/// <remarks>
-	/// AVIF encoding is not available in current SkiaSharp native builds — <c>SKBitmap.Encode</c> returns null.
-	/// FreeImage does not support AVIF at all. Both resizers report <c>SupportsFormat(Avif) = false</c>, so the
-	/// middleware fallback will not offer AVIF until native encoder support ships.
+	/// AVIF encoding is supported by the NetVips implementation. SkiaSharp and FreeImage report
+	/// <c>SupportsFormat(Avif) = false</c>.
 	/// </remarks>
 	Avif = 5
 }

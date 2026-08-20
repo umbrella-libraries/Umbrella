@@ -129,6 +129,10 @@ public partial class <Name>Mapper :
 
 Audit the actual entity hierarchy before keeping those ignore attributes. They document targets managed by the repository/controller lifecycle rather than the request mapper; remove any attribute for a member the entity does not declare, and add any equivalent application-owned lifecycle target. Do not accept RMG012 warnings as harmless.
 
+For relationship inputs, allow Mapperly to map a scalar foreign-key property when the request model and entity expose the same member, and ignore the corresponding navigation property on the request-to-entity mapping. Do not resolve and assign the navigation solely to verify that the key exists. Prevalidate the related entity only when the endpoint contract deliberately promises a domain-specific `400` or `404`, or when a domain rule cannot be enforced by the persistence constraint.
+
+Do not make an update result image-bearing merely because the update changes an image foreign key. Preserve the discovered API contract: command results normally carry only values the client must refresh immediately, such as a concurrency stamp, while read-only URL, version-token, alt-text, and navigation-derived values belong on the read model. Add asynchronous result enrichment only when the client explicitly requires those values in the update response.
+
 **Mapper with properties needing asynchronous manual values (for example versioned file URLs):**
 
 This form requires an existing feature file handler. Complete the discovery preflight above before emitting it.

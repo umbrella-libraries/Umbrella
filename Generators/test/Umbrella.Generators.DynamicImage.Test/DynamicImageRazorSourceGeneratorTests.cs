@@ -45,13 +45,13 @@ public class DynamicImageRazorSourceGeneratorTests
 		Assembly assembly = GenerateAssembly(files, metadata, out ImmutableArray<Diagnostic> diagnostics);
 
 		Assert.Empty(diagnostics);
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 			[new DynamicImageVariant(321, 123, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)],
 			GetVariants(assembly, "ServerDynamicImageVariantCatalog"));
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 			[new DynamicImageVariant(400, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP)],
 			GetVariants(assembly, "ClientDynamicImageVariantCatalog"));
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 			[
 				new DynamicImageVariant(321, 123, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
 				new DynamicImageVariant(400, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP)
@@ -78,7 +78,7 @@ public class DynamicImageRazorSourceGeneratorTests
 		Assembly assembly = GenerateAssembly(files, CreateCatalogMetadata(files, "Client"), out ImmutableArray<Diagnostic> diagnostics);
 
 		Assert.Empty(diagnostics);
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 			[
 				new DynamicImageVariant(400, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Png),
 				new DynamicImageVariant(800, 400, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Png),
@@ -172,7 +172,7 @@ public class DynamicImageRazorSourceGeneratorTests
 		Assembly assembly = GenerateAssembly(files, CreateCatalogMetadata(files, "Server"), out ImmutableArray<Diagnostic> diagnostics);
 
 		Assert.Empty(diagnostics);
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 			[
 				new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
 				new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
@@ -225,7 +225,7 @@ public class DynamicImageRazorSourceGeneratorTests
 		Assembly assembly = GenerateAssembly(files, CreateCatalogMetadata(files, "Server"), out ImmutableArray<Diagnostic> diagnostics);
 
 		Assert.Empty(diagnostics);
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 			[
 				new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Png),
 				new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Png)
@@ -266,7 +266,7 @@ public class DynamicImageRazorSourceGeneratorTests
 		Assembly assembly = GenerateAssembly(files, CreateCatalogMetadata(files, "Server"), out ImmutableArray<Diagnostic> diagnostics);
 
 		Assert.Empty(diagnostics);
-		Assert.Equal(
+		AssertAutomaticPictureVariants(
 			[new DynamicImageVariant(210, 110, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)],
 			GetVariants(assembly, "ServerDynamicImageVariantCatalog"));
 	}
@@ -377,6 +377,27 @@ public class DynamicImageRazorSourceGeneratorTests
 			.ThenBy(x => (int)x.ResizeMode)
 			.ThenBy(x => (int)x.Format)
 			.ToArray();
+	}
+
+	private static void AssertAutomaticPictureVariants(IEnumerable<DynamicImageVariant> expectedFallbackVariants, IEnumerable<DynamicImageVariant> actualVariants)
+	{
+		DynamicImageVariant[] expected =
+		[
+			.. expectedFallbackVariants
+				.SelectMany(x => new[]
+				{
+					x,
+					new DynamicImageVariant(x.Width, x.Height, x.ResizeMode, DynamicImageFormat.WebP),
+					new DynamicImageVariant(x.Width, x.Height, x.ResizeMode, DynamicImageFormat.Avif)
+				})
+				.Distinct()
+				.OrderBy(x => x.Width)
+				.ThenBy(x => x.Height)
+				.ThenBy(x => (int)x.ResizeMode)
+				.ThenBy(x => (int)x.Format)
+		];
+
+		Assert.Equal(expected, actualVariants);
 	}
 
 	private static CSharpCompilation CreateCompilation()

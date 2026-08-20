@@ -39,7 +39,7 @@ Current coverage: UA001, UA002, UA003, UA004, UA005, UA006, UA007, UA008, UA009,
 - Variant-shaping Razor values must be literals or enum members. Runtime expressions report UWDI004 and are omitted from the catalog.
 - Server-only catalog generation consumes local Razor plus explicitly named external source roots. Catalog names are non-empty and case-insensitively unique, and each physical Razor file has one catalog owner.
 - `UmbrellaFileImagePreviewUpload` participates in token checking and variant discovery just like `UmbrellaDynamicImage`.
-- Catalogs authorize URL-requested transforms; transparent WebP/AVIF negotiation does not require duplicate variants, while explicitly requested formats do.
+- Automatic picture renderers add fallback, WebP, and AVIF catalog variants because each source uses an explicit format URL; manual `dynamic-source` usages add only their declared format.
 - Configure HTTP caching per file mapping: `Public` for shareable/CDN content, `Private` for browser-only content, and `NoStore` for temporary or sensitive files. Long-lived caching requires fingerprints; missing/stale-token redirects remain non-cacheable.
 
 ## Completion check

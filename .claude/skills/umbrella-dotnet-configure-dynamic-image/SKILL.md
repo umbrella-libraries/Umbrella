@@ -64,7 +64,7 @@ Build all participating projects with analyzers enabled, then:
 1. Confirm UWDI001-UWDI005 are absent for legitimate code; add a regression before changing an analyzer for a suspected defect.
 2. Inspect the generated named and aggregate catalog source and reconcile it with every active Razor usage.
 3. Confirm generated catalog types exist in the Server assembly and do not ship in browser boot assets.
-4. Request canonical fingerprinted URLs with original and negotiated `Accept` headers.
+4. Request canonical fingerprinted fallback, WebP, and configured AVIF URLs; confirm each URL returns its explicit format without `Vary: Accept`.
 5. Confirm changed dimensions, resize modes, and unregistered explicit formats return `404`.
 6. Confirm missing/stale fingerprints redirect with `Cache-Control: no-store`.
 7. Confirm mapping-specific cache headers, ETag/Last-Modified validators, and explicit conditional `304` responses.

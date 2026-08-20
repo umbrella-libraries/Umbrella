@@ -43,6 +43,8 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 	private const int DefaultHeightRequest = 1;
 	private const int DefaultResizeMode = 4;
 	private const int DefaultImageFormat = 2;
+	private const int WebPImageFormat = 4;
+	private const int AvifImageFormat = 5;
 	private const int DefaultMaxPixelDensity = 3;
 	private const int FileImagePreviewUploadDefaultMaxPixelDensity = 4;
 
@@ -256,7 +258,8 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 				ResizeMode = resizeMode,
 				ImageFormat = imageFormat,
 				MaxPixelDensity = maxPixelDensity,
-				SizeWidths = sizeWidths
+				SizeWidths = sizeWidths,
+				IncludeAutomaticPictureFormats = usage.Kind is DynamicImageRazorUsageKind.ImageTagHelper
 			};
 			AddTagHelperVariants(parameters, variants);
 		}
@@ -269,7 +272,8 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 				ResizeMode = resizeMode,
 				ImageFormat = imageFormat,
 				MaxPixelDensity = maxPixelDensity,
-				SizeWidths = sizeWidths
+				SizeWidths = sizeWidths,
+				IncludeAutomaticPictureFormats = true
 			};
 			AddVariants(parameters, variants);
 		}
@@ -367,7 +371,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			}
 
 			int nestingDepth = 1;
-			var parameters = new ComponentVariantParameters { MaxPixelDensity = defaultMaxPixelDensity };
+			var parameters = new ComponentVariantParameters { MaxPixelDensity = defaultMaxPixelDensity, IncludeAutomaticPictureFormats = true };
 
 			for (int j = i + 1; j < statements.Count; j++)
 			{
@@ -472,17 +476,17 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 
 		for (int i = 0; i < statements.Count; i++)
 		{
-			if (!TryGetCreateTagHelperAssignment(statements[i], semanticModel, cancellationToken, out string? fieldName, out bool supportsSizeWidths))
+			if (!TryGetCreateTagHelperAssignment(statements[i], semanticModel, cancellationToken, out string? fieldName, out bool supportsSizeWidths, out bool includeAutomaticPictureFormats))
 				continue;
 
-			var parameters = new TagHelperVariantParameters();
+			var parameters = new TagHelperVariantParameters { IncludeAutomaticPictureFormats = includeAutomaticPictureFormats };
 
 			for (int j = i + 1; j < statements.Count; j++)
 			{
 				StatementSyntax stmt = statements[j];
 
 				// Stop when the same field is reassigned by another CreateTagHelper call.
-				if (TryGetCreateTagHelperAssignment(stmt, semanticModel, cancellationToken, out string? nextField, out _) &&
+				if (TryGetCreateTagHelperAssignment(stmt, semanticModel, cancellationToken, out string? nextField, out _, out _) &&
 					string.Equals(fieldName, nextField, StringComparison.Ordinal))
 				{
 					break;
@@ -505,10 +509,12 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		SemanticModel semanticModel,
 		CancellationToken cancellationToken,
 		out string? fieldName,
-		out bool supportsSizeWidths)
+		out bool supportsSizeWidths,
+		out bool includeAutomaticPictureFormats)
 	{
 		fieldName = null;
 		supportsSizeWidths = false;
+		includeAutomaticPictureFormats = false;
 
 		if (statement is not ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assignment })
 			return false;
@@ -526,9 +532,14 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		string typeFullName = methodSymbol.TypeArguments[0].ToDisplayString();
 
 		if (string.Equals(typeFullName, DynamicImageTagHelperTypeName, StringComparison.Ordinal))
+		{
 			supportsSizeWidths = true;
+			includeAutomaticPictureFormats = true;
+		}
 		else if (!string.Equals(typeFullName, DynamicImagePictureSourceTagHelperTypeName, StringComparison.Ordinal))
+		{
 			return false;
+		}
 
 		fieldName = assignment.Left.ToString();
 		return true;
@@ -629,7 +640,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 
 		if (parameters.SizeWidths is { Count: > 0 } sizeWidths)
 		{
-			_ = variants.Add(new VariantEntry(widthRequest, heightRequest, resizeMode, imageFormat));
+			AddVariantFormats(variants, parameters, widthRequest, heightRequest, resizeMode, imageFormat);
 
 			double aspectRatio = widthRequest > 0 && heightRequest > 0
 				? widthRequest / (double)heightRequest
@@ -641,7 +652,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 				{
 					int width = sizeWidth * density;
 					int height = (int)Math.Ceiling(width / aspectRatio);
-					_ = variants.Add(new VariantEntry(width, height, resizeMode, imageFormat));
+					AddVariantFormats(variants, parameters, width, height, resizeMode, imageFormat);
 				}
 			}
 		}
@@ -651,7 +662,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			int h = heightRequest > 0 ? heightRequest : widthRequest;
 
 			foreach (int density in Enumerable.Range(1, maxPixelDensity))
-				_ = variants.Add(new VariantEntry(w * density, h * density, resizeMode, imageFormat));
+				AddVariantFormats(variants, parameters, w * density, h * density, resizeMode, imageFormat);
 		}
 	}
 
@@ -673,7 +684,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 
 		if (parameters.SizeWidths is { Count: > 0 } sizeWidths)
 		{
-			_ = variants.Add(new VariantEntry(widthRequest, heightRequest, resizeMode, imageFormat));
+			AddVariantFormats(variants, parameters, widthRequest, heightRequest, resizeMode, imageFormat);
 
 			double aspectRatio = widthRequest / (double)heightRequest;
 
@@ -683,7 +694,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 				{
 					int width = sizeWidth * density;
 					int height = (int)Math.Ceiling(width / aspectRatio);
-					_ = variants.Add(new VariantEntry(width, height, resizeMode, imageFormat));
+					AddVariantFormats(variants, parameters, width, height, resizeMode, imageFormat);
 				}
 			}
 
@@ -691,7 +702,18 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		}
 
 		foreach (int density in Enumerable.Range(1, maxPixelDensity))
-			_ = variants.Add(new VariantEntry(widthRequest * density, heightRequest * density, resizeMode, imageFormat));
+			AddVariantFormats(variants, parameters, widthRequest * density, heightRequest * density, resizeMode, imageFormat);
+	}
+
+	private static void AddVariantFormats(ISet<VariantEntry> variants, DynamicImageVariantParameters parameters, int width, int height, int resizeMode, int imageFormat)
+	{
+		_ = variants.Add(new VariantEntry(width, height, resizeMode, imageFormat));
+
+		if (!parameters.IncludeAutomaticPictureFormats)
+			return;
+
+		_ = variants.Add(new VariantEntry(width, height, resizeMode, WebPImageFormat));
+		_ = variants.Add(new VariantEntry(width, height, resizeMode, AvifImageFormat));
 	}
 
 	private static HashSet<int>? ParseSizeWidths(string? sizeWidths)
@@ -1086,7 +1108,12 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		return builder.ToString();
 	}
 
-	private sealed class TagHelperVariantParameters
+	private abstract class DynamicImageVariantParameters
+	{
+		public bool IncludeAutomaticPictureFormats { get; set; }
+	}
+
+	private sealed class TagHelperVariantParameters : DynamicImageVariantParameters
 	{
 		public bool HasUndiscoverableShapingInput { get; set; }
 		public int WidthRequest { get; set; }
@@ -1097,7 +1124,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		public HashSet<int>? SizeWidths { get; set; }
 	}
 
-	private sealed class ComponentVariantParameters
+	private sealed class ComponentVariantParameters : DynamicImageVariantParameters
 	{
 		public bool HasUndiscoverableShapingInput { get; set; }
 		public string? StaticUrl { get; set; }

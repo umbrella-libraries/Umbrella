@@ -93,6 +93,11 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 	/// </summary>
 	protected string SrcValue { get; set; } = null!;
 
+	/// <summary>
+	/// Gets the picture sources rendered before the fallback image.
+	/// </summary>
+	protected IReadOnlyCollection<DynamicImagePictureSource> PictureSources { get; set; } = [];
+
 	/// <inheritdoc />
 	protected override void OnParametersSet()
 	{
@@ -113,25 +118,43 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 		{
 			SrcValue = Url;
 			SrcSetValue = ResponsiveImageHelper.GetPixelDensitySrcSetValue(SrcValue, MaxPixelDensity);
+			PictureSources = [];
 			return;
 		}
 
 		string strippedUrl = StripUrlPrefix(Url);
-		DynamicImageOptions options = CreateDynamicImageOptions(strippedUrl, WidthRequest, HeightRequest);
+		DynamicImageOptions options = CreateDynamicImageOptions(strippedUrl, WidthRequest, HeightRequest, ImageFormat);
 
 		SrcValue = DynamicImageUtility.GenerateVirtualPath(Options.DynamicImagePathPrefix, options).TrimStart('~').Replace("//", "/", StringComparison.Ordinal);
+		SrcSetValue = GetSrcSetValue(strippedUrl, ImageFormat, SrcValue);
+		PictureSources =
+		[
+			.. Options.PictureSourceFormats
+				.Where(x => x != ImageFormat)
+				.Select(x =>
+				{
+					DynamicImageOptions sourceOptions = CreateDynamicImageOptions(strippedUrl, WidthRequest, HeightRequest, x);
+					string sourceUrl = DynamicImageUtility.GenerateVirtualPath(Options.DynamicImagePathPrefix, sourceOptions).TrimStart('~').Replace("//", "/", StringComparison.Ordinal);
+					return new DynamicImagePictureSource(x is DynamicImageFormat.Avif ? "image/avif" : "image/webp", GetSrcSetValue(strippedUrl, x, sourceUrl));
+				})
+		];
+	}
 
+	private string GetSrcSetValue(string sourcePath, DynamicImageFormat format, string src)
+	{
 		// TODO: Can't we just check for an empty string here or null? This parsing is done internally as well so it's a waste of time.
 		IReadOnlyCollection<int> lstSizeWidth = ResponsiveImageHelper.GetParsedIntegerItems(SizeWidths ?? "");
 
-		SrcSetValue = lstSizeWidth.Count is 0
-			? ResponsiveImageHelper.GetPixelDensitySrcSetValue(SrcValue, MaxPixelDensity)
-			: ResponsiveImageHelper.GetSizeSrcSetValue(strippedUrl, SizeWidths ?? "", MaxPixelDensity, WidthRequest, HeightRequest, x =>
+		string? srcSet = lstSizeWidth.Count is 0
+			? ResponsiveImageHelper.GetPixelDensitySrcSetValue(src, MaxPixelDensity)
+			: ResponsiveImageHelper.GetSizeSrcSetValue(sourcePath, SizeWidths ?? "", MaxPixelDensity, WidthRequest, HeightRequest, x =>
 			{
-				DynamicImageOptions options = CreateDynamicImageOptions(strippedUrl, x.imageWidth, x.imageHeight);
+				DynamicImageOptions options = CreateDynamicImageOptions(sourcePath, x.imageWidth, x.imageHeight, format);
 
 				return DynamicImageUtility.GenerateVirtualPath(Options.DynamicImagePathPrefix, options).TrimStart('~').Replace("//", "/", StringComparison.Ordinal);
 			});
+
+		return string.IsNullOrWhiteSpace(srcSet) ? src : srcSet;
 	}
 
 	/// <summary>
@@ -149,14 +172,21 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 		return !string.IsNullOrEmpty(Options.StripPrefix) && url.StartsWith(Options.StripPrefix, StringComparison.OrdinalIgnoreCase) ? url[Options.StripPrefix.Length..] : url;
 	}
 
-	private DynamicImageOptions CreateDynamicImageOptions(string sourcePath, int width, int height)
+	private DynamicImageOptions CreateDynamicImageOptions(string sourcePath, int width, int height, DynamicImageFormat format)
 		=> new(
 			sourcePath,
 			width,
 			height,
 			ResizeMode,
-			ImageFormat,
+			format,
 			focalPointX: FocalPointX,
 			focalPointY: FocalPointY,
 			versionToken: VersionToken);
+
+	/// <summary>
+	/// Describes a source rendered inside the picture element.
+	/// </summary>
+	/// <param name="ContentType">The source MIME type.</param>
+	/// <param name="SrcSet">The responsive source set.</param>
+	protected sealed record DynamicImagePictureSource(string ContentType, string SrcSet);
 }

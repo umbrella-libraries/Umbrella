@@ -78,20 +78,7 @@ public class DynamicImageMiddleware : OwinMiddleware
 		{
 			string path = context.Request.Path.Value;
 
-			DynamicImageFormat? overrideFormat = null;
-
-			if (_options.EnableJpgPngWebPOrAvifOverride
-				&& (path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".png", StringComparison.OrdinalIgnoreCase)))
-			{
-				overrideFormat = context switch
-				{
-					var _ when context.Request.AcceptsAvif() && _dynamicImageResizer.SupportsFormat(DynamicImageFormat.Avif) => DynamicImageFormat.Avif,
-					var _ when context.Request.AcceptsWebP() && _dynamicImageResizer.SupportsFormat(DynamicImageFormat.WebP) => DynamicImageFormat.WebP,
-					_ => null
-				};
-			}
-
-			var (status, imageOptions) = _dynamicImageUtility.TryParseUrl(_options.DynamicImagePathPrefix, path, overrideFormat);
+			var (status, imageOptions) = _dynamicImageUtility.TryParseUrl(_options.DynamicImagePathPrefix, path);
 
 			if (status == DynamicImageParseUrlResult.Skip)
 			{
