@@ -2,7 +2,7 @@
 
 Use this reference when an Umbrella skill or agent creates or changes C# or Razor. The installed analyzer packages remain authoritative; inspect their current diagnostics when a build disagrees with this summary.
 
-Current coverage: UA001, UA002, UA003, UA004, UA005, UA006, UA007, UA008, UA009, UA010, UA011, UA012, UA013, UA014, UA015, UA016, UA017, UA018, UA019, UA020, UA021, UA022, UA023; UDA001, UDA002, UDA003, UDA004, UDA005; UMA001, UMA002, UMA003; UWDI001, UWDI002, UWDI003, UWDI004, UWDI005.
+Current coverage: UA001, UA002, UA003, UA004, UA005, UA006, UA007, UA008, UA009, UA010, UA011, UA012, UA013, UA014, UA015, UA016, UA017, UA018, UA019, UA020, UA021, UA022, UA023, UA024; UDA001, UDA002, UDA003, UDA004, UDA005; UMA001, UMA002, UMA003; UWDI001, UWDI002, UWDI003, UWDI004, UWDI005.
 
 ## Public method contracts (UA001-UA010, UA016, UA020)
 
@@ -28,6 +28,7 @@ Current coverage: UA001, UA002, UA003, UA004, UA005, UA006, UA007, UA008, UA009,
 - On Umbrella API controllers, use `[UmbrellaProducesResponseType]`, not raw `[ProducesResponseType]` (UA017).
 - Authorization handlers call `context.Succeed(requirement)` only on approved paths and never call `context.Fail()` (UA018).
 - Overrides of generic Umbrella controller endpoints call the exact base endpoint on every normal return path, use lifecycle hooks for customization, or use `[NonAction]` to disable the endpoint (UA019).
+- Controller action parameters never declare a single `SortExpression<TItem>` or `FilterExpression<TItem>`; ApiExplorer flattens the non-collection complex parameter and OpenAPI document generation hangs. Declare the collection form (array or `IEnumerable<>`, as the Umbrella generic controller families do) or use `SortExpressionDescriptor` / `FilterExpressionDescriptor` (UA024).
 - Repository query names match their result shape: `Find*` for single/count, `FindAll*` for collections, and `Exists*` for boolean existence checks. No public repository method exposes `IQueryable<T>`, directly or through a wrapper (UDA001-UDA005).
 - Mapperly calls require a referenced generated catalog. `[Mapper]` classes/record classes are partial and accessible to the generated catalog; public and internal top-level mappers are supported. Prefer the async mapper interfaces when enrichment requires asynchronous work. Bodyless partial mappings are generated; authored method bodies follow the normal logging rules (UMA001-UMA003, UA008, UA016).
 
