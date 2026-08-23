@@ -42,6 +42,22 @@ public interface IUmbrellaBlazorInteropService
 	ValueTask TriggerElementClickAsync(string elementSelector);
 
 	/// <summary>
+	/// Gets the displayed bounds of the first image contained by the specified element.
+	/// </summary>
+	/// <param name="element">The element containing the image.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The displayed image bounds.</returns>
+	ValueTask<UmbrellaImageBounds> GetImageBoundsAsync(ElementReference element, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Initializes browser behavior for an interactive image focal-point selector.
+	/// </summary>
+	/// <param name="element">The focal-point selector element.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>A <see cref="ValueTask"/> that completes when initialization has completed.</returns>
+	ValueTask InitializeImageFocalPointSelectorAsync(ElementReference element, CancellationToken cancellationToken = default);
+
+	/// <summary>
 	/// Opens the specified <paramref name="url"/> using the specified <paramref name="target"/>.
 	/// </summary>
 	/// <param name="url">The URL.</param>

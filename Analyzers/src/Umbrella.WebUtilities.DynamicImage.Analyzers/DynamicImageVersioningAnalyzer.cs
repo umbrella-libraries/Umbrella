@@ -299,6 +299,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 			hasPictureSourceTagHelperType))
 		{
 			bool isTagHelper = usage.Kind is DynamicImageRazorUsageKind.ImageTagHelper or DynamicImageRazorUsageKind.PictureSourceTagHelper;
+			bool isFileImagePreviewUpload = usage.Kind is DynamicImageRazorUsageKind.FileImagePreviewUploadComponent;
 			string urlName = isTagHelper ? "src" : "Url";
 			DynamicImageRazorAttribute? urlAttribute = usage.Attributes.FirstOrDefault(x => string.Equals(x.Name, urlName, StringComparison.OrdinalIgnoreCase));
 
@@ -338,7 +339,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 			{
 				string normalizedName = NormalizeRazorAttributeName(attribute.Name, isTagHelper);
 
-				if (!TryGetVariantShapingInputName(normalizedName, isTagHelper, out string displayName) ||
+				if (!TryGetVariantShapingInputName(normalizedName, isTagHelper, isFileImagePreviewUpload, out string displayName) ||
 					DynamicImageRazorSourceParser.IsDiscoverableValue(normalizedName, attribute.Value, isTagHelper))
 				{
 					continue;
@@ -468,7 +469,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 				continue;
 
 			if (!TryGetInvocationReceiverText(invocation, out string? receiverText) ||
-				!IsOpenComponentInvocation(context.SemanticModel, invocation, context.CancellationToken, out bool isDynamicImageComponent) ||
+				!IsOpenComponentInvocation(context.SemanticModel, invocation, context.CancellationToken, out bool isDynamicImageComponent, out _) ||
 				!isDynamicImageComponent)
 			{
 				continue;
@@ -491,7 +492,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 					continue;
 				}
 
-				if (IsOpenComponentInvocation(context.SemanticModel, nextInvocation, context.CancellationToken, out _))
+				if (IsOpenComponentInvocation(context.SemanticModel, nextInvocation, context.CancellationToken, out _, out _))
 				{
 					nestingDepth++;
 					continue;
@@ -609,7 +610,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 				continue;
 
 			if (!TryGetInvocationReceiverText(invocation, out string? receiverText) ||
-				!IsOpenComponentInvocation(context.SemanticModel, invocation, context.CancellationToken, out bool isDynamicImageComponent) ||
+				!IsOpenComponentInvocation(context.SemanticModel, invocation, context.CancellationToken, out bool isDynamicImageComponent, out bool isFileImagePreviewUpload) ||
 				!isDynamicImageComponent)
 			{
 				continue;
@@ -632,7 +633,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 					continue;
 				}
 
-				if (IsOpenComponentInvocation(context.SemanticModel, nextInvocation, context.CancellationToken, out _))
+				if (IsOpenComponentInvocation(context.SemanticModel, nextInvocation, context.CancellationToken, out _, out _))
 				{
 					nestingDepth++;
 					continue;
@@ -665,7 +666,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 					continue;
 				}
 
-				if (!TryGetVariantShapingInputName(attributeName, isTagHelper: false, out string displayName) ||
+				if (!TryGetVariantShapingInputName(attributeName, isTagHelper: false, isFileImagePreviewUpload, out string displayName) ||
 					IsStaticVariantShapingValue(attributeName, valueExpression, context.SemanticModel, isTagHelper: false, context.CancellationToken))
 				{
 					continue;
@@ -702,7 +703,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 				continue;
 			}
 
-			if (!TryGetVariantShapingInputName(propertyName, isTagHelper: true, out string displayName) ||
+			if (!TryGetVariantShapingInputName(propertyName, isTagHelper: true, isFileImagePreviewUpload: false, out string displayName) ||
 				IsStaticVariantShapingValue(propertyName, assignment.Right, context.SemanticModel, isTagHelper: true, context.CancellationToken))
 			{
 				continue;
@@ -915,9 +916,12 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	private static IPropertySymbol? TryGetMatchingProperty(ImmutableArray<IPropertySymbol> properties, string propertyName)
 		=> properties.FirstOrDefault(x => string.Equals(x.Name, propertyName, StringComparison.Ordinal));
 
-	private static bool TryGetVariantShapingInputName(string name, bool isTagHelper, out string displayName)
+	private static bool TryGetVariantShapingInputName(string name, bool isTagHelper, bool isFileImagePreviewUpload, out string displayName)
 	{
 		displayName = name;
+
+		if (isFileImagePreviewUpload && name is "EnableFocalPointSelection")
+			return true;
 
 		return isTagHelper
 			? name is "WidthRequest" or "HeightRequest" or "ResizeMode" or "ImageFormat" or "ImageMaxPixelDensity" or "SizeWidths"
@@ -951,9 +955,11 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		SemanticModel semanticModel,
 		InvocationExpressionSyntax invocation,
 		CancellationToken cancellationToken,
-		out bool isDynamicImageComponent)
+		out bool isDynamicImageComponent,
+		out bool isFileImagePreviewUpload)
 	{
 		isDynamicImageComponent = false;
+		isFileImagePreviewUpload = false;
 
 		if (semanticModel.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol methodSymbol ||
 			!string.Equals(methodSymbol.Name, "OpenComponent", StringComparison.Ordinal))
@@ -961,8 +967,12 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 			return false;
 		}
 
-		isDynamicImageComponent = methodSymbol.TypeArguments.Length is 1 &&
-			IsDynamicImageRenderingComponentType(methodSymbol.TypeArguments[0]);
+		if (methodSymbol.TypeArguments.Length is 1)
+		{
+			string typeName = methodSymbol.TypeArguments[0].ToDisplayString();
+			isDynamicImageComponent = IsDynamicImageRenderingComponentType(methodSymbol.TypeArguments[0]);
+			isFileImagePreviewUpload = string.Equals(typeName, FileImagePreviewUploadComponentTypeName, StringComparison.Ordinal);
+		}
 
 		return true;
 	}
@@ -1037,6 +1047,9 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	{
 		if (propertyName is "SizeWidths")
 			return TryGetStaticString(expression, semanticModel, cancellationToken, out _);
+
+		if (!isTagHelper && propertyName is "EnableFocalPointSelection")
+			return TryGetStaticBoolean(expression, semanticModel, cancellationToken, out _);
 
 		if (propertyName is "ResizeMode" or "ImageFormat")
 			return TryGetStaticInt32(expression, semanticModel, cancellationToken, out _);
@@ -1217,6 +1230,22 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 
 		value = constantValue.Value as string;
 		return constantValue.Value is null || constantValue.Value is string;
+	}
+
+	private static bool TryGetStaticBoolean(ExpressionSyntax? expression, SemanticModel semanticModel, CancellationToken cancellationToken, out bool value)
+	{
+		value = default;
+
+		if (expression is null)
+			return false;
+
+		Optional<object?> constantValue = semanticModel.GetConstantValue(UnwrapExpression(expression, semanticModel, cancellationToken), cancellationToken);
+
+		if (!constantValue.HasValue || constantValue.Value is not bool boolValue)
+			return false;
+
+		value = boolValue;
+		return true;
 	}
 
 	private static bool IsStaticHttpUrl(string? url)

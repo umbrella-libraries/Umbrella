@@ -407,6 +407,18 @@ public partial class AnalyzerGuidanceTest
             "Components",
             "FileImagePreviewUpload",
             "UmbrellaFileImagePreviewUpload.razor"));
+        string analyzerReadme = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            "Analyzers",
+            "src",
+            "Umbrella.WebUtilities.DynamicImage.Analyzers",
+            "README.md"));
+        string generator = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            "Generators",
+            "src",
+            "Umbrella.Generators.DynamicImage",
+            "DynamicImageComponentVariantSourceGenerator.cs"));
 
         Assert.Contains("Umbrella.Generators.DynamicImage` only in the Server project", skill, StringComparison.Ordinal);
         Assert.Contains("UmbrellaDynamicImageEnableUrlFingerprinting", reference, StringComparison.Ordinal);
@@ -418,6 +430,12 @@ public partial class AnalyzerGuidanceTest
         Assert.Contains("Task.WhenAll", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("public string? VersionToken { get; set; }", component, StringComparison.Ordinal);
         Assert.Contains("VersionToken=\"@UpdatedImageVersionToken\"", componentMarkup, StringComparison.Ordinal);
+        Assert.Contains("public double? FocalPointX { get; set; }", component, StringComparison.Ordinal);
+        Assert.Contains("public double? FocalPointY { get; set; }", component, StringComparison.Ordinal);
+        Assert.Contains("public bool EnableFocalPointSelection { get; set; }", component, StringComparison.Ordinal);
+        Assert.Contains("OnFocalPointChanged", component, StringComparison.Ordinal);
+        Assert.Contains("ResizeMode=\"DynamicResizeMode.ScaleDown\"", componentMarkup, StringComparison.Ordinal);
+        Assert.Contains("FocalPointX=\"@UpdatedFocalPointX\"", componentMarkup, StringComparison.Ordinal);
         Assert.Contains("public double? FocalPointX { get; set; }", dynamicImageComponent, StringComparison.Ordinal);
         Assert.Contains("public double? FocalPointY { get; set; }", dynamicImageComponent, StringComparison.Ordinal);
         Assert.Contains("public double? FocalPointX { get; set; }", dynamicImageTagHelperBase, StringComparison.Ordinal);
@@ -425,6 +443,10 @@ public partial class AnalyzerGuidanceTest
         Assert.Contains("Focal coordinates are runtime inputs", skill, StringComparison.Ordinal);
         Assert.Contains("focal-point-x", reference, StringComparison.Ordinal);
         Assert.Contains("do not report UWDI004", reference, StringComparison.Ordinal);
+        Assert.Contains("EnableFocalPointSelection` is variant-shaping", skill, StringComparison.Ordinal);
+        Assert.Contains("OnFocalPointChanged", reference, StringComparison.Ordinal);
+        Assert.Contains("ScaleDown` selector variants", analyzerReadme, StringComparison.Ordinal);
+        Assert.Contains("EnableFocalPointSelection", generator, StringComparison.Ordinal);
     }
 
     [Fact]

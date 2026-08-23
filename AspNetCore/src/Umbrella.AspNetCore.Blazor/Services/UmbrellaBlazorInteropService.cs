@@ -10,7 +10,7 @@ namespace Umbrella.AspNetCore.Blazor.Services;
 /// <remarks>
 /// All methods require an interactive render mode (Interactive Server or WebAssembly).
 /// Scroll and click methods are best-effort and swallow errors so they are safe to call without guarding.
-/// <see cref="OpenUrlAsync"/> and event subscription methods will throw if invoked during static rendering / prerendering.
+/// <see cref="OpenUrlAsync"/>, <see cref="GetImageBoundsAsync"/>, and event subscription methods will throw if invoked during static rendering / prerendering.
 /// </remarks>
 /// <seealso cref="IUmbrellaBlazorInteropService"/>
 public class UmbrellaBlazorInteropService : IUmbrellaBlazorInteropService
@@ -115,6 +115,42 @@ public class UmbrellaBlazorInteropService : IUmbrellaBlazorInteropService
 		catch (Exception exc) when (_logger.WriteError(exc, new { elementSelector }))
 		{
 			// Do nothing here
+		}
+	}
+
+	/// <inheritdoc />
+	public async ValueTask<UmbrellaImageBounds> GetImageBoundsAsync(ElementReference element, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		try
+		{
+			return await _jsRuntime.InvokeAsync<UmbrellaImageBounds>(
+				"UmbrellaBlazorInterop.getImageBounds",
+				cancellationToken,
+				element);
+		}
+		catch (Exception exc) when (_logger.WriteError(exc))
+		{
+			throw new UmbrellaBlazorException("There has been a problem retrieving the image bounds.", exc);
+		}
+	}
+
+	/// <inheritdoc />
+	public async ValueTask InitializeImageFocalPointSelectorAsync(ElementReference element, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		try
+		{
+			await _jsRuntime.InvokeVoidAsync(
+				"UmbrellaBlazorInterop.initializeImageFocalPointSelector",
+				cancellationToken,
+				element);
+		}
+		catch (Exception exc) when (_logger.WriteError(exc))
+		{
+			throw new UmbrellaBlazorException("There has been a problem initializing the image focal-point selector.", exc);
 		}
 	}
 

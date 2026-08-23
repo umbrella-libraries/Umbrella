@@ -23,6 +23,7 @@ Identify:
 - the executable Server project and every Client, Shared, model-factory, or MVC project containing Dynamic Image source;
 - all `UmbrellaDynamicImage`, `UmbrellaFileImagePreviewUpload`, `dynamic-image`, and `dynamic-source` usages;
 - all `FocalPointX`/`FocalPointY` and `focal-point-x`/`focal-point-y` bindings;
+- every `EnableFocalPointSelection` usage and whether its value is a literal;
 - the service registration and `UseUmbrellaDynamicImage` middleware call;
 - every file-provider mapping and its data sensitivity;
 - existing analyzer/generator package references and central package-version policy;
@@ -48,6 +49,7 @@ Do not infer catalog completeness from a clean build. Compare every active Razor
 - Keep validation enabled unless the application has an explicit reason not to constrain transforms.
 - Place `UseUmbrellaDynamicImage` where requests reach it before terminal endpoint/fallback handling.
 - Supply focal coordinates as a pair of normalized values from 0 through 1 and only with `CropFocalPoint`; invalid UI combinations fail before a Dynamic Image URL is rendered.
+- Enable interactive preview selection only with a literal `EnableFocalPointSelection="true"`. The picker renders the complete image with `ScaleDown`, reports pointer or keyboard changes atomically, and clears to a null coordinate pair.
 
 ### 4. Preserve the URL/token contract
 
@@ -59,6 +61,7 @@ Do not infer catalog completeness from a clean build. Compare every active Razor
 - Pass the token to model-bound `UmbrellaDynamicImage` and `UmbrellaFileImagePreviewUpload` usages.
 - Keep variant-shaping Razor inputs literal. Enum members are valid; constants, model expressions, and mixed strings are not catalog-discoverable.
 - Focal coordinates are runtime inputs, may be model expressions, and do not participate in generated variant identity or UWDI004.
+- `EnableFocalPointSelection` is variant-shaping. A literal `true` adds `ScaleDown` selector variants alongside the preview's configured crop variants; a runtime binding reports UWDI004.
 
 ### 5. Validate the complete contract
 
@@ -68,10 +71,11 @@ Build all participating projects with analyzers enabled, then:
 2. Inspect the generated named and aggregate catalog source and reconcile it with every active Razor usage.
 3. Confirm generated catalog types exist in the Server assembly and do not ship in browser boot assets.
 4. Request canonical fingerprinted fallback, WebP, and configured AVIF URLs; when focal cropping is used, confirm every URL preserves the same `fpx`/`fpy` pair and returns its explicit format without `Vary: Accept`.
-5. Confirm changed dimensions, resize modes, and unregistered explicit formats return `404`.
-6. Confirm missing/stale fingerprints redirect with `Cache-Control: no-store`.
-7. Confirm mapping-specific cache headers, ETag/Last-Modified validators, and explicit conditional `304` responses.
-8. Change a disposable source file and verify its token and canonical URL change before removing the probe.
+5. For an interactive image preview, confirm the selector uses uncropped `ScaleDown` URLs, the adjacent crop uses the selected `fpx`/`fpy` pair, clearing removes both coordinates, and the generated catalog contains both resize modes.
+6. Confirm changed dimensions, resize modes, and unregistered explicit formats return `404`.
+7. Confirm missing/stale fingerprints redirect with `Cache-Control: no-store`.
+8. Confirm mapping-specific cache headers, ETag/Last-Modified validators, and explicit conditional `304` responses.
+9. Change a disposable source file and verify its token and canonical URL change before removing the probe.
 
 Temporary probes and assets must remain uncommitted and be removed before the final build.
 

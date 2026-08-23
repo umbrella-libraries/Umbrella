@@ -82,6 +82,10 @@ model expressions are supported, the coordinates are excluded from generated var
 `UmbrellaFileImagePreviewUpload` is treated as a Dynamic Image rendering component: its static preview dimensions and
 format settings contribute variants to the catalog and its URL/version-token pair is checked like a direct
 `UmbrellaDynamicImage` usage.
+Its `EnableFocalPointSelection` input is variant-shaping and must be a literal. A literal `true` adds uncropped
+`ScaleDown` selector variants alongside the configured crop variants for every effective density, size width, and
+automatic picture format. Runtime-bound selection flags report UWDI004. The preview's `FocalPointX` and
+`FocalPointY` inputs remain runtime-bound and do not change catalog identity.
 
 ### Severity
 

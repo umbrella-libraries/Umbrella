@@ -7,6 +7,7 @@ import { BrowserEventAggregator } from './browserEventAggregator';
 export class UmbrellaBlazorInterop
 {
 	#browserEventAggregator: BrowserEventAggregator | null = null;
+	#imageFocalPointSelectors = new WeakSet<HTMLElement>();
 
 	scrollTimeout: number | null = null;
 	blazorInteropUtility: any;
@@ -41,6 +42,45 @@ export class UmbrellaBlazorInterop
 	public triggerElementClick(selector: string): void
 	{
 		(document.querySelector(selector) as HTMLElement)?.click();
+	}
+
+	/**
+	 * Gets the visible bounds of the first image contained by an element.
+	 * @param element The focal-point selector containing the image.
+	 */
+	public getImageBounds(element: HTMLElement): { left: number; top: number; width: number; height: number }
+	{
+		const target = element.querySelector("img") ?? element;
+		const bounds = target.getBoundingClientRect();
+
+		return {
+			left: bounds.left,
+			top: bounds.top,
+			width: bounds.width,
+			height: bounds.height
+		};
+	}
+
+	/**
+	 * Prevents handled focal-point arrow keys from also scrolling the document.
+	 * @param element The interactive focal-point selector.
+	 */
+	public initializeImageFocalPointSelector(element: HTMLElement): void
+	{
+		if (this.#imageFocalPointSelectors.has(element))
+			return;
+
+		element.addEventListener("keydown", event =>
+		{
+			if (event.key === "ArrowLeft" ||
+				event.key === "ArrowRight" ||
+				event.key === "ArrowUp" ||
+				event.key === "ArrowDown")
+			{
+				event.preventDefault();
+			}
+		});
+		this.#imageFocalPointSelectors.add(element);
 	}
 
 	/**

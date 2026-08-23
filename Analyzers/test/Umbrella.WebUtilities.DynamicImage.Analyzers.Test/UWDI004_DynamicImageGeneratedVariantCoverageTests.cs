@@ -268,6 +268,74 @@ public static class ViewRenderer
 	}
 
 	[Fact]
+	public async Task RazorFileImagePreviewUpload_WithRuntimeFocalPointInputs_ShouldNotTriggerDiagnostic()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+<UmbrellaFileImagePreviewUpload WidthRequest="200"
+                                HeightRequest="100"
+                                ResizeMode="DynamicResizeMode.CropFocalPoint"
+                                EnableFocalPointSelection="true"
+                                FocalPointX="@Model.ImageFocalPointX"
+                                FocalPointY="@Model.ImageFocalPointY" />
+""";
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedBlazorInfrastructureSource,
+			[("C:/app/Test.razor", razor)]);
+	}
+
+	[Fact]
+	public async Task RazorFileImagePreviewUpload_WithRuntimeSelectionFlag_ShouldTriggerDiagnostic()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+<UmbrellaFileImagePreviewUpload WidthRequest="200"
+                                HeightRequest="100"
+                                ResizeMode="DynamicResizeMode.CropFocalPoint"
+                                EnableFocalPointSelection="@Model.EnableFocalPointSelection" />
+""";
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.NonStaticVariantShapingInputRule,
+			5,
+			33,
+			"EnableFocalPointSelection");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedBlazorInfrastructureSource,
+			[("C:/app/Test.razor", razor)],
+			expected);
+	}
+
+	[Fact]
+	public async Task FileImagePreviewRenderTree_WithRuntimeSelectionFlag_ShouldTriggerDiagnostic()
+	{
+		const string source = """
+public static class RenderFragmentFactory
+{
+    public static void Build(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, bool enableFocalPointSelection)
+    {
+        builder.OpenComponent<Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload.UmbrellaFileImagePreviewUpload>(0);
+        builder.AddAttribute(1, "Url", "/images/product.jpg");
+        builder.AddAttribute(2, "WidthRequest", 200);
+        builder.AddAttribute(3, "HeightRequest", 100);
+        builder.AddAttribute(4, "EnableFocalPointSelection", enableFocalPointSelection);
+        builder.CloseComponent();
+    }
+}
+""" + SharedBlazorInfrastructureSource;
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.NonStaticVariantShapingInputRule,
+			9,
+			17,
+			"EnableFocalPointSelection");
+
+		await VerifyAnalyzerAsync(source, expected);
+	}
+
+	[Fact]
 	public async Task RazorComponent_WithConstantReference_ShouldTriggerDiagnostic()
 	{
 		const string razor = """
@@ -461,12 +529,15 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
 
 namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
 {
-    public class UmbrellaFileImagePreviewUpload
-    {
+	public class UmbrellaFileImagePreviewUpload
+	{
         public string? Url { get; set; }
         public string? VersionToken { get; set; }
-        public int WidthRequest { get; set; }
-    }
+		public int WidthRequest { get; set; }
+		public bool EnableFocalPointSelection { get; set; }
+		public double? FocalPointX { get; set; }
+		public double? FocalPointY { get; set; }
+	}
 }
 """;
 

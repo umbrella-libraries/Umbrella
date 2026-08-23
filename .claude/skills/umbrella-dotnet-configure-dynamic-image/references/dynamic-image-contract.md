@@ -56,6 +56,8 @@ Width, height, density, and size-width values must be literals. Resize mode and 
 
 Focal coordinates are different: `FocalPointX`/`FocalPointY` and `focal-point-x`/`focal-point-y` are runtime inputs and may use model expressions. They are intentionally excluded from `DynamicImageVariant`, do not affect generated catalog identity, and do not report UWDI004.
 
+`UmbrellaFileImagePreviewUpload.EnableFocalPointSelection` is variant-shaping and must be a literal. When it is `true`, the generator adds uncropped `ScaleDown` variants for the selector as well as the configured crop variants, including the effective density, size-width, fallback, WebP, and AVIF combinations. A runtime-bound selection flag reports UWDI004 and the occurrence is omitted from the catalog.
+
 ## Runtime registration
 
 Follow the application's existing file-provider construction and dependency-resolution conventions. The essential shape is:
@@ -133,7 +135,30 @@ Use asynchronous mapper interfaces for this enrichment. For a bounded page of in
 <UmbrellaFileImagePreviewUpload Url="@Model.ImageUrl"
                                 VersionToken="@Model.ImageVersionToken"
                                 WidthRequest="400"
-                                HeightRequest="400" />
+								HeightRequest="200"
+								ResizeMode="DynamicResizeMode.CropFocalPoint"
+								FocalPointX="@Model.ImageFocalPointX"
+								FocalPointY="@Model.ImageFocalPointY"
+								EnableFocalPointSelection="true"
+								OnFocalPointChanged="OnImageFocalPointChanged" />
+```
+
+Handle the preview callback as one logical model update. Both values are null when the user clears the focal point:
+
+```csharp
+private void OnImageFocalPointChanged(UmbrellaFileImagePreviewUploadFocalPointChangedEventArgs args)
+{
+    Model.ImageFocalPointX = args.FocalPointX;
+    Model.ImageFocalPointY = args.FocalPointY;
+}
+```
+
+Interactive selection displays an uncropped `ScaleDown` image with a marker and an adjacent live `CropFocalPoint` preview. Mouse, touch, pen, and keyboard changes invoke `OnFocalPointChanged` immediately. The clear control emits a null pair and restores the resizer's default center. The consuming application must load `_content/Umbrella.AspNetCore.Blazor/dist/umbrella-blazor.js` so the picker can normalize pointer coordinates against the displayed image bounds; component code accesses that JavaScript only through `IUmbrellaBlazorInteropService`.
+
+After an upload, update the URL, token, and optional focal point atomically. Omitting the coordinates intentionally clears the previous selection and programmatic updates do not invoke the user-interaction callback:
+
+```csharp
+imagePreview.Update(image.Url, image.VersionToken, focalPointX, focalPointY);
 ```
 
 The MVC tag helper exposes the same runtime inputs using kebab-case attributes:

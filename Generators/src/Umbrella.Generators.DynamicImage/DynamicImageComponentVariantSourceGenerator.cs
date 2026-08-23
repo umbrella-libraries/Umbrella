@@ -42,6 +42,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 	private const int DefaultWidthRequest = 1;
 	private const int DefaultHeightRequest = 1;
 	private const int DefaultResizeMode = 4;
+	private const int ScaleDownResizeMode = 0;
 	private const int DefaultImageFormat = 2;
 	private const int WebPImageFormat = 4;
 	private const int AvifImageFormat = 5;
@@ -177,9 +178,12 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 				attributes[normalizedName] = attribute;
 		}
 
+		bool isFileImagePreviewUpload = usage.Kind is DynamicImageRazorUsageKind.FileImagePreviewUploadComponent;
+
 		foreach (KeyValuePair<string, DynamicImageRazorAttribute> entry in attributes)
 		{
-			if (IsVariantShapingAttribute(entry.Key, isTagHelper) &&
+			if ((IsVariantShapingAttribute(entry.Key, isTagHelper) ||
+				 isFileImagePreviewUpload && entry.Key is "EnableFocalPointSelection") &&
 				!DynamicImageRazorSourceParser.IsDiscoverableValue(entry.Key, entry.Value.Value, isTagHelper))
 			{
 				return;
@@ -201,6 +205,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			? FileImagePreviewUploadDefaultMaxPixelDensity
 			: DefaultMaxPixelDensity;
 		HashSet<int>? sizeWidths = null;
+		bool enableFocalPointSelection = false;
 
 		if (attributes.TryGetValue("WidthRequest", out DynamicImageRazorAttribute? widthAttribute))
 			_ = DynamicImageRazorSourceParser.TryGetStaticPositiveInt(widthAttribute.Value, out width);
@@ -249,6 +254,12 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			sizeWidths = ParseSizeWidths(sizeWidthsValue);
 		}
 
+		if (isFileImagePreviewUpload &&
+			attributes.TryGetValue("EnableFocalPointSelection", out DynamicImageRazorAttribute? enableFocalPointSelectionAttribute))
+		{
+			_ = DynamicImageRazorSourceParser.TryGetStaticBoolean(enableFocalPointSelectionAttribute.Value, out enableFocalPointSelection);
+		}
+
 		if (isTagHelper)
 		{
 			var parameters = new TagHelperVariantParameters
@@ -273,7 +284,9 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 				ImageFormat = imageFormat,
 				MaxPixelDensity = maxPixelDensity,
 				SizeWidths = sizeWidths,
-				IncludeAutomaticPictureFormats = true
+				IncludeAutomaticPictureFormats = true,
+				IsFileImagePreviewUpload = isFileImagePreviewUpload,
+				EnableFocalPointSelection = enableFocalPointSelection
 			};
 			AddVariants(parameters, variants);
 		}
@@ -365,13 +378,18 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			if (!TryGetInvocationStatement(statements[i], out InvocationExpressionSyntax? invocation) ||
 				invocation is null ||
 				!TryGetInvocationReceiverText(invocation, out string? receiverText) ||
-				!TryGetDynamicImageRenderingComponentDefaultMaxPixelDensity(semanticModel, invocation, cancellationToken, out int defaultMaxPixelDensity))
+				!TryGetDynamicImageRenderingComponentDetails(semanticModel, invocation, cancellationToken, out int defaultMaxPixelDensity, out bool isFileImagePreviewUpload))
 			{
 				continue;
 			}
 
 			int nestingDepth = 1;
-			var parameters = new ComponentVariantParameters { MaxPixelDensity = defaultMaxPixelDensity, IncludeAutomaticPictureFormats = true };
+			var parameters = new ComponentVariantParameters
+			{
+				MaxPixelDensity = defaultMaxPixelDensity,
+				IncludeAutomaticPictureFormats = true,
+				IsFileImagePreviewUpload = isFileImagePreviewUpload
+			};
 
 			for (int j = i + 1; j < statements.Count; j++)
 			{
@@ -453,6 +471,10 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 				parameters.SizeWidths = TryGetStaticString(valueExpression, semanticModel, cancellationToken, out string? sizeWidths)
 					? ParseSizeWidths(sizeWidths)
 					: null;
+				break;
+			case "EnableFocalPointSelection" when parameters.IsFileImagePreviewUpload:
+				parameters.HasUndiscoverableShapingInput |= !TryGetStaticBoolean(valueExpression, semanticModel, cancellationToken, out bool enableFocalPointSelection);
+				parameters.EnableFocalPointSelection = enableFocalPointSelection;
 				break;
 		}
 	}
@@ -676,9 +698,16 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		if (IsStaticHttpUrl(parameters.StaticUrl))
 			return;
 
+		AddComponentVariantsForResizeMode(parameters, variants, parameters.ResizeMode);
+
+		if (parameters.IsFileImagePreviewUpload && parameters.EnableFocalPointSelection)
+			AddComponentVariantsForResizeMode(parameters, variants, ScaleDownResizeMode);
+	}
+
+	private static void AddComponentVariantsForResizeMode(ComponentVariantParameters parameters, ISet<VariantEntry> variants, int resizeMode)
+	{
 		int widthRequest = parameters.WidthRequest;
 		int heightRequest = parameters.HeightRequest;
-		int resizeMode = parameters.ResizeMode;
 		int imageFormat = parameters.ImageFormat;
 		int maxPixelDensity = parameters.MaxPixelDensity;
 
@@ -815,6 +844,22 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		return constantValue.Value is null || constantValue.Value is string;
 	}
 
+	private static bool TryGetStaticBoolean(ExpressionSyntax? expression, SemanticModel semanticModel, CancellationToken cancellationToken, out bool value)
+	{
+		value = default;
+
+		if (expression is null)
+			return false;
+
+		Optional<object?> constantValue = semanticModel.GetConstantValue(UnwrapExpression(expression, semanticModel, cancellationToken), cancellationToken);
+
+		if (!constantValue.HasValue || constantValue.Value is not bool boolValue)
+			return false;
+
+		value = boolValue;
+		return true;
+	}
+
 	private static bool HasStaticValue(ExpressionSyntax? expression, SemanticModel semanticModel, CancellationToken cancellationToken)
 	{
 		if (expression is null)
@@ -866,13 +911,15 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			   IsDynamicImageRenderingComponentType(methodSymbol.TypeArguments[0]);
 	}
 
-	private static bool TryGetDynamicImageRenderingComponentDefaultMaxPixelDensity(
+	private static bool TryGetDynamicImageRenderingComponentDetails(
 		SemanticModel semanticModel,
 		InvocationExpressionSyntax invocation,
 		CancellationToken cancellationToken,
-		out int defaultMaxPixelDensity)
+		out int defaultMaxPixelDensity,
+		out bool isFileImagePreviewUpload)
 	{
 		defaultMaxPixelDensity = DefaultMaxPixelDensity;
+		isFileImagePreviewUpload = false;
 
 		if (semanticModel.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol methodSymbol ||
 			!string.Equals(methodSymbol.Name, "OpenComponent", StringComparison.Ordinal) ||
@@ -890,6 +937,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			return false;
 
 		defaultMaxPixelDensity = FileImagePreviewUploadDefaultMaxPixelDensity;
+		isFileImagePreviewUpload = true;
 		return true;
 	}
 
@@ -1127,6 +1175,8 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 	private sealed class ComponentVariantParameters : DynamicImageVariantParameters
 	{
 		public bool HasUndiscoverableShapingInput { get; set; }
+		public bool IsFileImagePreviewUpload { get; set; }
+		public bool EnableFocalPointSelection { get; set; }
 		public string? StaticUrl { get; set; }
 
 		public int WidthRequest { get; set; } = DefaultWidthRequest;

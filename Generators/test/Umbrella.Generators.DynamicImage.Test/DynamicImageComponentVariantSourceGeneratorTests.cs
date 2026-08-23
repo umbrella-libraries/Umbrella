@@ -73,6 +73,42 @@ public static class RenderFragmentFactory
 	}
 
 	[Fact]
+	public void InteractiveFileImagePreviewEmitsSelectorAndCropVariants()
+	{
+		const string source = """
+using Umbrella.DynamicImage.Abstractions;
+
+public static class RenderFragmentFactory
+{
+	public static void Build(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, double? focalPointX, double? focalPointY)
+	{
+		builder.OpenComponent<Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload.UmbrellaFileImagePreviewUpload>(0);
+		builder.AddAttribute(1, "Url", "/images/product.jpg");
+		builder.AddAttribute(2, "WidthRequest", 100);
+		builder.AddAttribute(3, "HeightRequest", 50);
+		builder.AddAttribute(4, "MaxPixelDensity", 2);
+		builder.AddAttribute(5, "ResizeMode", DynamicResizeMode.CropFocalPoint);
+		builder.AddAttribute(6, "EnableFocalPointSelection", true);
+		builder.AddAttribute(7, "FocalPointX", focalPointX);
+		builder.AddAttribute(8, "FocalPointY", focalPointY);
+		builder.CloseComponent();
+	}
+}
+""" + SharedComponentInfrastructureSource;
+
+		DynamicImageVariant[] variants = GenerateVariants(source);
+
+		AssertAutomaticPictureVariants(
+			[
+				new DynamicImageVariant(100, 50, DynamicResizeMode.ScaleDown, DynamicImageFormat.Jpeg),
+				new DynamicImageVariant(100, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg),
+				new DynamicImageVariant(200, 100, DynamicResizeMode.ScaleDown, DynamicImageFormat.Jpeg),
+				new DynamicImageVariant(200, 100, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg)
+			],
+			variants);
+	}
+
+	[Fact]
 	public void GenerateNet10ComponentParameterShapeEmitsExpectedEntries()
 	{
 		const string source = """
@@ -936,6 +972,20 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
 		public int WidthRequest { get; set; }
 		public int HeightRequest { get; set; }
 		public int MaxPixelDensity { get; set; }
+		public double? FocalPointX { get; set; }
+		public double? FocalPointY { get; set; }
+	}
+}
+
+namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+{
+	public class UmbrellaFileImagePreviewUpload
+	{
+		public string? Url { get; set; }
+		public int WidthRequest { get; set; }
+		public int HeightRequest { get; set; }
+		public int MaxPixelDensity { get; set; }
+		public bool EnableFocalPointSelection { get; set; }
 		public double? FocalPointX { get; set; }
 		public double? FocalPointY { get; set; }
 	}

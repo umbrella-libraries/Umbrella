@@ -71,7 +71,8 @@ public class DynamicImageRazorSourceGeneratorTests
                                 WidthRequest="400"
                                 HeightRequest="200"
                                 ResizeMode="DynamicResizeMode.CropFocalPoint"
-                                ImageFormat="DynamicImageFormat.Png" />
+								ImageFormat="DynamicImageFormat.Png"
+								EnableFocalPointSelection="true" />
 """)
 		];
 
@@ -80,9 +81,13 @@ public class DynamicImageRazorSourceGeneratorTests
 		Assert.Empty(diagnostics);
 		AssertAutomaticPictureVariants(
 			[
+				new DynamicImageVariant(400, 200, DynamicResizeMode.ScaleDown, DynamicImageFormat.Png),
 				new DynamicImageVariant(400, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Png),
+				new DynamicImageVariant(800, 400, DynamicResizeMode.ScaleDown, DynamicImageFormat.Png),
 				new DynamicImageVariant(800, 400, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Png),
+				new DynamicImageVariant(1200, 600, DynamicResizeMode.ScaleDown, DynamicImageFormat.Png),
 				new DynamicImageVariant(1200, 600, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Png),
+				new DynamicImageVariant(1600, 800, DynamicResizeMode.ScaleDown, DynamicImageFormat.Png),
 				new DynamicImageVariant(1600, 800, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Png)
 			],
 			GetVariants(assembly, "ClientDynamicImageVariantCatalog"));
@@ -124,6 +129,34 @@ public class DynamicImageRazorSourceGeneratorTests
 				new DynamicImageVariant(300, 150, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP)
 			],
 			GetVariants(assembly, "ServerDynamicImageVariantCatalog"));
+	}
+
+	[Fact]
+	public void RuntimeFocalPointBindingsOnInteractivePreviewDoNotAlterOrSuppressRazorVariants()
+	{
+		AdditionalText[] files =
+		[
+			new TestAdditionalText("C:/app/_Imports.razor", "@using Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload"),
+			new TestAdditionalText("C:/app/Test.razor", """
+<UmbrellaFileImagePreviewUpload WidthRequest="200"
+                                HeightRequest="100"
+                                MaxPixelDensity="1"
+                                ResizeMode="DynamicResizeMode.CropFocalPoint"
+                                EnableFocalPointSelection="true"
+                                FocalPointX="@Model.ImageFocalPointX"
+                                FocalPointY="@Model.ImageFocalPointY" />
+""")
+		];
+
+		Assembly assembly = GenerateAssembly(files, CreateCatalogMetadata(files, "Client"), out ImmutableArray<Diagnostic> diagnostics);
+
+		Assert.Empty(diagnostics);
+		AssertAutomaticPictureVariants(
+			[
+				new DynamicImageVariant(200, 100, DynamicResizeMode.ScaleDown, DynamicImageFormat.Jpeg),
+				new DynamicImageVariant(200, 100, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg)
+			],
+			GetVariants(assembly, "ClientDynamicImageVariantCatalog"));
 	}
 
 	[Fact]

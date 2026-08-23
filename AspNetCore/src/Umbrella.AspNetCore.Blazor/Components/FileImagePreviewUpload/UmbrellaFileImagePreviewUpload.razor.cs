@@ -1,9 +1,13 @@
 ﻿
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using CommunityToolkit.Diagnostics;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 using Umbrella.AspNetCore.Blazor.Components.Dialog.Abstractions;
 using Umbrella.AspNetCore.Blazor.Components.FileUpload;
 using Umbrella.AspNetCore.Blazor.Constants;
+using Umbrella.AspNetCore.Blazor.Services.Abstractions;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.Utilities.Imaging;
 using Umbrella.Utilities.Primitives.Abstractions;
@@ -17,11 +21,24 @@ namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload;
 /// <seealso cref="ComponentBase" />
 public partial class UmbrellaFileImagePreviewUpload : ComponentBase
 {
+	private const double KeyboardFocalPointStep = 0.01;
+
+	private readonly string _focalPointInstructionsId = $"u-file-image-preview-upload-focal-instructions-{Guid.NewGuid():N}";
+	private bool _focalPointSelectorInitialized;
+	private bool _parametersInitialized;
+	private string? _lastUrlParameter;
+	private string? _lastVersionTokenParameter;
+	private double? _lastFocalPointXParameter;
+	private double? _lastFocalPointYParameter;
+
 	[Inject]
 	private ILogger<UmbrellaFileImagePreviewUpload> Logger { get; [RequiresUnreferencedCode(TrimConstants.DI)] set; } = null!;
 
 	[Inject]
 	private IUmbrellaDialogService DialogUtility { get; [RequiresUnreferencedCode(TrimConstants.DI)] set; } = null!;
+
+	[Inject]
+	private IUmbrellaBlazorInteropService BlazorInteropUtility { get; set; } = null!;
 
 	/// <summary>
 	/// Gets or sets the message shown when a new image has been uploaded in place of an existing one.
@@ -94,6 +111,42 @@ public partial class UmbrellaFileImagePreviewUpload : ComponentBase
 	public DynamicImageFormat ImageFormat { get; set; } = DynamicImageFormat.Jpeg;
 
 	/// <summary>
+	/// Gets or sets the normalised X coordinate of the focal point, between 0 and 1 starting from the left of the image.
+	/// </summary>
+	[Parameter]
+	public double? FocalPointX { get; set; }
+
+	/// <summary>
+	/// Gets or sets the normalised Y coordinate of the focal point, between 0 and 1 starting from the top of the image.
+	/// </summary>
+	[Parameter]
+	public double? FocalPointY { get; set; }
+
+	/// <summary>
+	/// Gets or sets a value indicating whether the image should expose an interactive focal-point selector.
+	/// </summary>
+	[Parameter]
+	public bool EnableFocalPointSelection { get; set; }
+
+	/// <summary>
+	/// Gets or sets the callback invoked after the user changes or clears the focal point.
+	/// </summary>
+	[Parameter]
+	public EventCallback<UmbrellaFileImagePreviewUploadFocalPointChangedEventArgs> OnFocalPointChanged { get; set; }
+
+	/// <summary>
+	/// Gets or sets the instructions displayed with the interactive focal-point selector.
+	/// </summary>
+	[Parameter]
+	public string FocalPointSelectionText { get; set; } = "Click or tap the image to set the focal point. Use the arrow keys for fine adjustment.";
+
+	/// <summary>
+	/// Gets or sets the clear focal point button text.
+	/// </summary>
+	[Parameter]
+	public string ClearFocalPointButtonText { get; set; } = "Clear focal point";
+
+	/// <summary>
 	/// Gets or sets the size widths.
 	/// </summary>
 	/// <remarks>
@@ -144,16 +197,61 @@ public partial class UmbrellaFileImagePreviewUpload : ComponentBase
 
 	private string? UpdatedImageUrl { get; set; }
 	private string? UpdatedImageVersionToken { get; set; }
+	internal double? UpdatedFocalPointX { get; private set; }
+	internal double? UpdatedFocalPointY { get; private set; }
 	private UmbrellaFileImagePreviewUploadMode FileUploadMode { get; set; }
+	private ElementReference FocalPointSelectorElement { get; set; }
+	private string FocalPointInstructionsId => _focalPointInstructionsId;
+	private string? FocalPointMarkerStyle => UpdatedFocalPointX.HasValue
+		? FormattableString.Invariant($"left: {UpdatedFocalPointX.Value * 100:G4}%; top: {UpdatedFocalPointY!.Value * 100:G4}%")
+		: null;
+	private string FocalPointAriaValueText => UpdatedFocalPointX.HasValue
+		? string.Create(CultureInfo.CurrentCulture, $"Horizontal {UpdatedFocalPointX.Value:P0}, vertical {UpdatedFocalPointY!.Value:P0}")
+		: "No focal point selected";
 
 	/// <inheritdoc />
-	protected override void OnInitialized()
+	protected override void OnParametersSet()
 	{
-		if (!string.IsNullOrWhiteSpace(Url))
+		ValidateFocalPoint(FocalPointX, FocalPointY);
+
+		if (EnableFocalPointSelection && ResizeMode is not DynamicResizeMode.CropFocalPoint)
+			throw new InvalidOperationException($"{nameof(EnableFocalPointSelection)} can only be used with {nameof(DynamicResizeMode.CropFocalPoint)}.");
+
+		bool imageParametersChanged = !_parametersInitialized ||
+			!string.Equals(Url, _lastUrlParameter, StringComparison.OrdinalIgnoreCase) ||
+			!string.Equals(VersionToken, _lastVersionTokenParameter, StringComparison.Ordinal);
+
+		if (imageParametersChanged)
 		{
-			UpdatedImageUrl = Url;
-			UpdatedImageVersionToken = VersionToken;
-			FileUploadMode = UmbrellaFileImagePreviewUploadMode.Current;
+			SetImage(Url, VersionToken, isParameterUpdate: true);
+		}
+
+		if (imageParametersChanged || FocalPointX != _lastFocalPointXParameter || FocalPointY != _lastFocalPointYParameter)
+		{
+			SetFocalPoint(
+				UpdatedImageUrl is null ? null : FocalPointX,
+				UpdatedImageUrl is null ? null : FocalPointY);
+		}
+
+		ValidateFocalPoint(UpdatedFocalPointX, UpdatedFocalPointY);
+
+		if (!EnableFocalPointSelection || UpdatedImageUrl is null)
+			_focalPointSelectorInitialized = false;
+
+		_parametersInitialized = true;
+		_lastUrlParameter = Url;
+		_lastVersionTokenParameter = VersionToken;
+		_lastFocalPointXParameter = FocalPointX;
+		_lastFocalPointYParameter = FocalPointY;
+	}
+
+	/// <inheritdoc />
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (EnableFocalPointSelection && UpdatedImageUrl is not null && !_focalPointSelectorInitialized)
+		{
+			await BlazorInteropUtility.InitializeImageFocalPointSelectorAsync(FocalPointSelectorElement);
+			_focalPointSelectorInitialized = true;
 		}
 	}
 
@@ -189,7 +287,11 @@ public partial class UmbrellaFileImagePreviewUpload : ComponentBase
 
 			UpdatedImageUrl = null;
 			UpdatedImageVersionToken = null;
+			_focalPointSelectorInitialized = false;
+			SetFocalPoint(null, null);
 			FileUploadMode = UmbrellaFileImagePreviewUploadMode.Upload;
+
+			await NotifyFocalPointChangedAsync();
 
 			if (OnDeleteImage.HasDelegate)
 				await OnDeleteImage.InvokeAsync(EventArgs.Empty);
@@ -201,24 +303,133 @@ public partial class UmbrellaFileImagePreviewUpload : ComponentBase
 	}
 
 	/// <summary>
-	/// Updates the thumbnail <see cref="Url"/> and its optional version token. This should be called manually by the component consumer after uploading a new image.
+	/// Updates the thumbnail <see cref="Url"/>, its optional version token, and its optional focal point. This should be called manually by the component consumer after uploading a new image.
 	/// </summary>
 	/// <param name="url">The new thumbnail URL.</param>
 	/// <param name="versionToken">The optional version token associated with <paramref name="url"/>.</param>
-	public void Update(string? url, string? versionToken = null)
+	/// <param name="focalPointX">The optional normalised X coordinate of the focal point.</param>
+	/// <param name="focalPointY">The optional normalised Y coordinate of the focal point.</param>
+	public void Update(string? url, string? versionToken = null, double? focalPointX = null, double? focalPointY = null)
 	{
-		if (string.IsNullOrWhiteSpace(url))
+		ValidateFocalPoint(focalPointX, focalPointY);
+		SetImage(url, versionToken, isParameterUpdate: false);
+		SetFocalPoint(string.IsNullOrWhiteSpace(url) ? null : focalPointX, string.IsNullOrWhiteSpace(url) ? null : focalPointY);
+	}
+
+	private async Task FocalPointClickAsync(MouseEventArgs args)
+	{
+		try
 		{
-			UpdatedImageUrl = null;
-			UpdatedImageVersionToken = null;
-			FileUploadMode = UmbrellaFileImagePreviewUploadMode.Upload;
+			UmbrellaImageBounds bounds = await BlazorInteropUtility.GetImageBoundsAsync(FocalPointSelectorElement);
+			(double x, double y) = NormalizeFocalPoint(args.ClientX, args.ClientY, bounds.Left, bounds.Top, bounds.Width, bounds.Height);
+			await SetFocalPointAndNotifyAsync(x, y);
 		}
-		else
+		catch (Exception exc) when (Logger.WriteError(exc))
 		{
-			string? currentImageUrl = UpdatedImageUrl;
-			UpdatedImageUrl = url;
-			UpdatedImageVersionToken = versionToken;
-			FileUploadMode = currentImageUrl?.Equals(UpdatedImageUrl, StringComparison.OrdinalIgnoreCase) is true ? UmbrellaFileImagePreviewUploadMode.Current : UmbrellaFileImagePreviewUploadMode.New;
+			await DialogUtility.ShowDangerMessageAsync();
 		}
+	}
+
+	internal async Task FocalPointKeyDownAsync(KeyboardEventArgs args)
+	{
+		double x = UpdatedFocalPointX ?? 0.5;
+		double y = UpdatedFocalPointY ?? 0.5;
+		double step = args.ShiftKey ? KeyboardFocalPointStep * 10 : KeyboardFocalPointStep;
+
+		switch (args.Key)
+		{
+			case "ArrowLeft":
+				x -= step;
+				break;
+			case "ArrowRight":
+				x += step;
+				break;
+			case "ArrowUp":
+				y -= step;
+				break;
+			case "ArrowDown":
+				y += step;
+				break;
+			default:
+				return;
+		}
+
+		await SetFocalPointAndNotifyAsync(Math.Clamp(x, 0, 1), Math.Clamp(y, 0, 1));
+	}
+
+	internal async Task ClearFocalPointAsync()
+	{
+		SetFocalPoint(null, null);
+		await NotifyFocalPointChangedAsync();
+	}
+
+	internal async Task SetFocalPointAndNotifyAsync(double focalPointX, double focalPointY)
+	{
+		ValidateFocalPoint(focalPointX, focalPointY);
+		SetFocalPoint(focalPointX, focalPointY);
+		await NotifyFocalPointChangedAsync();
+	}
+
+	private async Task NotifyFocalPointChangedAsync()
+	{
+		if (OnFocalPointChanged.HasDelegate)
+		{
+			await OnFocalPointChanged.InvokeAsync(new UmbrellaFileImagePreviewUploadFocalPointChangedEventArgs(
+				UpdatedFocalPointX,
+				UpdatedFocalPointY));
+		}
+	}
+
+	private void SetImage(string? url, string? versionToken, bool isParameterUpdate)
+	{
+		string? currentImageUrl = UpdatedImageUrl;
+		UpdatedImageUrl = string.IsNullOrWhiteSpace(url) ? null : url;
+		UpdatedImageVersionToken = UpdatedImageUrl is null ? null : versionToken;
+
+		if (UpdatedImageUrl is null)
+			_focalPointSelectorInitialized = false;
+
+		FileUploadMode = UpdatedImageUrl is null
+			? UmbrellaFileImagePreviewUploadMode.Upload
+			: isParameterUpdate || currentImageUrl is null || currentImageUrl.Equals(UpdatedImageUrl, StringComparison.OrdinalIgnoreCase)
+				? UmbrellaFileImagePreviewUploadMode.Current
+				: UmbrellaFileImagePreviewUploadMode.New;
+	}
+
+	private void SetFocalPoint(double? focalPointX, double? focalPointY)
+	{
+		UpdatedFocalPointX = focalPointX;
+		UpdatedFocalPointY = focalPointY;
+	}
+
+	private void ValidateFocalPoint(double? focalPointX, double? focalPointY)
+	{
+		if (focalPointX.HasValue != focalPointY.HasValue)
+			throw new ArgumentException($"Both {nameof(FocalPointX)} and {nameof(FocalPointY)} must be defined if either is specified.");
+
+		if (!focalPointX.HasValue)
+			return;
+
+		Guard.IsBetweenOrEqualTo(focalPointX.Value, 0, 1);
+		Guard.IsBetweenOrEqualTo(focalPointY!.Value, 0, 1);
+
+		if (ResizeMode is not DynamicResizeMode.CropFocalPoint)
+			throw new InvalidOperationException($"{nameof(FocalPointX)} and {nameof(FocalPointY)} can only be used with {nameof(DynamicResizeMode.CropFocalPoint)}.");
+	}
+
+	internal static (double X, double Y) NormalizeFocalPoint(
+		double clientX,
+		double clientY,
+		double imageLeft,
+		double imageTop,
+		double imageWidth,
+		double imageHeight)
+	{
+		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(imageWidth);
+		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(imageHeight);
+
+		return (
+			Math.Clamp((clientX - imageLeft) / imageWidth, 0, 1),
+			Math.Clamp((clientY - imageTop) / imageHeight, 0, 1));
 	}
 }

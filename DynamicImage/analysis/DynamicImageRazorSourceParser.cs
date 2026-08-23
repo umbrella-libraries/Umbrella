@@ -134,6 +134,19 @@ internal static class DynamicImageRazorSourceParser
 		return true;
 	}
 
+	public static bool TryGetStaticBoolean(string value, out bool result)
+	{
+		string normalized = NormalizeAttributeValue(value);
+
+		if (normalized.Length is 0)
+		{
+			result = true;
+			return true;
+		}
+
+		return bool.TryParse(normalized, out result);
+	}
+
 	public static bool TryGetStaticEnumMember(
 		string value,
 		string expectedEnumTypeName,
@@ -203,6 +216,9 @@ internal static class DynamicImageRazorSourceParser
 
 		if (attributeName is "SizeWidths")
 			return TryGetStaticString(value, out _);
+
+		if (attributeName is "EnableFocalPointSelection")
+			return TryGetStaticBoolean(value, out _);
 
 		return true;
 	}

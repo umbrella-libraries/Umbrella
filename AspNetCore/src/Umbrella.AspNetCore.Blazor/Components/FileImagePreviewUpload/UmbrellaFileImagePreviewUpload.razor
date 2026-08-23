@@ -9,17 +9,54 @@
 	}
 	else
 	{
-		<div class="form-group">
-			<UmbrellaDynamicImage WidthRequest="@WidthRequest"
-								  HeightRequest="@HeightRequest"
-								  MaxPixelDensity="@MaxPixelDensity"
-								  ImageFormat="@ImageFormat"
-								  ResizeMode="@ResizeMode"
-								  SizeWidths="@SizeWidths"
-								  Url="@UpdatedImageUrl"
-								  VersionToken="@UpdatedImageVersionToken"
-								  @key="@UpdatedImageUrl" />
-		</div>
+		@if (EnableFocalPointSelection)
+		{
+			<div class="form-group u-file-image-preview-upload__focal-editor">
+				<div>
+					<small id="@FocalPointInstructionsId" class="form-text">@FocalPointSelectionText</small>
+					<div class="u-file-image-preview-upload__focal-selector"
+						 @ref="FocalPointSelectorElement"
+						 tabindex="0"
+						 aria-describedby="@FocalPointInstructionsId"
+						 aria-valuetext="@FocalPointAriaValueText"
+						 @onclick="FocalPointClickAsync"
+						 @onkeydown="FocalPointKeyDownAsync">
+						<UmbrellaDynamicImage WidthRequest="@WidthRequest"
+										  HeightRequest="@HeightRequest"
+										  MaxPixelDensity="@MaxPixelDensity"
+										  ImageFormat="@ImageFormat"
+										  ResizeMode="DynamicResizeMode.ScaleDown"
+										  SizeWidths="@SizeWidths"
+										  Url="@UpdatedImageUrl"
+										  VersionToken="@UpdatedImageVersionToken"
+										  @key="@UpdatedImageUrl" />
+						@if (UpdatedFocalPointX.HasValue)
+						{
+							<span class="u-file-image-preview-upload__focal-marker"
+								  style="@FocalPointMarkerStyle"
+								  aria-hidden="true"></span>
+						}
+					</div>
+
+					@if (UpdatedFocalPointX.HasValue)
+					{
+						<button class="btn btn-secondary u-file-image-preview-upload__clear-focal-point"
+								type="button"
+								@onclick="ClearFocalPointAsync">@ClearFocalPointButtonText</button>
+					}
+				</div>
+
+				<div class="u-file-image-preview-upload__crop-preview">
+					@RenderCropPreview()
+				</div>
+			</div>
+		}
+		else
+		{
+			<div class="form-group">
+				@RenderCropPreview()
+			</div>
+		}
 
 		@if (FileUploadMode == UmbrellaFileImagePreviewUploadMode.New)
 		{
@@ -31,3 +68,17 @@
 		</div>
 	}
 </div>
+
+@code {
+	private RenderFragment RenderCropPreview() => @<UmbrellaDynamicImage WidthRequest="@WidthRequest"
+															 HeightRequest="@HeightRequest"
+															 MaxPixelDensity="@MaxPixelDensity"
+															 ImageFormat="@ImageFormat"
+															 ResizeMode="@ResizeMode"
+															 SizeWidths="@SizeWidths"
+															 Url="@UpdatedImageUrl"
+															 VersionToken="@UpdatedImageVersionToken"
+															 FocalPointX="@UpdatedFocalPointX"
+															 FocalPointY="@UpdatedFocalPointY"
+															 @key="@UpdatedImageUrl" />;
+}
