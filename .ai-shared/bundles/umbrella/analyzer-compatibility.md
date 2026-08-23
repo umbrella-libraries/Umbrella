@@ -37,6 +37,7 @@ Current coverage: UA001, UA002, UA003, UA004, UA005, UA006, UA007, UA008, UA009,
 - When URL fingerprinting is active, every Dynamic Image `*Url` model property has a nullable matching `*VersionToken`, assignments populate the pair together, and model-bound Razor usages pass `VersionToken`.
 - Enable cross-project checks with `UmbrellaDynamicImageEnableUrlFingerprinting=true` in the projects containing models, assignments, or Razor. A local explicit `EnableUrlFingerprinting` registration remains authoritative in its compilation.
 - Variant-shaping Razor values must be literals or enum members. Runtime expressions report UWDI004 and are omitted from the catalog.
+- Focal coordinates are paired normalized runtime inputs, may use model expressions, and are intentionally excluded from generated variant identity and UWDI004.
 - Server-only catalog generation consumes local Razor plus explicitly named external source roots. Catalog names are non-empty and case-insensitively unique, and each physical Razor file has one catalog owner.
 - `UmbrellaFileImagePreviewUpload` participates in token checking and variant discovery just like `UmbrellaDynamicImage`.
 - Automatic picture renderers add fallback, WebP, and AVIF catalog variants because each source uses an explicit format URL; manual `dynamic-source` usages add only their declared format.

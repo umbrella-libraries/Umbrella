@@ -228,6 +228,23 @@ public static class ViewRenderer
 	}
 
 	[Fact]
+	public async Task RazorComponent_WithRuntimeFocalPointInputs_ShouldNotTriggerDiagnostic()
+	{
+		const string razor = """
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+<UmbrellaDynamicImage WidthRequest="200"
+                      HeightRequest="100"
+                      ResizeMode="DynamicResizeMode.CropFocalPoint"
+                      FocalPointX="@Model.ImageFocalPointX"
+                      FocalPointY="@Model.ImageFocalPointY" />
+""";
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedBlazorInfrastructureSource,
+			[("C:/app/Test.razor", razor)]);
+	}
+
+	[Fact]
 	public async Task RazorFileImagePreviewUpload_WithNonStaticVariantInput_ShouldTriggerDiagnostic()
 	{
 		const string razor = """
@@ -342,6 +359,27 @@ public static class ViewRenderer
 				("C:/app/Views/Test.cshtml", view)
 			],
 			expected);
+	}
+
+	[Fact]
+	public async Task RazorTagHelper_WithRuntimeFocalPointInputs_ShouldNotTriggerDiagnostic()
+	{
+		const string viewImports = "@addTagHelper *, Umbrella.AspNetCore.WebUtilities.DynamicImage";
+		const string view = """
+<dynamic-image src="/images/test.jpg"
+               width-request="200"
+               height-request="100"
+               resize-mode="CropFocalPoint"
+               focal-point-x="@Model.ImageFocalPointX"
+               focal-point-y="@Model.ImageFocalPointY" />
+""";
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedTagHelperInfrastructureSource,
+			[
+				("C:/app/Views/_ViewImports.cshtml", viewImports),
+				("C:/app/Views/Test.cshtml", view)
+			]);
 	}
 
 	[Fact]

@@ -104,6 +104,7 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 		Guard.IsNotNullOrWhiteSpace(Url, nameof(Url));
 		Guard.IsGreaterThanOrEqualTo(WidthRequest, 1);
 		Guard.IsGreaterThanOrEqualTo(HeightRequest, 1);
+		ValidateFocalPoint();
 	}
 
 	/// <inheritdoc />
@@ -182,6 +183,21 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 			focalPointX: FocalPointX,
 			focalPointY: FocalPointY,
 			versionToken: VersionToken);
+
+	private void ValidateFocalPoint()
+	{
+		if (FocalPointX.HasValue != FocalPointY.HasValue)
+			throw new ArgumentException($"Both {nameof(FocalPointX)} and {nameof(FocalPointY)} must be defined if either is specified.");
+
+		if (!FocalPointX.HasValue)
+			return;
+
+		Guard.IsBetweenOrEqualTo(FocalPointX.Value, 0, 1);
+		Guard.IsBetweenOrEqualTo(FocalPointY!.Value, 0, 1);
+
+		if (ResizeMode is not DynamicResizeMode.CropFocalPoint)
+			throw new InvalidOperationException($"{nameof(FocalPointX)} and {nameof(FocalPointY)} can only be used with {nameof(DynamicResizeMode.CropFocalPoint)}.");
+	}
 
 	/// <summary>
 	/// Describes a source rendered inside the picture element.

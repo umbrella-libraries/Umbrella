@@ -95,11 +95,13 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 
 	/// <summary>
 	/// Gets or sets the normalised X coordinate of the focal point for the image, between 0 and 1 starting from the left of the image.
+	/// Only used with <see cref="DynamicResizeMode.CropFocalPoint"/>.
 	/// </summary>
 	public double? FocalPointX { get; set; }
 
 	/// <summary>
 	/// Gets or sets the normalised Y coordinate of the focal point for the image, between 0 and 1 starting from the top of the image.
+	/// Only used with <see cref="DynamicResizeMode.CropFocalPoint"/>.
 	/// </summary>
 	public double? FocalPointY { get; set; }
 
@@ -139,6 +141,8 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	/// <param name="output">A stateful HTML element used to generate an HTML tag.</param>
 	public override async Task ProcessAsync(TagHelperContext context, TagHelperOutput output)
 	{
+		ValidateFocalPoint();
+
 		_ = await BuildCoreTagAsync(output).ConfigureAwait(false);
 
 		await base.ProcessAsync(context, output).ConfigureAwait(false);
@@ -235,5 +239,23 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 		Guard.IsNotNullOrEmpty(url);
 
 		return !string.IsNullOrEmpty(DynamicImageTagHelperOptions.StripPrefix) && url.StartsWith(DynamicImageTagHelperOptions.StripPrefix, StringComparison.OrdinalIgnoreCase) ? url[DynamicImageTagHelperOptions.StripPrefix.Length..] : url;
+	}
+
+	/// <summary>
+	/// Validates the focal point configuration.
+	/// </summary>
+	private protected void ValidateFocalPoint()
+	{
+		if (FocalPointX.HasValue != FocalPointY.HasValue)
+			throw new ArgumentException($"Both {nameof(FocalPointX)} and {nameof(FocalPointY)} must be defined if either is specified.");
+
+		if (!FocalPointX.HasValue)
+			return;
+
+		Guard.IsBetweenOrEqualTo(FocalPointX.Value, 0, 1);
+		Guard.IsBetweenOrEqualTo(FocalPointY!.Value, 0, 1);
+
+		if (ResizeMode is not DynamicResizeMode.CropFocalPoint)
+			throw new InvalidOperationException($"{nameof(FocalPointX)} and {nameof(FocalPointY)} can only be used with {nameof(DynamicResizeMode.CropFocalPoint)}.");
 	}
 }

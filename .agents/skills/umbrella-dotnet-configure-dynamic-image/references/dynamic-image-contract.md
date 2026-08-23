@@ -54,6 +54,8 @@ Razor discovery understands:
 
 Width, height, density, and size-width values must be literals. Resize mode and image format may use enum-member syntax. Do not use constant references, `@Model` bindings, or mixed literal/expression strings for variant-shaping inputs. UWDI004 identifies unsupported inputs and the generator omits the whole occurrence rather than emitting a false default variant.
 
+Focal coordinates are different: `FocalPointX`/`FocalPointY` and `focal-point-x`/`focal-point-y` are runtime inputs and may use model expressions. They are intentionally excluded from `DynamicImageVariant`, do not affect generated catalog identity, and do not report UWDI004.
+
 ## Runtime registration
 
 Follow the application's existing file-provider construction and dependency-resolution conventions. The essential shape is:
@@ -123,7 +125,9 @@ Use asynchronous mapper interfaces for this enrichment. For a bounded page of in
                       VersionToken="@Model.ImageVersionToken"
                       WidthRequest="400"
                       HeightRequest="200"
-                      ResizeMode="DynamicResizeMode.Crop"
+                      ResizeMode="DynamicResizeMode.CropFocalPoint"
+                      FocalPointX="@Model.ImageFocalPointX"
+                      FocalPointY="@Model.ImageFocalPointY"
                       ImageFormat="DynamicImageFormat.Jpeg" />
 
 <UmbrellaFileImagePreviewUpload Url="@Model.ImageUrl"
@@ -131,6 +135,20 @@ Use asynchronous mapper interfaces for this enrichment. For a bounded page of in
                                 WidthRequest="400"
                                 HeightRequest="400" />
 ```
+
+The MVC tag helper exposes the same runtime inputs using kebab-case attributes:
+
+```cshtml
+<dynamic-image src="@Model.ImageUrl"
+               version-token="@Model.ImageVersionToken"
+               width-request="400"
+               height-request="200"
+               resize-mode="DynamicResizeMode.CropFocalPoint"
+               focal-point-x="@Model.ImageFocalPointX"
+               focal-point-y="@Model.ImageFocalPointY" />
+```
+
+Supply both coordinates or neither. Each value is a normalized `double` from `0` through `1`, with X measured from the left and Y from the top. Supplying either coordinate with any resize mode other than `CropFocalPoint`, supplying only one coordinate, or supplying an out-of-range value fails before rendering. Omitting both coordinates preserves the resizer's existing default focal behavior.
 
 Static external HTTP(S) URLs do not create local variants.
 

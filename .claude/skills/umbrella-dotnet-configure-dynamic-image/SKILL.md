@@ -22,6 +22,7 @@ Identify:
 
 - the executable Server project and every Client, Shared, model-factory, or MVC project containing Dynamic Image source;
 - all `UmbrellaDynamicImage`, `UmbrellaFileImagePreviewUpload`, `dynamic-image`, and `dynamic-source` usages;
+- all `FocalPointX`/`FocalPointY` and `focal-point-x`/`focal-point-y` bindings;
 - the service registration and `UseUmbrellaDynamicImage` middleware call;
 - every file-provider mapping and its data sensitivity;
 - existing analyzer/generator package references and central package-version policy;
@@ -46,6 +47,7 @@ Do not infer catalog completeness from a clean build. Compare every active Razor
 - Use long max-age values only with URL fingerprinting. Keep unversioned/stale redirects non-cacheable.
 - Keep validation enabled unless the application has an explicit reason not to constrain transforms.
 - Place `UseUmbrellaDynamicImage` where requests reach it before terminal endpoint/fallback handling.
+- Supply focal coordinates as a pair of normalized values from 0 through 1 and only with `CropFocalPoint`; invalid UI combinations fail before a Dynamic Image URL is rendered.
 
 ### 4. Preserve the URL/token contract
 
@@ -56,6 +58,7 @@ Do not infer catalog completeness from a clean build. Compare every active Razor
 - Resolve collection items concurrently when lookups are independent and the collection is bounded; preserve result ordering.
 - Pass the token to model-bound `UmbrellaDynamicImage` and `UmbrellaFileImagePreviewUpload` usages.
 - Keep variant-shaping Razor inputs literal. Enum members are valid; constants, model expressions, and mixed strings are not catalog-discoverable.
+- Focal coordinates are runtime inputs, may be model expressions, and do not participate in generated variant identity or UWDI004.
 
 ### 5. Validate the complete contract
 
@@ -64,7 +67,7 @@ Build all participating projects with analyzers enabled, then:
 1. Confirm UWDI001-UWDI005 are absent for legitimate code; add a regression before changing an analyzer for a suspected defect.
 2. Inspect the generated named and aggregate catalog source and reconcile it with every active Razor usage.
 3. Confirm generated catalog types exist in the Server assembly and do not ship in browser boot assets.
-4. Request canonical fingerprinted fallback, WebP, and configured AVIF URLs; confirm each URL returns its explicit format without `Vary: Accept`.
+4. Request canonical fingerprinted fallback, WebP, and configured AVIF URLs; when focal cropping is used, confirm every URL preserves the same `fpx`/`fpy` pair and returns its explicit format without `Vary: Accept`.
 5. Confirm changed dimensions, resize modes, and unregistered explicit formats return `404`.
 6. Confirm missing/stale fingerprints redirect with `Cache-Control: no-store`.
 7. Confirm mapping-specific cache headers, ETag/Last-Modified validators, and explicit conditional `304` responses.

@@ -43,6 +43,36 @@ public static class RenderFragmentFactory
 	}
 
 	[Fact]
+	public void RuntimeFocalPointBindingsDoNotAlterOrSuppressComponentVariants()
+	{
+		const string source = """
+using Umbrella.DynamicImage.Abstractions;
+
+public static class RenderFragmentFactory
+{
+	public static void Build(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, double? focalPointX, double? focalPointY)
+	{
+		builder.OpenComponent<Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage>(0);
+		builder.AddAttribute(1, "Url", "/images/product.jpg");
+		builder.AddAttribute(2, "WidthRequest", 100);
+		builder.AddAttribute(3, "HeightRequest", 50);
+		builder.AddAttribute(4, "MaxPixelDensity", 1);
+		builder.AddAttribute(5, "ResizeMode", DynamicResizeMode.CropFocalPoint);
+		builder.AddAttribute(6, "FocalPointX", focalPointX);
+		builder.AddAttribute(7, "FocalPointY", focalPointY);
+		builder.CloseComponent();
+	}
+}
+""" + SharedComponentInfrastructureSource;
+
+		DynamicImageVariant[] variants = GenerateVariants(source);
+
+		AssertAutomaticPictureVariants(
+			[new DynamicImageVariant(100, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg)],
+			variants);
+	}
+
+	[Fact]
 	public void GenerateNet10ComponentParameterShapeEmitsExpectedEntries()
 	{
 		const string source = """
@@ -393,6 +423,37 @@ public class MyView : RazorPageBase
 	}
 
 	[Fact]
+	public void RuntimeFocalPointBindingsDoNotAlterOrSuppressTagHelperVariants()
+	{
+		const string source = """
+using Umbrella.DynamicImage.Abstractions;
+using Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
+
+public class MyView : RazorPageBase
+{
+	private DynamicImageTagHelper __DynamicImageTagHelper = default!;
+
+	public void Execute(double? focalPointX, double? focalPointY)
+	{
+		__DynamicImageTagHelper = CreateTagHelper<DynamicImageTagHelper>();
+		__DynamicImageTagHelper.WidthRequest = 200;
+		__DynamicImageTagHelper.HeightRequest = 100;
+		__DynamicImageTagHelper.ImageMaxPixelDensity = 1;
+		__DynamicImageTagHelper.ResizeMode = DynamicResizeMode.CropFocalPoint;
+		__DynamicImageTagHelper.FocalPointX = focalPointX;
+		__DynamicImageTagHelper.FocalPointY = focalPointY;
+	}
+}
+""" + SharedTagHelperInfrastructureSource;
+
+		DynamicImageVariant[] variants = GenerateVariants(source);
+
+		AssertAutomaticPictureVariants(
+			[new DynamicImageVariant(200, 100, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg)],
+			variants);
+	}
+
+	[Fact]
 	public void TagHelperWithSizeWidthsEmitsBaseAndResponsiveVariants()
 	{
 		const string source = """
@@ -736,6 +797,8 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
 		public Umbrella.DynamicImage.Abstractions.DynamicResizeMode ResizeMode { get; set; }
 		public Umbrella.DynamicImage.Abstractions.DynamicImageFormat ImageFormat { get; set; }
 		public string? SizeWidths { get; set; }
+		public double? FocalPointX { get; set; }
+		public double? FocalPointY { get; set; }
 	}
 
 	public class DynamicImagePictureSourceTagHelper
@@ -745,6 +808,8 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
 		public int ImageMaxPixelDensity { get; set; } = 3;
 		public Umbrella.DynamicImage.Abstractions.DynamicResizeMode ResizeMode { get; set; }
 		public Umbrella.DynamicImage.Abstractions.DynamicImageFormat ImageFormat { get; set; }
+		public double? FocalPointX { get; set; }
+		public double? FocalPointY { get; set; }
 	}
 }
 
@@ -871,6 +936,8 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
 		public int WidthRequest { get; set; }
 		public int HeightRequest { get; set; }
 		public int MaxPixelDensity { get; set; }
+		public double? FocalPointX { get; set; }
+		public double? FocalPointY { get; set; }
 	}
 }
 """;

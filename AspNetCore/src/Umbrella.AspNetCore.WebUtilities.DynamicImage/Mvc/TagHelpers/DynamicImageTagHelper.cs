@@ -61,6 +61,7 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 	{
 		Guard.IsNotNull(context);
 		Guard.IsNotNull(output);
+		ValidateFocalPoint();
 
 		string? sourceUrl = output.Attributes["src"]?.Value?.ToString()?.Trim();
 

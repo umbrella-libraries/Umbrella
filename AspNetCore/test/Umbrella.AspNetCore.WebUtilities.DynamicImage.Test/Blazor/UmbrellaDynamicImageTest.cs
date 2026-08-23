@@ -59,6 +59,67 @@ public class UmbrellaDynamicImageTest
 		Assert.Contains("src=\"https://cdn.example.com/test.jpg\"", html, StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public async Task RendersFocalPointOnConfiguredSourcesAndResponsiveFallback()
+	{
+		string html = await RenderAsync(
+			new UmbrellaDynamicImageOptions(),
+			new Dictionary<string, object?>
+			{
+				[nameof(UmbrellaDynamicImage.Url)] = "/images/test.jpg",
+				[nameof(UmbrellaDynamicImage.WidthRequest)] = 100,
+				[nameof(UmbrellaDynamicImage.HeightRequest)] = 50,
+				[nameof(UmbrellaDynamicImage.MaxPixelDensity)] = 1,
+				[nameof(UmbrellaDynamicImage.SizeWidths)] = "100,200",
+				[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.CropFocalPoint,
+				[nameof(UmbrellaDynamicImage.FocalPointX)] = 0.25,
+				[nameof(UmbrellaDynamicImage.FocalPointY)] = 0.75
+			});
+
+		Assert.Contains("/dynamicimage/100/50/CropFocalPoint/jpg/images/test.webp?fpx=0.25&amp;fpy=0.75 100w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/200/100/CropFocalPoint/jpg/images/test.webp?fpx=0.25&amp;fpy=0.75 200w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/100/50/CropFocalPoint/jpg/images/test.jpg?fpx=0.25&amp;fpy=0.75 100w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/200/100/CropFocalPoint/jpg/images/test.jpg?fpx=0.25&amp;fpy=0.75 200w", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task RejectsIncompleteFocalPoint()
+	{
+		Dictionary<string, object?> parameters = CreateFocalPointParameters();
+		_ = parameters.Remove(nameof(UmbrellaDynamicImage.FocalPointY));
+
+		_ = await Assert.ThrowsAsync<ArgumentException>(() => RenderAsync(new UmbrellaDynamicImageOptions(), parameters));
+	}
+
+	[Fact]
+	public async Task RejectsOutOfRangeFocalPoint()
+	{
+		Dictionary<string, object?> parameters = CreateFocalPointParameters();
+		parameters[nameof(UmbrellaDynamicImage.FocalPointX)] = -0.01;
+
+		_ = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => RenderAsync(new UmbrellaDynamicImageOptions(), parameters));
+	}
+
+	[Fact]
+	public async Task RejectsFocalPointForNonFocalResizeMode()
+	{
+		Dictionary<string, object?> parameters = CreateFocalPointParameters();
+		parameters[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.Crop;
+
+		_ = await Assert.ThrowsAsync<InvalidOperationException>(() => RenderAsync(new UmbrellaDynamicImageOptions(), parameters));
+	}
+
+	private static Dictionary<string, object?> CreateFocalPointParameters()
+		=> new()
+		{
+			[nameof(UmbrellaDynamicImage.Url)] = "/images/test.jpg",
+			[nameof(UmbrellaDynamicImage.WidthRequest)] = 100,
+			[nameof(UmbrellaDynamicImage.HeightRequest)] = 50,
+			[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.CropFocalPoint,
+			[nameof(UmbrellaDynamicImage.FocalPointX)] = 0.25,
+			[nameof(UmbrellaDynamicImage.FocalPointY)] = 0.75
+		};
+
 	private static async Task<string> RenderAsync(UmbrellaDynamicImageOptions options, IDictionary<string, object?> parameters)
 	{
 		var services = new ServiceCollection();

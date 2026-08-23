@@ -77,6 +77,8 @@ multiple named catalogs with `AddAllowedVariantCatalogs`.
 Razor discovery honours effective `_Imports.razor`, `_ViewImports.cshtml`, `@using`, `@addTagHelper`, and
 `@removeTagHelper` directives. Variant-shaping values must be numeric/string literals or enum members. Compile-time
 constant references and other Razor expressions are intentionally not discoverable and report UWDI004.
+`FocalPointX`/`FocalPointY` and `focal-point-x`/`focal-point-y` are runtime inputs rather than variant-shaping inputs;
+model expressions are supported, the coordinates are excluded from generated variant identity, and they do not report UWDI004.
 `UmbrellaFileImagePreviewUpload` is treated as a Dynamic Image rendering component: its static preview dimensions and
 format settings contribute variants to the catalog and its URL/version-token pair is checked like a direct
 `UmbrellaDynamicImage` usage.

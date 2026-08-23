@@ -115,6 +115,59 @@ public class DynamicImageTagHelperTest
 		Assert.Contains("src=\"https://cdn.example.com/images/test.jpg\"", html, StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public async Task ProcessAsync_GeneratesFocalPointUrlsForSourcesAndResponsiveFallback()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		tagHelper.ResizeMode = DynamicResizeMode.CropFocalPoint;
+		tagHelper.FocalPointX = 0.25;
+		tagHelper.FocalPointY = 0.75;
+		tagHelper.SizeWidths = "100,200";
+		var (ctx, output) = CreateContextAndOutput();
+
+		await tagHelper.ProcessAsync(ctx, output);
+
+		string html = RenderOutput(output);
+		Assert.Contains("/dynamicimage/100/50/CropFocalPoint/jpg/images/test.webp?fpx=0.25&fpy=0.75 100w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/200/100/CropFocalPoint/jpg/images/test.webp?fpx=0.25&fpy=0.75 200w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/100/50/CropFocalPoint/jpg/images/test.jpg?fpx=0.25&fpy=0.75 100w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/200/100/CropFocalPoint/jpg/images/test.jpg?fpx=0.25&fpy=0.75 200w", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_RejectsIncompleteFocalPoint()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		tagHelper.ResizeMode = DynamicResizeMode.CropFocalPoint;
+		tagHelper.FocalPointX = 0.25;
+		var (ctx, output) = CreateContextAndOutput();
+
+		_ = await Assert.ThrowsAsync<ArgumentException>(() => tagHelper.ProcessAsync(ctx, output));
+	}
+
+	[Fact]
+	public async Task ProcessAsync_RejectsOutOfRangeFocalPoint()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		tagHelper.ResizeMode = DynamicResizeMode.CropFocalPoint;
+		tagHelper.FocalPointX = -0.01;
+		tagHelper.FocalPointY = 0.75;
+		var (ctx, output) = CreateContextAndOutput();
+
+		_ = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => tagHelper.ProcessAsync(ctx, output));
+	}
+
+	[Fact]
+	public async Task ProcessAsync_RejectsFocalPointForNonFocalResizeMode()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		tagHelper.FocalPointX = 0.25;
+		tagHelper.FocalPointY = 0.75;
+		var (ctx, output) = CreateContextAndOutput();
+
+		_ = await Assert.ThrowsAsync<InvalidOperationException>(() => tagHelper.ProcessAsync(ctx, output));
+	}
+
 	private static DynamicImageTagHelper CreateTagHelper(DynamicImageTagHelperOptions? options = null)
 		=> new(
 			CoreUtilitiesMocks.CreateLogger<DynamicImageTagHelper>(),

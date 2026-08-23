@@ -383,6 +383,22 @@ public partial class AnalyzerGuidanceTest
             "Components",
             "FileImagePreviewUpload",
             "UmbrellaFileImagePreviewUpload.razor.cs"));
+        string dynamicImageComponent = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            "AspNetCore",
+            "src",
+            "Umbrella.AspNetCore.Blazor",
+            "Components",
+            "DynamicImage",
+            "UmbrellaDynamicImage.razor.cs"));
+        string dynamicImageTagHelperBase = File.ReadAllText(Path.Combine(
+            RepoRoot,
+            "AspNetCore",
+            "src",
+            "Umbrella.AspNetCore.WebUtilities.DynamicImage",
+            "Mvc",
+            "TagHelpers",
+            "DynamicImageTagHelperBase.cs"));
         string componentMarkup = File.ReadAllText(Path.Combine(
             RepoRoot,
             "AspNetCore",
@@ -402,6 +418,13 @@ public partial class AnalyzerGuidanceTest
         Assert.Contains("Task.WhenAll", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("public string? VersionToken { get; set; }", component, StringComparison.Ordinal);
         Assert.Contains("VersionToken=\"@UpdatedImageVersionToken\"", componentMarkup, StringComparison.Ordinal);
+        Assert.Contains("public double? FocalPointX { get; set; }", dynamicImageComponent, StringComparison.Ordinal);
+        Assert.Contains("public double? FocalPointY { get; set; }", dynamicImageComponent, StringComparison.Ordinal);
+        Assert.Contains("public double? FocalPointX { get; set; }", dynamicImageTagHelperBase, StringComparison.Ordinal);
+        Assert.Contains("public double? FocalPointY { get; set; }", dynamicImageTagHelperBase, StringComparison.Ordinal);
+        Assert.Contains("Focal coordinates are runtime inputs", skill, StringComparison.Ordinal);
+        Assert.Contains("focal-point-x", reference, StringComparison.Ordinal);
+        Assert.Contains("do not report UWDI004", reference, StringComparison.Ordinal);
     }
 
     [Fact]
