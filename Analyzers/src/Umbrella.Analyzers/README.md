@@ -2,7 +2,7 @@
 
 A collection of Roslyn analyzers enforcing Umbrella coding standards, async patterns, and model immutability across .NET solutions.
 
-Most rules are configured with **Error** severity (compile blocking); UA015, UA017, UA019, and UA024 are **Warning** severity. Add the package as a PrivateAssets dependency so it does not flow transitively.
+Most rules are configured with **Error** severity (compile blocking); UA015, UA019, and UA024 are **Warning** severity. Add the package as a PrivateAssets dependency so it does not flow transitively.
 
 ## Installation
 
@@ -72,7 +72,7 @@ whitespace is meaningful, such as passwords. The string-trimmer generator leaves
 properties unchanged, and UA015 does not count them as trimming candidates.
 
 ### Severity
-UA001–UA014, UA016, UA018, and UA020–UA023 emit diagnostics as `Error` so builds fail until issues are resolved. UA015, UA017, UA019, and UA024 emit as `Warning` — they flag structural issues but do not block the build by default. Adjust severities via ruleset / .editorconfig if you need a different adoption path.
+UA001–UA014, UA016–UA018, and UA020–UA023 emit diagnostics as `Error` so builds fail until issues are resolved. UA015, UA019, and UA024 emit as `Warning` — they flag structural issues but do not block the build by default. Adjust severities via ruleset / .editorconfig if you need a different adoption path.
 
 ## Release Tracking
 Rule introduction and status are tracked in:

@@ -45,6 +45,14 @@ public class UA017_UmbrellaApiStandardsAnalyzerTests : AnalyzerTestBase<Umbrella
 		""";
 
 	[Fact]
+	public void Rule_ShouldHaveErrorSeverity()
+	{
+		Assert.Equal(
+			Microsoft.CodeAnalysis.DiagnosticSeverity.Error,
+			UmbrellaApiStandardsAnalyzer.UseUmbrellaProducesResponseTypeRule.DefaultSeverity);
+	}
+
+	[Fact]
 	public async Task NonGenericRawAttributeOnAction_ShouldReportDiagnostic()
 	{
 		const string source = ControllerStubs + """

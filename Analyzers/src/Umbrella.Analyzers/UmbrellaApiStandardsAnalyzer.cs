@@ -27,7 +27,7 @@ public sealed class UmbrellaApiStandardsAnalyzer : DiagnosticAnalyzer
 		title: "Use [UmbrellaProducesResponseType] instead of [ProducesResponseType]",
 		messageFormat: "{0} '{1}' uses a raw ASP.NET Core response type attribute; replace it with [UmbrellaProducesResponseType]",
 		category: "UmbrellaApiStandards",
-		defaultSeverity: DiagnosticSeverity.Warning,
+		defaultSeverity: DiagnosticSeverity.Error,
 		isEnabledByDefault: true,
 		description: "UmbrellaApiController subclasses must use the generic or non-generic UmbrellaProducesResponseType attribute rather than raw ASP.NET Core response type attributes. The Umbrella variant enforces consistent response type documentation and integrates with the Umbrella OpenAPI pipeline.");
 
