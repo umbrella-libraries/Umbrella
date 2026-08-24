@@ -155,6 +155,30 @@ internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileH
 - Dynamic Image consumers obtain their URL/token pair from the inherited `GetVersionedWebFilePathAsync`; do not add a second token algorithm to the concrete handler.
 - Current Umbrella packages still require the obsolete `IHybridCache` in the base constructor. Keep the narrow file-scoped `CS0618` pragma shown above so a new handler does not add a warning. Do not suppress `CS0618` project-wide, and remove the pragma when `UmbrellaFileHandler` moves to the replacement cache API.
 
+### Custom operations and logging
+
+When a handler needs a custom public operation, keep argument guards and cancellation checks before its outer `try`. The preferred logging pattern is the repository exception filter with explicit method state:
+
+```csharp
+catch (Exception exc) when (Logger.WriteError(exc, new { groupId, fileName, ownerId }))
+{
+    throw new <AppName>CoreLogicException("There has been a problem processing the file.", exc);
+}
+```
+
+Use this form instead of calling `Logger.LogError` or `Logger.LogCritical` directly. UA008 currently accepts structured calls to those methods, so an analyzer-clean build alone does not prove that the preferred exception-filter pattern was used.
+
+### Authorization metadata and temporary files
+
+File handlers are singletons and must remain stateless between calls. When protected-file reads depend on per-request ownership or tenancy metadata:
+
+- Pass the metadata to a narrowly scoped custom handler method as explicit parameters.
+- Resize or otherwise prepare the temporary file and write its authorization metadata **before** calling `CreateByGroupIdAndTempFileNameAsync`. This lets the normal move carry a fully secured file into the protected directory.
+- Do not defer required authorization metadata until a post-move read or `AfterSavingAsync` operation if that read would need the same metadata to authorize it.
+- Never use `AsyncLocal`, `ThreadStatic`, mutable singleton fields, ambient context classes, or authorization-bypass flags to transport metadata through the file lifecycle.
+- Never add a special bypass to the matching file authorization handler for file-handler internals. If the framework lifecycle appears to require one, inspect the base handler lifecycle and storage-provider APIs before proceeding.
+- Verify through the real HTTP file endpoint that metadata survives the temporary-to-protected move and that matching and mismatching identities receive the expected responses.
+
 ---
 
 ## Step 4 -- Register in DI
@@ -185,3 +209,5 @@ Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` a
 6. If authorization is needed, the `umbrella-dotnet-scaffold-file-authorization-handler` skill has been used to create a matching `<Name>FileAuthorizationHandler` with the same `DirectoryName`.
 7. If the handler backs Dynamic Image, callers use `GetVersionedWebFilePathAsync` and propagate its URL and token together.
 8. The unavoidable legacy-cache warning is suppressed only around the handler declaration; no project-wide `CS0618` suppression is added.
+9. Custom public methods use the `Logger.WriteError` exception-filter pattern with relevant state.
+10. Ownership or tenancy metadata is attached without ambient state or an authorization bypass, and its behavior is covered through the HTTP file endpoint.

@@ -49,7 +49,8 @@ internal sealed class <Name>FileAuthorizationHandler : UmbrellaFileAuthorization
 
         try
         {
-            bool canAccess = ClaimsPrincipal.Current?.Identity?.IsAuthenticated is true;
+            // Fail closed until the directory's explicit access policy is implemented.
+            bool canAccess = false;
 
             return Task.FromResult(canAccess);
         }
@@ -67,7 +68,8 @@ internal sealed class <Name>FileAuthorizationHandler : UmbrellaFileAuthorization
 - No specific interface — auth handlers do not get their own marker interface; they all implement `IUmbrellaFileAuthorizationHandler` through the base class
 - `DirectoryName` must return `DirectoryNames.<Name>` — the same constant used by the matching file handler
 - `AuthorizeAsync` must always call `cancellationToken.ThrowIfCancellationRequested()` and `Guard.IsNotNull(fileInfo)` first, then wrap the access check in the try/catch pattern
-- The default check is `ClaimsPrincipal.Current?.Identity?.IsAuthenticated is true` — tighten this when the use case requires finer-grained control
+- New handlers fail closed by default. Replace `false` only after deriving the directory's explicit access policy.
+- Use the shown `catch (Exception exc) when (Logger.WriteError(...))` form. Do not substitute direct `Logger.LogError` or `Logger.LogCritical` calls; UA008 accepts structured calls to those methods, but they are not the preferred repository pattern.
 
 ### Authorization per operation type
 
@@ -76,12 +78,24 @@ When authorization needs to vary by operation, switch on `operationType`:
 ```csharp
 bool canAccess = operationType switch
 {
-    UmbrellaFileOperationType.Read => ClaimsPrincipal.Current?.Identity?.IsAuthenticated is true,
+    UmbrellaFileOperationType.Read => ClaimsPrincipal.Current?.IsInRole("Admin") is true,
     UmbrellaFileOperationType.Create or UmbrellaFileOperationType.Update or UmbrellaFileOperationType.Delete
         => ClaimsPrincipal.Current?.IsInRole("Admin") is true,
     _ => false
 };
 ```
+
+### Sensitive or user-specific files
+
+Authentication alone is never sufficient for private, user-specific, tenant-specific, school-specific, or provider-specific files. For those directories:
+
+- Check authentication first, then authorize each operation explicitly; keep the default branch denied.
+- For reads, require a concrete privileged role or compare trusted file metadata with the caller's user/tenant/provider claim. Missing or malformed metadata and missing claims must deny access.
+- For create, update, and delete, enumerate the permitted management roles rather than treating every authenticated caller as a manager.
+- Keep every successful path traceable to an explicit role or metadata match. Do not add an unconditional early `return true`.
+- Do not consult `AsyncLocal`, `ThreadStatic`, ambient context objects, mutable singleton state, or an “internal operation” flag. Authorization must depend only on the authenticated principal, operation, and trusted file information.
+- Do not weaken authorization to accommodate file-handler lifecycle code. Required ownership metadata should be attached to the temporary file before it is moved into the protected directory; see `umbrella-dotnet-scaffold-file-handler`.
+- Cover the real HTTP file endpoint with integration tests for unauthenticated callers, authenticated callers without a permitted role, matching and mismatching owners/tenants, missing claims/metadata, privileged administrators, and every applicable operation. For sensitive Dynamic Image mappings, also assert `Cache-Control: no-store` on successful responses.
 
 ---
 
@@ -114,3 +128,5 @@ Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` a
 4. `DirectoryName` returns `DirectoryNames.<Name>` — the same constant as the matching file handler.
 5. `AuthorizeAsync` calls `ThrowIfCancellationRequested`, `Guard.IsNotNull(fileInfo)`, and wraps the access check in try/catch with `Logger.WriteError`.
 6. `AddSingleton<IUmbrellaFileAuthorizationHandler, <Name>FileAuthorizationHandler>()` is present in `IServiceCollectionExtensions.cs`.
+7. Sensitive directories fail closed and contain no ambient-state or internal-operation bypass.
+8. Each successful authorization path is backed by an explicit role or trusted metadata match and is verified through the HTTP file endpoint.
