@@ -644,6 +644,7 @@ public class MimeTypeUtility : IMimeTypeUtility
 		[".cml"] = "chemical/x-cml",
 		[".csml"] = "chemical/x-csml",
 		[".xyz"] = "chemical/x-xyz",
+		[".avif"] = "image/avif",
 		[".bmp"] = "image/bmp",
 		[".cgm"] = "image/cgm",
 		[".g3"] = "image/g3fax",

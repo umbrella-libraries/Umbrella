@@ -68,6 +68,19 @@ public class MimeTypeUtilityTest
 		Assert.Equal("image/png", mimeType);
 	}
 
+	[Theory]
+	[InlineData("bmp", "image/bmp")]
+	[InlineData("gif", "image/gif")]
+	[InlineData("jpg", "image/jpeg")]
+	[InlineData("png", "image/png")]
+	[InlineData("webp", "image/webp")]
+	[InlineData("avif", "image/avif")]
+	public void GetMimeType_DynamicImageFormat(string extension, string expectedMimeType)
+	{
+		string mimeType = CreateMimeTypeUtility().GetMimeType(extension);
+		Assert.Equal(expectedMimeType, mimeType);
+	}
+
 	[Fact]
 	public void GetFileExtension_Null()
 	{
@@ -101,6 +114,19 @@ public class MimeTypeUtilityTest
 	{
 		string? fileExtension = CreateMimeTypeUtility().GetFileExtension("image/png");
 		Assert.Equal(".png", fileExtension);
+	}
+
+	[Theory]
+	[InlineData("image/bmp", ".bmp")]
+	[InlineData("image/gif", ".gif")]
+	[InlineData("image/jpeg", ".jpg")]
+	[InlineData("image/png", ".png")]
+	[InlineData("image/webp", ".webp")]
+	[InlineData("image/avif", ".avif")]
+	public void GetFileExtension_DynamicImageContentType(string mimeType, string expectedExtension)
+	{
+		string? fileExtension = CreateMimeTypeUtility().GetFileExtension(mimeType);
+		Assert.Equal(expectedExtension, fileExtension);
 	}
 
 	private static MimeTypeUtility CreateMimeTypeUtility() => new(new Mock<ILogger<MimeTypeUtility>>().Object);
