@@ -10,7 +10,8 @@
     "Microsoft.EntityFrameworkCore",
     "Microsoft.Maui.",
     "System.Text.Json",
-    "System.Net.Http.Json"
+    "System.Net.Http.Json",
+    "System.Security.Cryptography.Xml"
   ],
   "options": {
     "allowPrerelease": false
