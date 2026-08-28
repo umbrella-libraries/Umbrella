@@ -129,24 +129,56 @@ foreach ($definition in $definitions) {
     $attemptReasons = New-Object System.Collections.Generic.List[string]
     $selectedCandidate = $null
 
+    $allValidationFrameworks = @(
+        Sort-NuGetUpgradeTargetFrameworks -Frameworks @(
+            $definition.ValidationReferences | ForEach-Object {
+                foreach ($fw in @($_.TargetFrameworks)) { $fw }
+            } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+        )
+    )
+
     foreach ($candidate in $availableVersions) {
         $candidateVersion = $candidate.Original
         $candidateGuardrailViolations = Test-NuGetUpgradeCandidateAgainstGuardrails -Definition $definition -CandidateVersion $candidateVersion -FrameworkCoupledFamilies $config.FrameworkCoupledFamilies
         $isOverride = $overrideIds -contains $definition.PackageId.ToLowerInvariant()
 
+        # Frameworks where the candidate's own major exceeds the coupled-family cap. Treat these
+        # the same way as transitive-graph violations: when the reference can be split per
+        # framework, the capped TFMs keep the current version and the rest take the upgrade.
+        # Only reject the candidate outright when no split is possible.
+        $guardrailBlockedFrameworks = @()
         if (@($candidateGuardrailViolations).Count -gt 0 -and -not $isOverride) {
-            foreach ($violation in $candidateGuardrailViolations) {
-                $attemptReasons.Add(
-                    "Candidate $candidateVersion exceeds the allowed major version for $($violation.Project) ($($violation.TargetFramework)): max major $($violation.MaxAllowedMajor)."
-                )
+            $guardrailBlockedFrameworks = @(Sort-NuGetUpgradeTargetFrameworks -Frameworks (
+                @($candidateGuardrailViolations | ForEach-Object { $_.TargetFramework }) | Select-Object -Unique
+            ))
+
+            $guardrailAllowedFrameworks = @($allValidationFrameworks | Where-Object { $guardrailBlockedFrameworks -notcontains $_ })
+
+            $canSplitGuardrail = $guardrailAllowedFrameworks.Count -gt 0 -and
+                                 [string]::IsNullOrWhiteSpace($definition.Condition) -and
+                                 $definition.ItemName -eq 'PackageReference'
+
+            if (-not $canSplitGuardrail) {
+                foreach ($violation in $candidateGuardrailViolations) {
+                    $attemptReasons.Add(
+                        "Candidate $candidateVersion exceeds the allowed major version for $($violation.Project) ($($violation.TargetFramework)): max major $($violation.MaxAllowedMajor)."
+                    )
+                }
+                continue
             }
-            continue
         }
 
         $originalContent = Get-Content -Path $definition.FilePath -Raw -ErrorAction Stop
 
         try {
-            Set-NuGetUpgradeVersionInFile -FilePath $definition.FilePath -ItemName $definition.ItemName -PackageId $definition.PackageId -CurrentVersion $definition.CurrentVersion -NewVersion $candidateVersion
+            # Validate the split state itself, so restore and the graph check see exactly what
+            # would be committed rather than an over-cap version applied to every TFM.
+            if ($guardrailBlockedFrameworks.Count -gt 0) {
+                Split-NuGetUpgradePackageReference -FilePath $definition.FilePath -ItemName $definition.ItemName -PackageId $definition.PackageId -CurrentVersion $definition.CurrentVersion -NewVersion $candidateVersion -UpgradeFrameworks @($allValidationFrameworks | Where-Object { $guardrailBlockedFrameworks -notcontains $_ }) -KeepFrameworks $guardrailBlockedFrameworks
+            }
+            else {
+                Set-NuGetUpgradeVersionInFile -FilePath $definition.FilePath -ItemName $definition.ItemName -PackageId $definition.PackageId -CurrentVersion $definition.CurrentVersion -NewVersion $candidateVersion
+            }
 
             $restoreTargets = if (@($definition.ValidationReferences).Count -gt 0) {
                 @($definition.ValidationReferences | Select-Object -ExpandProperty ProjectPath -Unique)
@@ -171,14 +203,6 @@ foreach ($definition in $definitions) {
                 $attemptReasons.Add("Candidate $candidateVersion failed restore: $($restoreMessages -join ' ')")
                 continue
             }
-
-            $allValidationFrameworks = @(
-                Sort-NuGetUpgradeTargetFrameworks -Frameworks @(
-                    $definition.ValidationReferences | ForEach-Object {
-                        foreach ($fw in @($_.TargetFrameworks)) { $fw }
-                    } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
-                )
-            )
 
             $graphViolationsByFramework = @{}
 
@@ -221,6 +245,14 @@ foreach ($definition in $definitions) {
                 }
             }
 
+            # Fold the direct-reference cap violations in, so the split decision below sees the
+            # full set of TFMs that must keep the current version.
+            if ($guardrailBlockedFrameworks.Count -gt 0) {
+                $graphBlockedFrameworks = @(Sort-NuGetUpgradeTargetFrameworks -Frameworks (
+                    @($graphBlockedFrameworks + $guardrailBlockedFrameworks) | Select-Object -Unique
+                ))
+            }
+
             $graphAllowedFrameworks = @(Sort-NuGetUpgradeTargetFrameworks -Frameworks (
                 @($allValidationFrameworks | Where-Object { $graphBlockedFrameworks -notcontains $_ })
             ))
@@ -257,6 +289,11 @@ foreach ($definition in $definitions) {
                     foreach ($legacyFw in $legacyMajorBumpFrameworks) {
                         $attemptReasons.Add(
                             "Candidate $candidateVersion is a major-version bump ($currentMajorVersion to $candidateMajorVersion) blocked for legacy TFM [$legacyFw]."
+                        )
+                    }
+                    foreach ($violation in $candidateGuardrailViolations) {
+                        $attemptReasons.Add(
+                            "Candidate $candidateVersion exceeds the allowed major version for $($violation.Project) ($($violation.TargetFramework)): max major $($violation.MaxAllowedMajor)."
                         )
                     }
                     continue

@@ -5,7 +5,8 @@
   "frameworkCoupledFamilies": [
     "Microsoft.Extensions.",
     "Microsoft.AspNetCore.",
-    "Microsoft.EntityFrameworkCore"
+    "Microsoft.EntityFrameworkCore",
+    "System.Security.Cryptography.Xml"
   ],
   "options": {
     "allowPrerelease": false

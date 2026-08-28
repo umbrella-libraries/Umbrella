@@ -42,11 +42,13 @@ Packages listed in `frameworkCoupledFamilies` (in `nuget-upgrade-exclusions.json
 
 `Microsoft.Maui.` packages follow the same contract and must also appear in `frameworkCoupledFamilies`. More generally, any SDK family whose major version must match the target framework's major (MAUI, ASP.NET Core, EF Core, etc.) belongs in this list. If you encounter an already-conditional reference that was upgraded to a version whose major exceeds the condition TFM's major, that family is missing from `frameworkCoupledFamilies` — add it to `nuget-upgrade-exclusions.json` before re-running.
 
+A cap that applies to only *some* of a project's TFMs does not block the upgrade outright: the capped TFMs keep the current version and the remaining TFMs are upgraded, via the framework split described below. An unconditional reference in a multi-targeted project therefore becomes per-TFM conditional blocks on first upgrade — each tracking its own major thereafter.
+
 ## Framework-split upgrades
 
 When a package upgrade is blocked on some TFMs but would be safe on others, the script automatically splits the single unconditional `<PackageReference>` into per-framework conditional `<ItemGroup>` blocks:
 
-- **Blocked TFMs** keep the current version (e.g., `netstandard2.0`/`net8.0`/`net9.0` when the new version pulls v10 transitive deps or bumps the package major).
+- **Blocked TFMs** keep the current version (e.g., `netstandard2.0`/`net8.0`/`net9.0` when the new version pulls v10 transitive deps, bumps the package major, or exceeds the coupled-family cap for that TFM).
 - **Allowed TFMs** receive the upgraded version (e.g., `net10.0`).
 
 Split candidates appear in the `successful` list with action `Analyzed (split candidate)` or `Applied (split by framework)` and include `upgradeFrameworks`/`keepFrameworks` fields.
