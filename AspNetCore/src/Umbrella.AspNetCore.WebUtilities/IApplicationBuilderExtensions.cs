@@ -58,14 +58,6 @@ public static class IApplicationBuilderExtensions
 	public static IApplicationBuilder UseUmbrellaMultiTenantSessionContext<TAppTenantKey, TNullableAppTenantKey>(this IApplicationBuilder builder) => builder.UseMiddleware<MultiTenantSessionContextMiddleware<TAppTenantKey, TNullableAppTenantKey>>();
 
 	/// <summary>
-	/// Adds the <see cref="FrontEndCompressionMiddleware"/> to the pipeline.
-	/// </summary>
-	/// <param name="builder">The builder.</param>
-	/// <returns>The application builder.</returns>
-	[Obsolete("This will be removed in a future version.", true)]
-	public static IApplicationBuilder UseUmbrellaFrontEndCompression(this IApplicationBuilder builder) => builder.UseMiddleware<FrontEndCompressionMiddleware>();
-
-	/// <summary>
 	/// Adds the <see cref="ApiExceptionMiddleware"/> to the pipeline for all requests
 	/// that have the specified <paramref name="pathPrefix"/>.
 	/// </summary>

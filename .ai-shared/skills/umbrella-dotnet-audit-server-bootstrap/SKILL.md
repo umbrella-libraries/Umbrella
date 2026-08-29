@@ -62,7 +62,7 @@ Report missing catalog ownership or unsafe cacheability as runtime/security defe
 
 ### 6. Middleware pipeline order
 
-Verify the relative order: routing → authentication → authorization → `UseUmbrellaPropagateClaimsPrincipal` → endpoints. Note any Umbrella middleware in use (`UseUmbrellaFrontEndCompression`, `UseUmbrellaApiException`, `UseUmbrellaFileAccessTokenQueryString`, multi-tenant session context) and whether its position is sensible relative to auth and endpoints.
+Verify the relative order: routing → authentication → authorization → `UseUmbrellaPropagateClaimsPrincipal` → endpoints. Note any Umbrella middleware in use (`UseUmbrellaApiException`, `UseUmbrellaFileAccessTokenQueryString`, multi-tenant session context) and whether its position is sensible relative to auth and endpoints.
 
 ### 7. Environment-sensitive behaviour
 
