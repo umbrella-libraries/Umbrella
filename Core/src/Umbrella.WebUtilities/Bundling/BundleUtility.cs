@@ -1,6 +1,14 @@
 ﻿
 using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
+#if NET9_0_OR_GREATER
+using Microsoft.Extensions.Caching.Hybrid;
+using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
+#else
+using Microsoft.Extensions.Caching.Distributed;
+using Umbrella.Utilities.Caching;
+using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
+#endif
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.WebUtilities.Bundling.Abstractions;
 using Umbrella.WebUtilities.Bundling.Options;
@@ -18,16 +26,16 @@ public class BundleUtility : BundleUtility<BundleUtilityOptions>
 	/// </summary>
 	/// <param name="logger">The logger.</param>
 	/// <param name="options">The options.</param>
-	/// <param name="hybridCache">The hybrid cache.</param>
+	/// <param name="cache">The platform cache.</param>
 	/// <param name="cacheKeyUtility">The cache key utility.</param>
 	/// <param name="hostingEnvironment">The hosting environment.</param>
 	public BundleUtility(
 		ILogger<BundleUtility> logger,
 		BundleUtilityOptions options,
-		IHybridCache hybridCache,
+		PlatformCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		IUmbrellaWebHostingEnvironment hostingEnvironment)
-		: base(logger, options, hybridCache, cacheKeyUtility, hostingEnvironment)
+		: base(logger, options, cache, cacheKeyUtility, hostingEnvironment)
 	{
 	}
 }
@@ -52,7 +60,7 @@ public abstract class BundleUtility<TOptions> : IBundleUtility
 	/// <summary>
 	/// Gets the cache.
 	/// </summary>
-	protected IHybridCache Cache { get; }
+	protected PlatformCache Cache { get; }
 
 	/// <summary>
 	/// Gets the cache key utility.
@@ -71,19 +79,19 @@ public abstract class BundleUtility<TOptions> : IBundleUtility
 	/// </summary>
 	/// <param name="logger">The logger.</param>
 	/// <param name="options">The options.</param>
-	/// <param name="hybridCache">The hybrid cache.</param>
+	/// <param name="cache">The platform cache.</param>
 	/// <param name="cacheKeyUtility">The cache key utility.</param>
 	/// <param name="hostingEnvironment">The hosting environment.</param>
 	protected BundleUtility(
 		ILogger logger,
 		TOptions options,
-		IHybridCache hybridCache,
+		PlatformCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		IUmbrellaWebHostingEnvironment hostingEnvironment)
 	{
 		Logger = logger;
 		Options = options;
-		Cache = hybridCache;
+		Cache = cache;
 		CacheKeyUtility = cacheKeyUtility;
 		HostingEnvironment = hostingEnvironment;
 	}
@@ -106,11 +114,20 @@ public abstract class BundleUtility<TOptions> : IBundleUtility
 		{
 			string cacheKey = CacheKeyUtility.Create<BundleUtility<TOptions>>($"{bundleNameOrPath}:js");
 
-			return await Cache.GetOrCreateAsync(cacheKey,
+			if (!Options.CacheEnabled)
+				return await ResolveBundlePathAsync(bundleNameOrPath, "js", true, cancellationToken).ConfigureAwait(false);
+
+#if NET9_0_OR_GREATER
+			return await Cache.GetOrCreateAsync(cacheKey, async token => await ResolveBundlePathAsync(bundleNameOrPath, "js", true, token).ConfigureAwait(false), CreateHybridCacheEntryOptions(), cancellationToken: cancellationToken).ConfigureAwait(false);
+#else
+			(string item, _) = await Cache.GetOrCreateAsync(
+				cacheKey,
 				async () => await ResolveBundlePathAsync(bundleNameOrPath, "js", true, cancellationToken).ConfigureAwait(false),
-				Options,
-				cancellationToken: cancellationToken)
-				.ConfigureAwait(false);
+				CreateDistributedCacheEntryOptions,
+				cancellationToken: cancellationToken).ConfigureAwait(false);
+
+			return item;
+#endif
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bundleNameOrPath }))
 		{
@@ -136,11 +153,20 @@ public abstract class BundleUtility<TOptions> : IBundleUtility
 		{
 			string cacheKey = CacheKeyUtility.Create<BundleUtility<TOptions>>($"{bundleNameOrPath}:js-content");
 
-			return await Cache.GetOrCreateAsync(cacheKey,
+			if (!Options.CacheEnabled)
+				return await ResolveBundleContentAsync(bundleNameOrPath, "js", cancellationToken).ConfigureAwait(false);
+
+#if NET9_0_OR_GREATER
+			return await Cache.GetOrCreateAsync(cacheKey, async token => await ResolveBundleContentAsync(bundleNameOrPath, "js", token).ConfigureAwait(false), CreateHybridCacheEntryOptions(), cancellationToken: cancellationToken).ConfigureAwait(false);
+#else
+			(string? item, _) = await Cache.GetOrCreateAsync(
+				cacheKey,
 				async () => await ResolveBundleContentAsync(bundleNameOrPath, "js", cancellationToken).ConfigureAwait(false),
-				Options,
-				cancellationToken: cancellationToken)
-				.ConfigureAwait(false);
+				CreateDistributedCacheEntryOptions,
+				cancellationToken: cancellationToken).ConfigureAwait(false);
+
+			return item;
+#endif
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bundleNameOrPath }))
 		{
@@ -164,11 +190,20 @@ public abstract class BundleUtility<TOptions> : IBundleUtility
 		{
 			string cacheKey = CacheKeyUtility.Create<BundleUtility<TOptions>>($"{bundleNameOrPath}:css");
 
-			return await Cache.GetOrCreateAsync(cacheKey,
+			if (!Options.CacheEnabled)
+				return await ResolveBundlePathAsync(bundleNameOrPath, "css", true, cancellationToken).ConfigureAwait(false);
+
+#if NET9_0_OR_GREATER
+			return await Cache.GetOrCreateAsync(cacheKey, async token => await ResolveBundlePathAsync(bundleNameOrPath, "css", true, token).ConfigureAwait(false), CreateHybridCacheEntryOptions(), cancellationToken: cancellationToken).ConfigureAwait(false);
+#else
+			(string item, _) = await Cache.GetOrCreateAsync(
+				cacheKey,
 				async () => await ResolveBundlePathAsync(bundleNameOrPath, "css", true, cancellationToken).ConfigureAwait(false),
-				Options,
-				cancellationToken: cancellationToken)
-				.ConfigureAwait(false);
+				CreateDistributedCacheEntryOptions,
+				cancellationToken: cancellationToken).ConfigureAwait(false);
+
+			return item;
+#endif
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bundleNameOrPath }))
 		{
@@ -194,11 +229,20 @@ public abstract class BundleUtility<TOptions> : IBundleUtility
 		{
 			string cacheKey = CacheKeyUtility.Create<BundleUtility<TOptions>>($"{bundleNameOrPath}:css-content");
 
-			return await Cache.GetOrCreateAsync(cacheKey,
+			if (!Options.CacheEnabled)
+				return await ResolveBundleContentAsync(bundleNameOrPath, "css", cancellationToken).ConfigureAwait(false);
+
+#if NET9_0_OR_GREATER
+			return await Cache.GetOrCreateAsync(cacheKey, async token => await ResolveBundleContentAsync(bundleNameOrPath, "css", token).ConfigureAwait(false), CreateHybridCacheEntryOptions(), cancellationToken: cancellationToken).ConfigureAwait(false);
+#else
+			(string? item, _) = await Cache.GetOrCreateAsync(
+				cacheKey,
 				async () => await ResolveBundleContentAsync(bundleNameOrPath, "css", cancellationToken).ConfigureAwait(false),
-				Options,
-				cancellationToken: cancellationToken)
-				.ConfigureAwait(false);
+				CreateDistributedCacheEntryOptions,
+				cancellationToken: cancellationToken).ConfigureAwait(false);
+
+			return item;
+#endif
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bundleNameOrPath }))
 		{
@@ -217,7 +261,7 @@ public abstract class BundleUtility<TOptions> : IBundleUtility
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The bundle path.</returns>
 	protected async Task<string> ResolveBundlePathAsync(string bundleNameOrPath, string bundleType, bool appendVersion, CancellationToken cancellationToken)
-		=> HostingEnvironment.MapWebPath(await DetermineBundlePathAsync(bundleNameOrPath, bundleType, cancellationToken).ConfigureAwait(false), appendVersion: Options.AppendVersion ?? appendVersion, watchWhenAppendVersion: Options.WatchFiles);
+		=> HostingEnvironment.MapWebPath(await DetermineBundlePathAsync(bundleNameOrPath, bundleType, cancellationToken).ConfigureAwait(false), appendVersion: Options.AppendVersion ?? appendVersion);
 
 	/// <summary>
 	/// Resolves the bundle content asynchronous.
@@ -227,7 +271,20 @@ public abstract class BundleUtility<TOptions> : IBundleUtility
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The bundle content.</returns>
 	protected async Task<string?> ResolveBundleContentAsync(string bundleNameOrPath, string bundleType, CancellationToken cancellationToken)
-		=> await HostingEnvironment.GetFileContentAsync(await DetermineBundlePathAsync(bundleNameOrPath, bundleType, cancellationToken).ConfigureAwait(false), false, Options.CacheEnabled, Options.WatchFiles, cancellationToken).ConfigureAwait(false);
+		=> await HostingEnvironment.GetFileContentAsync(await DetermineBundlePathAsync(bundleNameOrPath, bundleType, cancellationToken).ConfigureAwait(false), false, Options.CacheEnabled, cancellationToken).ConfigureAwait(false);
+
+#if NET9_0_OR_GREATER
+	private HybridCacheEntryOptions CreateHybridCacheEntryOptions()
+		=> new()
+		{
+			Expiration = Options.CacheTimeout,
+			LocalCacheExpiration = Options.CacheTimeout,
+			Flags = Options.CacheEntryFlags
+		};
+#else
+	private DistributedCacheEntryOptions CreateDistributedCacheEntryOptions()
+		=> new DistributedCacheEntryOptions().SetAbsoluteExpiration(Options.CacheTimeout);
+#endif
 
 	/// <summary>
 	/// Determines the bundle path asynchronous.

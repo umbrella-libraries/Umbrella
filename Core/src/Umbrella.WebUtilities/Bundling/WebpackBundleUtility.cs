@@ -1,5 +1,13 @@
 ﻿
 using CommunityToolkit.Diagnostics;
+#if NET9_0_OR_GREATER
+using Microsoft.Extensions.Caching.Hybrid;
+using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
+#else
+using Microsoft.Extensions.Caching.Distributed;
+using Umbrella.Utilities.Caching;
+using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
+#endif
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Umbrella.Utilities;
@@ -28,16 +36,16 @@ public class WebpackBundleUtility : BundleUtility<WebpackBundleUtilityOptions>, 
 	/// </summary>
 	/// <param name="logger">The logger.</param>
 	/// <param name="options">The options.</param>
-	/// <param name="hybridCache">The hybrid cache.</param>
+	/// <param name="cache">The platform cache.</param>
 	/// <param name="hostingEnvironment">The hosting environment.</param>
 	/// <param name="cacheKeyUtility">The cache key utility.</param>
 	public WebpackBundleUtility(
 		ILogger<WebpackBundleUtility> logger,
 		WebpackBundleUtilityOptions options,
-		IHybridCache hybridCache,
+		PlatformCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		IUmbrellaWebHostingEnvironment hostingEnvironment)
-		: base(logger, options, hybridCache, cacheKeyUtility, hostingEnvironment)
+		: base(logger, options, cache, cacheKeyUtility, hostingEnvironment)
 	{
 		Guard.IsNotNull(hostingEnvironment);
 
@@ -66,11 +74,20 @@ public class WebpackBundleUtility : BundleUtility<WebpackBundleUtilityOptions>, 
 		{
 			string cacheKey = CacheKeyUtility.Create<WebpackBundleUtility>($"{bundleNameOrPath}:js");
 
-			return await Cache.GetOrCreateAsync(cacheKey,
+			if (!Options.CacheEnabled)
+				return await ResolveBundlePathAsync(bundleNameOrPath, "js", false, cancellationToken).ConfigureAwait(false);
+
+#if NET9_0_OR_GREATER
+			return await Cache.GetOrCreateAsync(cacheKey, async token => await ResolveBundlePathAsync(bundleNameOrPath, "js", false, token).ConfigureAwait(false), CreateHybridCacheEntryOptions(), cancellationToken: cancellationToken).ConfigureAwait(false);
+#else
+			(string item, _) = await Cache.GetOrCreateAsync(
+				cacheKey,
 				async () => await ResolveBundlePathAsync(bundleNameOrPath, "js", false, cancellationToken).ConfigureAwait(false),
-				Options,
-				cancellationToken: cancellationToken)
-				.ConfigureAwait(false);
+				CreateDistributedCacheEntryOptions,
+				cancellationToken: cancellationToken).ConfigureAwait(false);
+
+			return item;
+#endif
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bundleNameOrPath }))
 		{
@@ -96,11 +113,20 @@ public class WebpackBundleUtility : BundleUtility<WebpackBundleUtilityOptions>, 
 		{
 			string cacheKey = CacheKeyUtility.Create<WebpackBundleUtility>($"{bundleNameOrPath}:css");
 
-			return await Cache.GetOrCreateAsync(cacheKey,
+			if (!Options.CacheEnabled)
+				return await ResolveBundlePathAsync(bundleNameOrPath, "css", false, cancellationToken).ConfigureAwait(false);
+
+#if NET9_0_OR_GREATER
+			return await Cache.GetOrCreateAsync(cacheKey, async token => await ResolveBundlePathAsync(bundleNameOrPath, "css", false, token).ConfigureAwait(false), CreateHybridCacheEntryOptions(), cancellationToken: cancellationToken).ConfigureAwait(false);
+#else
+			(string item, _) = await Cache.GetOrCreateAsync(
+				cacheKey,
 				async () => await ResolveBundlePathAsync(bundleNameOrPath, "css", false, cancellationToken).ConfigureAwait(false),
-				Options,
-				cancellationToken: cancellationToken)
-				.ConfigureAwait(false);
+				CreateDistributedCacheEntryOptions,
+				cancellationToken: cancellationToken).ConfigureAwait(false);
+
+			return item;
+#endif
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bundleNameOrPath }))
 		{
@@ -146,8 +172,9 @@ public class WebpackBundleUtility : BundleUtility<WebpackBundleUtilityOptions>, 
 		{
 			string cacheKey = CacheKeyUtility.Create<WebpackBundleUtility>("WebpackManifest");
 
-			return await Cache.GetOrCreateAsync(cacheKey, async () =>
+			async Task<Dictionary<string, string>> CreateAsync(CancellationToken token)
 			{
+				token.ThrowIfCancellationRequested();
 				IFileInfo fileInfo = FileProvider.GetFileInfo(Options.ManifestJsonFileSubPath);
 
 				if (!fileInfo.Exists)
@@ -155,7 +182,11 @@ public class WebpackBundleUtility : BundleUtility<WebpackBundleUtilityOptions>, 
 
 				using Stream stream = fileInfo.CreateReadStream();
 				using var sr = new StreamReader(stream);
+#if NET8_0_OR_GREATER
+				string json = await sr.ReadToEndAsync(token).ConfigureAwait(false);
+#else
 				string json = await sr.ReadToEndAsync().ConfigureAwait(false);
+#endif
 
 				var deserializedJson = UmbrellaStatics.DeserializeJson<Dictionary<string, string>>(json);
 
@@ -173,14 +204,39 @@ public class WebpackBundleUtility : BundleUtility<WebpackBundleUtilityOptions>, 
 
 					return Path.Combine(Options.DefaultBundleFolderAppRelativePath, loweredPath);
 				});
-			},
-			Options, expirationTokensBuilder: () => Options.WatchFiles ? new[] { FileProvider.Watch(Options.ManifestJsonFileSubPath) } : null,
-			cancellationToken: cancellationToken)
-				.ConfigureAwait(false);
+			}
+
+			if (!Options.CacheEnabled)
+				return await CreateAsync(cancellationToken).ConfigureAwait(false);
+
+#if NET9_0_OR_GREATER
+			return await Cache.GetOrCreateAsync(cacheKey, async token => await CreateAsync(token).ConfigureAwait(false), CreateHybridCacheEntryOptions(), cancellationToken: cancellationToken).ConfigureAwait(false);
+#else
+			(Dictionary<string, string> item, _) = await Cache.GetOrCreateAsync(
+				cacheKey,
+				async () => await CreateAsync(cancellationToken).ConfigureAwait(false),
+				CreateDistributedCacheEntryOptions,
+				cancellationToken: cancellationToken).ConfigureAwait(false);
+
+			return item;
+#endif
 		}
 		catch (Exception exc)
 		{
 			throw new UmbrellaWebException("There has been a problem reading the Webpack Manifest JSON.", exc);
 		}
 	}
+
+#if NET9_0_OR_GREATER
+	private HybridCacheEntryOptions CreateHybridCacheEntryOptions()
+		=> new()
+		{
+			Expiration = Options.CacheTimeout,
+			LocalCacheExpiration = Options.CacheTimeout,
+			Flags = Options.CacheEntryFlags
+		};
+#else
+	private DistributedCacheEntryOptions CreateDistributedCacheEntryOptions()
+		=> new DistributedCacheEntryOptions().SetAbsoluteExpiration(Options.CacheTimeout);
+#endif
 }

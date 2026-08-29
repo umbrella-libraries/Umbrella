@@ -1,9 +1,16 @@
 ﻿using System.Reflection;
+#if NET9_0_OR_GREATER
+using Microsoft.Extensions.Caching.Hybrid;
+using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
+#else
+using Microsoft.Extensions.Caching.Distributed;
+using Umbrella.Utilities.Caching;
+using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
+#endif
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Umbrella.DataAccess.Abstractions;
 using Umbrella.Utilities.Caching.Abstractions;
-using Umbrella.Utilities.Primitives;
 using Umbrella.WebUtilities.Versioning.Abstractions;
 using Umbrella.WebUtilities.Versioning.Models;
 using Umbrella.WebUtilities.Versioning.Options;
@@ -18,7 +25,7 @@ public class SystemVersionService : ISystemVersionService
 {
 	private readonly ILogger _logger;
 	private readonly IServiceProvider _serviceProvider;
-	private readonly IHybridCache _cache;
+	private readonly PlatformCache _cache;
 	private readonly ICacheKeyUtility _cacheKeyUtility;
 	private readonly SystemVersionServiceOptions _options;
 
@@ -33,7 +40,7 @@ public class SystemVersionService : ISystemVersionService
 	public SystemVersionService(
 		ILogger<SystemVersionService> logger,
 		IServiceProvider serviceProvider,
-		IHybridCache cache,
+		PlatformCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		SystemVersionServiceOptions options)
 	{
@@ -53,8 +60,9 @@ public class SystemVersionService : ISystemVersionService
 		{
 			string cacheKey = _cacheKeyUtility.Create<SystemVersionService>("Version");
 
-			return await _cache.GetOrCreateAsync(cacheKey, async () =>
+			async Task<SystemVersionModel> CreateAsync(CancellationToken token)
 			{
+				token.ThrowIfCancellationRequested();
 				string versionFilePath = _options.VersionFilePath;
 				string? version = null;
 
@@ -76,7 +84,11 @@ public class SystemVersionService : ISystemVersionService
 					}
 
 					using StreamReader reader = new(versionFilePath);
+#if NET8_0_OR_GREATER
+					version = await reader.ReadToEndAsync(token).ConfigureAwait(false);
+#else
 					version = await reader.ReadToEndAsync().ConfigureAwait(false);
+#endif
 					version = SanitizeVersionNumber(version);
 				}
 
@@ -89,14 +101,33 @@ public class SystemVersionService : ISystemVersionService
 					using IServiceScope serviceScope = _serviceProvider.CreateScope();
 
 					var dbRepository = serviceScope.ServiceProvider.GetRequiredService<IDatabaseVersionRepository>();
-					databaseVersion = await dbRepository.GetDatabaseVersionAsync(cancellationToken).ConfigureAwait(false);
+					databaseVersion = await dbRepository.GetDatabaseVersionAsync(token).ConfigureAwait(false);
 				}
 
 				return new SystemVersionModel(version, databaseVersion);
-			},
-			_options,
-			() => new[] { new PhysicalFileChangeToken(new FileInfo(_options.VersionFilePath)) },
-			cancellationToken);
+			}
+
+			if (!_options.CacheEnabled)
+				return await CreateAsync(cancellationToken).ConfigureAwait(false);
+
+#if NET9_0_OR_GREATER
+			var options = new HybridCacheEntryOptions
+			{
+				Expiration = _options.CacheTimeout,
+				LocalCacheExpiration = _options.CacheTimeout,
+				Flags = _options.CacheEntryFlags
+			};
+
+			return await _cache.GetOrCreateAsync(cacheKey, async token => await CreateAsync(token).ConfigureAwait(false), options, cancellationToken: cancellationToken).ConfigureAwait(false);
+#else
+			(SystemVersionModel item, _) = await _cache.GetOrCreateAsync(
+				cacheKey,
+				async () => await CreateAsync(cancellationToken).ConfigureAwait(false),
+				() => new DistributedCacheEntryOptions().SetAbsoluteExpiration(_options.CacheTimeout),
+				cancellationToken: cancellationToken).ConfigureAwait(false);
+
+			return item;
+#endif
 		}
 		catch (Exception exc) when (_logger.WriteError(exc))
 		{

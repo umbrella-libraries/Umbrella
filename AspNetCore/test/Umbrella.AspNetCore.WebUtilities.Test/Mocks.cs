@@ -33,7 +33,7 @@ public static class Mocks
 			hostingEnvironment.Object,
 			httpContextAccessor.Object,
 			new UmbrellaWebHostingEnvironmentOptions(),
-			CoreUtilitiesMocks.CreateHybridCache(),
+			CoreUtilitiesMocks.CreateCache(),
 			CoreUtilitiesMocks.CreateCacheKeyUtility());
 	}
 

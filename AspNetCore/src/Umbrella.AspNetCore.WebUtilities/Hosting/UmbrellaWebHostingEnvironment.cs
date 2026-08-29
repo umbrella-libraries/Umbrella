@@ -1,12 +1,17 @@
-﻿using System.Buffers;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
+
 using Microsoft.Extensions.Logging;
+#if NET9_0_OR_GREATER
+using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
+#else
+using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
+#endif
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Hosting;
 using Umbrella.WebUtilities.Exceptions;
@@ -57,7 +62,7 @@ public partial class UmbrellaWebHostingEnvironment : UmbrellaHostingEnvironment,
 		IWebHostEnvironment hostingEnvironment,
 		IHttpContextAccessor httpContextAccessor,
 		UmbrellaWebHostingEnvironmentOptions options,
-		IHybridCache cache,
+		PlatformCache cache,
 		ICacheKeyUtility cacheKeyUtility)
 		: base(logger, options, cache, cacheKeyUtility)
 	{
@@ -79,72 +84,39 @@ public partial class UmbrellaWebHostingEnvironment : UmbrellaHostingEnvironment,
 	{
 		Guard.IsNotNullOrWhiteSpace(virtualPath, nameof(virtualPath));
 
-		string[]? cacheKeyParts = null;
-
 		try
 		{
-			cacheKeyParts = ArrayPool<string>.Shared.Rent(2);
-			cacheKeyParts[0] = virtualPath;
-			cacheKeyParts[1] = fromContentRoot.ToString();
+			string cleanedPath = TransformPath(virtualPath, true, false, true);
 
-			string key = CacheKeyUtility.Create<UmbrellaWebHostingEnvironment>(cacheKeyParts, 2);
+			string rootPath = fromContentRoot
+				? HostingEnvironment.ContentRootPath
+				: HostingEnvironment.WebRootPath;
 
-			return Cache.GetOrCreate(key, () =>
-			{
-				// Trim and remove the ~/ from the front of the path
-				// Also change forward slashes to back slashes
-				string cleanedPath = TransformPath(virtualPath, true, false, true);
-
-				string rootPath = fromContentRoot
-					? HostingEnvironment.ContentRootPath
-					: HostingEnvironment.WebRootPath;
-
-				return Path.Combine(rootPath, cleanedPath);
-			},
-			Options);
+			return Path.Combine(rootPath, cleanedPath);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { virtualPath, fromContentRoot }))
 		{
 			throw new UmbrellaWebException("There has been a problem mapping the specified virtual path.", exc);
 		}
-		finally
-		{
-			if (cacheKeyParts is not null)
-				ArrayPool<string>.Shared.Return(cacheKeyParts);
-		}
 	}
 
 	/// <inheritdoc />
-	public virtual string MapWebPath(string virtualPath, bool toAbsoluteUrl = false, string scheme = "https", bool appendVersion = false, string versionParameterName = "v", bool mapFromContentRoot = true, bool watchWhenAppendVersion = true, string? pathBaseOverride = null, string? hostOverride = null)
+	public virtual string MapWebPath(string virtualPath, bool toAbsoluteUrl = false, string scheme = "https", bool appendVersion = false, string versionParameterName = "v", bool mapFromContentRoot = true, string? pathBaseOverride = null, string? hostOverride = null)
 	{
 		Guard.IsNotNullOrWhiteSpace(virtualPath);
 		Guard.IsNotNullOrWhiteSpace(scheme);
 		Guard.IsNotNullOrWhiteSpace(versionParameterName);
 
-		string[]? cacheKeyParts = null;
-
 		try
 		{
-			cacheKeyParts = ArrayPool<string>.Shared.Rent(7);
-			cacheKeyParts[0] = virtualPath;
-			cacheKeyParts[1] = toAbsoluteUrl.ToString();
-			cacheKeyParts[2] = scheme;
-			cacheKeyParts[3] = appendVersion.ToString();
-			cacheKeyParts[4] = versionParameterName;
-			cacheKeyParts[5] = mapFromContentRoot.ToString();
-			cacheKeyParts[6] = watchWhenAppendVersion.ToString();
-
-			string key = CacheKeyUtility.Create<UmbrellaWebHostingEnvironment>(cacheKeyParts, 7);
 			string cleanedPath = TransformPathForFileProvider(virtualPath);
 
 			IFileProvider fileProvider = mapFromContentRoot
 						? FileProvider.Value
 						: WebRootFileProvider.Value;
 
-			return Cache.GetOrCreate(key, () =>
-			{
-				// NB: This will be empty for non-virtual applications
-				PathString applicationPath = !string.IsNullOrEmpty(pathBaseOverride) ? new PathString(pathBaseOverride) : HttpContextAccessor.HttpContext?.Request.PathBase ?? default;
+			// NB: This will be empty for non-virtual applications
+			PathString applicationPath = !string.IsNullOrEmpty(pathBaseOverride) ? new PathString(pathBaseOverride) : HttpContextAccessor.HttpContext?.Request.PathBase ?? default;
 
 				// Prefix the path with the virtual application segment but only if the cleanedPath doesn't already start with the segment
 				string? url = applicationPath.HasValue && cleanedPath.StartsWith(applicationPath, StringComparison.OrdinalIgnoreCase)
@@ -178,10 +150,7 @@ public partial class UmbrellaWebHostingEnvironment : UmbrellaHostingEnvironment,
 					url = $"{url}{qsStart}{versionParameterName}={version}";
 				}
 
-				return url;
-			},
-			Options,
-			() => appendVersion && watchWhenAppendVersion ? new[] { fileProvider.Watch(cleanedPath) } : null);
+			return url;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { virtualPath, toAbsoluteUrl, scheme, appendVersion, versionParameterName, mapFromContentRoot }))
 		{
@@ -190,7 +159,7 @@ public partial class UmbrellaWebHostingEnvironment : UmbrellaHostingEnvironment,
 	}
 
 	/// <inheritdoc />
-	public async Task<string?> GetFileContentAsync(string virtualPath, bool fromContentRoot, bool cache = true, bool watch = true, CancellationToken cancellationToken = default)
+	public async Task<string?> GetFileContentAsync(string virtualPath, bool fromContentRoot, bool cache = true, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		Guard.IsNotNullOrWhiteSpace(virtualPath, nameof(virtualPath));
@@ -198,10 +167,10 @@ public partial class UmbrellaWebHostingEnvironment : UmbrellaHostingEnvironment,
 		try
 		{
 			return fromContentRoot
-				? await GetFileContentAsync("Standard", FileProvider.Value, virtualPath, cache, watch, cancellationToken)
-				: await GetFileContentAsync("Web", WebRootFileProvider.Value, virtualPath, cache, watch, cancellationToken);
+				? await GetFileContentAsync("Standard", FileProvider.Value, virtualPath, cache, cancellationToken)
+				: await GetFileContentAsync("Web", WebRootFileProvider.Value, virtualPath, cache, cancellationToken);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { virtualPath, cache, watch }))
+		catch (Exception exc) when (Logger.WriteError(exc, new { virtualPath, cache }))
 		{
 			throw new UmbrellaWebException("There has been a problem reading the contents of the specified file.", exc);
 		}

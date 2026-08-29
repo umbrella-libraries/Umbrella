@@ -1,4 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
+#if NET9_0_OR_GREATER
+using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
+#else
+using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
+#endif
 using Umbrella.Utilities.Caching.Abstractions;
 
 namespace Umbrella.FileSystem.Abstractions;
@@ -20,7 +25,7 @@ public class UmbrellaTempFileHandler : UmbrellaFileHandler, IUmbrellaTempFileHan
 	/// <param name="options">The options.</param>
 	public UmbrellaTempFileHandler(
 		ILogger<UmbrellaTempFileHandler> logger,
-		IHybridCache cache,
+		PlatformCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		IUmbrellaFileStorageProvider fileProvider,
 		IUmbrellaFileStorageProviderOptions options)

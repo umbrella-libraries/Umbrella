@@ -169,7 +169,7 @@ public class UmbrellaFileHandlerTest
 
 		var handlerMock = new Mock<UmbrellaFileHandler>(
 			new Mock<ILogger>().Object,
-			CoreUtilitiesMocks.CreateHybridCache(),
+			CoreUtilitiesMocks.CreateCache(),
 			CoreUtilitiesMocks.CreateCacheKeyUtility(),
 			fileProvider ?? new Mock<IUmbrellaFileStorageProvider>().Object,
 			optionsMock.Object)

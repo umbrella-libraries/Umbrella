@@ -1,4 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
+#if NET9_0_OR_GREATER
+using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
+#else
+using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
+#endif
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.Utilities.Caching.Abstractions;
 
@@ -24,7 +29,7 @@ public class UmbrellaDynamicImageCacheFileHandler : UmbrellaFileHandler<int>, IU
 	/// <param name="cacheCoreOptions">The cache core options.</param>
 	public UmbrellaDynamicImageCacheFileHandler(
 		ILogger<UmbrellaDynamicImageCacheFileHandler> logger,
-		IHybridCache cache,
+		PlatformCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		IUmbrellaFileStorageProvider fileProvider,
 		IUmbrellaFileStorageProviderOptions options,

@@ -1,5 +1,13 @@
 ﻿using System.Security.Claims;
 using CommunityToolkit.Diagnostics;
+#if NET9_0_OR_GREATER
+using Microsoft.Extensions.Caching.Hybrid;
+using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
+#else
+using Microsoft.Extensions.Caching.Distributed;
+using Umbrella.Utilities.Caching;
+using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
+#endif
 using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Security.Extensions;
@@ -21,7 +29,7 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 	/// <summary>
 	/// Gets the cache.
 	/// </summary>
-	protected IHybridCache Cache { get; }
+	protected PlatformCache Cache { get; }
 
 	/// <summary>
 	/// Gets the cache key utility.
@@ -51,7 +59,7 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 	/// <param name="options">The options.</param>
 	protected UmbrellaFileHandler(
 		ILogger logger,
-		IHybridCache cache,
+		PlatformCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		IUmbrellaFileStorageProvider fileProvider,
 		IUmbrellaFileStorageProviderOptions options)
@@ -73,14 +81,24 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 		{
 			string key = CacheKeyUtility.Create(GetType(), groupId + "");
 
-			return await Cache.GetOrCreateAsync(key, async () =>
+			async Task<string?> CreateAsync(CancellationToken token)
 			{
-				IUmbrellaFileInfo? fileInfo = await GetMostRecentExistingFileByGroupIdAsync(groupId, cancellationToken).ConfigureAwait(false);
+				IUmbrellaFileInfo? fileInfo = await GetMostRecentExistingFileByGroupIdAsync(groupId, token).ConfigureAwait(false);
 
 				return fileInfo is null ? null : GetWebFilePath(fileInfo.Name, groupId);
-			},
-			() => TimeSpan.FromHours(1),
-			cancellationToken: cancellationToken).ConfigureAwait(false);
+			}
+
+#if NET9_0_OR_GREATER
+			return await Cache.GetOrCreateAsync(key, async token => await CreateAsync(token).ConfigureAwait(false), CreateHybridCacheEntryOptions(), cancellationToken: cancellationToken).ConfigureAwait(false);
+#else
+			(string? item, _) = await Cache.GetOrCreateAsync(
+				key,
+				async () => await CreateAsync(cancellationToken).ConfigureAwait(false),
+				CreateDistributedCacheEntryOptions,
+				cancellationToken: cancellationToken).ConfigureAwait(false);
+
+			return item;
+#endif
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { groupId }))
 		{
@@ -98,17 +116,26 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 		{
 			string key = CacheKeyUtility.Create(GetType(), $"{groupId}:{providerFileName}");
 
-			return await Cache.GetOrCreateAsync(key, async () =>
+			async Task<string?> CreateAsync(CancellationToken token)
 			{
 				string filePath = GetFilePath(providerFileName, groupId);
 
-				IUmbrellaFileInfo? fileInfo = await FileProvider.GetAsync(filePath, cancellationToken).ConfigureAwait(false);
+				IUmbrellaFileInfo? fileInfo = await FileProvider.GetAsync(filePath, token).ConfigureAwait(false);
 
 				return fileInfo is null ? null : GetWebFilePath(fileInfo.Name, groupId);
-			},
-			() => TimeSpan.FromHours(1),
-			cancellationToken: cancellationToken)
-				.ConfigureAwait(false);
+			}
+
+#if NET9_0_OR_GREATER
+			return await Cache.GetOrCreateAsync(key, async token => await CreateAsync(token).ConfigureAwait(false), CreateHybridCacheEntryOptions(), cancellationToken: cancellationToken).ConfigureAwait(false);
+#else
+			(string? item, _) = await Cache.GetOrCreateAsync(
+				key,
+				async () => await CreateAsync(cancellationToken).ConfigureAwait(false),
+				CreateDistributedCacheEntryOptions,
+				cancellationToken: cancellationToken).ConfigureAwait(false);
+
+			return item;
+#endif
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { groupId, providerFileName }))
 		{
@@ -185,7 +212,7 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 			_ = await FileProvider.DeleteAsync(permPath, cancellationToken).ConfigureAwait(false);
 
 			string key = CacheKeyUtility.Create(GetType(), $"{groupId}:{providerFileName}");
-			await Cache.RemoveAsync<string>(key, cancellationToken: cancellationToken).ConfigureAwait(false);
+			await Cache.RemoveAsync(key, cancellationToken).ConfigureAwait(false);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { groupId, providerFileName }))
 		{
@@ -205,7 +232,7 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 
 			// Remove from the cache
 			string key = CacheKeyUtility.Create(GetType(), groupId + "");
-			await Cache.RemoveAsync<string>(key, cancellationToken: cancellationToken).ConfigureAwait(false);
+			await Cache.RemoveAsync(key, cancellationToken).ConfigureAwait(false);
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { groupId }))
 		{
@@ -329,6 +356,18 @@ public abstract class UmbrellaFileHandler<TGroupId> : IUmbrellaFileHandler<TGrou
 	/// <returns>A task that represents the asynchronous operation.</returns>
 	protected virtual Task AfterSavingAsync(IUmbrellaFileInfo fileInfo, TGroupId groupId, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+#if NET9_0_OR_GREATER
+	private static HybridCacheEntryOptions CreateHybridCacheEntryOptions()
+		=> new()
+		{
+			Expiration = TimeSpan.FromHours(1),
+			LocalCacheExpiration = TimeSpan.FromHours(1)
+		};
+#else
+	private static DistributedCacheEntryOptions CreateDistributedCacheEntryOptions()
+		=> new DistributedCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromHours(1));
+#endif
+
 	[Obsolete("This method is not recommended for use and will be removed in a future version as it can negatively impact performance.")]
 	private async Task<IUmbrellaFileInfo?> GetMostRecentExistingFileByGroupIdAsync(TGroupId groupId, CancellationToken cancellationToken)
 	{
@@ -377,7 +416,7 @@ public abstract class UmbrellaFileHandler : UmbrellaFileHandler<NoGroupId>
 	/// <inheritdoc />
 	protected UmbrellaFileHandler(
 		ILogger logger,
-		IHybridCache cache,
+		PlatformCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		IUmbrellaFileStorageProvider fileProvider,
 		IUmbrellaFileStorageProviderOptions options)

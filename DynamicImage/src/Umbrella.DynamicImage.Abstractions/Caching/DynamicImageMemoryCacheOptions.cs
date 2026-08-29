@@ -1,4 +1,4 @@
-﻿using Umbrella.Utilities.Options;
+using Umbrella.Utilities.Options;
 
 namespace Umbrella.DynamicImage.Abstractions.Caching;
 

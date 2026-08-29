@@ -1,6 +1,14 @@
 ﻿
 using System.Buffers;
 using CommunityToolkit.Diagnostics;
+#if NET9_0_OR_GREATER
+using Microsoft.Extensions.Caching.Hybrid;
+using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
+#else
+using Microsoft.Extensions.Caching.Distributed;
+using Umbrella.Utilities.Caching;
+using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
+#endif
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Caching.Abstractions;
@@ -30,7 +38,7 @@ public abstract class UmbrellaHostingEnvironment : IUmbrellaHostingEnvironment
 	/// <summary>
 	/// Gets the cache.
 	/// </summary>
-	protected IHybridCache Cache { get; }
+	protected PlatformCache Cache { get; }
 
 	/// <summary>
 	/// Gets the cache key utility.
@@ -55,7 +63,7 @@ public abstract class UmbrellaHostingEnvironment : IUmbrellaHostingEnvironment
 	protected UmbrellaHostingEnvironment(
 		ILogger logger,
 		UmbrellaHostingEnvironmentOptions options,
-		IHybridCache cache,
+		PlatformCache cache,
 		ICacheKeyUtility cacheKeyUtility)
 	{
 		Logger = logger;
@@ -70,16 +78,16 @@ public abstract class UmbrellaHostingEnvironment : IUmbrellaHostingEnvironment
 	public abstract string? MapPath(string virtualPath);
 
 	/// <inheritdoc />
-	public virtual async Task<string?> GetFileContentAsync(string virtualPath, bool cache = true, bool watch = true, CancellationToken cancellationToken = default)
+	public virtual async Task<string?> GetFileContentAsync(string virtualPath, bool cache = true, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		Guard.IsNotNullOrWhiteSpace(virtualPath, nameof(virtualPath));
 
 		try
 		{
-			return await GetFileContentAsync("Standard", FileProvider.Value, virtualPath, cache, watch, cancellationToken).ConfigureAwait(false);
+			return await GetFileContentAsync("Standard", FileProvider.Value, virtualPath, cache, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { virtualPath, cache, watch }))
+		catch (Exception exc) when (Logger.WriteError(exc, new { virtualPath, cache }))
 		{
 			throw new UmbrellaException("There has been a problem reading the contents of the specified file.", exc);
 		}
@@ -94,10 +102,9 @@ public abstract class UmbrellaHostingEnvironment : IUmbrellaHostingEnvironment
 	/// <param name="fileProvider">The file provider.</param>
 	/// <param name="virtualPath">The virtual path.</param>
 	/// <param name="cache">Specifies if the content should be cached.</param>
-	/// <param name="watch">Specifies if the file should be watched for changes.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The file content.</returns>
-	protected virtual async Task<string?> GetFileContentAsync(string fileProviderKey, IFileProvider fileProvider, string virtualPath, bool cache = true, bool watch = true, CancellationToken cancellationToken = default)
+	protected virtual async Task<string?> GetFileContentAsync(string fileProviderKey, IFileProvider fileProvider, string virtualPath, bool cache = true, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		Guard.IsNotNull(fileProvider, nameof(fileProvider));
@@ -110,14 +117,13 @@ public abstract class UmbrellaHostingEnvironment : IUmbrellaHostingEnvironment
 			cacheKeyParts = ArrayPool<string>.Shared.Rent(4);
 			cacheKeyParts[0] = virtualPath;
 			cacheKeyParts[1] = cache.ToString();
-			cacheKeyParts[2] = watch.ToString();
-			cacheKeyParts[3] = fileProviderKey;
+			cacheKeyParts[2] = fileProviderKey;
 
-			string key = CacheKeyUtility.Create<UmbrellaHostingEnvironment>(cacheKeyParts, 4);
+			string key = CacheKeyUtility.Create<UmbrellaHostingEnvironment>(cacheKeyParts, 3);
 
 			string cleanedPath = TransformPathForFileProvider(virtualPath);
 
-			return await Cache.GetOrCreateAsync(key, async () =>
+			async Task<string?> CreateAsync(CancellationToken token)
 			{
 				IFileInfo fileInfo = fileProvider.GetFileInfo(cleanedPath);
 
@@ -126,15 +132,37 @@ public abstract class UmbrellaHostingEnvironment : IUmbrellaHostingEnvironment
 					using Stream fs = fileInfo.CreateReadStream();
 					using var sr = new StreamReader(fs);
 
+#if NET8_0_OR_GREATER
+					return await sr.ReadToEndAsync(token).ConfigureAwait(false);
+#else
 					return await sr.ReadToEndAsync().ConfigureAwait(false);
+#endif
 				}
 
 				return null;
-			},
-			Options,
-			() => watch ? new[] { FileProvider.Value.Watch(cleanedPath) } : null,
-			cancellationToken)
-				.ConfigureAwait(false);
+			}
+
+			if (!cache || !Options.CacheEnabled)
+				return await CreateAsync(cancellationToken).ConfigureAwait(false);
+
+#if NET9_0_OR_GREATER
+			var options = new HybridCacheEntryOptions
+			{
+				Expiration = Options.CacheTimeout,
+				LocalCacheExpiration = Options.CacheTimeout,
+				Flags = Options.CacheEntryFlags
+			};
+
+			return await Cache.GetOrCreateAsync(key, async token => await CreateAsync(token).ConfigureAwait(false), options, cancellationToken: cancellationToken).ConfigureAwait(false);
+#else
+			(string? item, _) = await Cache.GetOrCreateAsync(
+				key,
+				async () => await CreateAsync(cancellationToken).ConfigureAwait(false),
+				() => new DistributedCacheEntryOptions().SetAbsoluteExpiration(Options.CacheTimeout),
+				cancellationToken: cancellationToken).ConfigureAwait(false);
+
+			return item;
+#endif
 		}
 		finally
 		{

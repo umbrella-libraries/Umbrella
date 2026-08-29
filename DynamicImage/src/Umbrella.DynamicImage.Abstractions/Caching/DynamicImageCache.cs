@@ -18,11 +18,6 @@ public abstract class DynamicImageCache
 	protected ILogger Logger { get; }
 
 	/// <summary>
-	/// Gets the cache.
-	/// </summary>
-	protected IHybridCache Cache { get; }
-
-	/// <summary>
 	/// Gets the cache key utility.
 	/// </summary>
 	protected ICacheKeyUtility CacheKeyUtility { get; }
@@ -38,17 +33,14 @@ public abstract class DynamicImageCache
 	/// Initializes a new instance of the <see cref="DynamicImageCache"/> class.
 	/// </summary>
 	/// <param name="logger">The logger.</param>
-	/// <param name="cache">The cache.</param>
 	/// <param name="cacheKeyUtility">The cache key utility.</param>
 	/// <param name="cacheOptions">The cache options.</param>
 	protected DynamicImageCache(
 		ILogger logger,
-		IHybridCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		DynamicImageCacheCoreOptions cacheOptions)
 	{
 		Logger = logger;
-		Cache = cache;
 		CacheKeyUtility = cacheKeyUtility;
 		CacheOptions = cacheOptions;
 	}
@@ -68,19 +60,15 @@ public abstract class DynamicImageCache
 			string rawKey = GenerateRawCacheKey(options);
 			string cacheKey = CacheKeyUtility.Create<DynamicImageOptions>(rawKey);
 
-			return Cache.GetOrCreate(cacheKey, () =>
-			{
-				using var hasher = SHA256.Create();
-				byte[] bytes = hasher.ComputeHash(Encoding.UTF8.GetBytes(rawKey));
+			using var hasher = SHA256.Create();
+			byte[] bytes = hasher.ComputeHash(Encoding.UTF8.GetBytes(rawKey));
 
-				var stringBuilder = new StringBuilder(bytes.Length * 2);
+			var stringBuilder = new StringBuilder(bytes.Length * 2);
 
-				foreach (byte num in bytes)
-					_ = stringBuilder.Append(num.ToString("x", CultureInfo.InvariantCulture).PadLeft(2, '0'));
+			foreach (byte num in bytes)
+				_ = stringBuilder.Append(num.ToString("x", CultureInfo.InvariantCulture).PadLeft(2, '0'));
 
-				return stringBuilder.ToString();
-			},
-			CacheOptions);
+			return stringBuilder.ToString();
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { options }))
 		{

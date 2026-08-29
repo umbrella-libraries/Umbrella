@@ -28,7 +28,7 @@ public class CacheKeyUtilityTest
 
 		string key = utility.Create<CacheKeyUtilityTest>(keyParts);
 
-		Assert.Equal($"{typeof(CacheKeyUtilityTest).FullName}:{string.Join(":", keyParts)}".ToUpperInvariant(), key);
+		Assert.Equal($"{typeof(CacheKeyUtilityTest).FullName}:{string.Join(":", keyParts.ToArray())}".ToUpperInvariant(), key);
 	}
 
 	[Fact]

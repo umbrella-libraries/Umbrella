@@ -17,8 +17,7 @@ public interface IUmbrellaHostingEnvironment
 	/// </summary>
 	/// <param name="virtualPath">The virtual path.</param>
 	/// <param name="cache">Specifies if the content should be cached.</param>
-	/// <param name="watch">Specifies if the file should be watched for changes.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The file content or null if it doesn't exist.</returns>
-	Task<string?> GetFileContentAsync(string virtualPath, bool cache = true, bool watch = true, CancellationToken cancellationToken = default);
+	Task<string?> GetFileContentAsync(string virtualPath, bool cache = true, CancellationToken cancellationToken = default);
 }

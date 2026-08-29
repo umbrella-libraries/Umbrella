@@ -2,7 +2,6 @@
 using CommunityToolkit.Diagnostics;
 using Umbrella.Utilities.Caching;
 using Umbrella.Utilities.Caching.Abstractions;
-using Umbrella.Utilities.Caching.Options;
 using Umbrella.Utilities.Data;
 using Umbrella.Utilities.Data.Abstractions;
 using Umbrella.Utilities.DataAnnotations;
@@ -74,7 +73,6 @@ public static class IServiceCollectionExtensions
 	/// <param name="services">The services dependency injection container builder to which the services will be added.</param>
 	/// <param name="emailFactoryOptionsBuilder">The optional <see cref="EmailFactoryOptions"/> builder.</param>
 	/// <param name="emailSenderOptionsBuilder">The optional <see cref="EmailSenderOptions"/> builder.</param>
-	/// <param name="hybridCacheOptionsBuilder">The optional <see cref="HybridCacheOptions"/> builder.</param>
 	/// <param name="httpResourceInfoUtilityOptionsBuilder">The optional <see cref="HttpResourceInfoUtilityOptions"/> builder.</param>
 	/// <param name="secureRandomStringGeneratorOptionsBuilder">The optional <see cref="SecureRandomStringGeneratorOptions"/> builder.</param>
 	/// <param name="umbrellaConsoleHostingEnvironmentOptionsBuilder">The optional <see cref="UmbrellaHostingEnvironmentOptions"/> builder.</param>
@@ -83,11 +81,11 @@ public static class IServiceCollectionExtensions
 	/// <param name="httpServicesDefaultTimeOutSeconds">The default timeout in seconds.</param>
 	/// <returns>The <see cref="IServiceCollection"/> dependency injection container builder.</returns>
 	/// <exception cref="ArgumentNullException">Thrown if the <paramref name="services"/> is null.</exception>
+	/// <remarks>On target frameworks below .NET 9, applications must register an <see cref="Microsoft.Extensions.Caching.Distributed.IDistributedCache"/> implementation. On .NET 9 and later, this method registers Microsoft Hybrid Cache.</remarks>
 	public static IServiceCollection AddUmbrellaUtilities(
 		this IServiceCollection services,
 		Action<IServiceProvider, EmailFactoryOptions>? emailFactoryOptionsBuilder = null,
 		Action<IServiceProvider, EmailSenderOptions>? emailSenderOptionsBuilder = null,
-		Action<IServiceProvider, HybridCacheOptions>? hybridCacheOptionsBuilder = null,
 		Action<IServiceProvider, HttpResourceInfoUtilityOptions>? httpResourceInfoUtilityOptionsBuilder = null,
 		Action<IServiceProvider, SecureRandomStringGeneratorOptions>? secureRandomStringGeneratorOptionsBuilder = null,
 		Action<IServiceProvider, UmbrellaConsoleHostingEnvironmentOptions>? umbrellaConsoleHostingEnvironmentOptionsBuilder = null,
@@ -104,7 +102,9 @@ public static class IServiceCollectionExtensions
 		_ = services.AddSingleton<IEmailSender, EmailSender>();
 		_ = services.AddSingleton<IFriendlyUrlGenerator, FriendlyUrlGenerator>();
 		_ = services.AddSingleton<IGenericTypeConverter, GenericTypeConverter>();
-		_ = services.AddSingleton<IHybridCache, HybridCache>();
+#if NET9_0_OR_GREATER
+		_ = services.AddHybridCache();
+#endif
 		_ = services.AddSingleton<IDataLookupNormalizer, UpperInvariantLookupNormalizer>();
 		_ = services.AddSingleton<IMimeTypeUtility, MimeTypeUtility>();
 		_ = services.AddSingleton<INonceGenerator, NonceGenerator>();
@@ -148,7 +148,6 @@ public static class IServiceCollectionExtensions
 		_ = services.ConfigureUmbrellaOptions(emailFactoryOptionsBuilder);
 		_ = services.ConfigureUmbrellaOptions(emailSenderOptionsBuilder);
 		_ = services.ConfigureUmbrellaOptions(httpResourceInfoUtilityOptionsBuilder);
-		_ = services.ConfigureUmbrellaOptions(hybridCacheOptionsBuilder);
 		_ = services.ConfigureUmbrellaOptions(secureRandomStringGeneratorOptionsBuilder);
 		_ = services.ConfigureUmbrellaOptions(umbrellaConsoleHostingEnvironmentOptionsBuilder);
 		_ = services.ConfigureUmbrellaOptions(objectGraphValidatorOptionsBuilder);

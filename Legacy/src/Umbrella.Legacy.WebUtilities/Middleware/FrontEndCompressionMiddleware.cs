@@ -1,13 +1,14 @@
 ﻿using System.Buffers;
-using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Text;
 using System.Web;
 using Brotli;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Owin;
 using Umbrella.Legacy.WebUtilities.Extensions;
+using Umbrella.Utilities.Caching;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Hosting.Abstractions;
 using Umbrella.Utilities.Mime.Abstractions;
@@ -24,13 +25,12 @@ public class FrontEndCompressionMiddleware : OwinMiddleware
 {
 	#region Private Static Members
 	private static readonly char[] _headerValueSplitters = [','];
-	private static readonly ConcurrentDictionary<string, IFileInfo?> _fileInfoDictionary = new();
 	#endregion
 
 	#region Private Members
 	private readonly ILogger _log;
 	private readonly ICacheKeyUtility _cacheKeyUtility;
-	private readonly IHybridCache _cache;
+	private readonly IDistributedCache _cache;
 	private readonly IHttpHeaderValueUtility _httpHeaderValueUtility;
 	private readonly IMimeTypeUtility _mimeTypeUtility;
 	private readonly FrontEndCompressionMiddlewareOptions _options;
@@ -57,7 +57,7 @@ public class FrontEndCompressionMiddleware : OwinMiddleware
 		OwinMiddleware next,
 		ILogger<FrontEndCompressionMiddleware> logger,
 		ICacheKeyUtility cacheKeyUtility,
-		IHybridCache cache,
+		IDistributedCache cache,
 		IUmbrellaHostingEnvironment hostingEnvironment,
 		IHttpHeaderValueUtility httpHeaderValueUtility,
 		IMimeTypeUtility mimeTypeUtility,
@@ -109,7 +109,7 @@ public class FrontEndCompressionMiddleware : OwinMiddleware
 				using var cts = CancellationTokenSource.CreateLinkedTokenSource(context.Request.CallCancelled);
 				CancellationToken token = cts.Token;
 
-				IFileInfo? fileInfo = GetFileInfo(path, mapping.WatchFiles);
+				IFileInfo? fileInfo = GetFileInfo(path);
 
 				if (fileInfo is null)
 				{
@@ -212,7 +212,7 @@ public class FrontEndCompressionMiddleware : OwinMiddleware
 
 						string cacheKey = _cacheKeyUtility.Create<FrontEndCompressionMiddleware>(cacheKeyParts, 2);
 
-						(string? contentEncoding, byte[] bytes) result = await _cache.GetOrCreateAsync(cacheKey, async () =>
+						async Task<FrontEndCompressionCacheEntry> CreateAsync()
 						{
 							string? contentEncoding = null;
 
@@ -253,11 +253,23 @@ public class FrontEndCompressionMiddleware : OwinMiddleware
 								await fs.CopyToAsync(ms, _options.BufferSizeBytes, token);
 							}
 
-							return (contentEncoding, ms.ToArray());
-						},
-						mapping,
-						() => mapping.WatchFiles ? new[] { FileProvider.Watch(path) } : null,
-						context.Request.CallCancelled);
+							return new FrontEndCompressionCacheEntry(contentEncoding, ms.ToArray());
+						}
+
+						FrontEndCompressionCacheEntry result;
+
+						if (!mapping.CacheEnabled)
+						{
+							result = await CreateAsync().ConfigureAwait(false);
+						}
+						else
+						{
+							(result, _) = await _cache.GetOrCreateAsync(
+								cacheKey,
+								CreateAsync,
+								() => new DistributedCacheEntryOptions().SetAbsoluteExpiration(mapping.CacheTimeout),
+								cancellationToken: context.Request.CallCancelled).ConfigureAwait(false);
+						}
 
 						if (_log.IsEnabled(LogLevel.Debug))
 						{
@@ -271,17 +283,17 @@ public class FrontEndCompressionMiddleware : OwinMiddleware
 								// from the AspNet headers collection.
 								OriginalAspNetEncodingHeaders = HttpContext.Current?.Request?.Headers?.GetValues(_options.AcceptEncodingHeaderKey),
 								TranformedOwinEncodingHeaders = lstEncodingValue,
-								CompressionAlgorithmUsed = result.contentEncoding,
-								CompressedSize = result.bytes.Length
+								CompressionAlgorithmUsed = result.ContentEncoding,
+								CompressedSize = result.Bytes.Length
 							};
 
 							_log.WriteDebug(logData);
 						}
 
-						bytes = result.bytes;
+						bytes = result.Bytes;
 
-						if (!string.IsNullOrEmpty(result.contentEncoding))
-							context.Response.Headers["Content-Encoding"] = result.contentEncoding;
+						if (!string.IsNullOrEmpty(result.ContentEncoding))
+							context.Response.Headers["Content-Encoding"] = result.ContentEncoding;
 					}
 					finally
 					{
@@ -307,7 +319,7 @@ public class FrontEndCompressionMiddleware : OwinMiddleware
 					// as it is stored on disk.
 					string cacheKey = _cacheKeyUtility.Create<FrontEndCompressionMiddleware>(path);
 
-					bytes = await _cache.GetOrCreateAsync(cacheKey, async () =>
+					async Task<byte[]> CreateAsync()
 					{
 						using Stream fs = fileInfo.CreateReadStream();
 						using var ms = new MemoryStream();
@@ -315,10 +327,20 @@ public class FrontEndCompressionMiddleware : OwinMiddleware
 						await fs.CopyToAsync(ms, _options.BufferSizeBytes, token);
 
 						return ms.ToArray();
-					},
-					mapping,
-					() => mapping.WatchFiles ? new[] { FileProvider.Watch(path) } : null,
-					context.Request.CallCancelled);
+					}
+
+					if (!mapping.CacheEnabled)
+					{
+						bytes = await CreateAsync().ConfigureAwait(false);
+					}
+					else
+					{
+						(bytes, _) = await _cache.GetOrCreateAsync(
+							cacheKey,
+							CreateAsync,
+							() => new DistributedCacheEntryOptions().SetAbsoluteExpiration(mapping.CacheTimeout),
+							cancellationToken: context.Request.CallCancelled).ConfigureAwait(false);
+					}
 				}
 
 				// Common headers
@@ -345,18 +367,13 @@ public class FrontEndCompressionMiddleware : OwinMiddleware
 	#endregion
 
 	#region Private Methods
-	private IFileInfo? GetFileInfo(string path, bool watchFiles)
+	private IFileInfo? GetFileInfo(string path)
 	{
-		IFileInfo? LoadFileInfo()
-		{
-			IFileInfo fileInfo = FileProvider.GetFileInfo(path);
+		IFileInfo fileInfo = FileProvider.GetFileInfo(path);
 
-			return fileInfo.Exists ? fileInfo : null;
-		}
-
-		return watchFiles
-			? LoadFileInfo()
-			: _fileInfoDictionary.GetOrAdd(path.ToUpperInvariant(), key => LoadFileInfo());
+		return fileInfo.Exists ? fileInfo : null;
 	}
+
+	private sealed record FrontEndCompressionCacheEntry(string? ContentEncoding, byte[] Bytes);
 	#endregion
 }

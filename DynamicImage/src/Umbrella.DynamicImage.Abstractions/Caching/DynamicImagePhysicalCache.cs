@@ -32,17 +32,15 @@ public abstract class DynamicImagePhysicalCache<TFileProvider> : DynamicImageCac
 	/// Initializes a new instance of the <see cref="DynamicImagePhysicalCache{TFileProvider}"/> class.
 	/// </summary>
 	/// <param name="logger">The logger.</param>
-	/// <param name="cache">The cache.</param>
 	/// <param name="cacheKeyUtility">The cache key utility.</param>
 	/// <param name="cacheOptions">The cache options.</param>
 	/// <param name="fileProvider">The file provider.</param>
 	protected DynamicImagePhysicalCache(
 		ILogger logger,
-		IHybridCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		DynamicImageCacheCoreOptions cacheOptions,
 		TFileProvider fileProvider)
-		: base(logger, cache, cacheKeyUtility, cacheOptions)
+		: base(logger, cacheKeyUtility, cacheOptions)
 	{
 		FileProvider = fileProvider;
 	}

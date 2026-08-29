@@ -19,7 +19,7 @@ public class UmbrellaWebHostingEnvironmentBenchmark
 	public UmbrellaWebHostingEnvironmentBenchmark()
 	{
 		var logger = new Mock<ILogger<UmbrellaWebHostingEnvironment>>();
-		var memoryCache = CoreUtilitiesMocks.CreateHybridCache();
+		var memoryCache = CoreUtilitiesMocks.CreateCache();
 		IDataLookupNormalizer lookupNormalizer = CoreUtilitiesMocks.CreateILookupNormalizer();
 
 		var cacheKeyUtility = new CacheKeyUtility(new Mock<ILogger<CacheKeyUtility>>().Object, lookupNormalizer);

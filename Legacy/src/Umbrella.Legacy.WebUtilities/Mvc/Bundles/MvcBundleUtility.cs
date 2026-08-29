@@ -4,8 +4,10 @@ using System.Text;
 using System.Web;
 using System.Web.Mvc;
 using CommunityToolkit.Diagnostics;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Umbrella.Legacy.WebUtilities.Mvc.Bundles.Abstractions;
+using Umbrella.Utilities.Caching;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.WebUtilities.Bundling.Abstractions;
 using Umbrella.WebUtilities.Bundling.Options;
@@ -24,17 +26,17 @@ public class MvcBundleUtility : MvcBundleUtility<IBundleUtility, BundleUtilityOp
 	/// Initializes a new instance of the <see cref="MvcBundleUtility"/> class.
 	/// </summary>
 	/// <param name="logger">The logger.</param>
-	/// <param name="hybridCache">The hybrid cache.</param>
+	/// <param name="cache">The distributed cache.</param>
 	/// <param name="cacheKeyUtility">The cache key utility.</param>
 	/// <param name="bundleUtility">The bundle utility.</param>
 	/// <param name="options">The options.</param>
 	public MvcBundleUtility(
 		ILogger<MvcBundleUtility> logger,
-		IHybridCache hybridCache,
+		IDistributedCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		IBundleUtility bundleUtility,
 		BundleUtilityOptions options)
-		: base(logger, hybridCache, cacheKeyUtility, bundleUtility, options)
+		: base(logger, cache, cacheKeyUtility, bundleUtility, options)
 	{
 	}
 }
@@ -58,7 +60,7 @@ public abstract class MvcBundleUtility<TBundleUtility, TOptions> : IMvcBundleUti
 	/// <summary>
 	/// Gets the cache.
 	/// </summary>
-	protected IHybridCache Cache { get; }
+	protected IDistributedCache Cache { get; }
 
 	/// <summary>
 	/// Gets the cache key utility.
@@ -79,19 +81,19 @@ public abstract class MvcBundleUtility<TBundleUtility, TOptions> : IMvcBundleUti
 	/// Initializes a new instance of the <see cref="MvcBundleUtility{TBundleUtility, TOptions}"/> class.
 	/// </summary>
 	/// <param name="logger">The logger.</param>
-	/// <param name="hybridCache">The hybrid cache.</param>
+	/// <param name="cache">The distributed cache.</param>
 	/// <param name="cacheKeyUtility">The cache key utility.</param>
 	/// <param name="bundleUtility">The bundle utility.</param>
 	/// <param name="options">The options.</param>
 	protected MvcBundleUtility(
 		ILogger<MvcBundleUtility> logger,
-		IHybridCache hybridCache,
+		IDistributedCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		TBundleUtility bundleUtility,
 		TOptions options)
 	{
 		Logger = logger;
-		Cache = hybridCache;
+		Cache = cache;
 		CacheKeyUtility = cacheKeyUtility;
 		BundleUtility = bundleUtility;
 		Options = options;
@@ -106,14 +108,14 @@ public abstract class MvcBundleUtility<TBundleUtility, TOptions> : IMvcBundleUti
 		{
 			string cacheKey = CacheKeyUtility.Create<MvcBundleUtility<TBundleUtility, TOptions>>($"{bundleName}:js");
 
-			return Cache.GetOrCreate(cacheKey,
-				() =>
-				{
-					string path = BundleUtility.GetScriptPathAsync(bundleName).Result;
+			string? html = GetOrCreateCachedString(cacheKey, () =>
+			{
+				string path = BundleUtility.GetScriptPathAsync(bundleName).Result;
 
-					return !string.IsNullOrWhiteSpace(path) ? new MvcHtmlString($"<script src=\"{path}\"></script>") : null;
-				},
-				Options);
+				return !string.IsNullOrWhiteSpace(path) ? $"<script src=\"{path}\"></script>" : null;
+			});
+
+			return !string.IsNullOrWhiteSpace(html) ? new MvcHtmlString(html) : null;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bundleName }))
 		{
@@ -130,23 +132,18 @@ public abstract class MvcBundleUtility<TBundleUtility, TOptions> : IMvcBundleUti
 		{
 			string cacheKey = CacheKeyUtility.Create<MvcBundleUtility<TBundleUtility, TOptions>>($"{bundleName}:js-inline");
 
-			return Cache.GetOrCreate(cacheKey,
-				() =>
-				{
-					string? content = BundleUtility.GetScriptContentAsync(bundleName).Result;
+			string? content = GetOrCreateCachedString(cacheKey, () => BundleUtility.GetScriptContentAsync(bundleName).Result);
 
-					if (string.IsNullOrWhiteSpace(content))
-						return null;
+			if (string.IsNullOrWhiteSpace(content))
+				return null;
 
-					string nonce = GetCurrentRequestNonce();
+			string nonce = GetCurrentRequestNonce();
 
-					var sb = new StringBuilder(!string.IsNullOrEmpty(nonce) ? $"<script defer nonce=\"{nonce}\">" : "<script defer>");
-					_ = sb.AppendLine(content);
-					_ = sb.AppendLine("</script>");
+			var sb = new StringBuilder(!string.IsNullOrEmpty(nonce) ? $"<script defer nonce=\"{nonce}\">" : "<script defer>");
+			_ = sb.AppendLine(content);
+			_ = sb.AppendLine("</script>");
 
-					return new MvcHtmlString(sb.ToString());
-				},
-				Options);
+			return new MvcHtmlString(sb.ToString());
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bundleName }))
 		{
@@ -163,14 +160,14 @@ public abstract class MvcBundleUtility<TBundleUtility, TOptions> : IMvcBundleUti
 		{
 			string cacheKey = CacheKeyUtility.Create<MvcBundleUtility<TBundleUtility, TOptions>>($"{bundleName}:css");
 
-			return Cache.GetOrCreate(cacheKey,
-				() =>
-				{
-					string path = BundleUtility.GetStyleSheetPathAsync(bundleName).Result;
+			string? html = GetOrCreateCachedString(cacheKey, () =>
+			{
+				string path = BundleUtility.GetStyleSheetPathAsync(bundleName).Result;
 
-					return !string.IsNullOrWhiteSpace(path) ? new MvcHtmlString($"<link rel=\"stylesheet\" href=\"{path}\" />") : null;
-				},
-				Options);
+				return !string.IsNullOrWhiteSpace(path) ? $"<link rel=\"stylesheet\" href=\"{path}\" />" : null;
+			});
+
+			return !string.IsNullOrWhiteSpace(html) ? new MvcHtmlString(html) : null;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bundleName }))
 		{
@@ -187,23 +184,18 @@ public abstract class MvcBundleUtility<TBundleUtility, TOptions> : IMvcBundleUti
 		{
 			string cacheKey = CacheKeyUtility.Create<MvcBundleUtility<TBundleUtility, TOptions>>($"{bundleName}:css-inline");
 
-			return Cache.GetOrCreate(cacheKey,
-				() =>
-				{
-					string? content = BundleUtility.GetStyleSheetContentAsync(bundleName).Result;
+			string? content = GetOrCreateCachedString(cacheKey, () => BundleUtility.GetStyleSheetContentAsync(bundleName).Result);
 
-					if (string.IsNullOrWhiteSpace(content))
-						return null;
+			if (string.IsNullOrWhiteSpace(content))
+				return null;
 
-					string nonce = GetCurrentRequestNonce();
+			string nonce = GetCurrentRequestNonce();
 
-					var sb = new StringBuilder(!string.IsNullOrEmpty(nonce) ? $"<style nonce=\"{nonce}\">" : "<style>");
-					_ = sb.AppendLine(content);
-					_ = sb.AppendLine("</style>");
+			var sb = new StringBuilder(!string.IsNullOrEmpty(nonce) ? $"<style nonce=\"{nonce}\">" : "<style>");
+			_ = sb.AppendLine(content);
+			_ = sb.AppendLine("</style>");
 
-					return new MvcHtmlString(sb.ToString());
-				},
-				Options);
+			return new MvcHtmlString(sb.ToString());
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bundleName }))
 		{
@@ -216,4 +208,17 @@ public abstract class MvcBundleUtility<TBundleUtility, TOptions> : IMvcBundleUti
 	/// </summary>
 	/// <returns>The nonce value.</returns>
 	protected virtual string GetCurrentRequestNonce() => HttpContext.Current.GetOwinContext().Get<string>(SecurityConstants.DefaultNonceKey);
+
+	private string? GetOrCreateCachedString(string cacheKey, Func<string?> factory)
+	{
+		if (!Options.CacheEnabled)
+			return factory();
+
+		var (value, _) = Cache.GetOrCreate(
+			cacheKey,
+			factory,
+			() => new DistributedCacheEntryOptions().SetAbsoluteExpiration(Options.CacheTimeout));
+
+		return value;
+	}
 }

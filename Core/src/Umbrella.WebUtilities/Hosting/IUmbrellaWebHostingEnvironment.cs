@@ -25,11 +25,10 @@ public interface IUmbrellaWebHostingEnvironment : IUmbrellaHostingEnvironment
 	/// <param name="appendVersion">if set to <c>true</c> appends a querystring version to the generated URL.</param>
 	/// <param name="versionParameterName">Name of the version parameter.</param>
 	/// <param name="mapFromContentRoot">if set to <c>true</c> maps the path from the content root..</param>
-	/// <param name="watchWhenAppendVersion">if set to <c>true</c> watches the path for changes.</param>
 	/// <param name="pathBaseOverride">An optional base path used to override the path determined from the current HTTP Context.</param>
 	/// <param name="hostOverride">An optional hostname used to override the hostname determined from the current HTTP Context.</param>
 	/// <returns>The mapped path.</returns>
-	string MapWebPath(string virtualPath, bool toAbsoluteUrl = false, string scheme = "https", bool appendVersion = false, string versionParameterName = "v", bool mapFromContentRoot = true, bool watchWhenAppendVersion = true, string? pathBaseOverride = null, string? hostOverride = null);
+	string MapWebPath(string virtualPath, bool toAbsoluteUrl = false, string scheme = "https", bool appendVersion = false, string versionParameterName = "v", bool mapFromContentRoot = true, string? pathBaseOverride = null, string? hostOverride = null);
 
 	/// <summary>
 	/// Gets the string content of the file at the specified virtual path.
@@ -37,9 +36,8 @@ public interface IUmbrellaWebHostingEnvironment : IUmbrellaHostingEnvironment
 	/// <param name="virtualPath">The virtual path.</param>
 	/// <param name="fromContentRoot">Determines whether to map the virtual path from the web (only applicable for ASP.NET Core) or the content root.</param>
 	/// <param name="cache">Specifies if the content should be cached.</param>
-	/// <param name="watch">Specifies if the file should be watched for changes.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The file content.</returns>
 	/// <returns></returns>
-	Task<string?> GetFileContentAsync(string virtualPath, bool fromContentRoot, bool cache = true, bool watch = true, CancellationToken cancellationToken = default);
+	Task<string?> GetFileContentAsync(string virtualPath, bool fromContentRoot, bool cache = true, CancellationToken cancellationToken = default);
 }

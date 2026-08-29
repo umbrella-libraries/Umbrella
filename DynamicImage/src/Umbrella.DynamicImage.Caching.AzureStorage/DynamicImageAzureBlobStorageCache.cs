@@ -25,19 +25,17 @@ public class DynamicImageAzureBlobStorageCache : DynamicImagePhysicalCache<IUmbr
 	/// Initializes a new instance of the <see cref="DynamicImageAzureBlobStorageCache"/> class.
 	/// </summary>
 	/// <param name="logger">The logger.</param>
-	/// <param name="cache">The cache.</param>
 	/// <param name="cacheKeyUtility">The cache key utility.</param>
 	/// <param name="cacheOptions">The cache options.</param>
 	/// <param name="fileProvider">The file provider.</param>
 	/// <param name="blobStorageCacheOptions">The BLOB storage cache options.</param>
 	public DynamicImageAzureBlobStorageCache(
 		ILogger<DynamicImageAzureBlobStorageCache> logger,
-		IHybridCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		DynamicImageCacheCoreOptions cacheOptions,
 		IUmbrellaAzureBlobFileStorageProvider fileProvider,
 		DynamicImageAzureBlobStorageCacheOptions blobStorageCacheOptions)
-		: base(logger, cache, cacheKeyUtility, cacheOptions, fileProvider)
+		: base(logger, cacheKeyUtility, cacheOptions, fileProvider)
 	{
 		BlobStorageCacheOptions = blobStorageCacheOptions;
 	}

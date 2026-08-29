@@ -192,7 +192,6 @@ public class DynamicImageCacheTest
 
 		return new DynamicImageDiskCache(
 			CoreUtilitiesMocks.CreateLogger<DynamicImageDiskCache>(),
-			CoreUtilitiesMocks.CreateHybridCache(),
 			CoreUtilitiesMocks.CreateCacheKeyUtility(),
 			new DynamicImageCacheCoreOptions(),
 			provider,
@@ -201,7 +200,7 @@ public class DynamicImageCacheTest
 
 	private static DynamicImageMemoryCache CreateDynamicImageMemoryCache() => new(
 			CoreUtilitiesMocks.CreateLogger<DynamicImageMemoryCache>(),
-			CoreUtilitiesMocks.CreateHybridCache(),
+			CoreUtilitiesMocks.CreateCache(),
 			CoreUtilitiesMocks.CreateCacheKeyUtility(),
 			new DynamicImageCacheCoreOptions(),
 			new DynamicImageMemoryCacheOptions());
@@ -226,7 +225,6 @@ public class DynamicImageCacheTest
 
 		return new DynamicImageAzureBlobStorageCache(
 			CoreUtilitiesMocks.CreateLogger<DynamicImageAzureBlobStorageCache>(),
-			CoreUtilitiesMocks.CreateHybridCache(),
 			CoreUtilitiesMocks.CreateCacheKeyUtility(),
 			new DynamicImageCacheCoreOptions(),
 			provider,

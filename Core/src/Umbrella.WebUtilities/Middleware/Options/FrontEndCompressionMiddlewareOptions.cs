@@ -12,7 +12,7 @@ namespace Umbrella.WebUtilities.Middleware.Options;
 /// </summary>
 /// <seealso cref="ISanitizableUmbrellaOptions" />
 /// <seealso cref="IValidatableUmbrellaOptions" />
-public class FrontEndCompressionMiddlewareOptions : ISanitizableUmbrellaOptions, IValidatableUmbrellaOptions, IDevelopmentModeUmbrellaOptions
+public class FrontEndCompressionMiddlewareOptions : ISanitizableUmbrellaOptions, IValidatableUmbrellaOptions
 {
 	private Dictionary<string, FrontEndCompressionMiddlewareMapping>? _flattenedMappings;
 
@@ -21,11 +21,7 @@ public class FrontEndCompressionMiddlewareOptions : ISanitizableUmbrellaOptions,
 	/// </summary>
 	public List<FrontEndCompressionMiddlewareMapping> Mappings { get; set; } =
 	[
-		new FrontEndCompressionMiddlewareMapping
-		{
-			AppRelativeFolderPaths = ["/dist"],
-			WatchFiles = false
-		}
+		new FrontEndCompressionMiddlewareMapping { AppRelativeFolderPaths = ["/dist"] }
 	];
 
 	/// <summary>
@@ -85,6 +81,4 @@ public class FrontEndCompressionMiddlewareOptions : ISanitizableUmbrellaOptions,
 		Guard.IsNotNullOrWhiteSpace(AcceptEncodingHeaderKey, nameof(AcceptEncodingHeaderKey));
 		Guard.IsGreaterThanOrEqualTo(BufferSizeBytes, 1);
 	}
-
-	void IDevelopmentModeUmbrellaOptions.SetDevelopmentMode(bool isDevelopmentMode) => Mappings.ForEach(x => x.WatchFiles = isDevelopmentMode);
 }

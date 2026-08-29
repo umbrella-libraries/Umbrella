@@ -1,6 +1,5 @@
 ﻿
 using CommunityToolkit.Diagnostics;
-using Microsoft.Extensions.Caching.Memory;
 using Umbrella.Utilities.Options;
 using Umbrella.Utilities.Options.Abstractions;
 
@@ -23,11 +22,6 @@ public class FrontEndCompressionMiddlewareMapping : CacheableUmbrellaOptions, IS
 	/// Gets or sets the target file extensions. Defaults to .css and .js files.
 	/// </summary>
 	public IReadOnlyCollection<string> TargetFileExtensions { get; set; } = [".css", ".js"];
-
-	/// <summary>
-	/// Gets or sets a value indicating whether to watch the source files. Defaults to <see langword="false"/>.
-	/// </summary>
-	public bool WatchFiles { get; set; }
 
 	/// <summary>
 	/// Gets or sets the max-age value of the Cache-Control header. Onlt applicable when <see cref="Cacheability"/> is <see cref="MiddlewareHttpCacheability.Private"/>.
@@ -55,11 +49,6 @@ public class FrontEndCompressionMiddlewareMapping : CacheableUmbrellaOptions, IS
 	/// Gets or sets a value indicating whether compression is enabled. Defaults to <see langword="true"/>.
 	/// </summary>
 	public bool CompressionEnabled { get; set; } = true;
-
-	/// <summary>
-	/// Gets or sets the cache priority when caching items in memory. Defaults to <see cref="CacheItemPriority.High" />.
-	/// </summary>
-	public override CacheItemPriority CachePriority { get; set; } = CacheItemPriority.High;
 
 	/// <summary>
 	/// Sanitizes this instance.

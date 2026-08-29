@@ -1,5 +1,10 @@
 ﻿
 using CommunityToolkit.Diagnostics;
+#if NET9_0_OR_GREATER
+using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
+#else
+using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
+#endif
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Caching.Abstractions;
@@ -27,7 +32,7 @@ public class UmbrellaConsoleHostingEnvironment : UmbrellaHostingEnvironment
 	public UmbrellaConsoleHostingEnvironment(
 		ILogger<UmbrellaConsoleHostingEnvironment> logger,
 		UmbrellaConsoleHostingEnvironmentOptions options,
-		IHybridCache cache,
+		PlatformCache cache,
 		ICacheKeyUtility cacheKeyUtility)
 		: base(logger, options, cache, cacheKeyUtility)
 	{
@@ -43,15 +48,9 @@ public class UmbrellaConsoleHostingEnvironment : UmbrellaHostingEnvironment
 
 		try
 		{
-			string key = CacheKeyUtility.Create<UmbrellaConsoleHostingEnvironment>([virtualPath]);
+			string cleanedPath = TransformPathForFileProvider(virtualPath);
 
-			return Cache.GetOrCreate(key, () =>
-			{
-				string cleanedPath = TransformPathForFileProvider(virtualPath);
-
-				return FileProvider.Value.GetFileInfo(cleanedPath)?.PhysicalPath;
-			},
-			Options);
+			return FileProvider.Value.GetFileInfo(cleanedPath)?.PhysicalPath;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { virtualPath }))
 		{

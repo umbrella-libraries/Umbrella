@@ -1,12 +1,12 @@
 ﻿using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Owin;
 using Moq;
 using Umbrella.Internal.Mocks;
 using Umbrella.Legacy.WebUtilities.Middleware;
-using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Hosting.Abstractions;
 using Umbrella.Utilities.Mime.Abstractions;
 using Umbrella.WebUtilities.Http.Abstractions;
@@ -23,7 +23,7 @@ public class FrontEndCompressionMiddlewareBenchmark
 	public FrontEndCompressionMiddlewareBenchmark()
 	{
 		var logger = new Mock<ILogger<FrontEndCompressionMiddleware>>();
-		var cache = new Mock<IHybridCache>();
+		var cache = new Mock<IDistributedCache>();
 		var hostingEnvironment = new Mock<IUmbrellaHostingEnvironment>();
 		var httpHeaderValueUtility = new Mock<IHttpHeaderValueUtility>();
 		var mimeTypeUtility = new Mock<IMimeTypeUtility>();

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Distributed;
 using Umbrella.Legacy.WebUtilities.Mvc.Bundles.Abstractions;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.WebUtilities.Bundling.Abstractions;
@@ -17,17 +18,17 @@ public class MvcWebpackBundleUtility : MvcBundleUtility<IWebpackBundleUtility, W
 	/// Initializes a new instance of the <see cref="MvcWebpackBundleUtility"/> class.
 	/// </summary>
 	/// <param name="logger">The logger.</param>
-	/// <param name="hybridCache">The hybrid cache.</param>
+	/// <param name="cache">The distributed cache.</param>
 	/// <param name="cacheKeyUtility">The cache key utility.</param>
 	/// <param name="bundleUtility">The bundle utility.</param>
 	/// <param name="options">The options.</param>
 	public MvcWebpackBundleUtility(
 		ILogger<MvcBundleUtility> logger,
-		IHybridCache hybridCache,
+		IDistributedCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		IWebpackBundleUtility bundleUtility,
 		WebpackBundleUtilityOptions options)
-		: base(logger, hybridCache, cacheKeyUtility, bundleUtility, options)
+		: base(logger, cache, cacheKeyUtility, bundleUtility, options)
 	{
 	}
 }

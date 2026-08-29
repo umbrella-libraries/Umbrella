@@ -1,4 +1,5 @@
 ﻿using Umbrella.Utilities.Extensions;
+using Umbrella.Utilities.Options;
 using Umbrella.Utilities.Options.Abstractions;
 
 namespace Umbrella.WebUtilities.Middleware.Options.LinkHeader;
@@ -6,7 +7,8 @@ namespace Umbrella.WebUtilities.Middleware.Options.LinkHeader;
 /// <summary>
 /// Options for use with associated middleware in ASP.NET and ASP.NET Core projects.
 /// </summary>
-public class LinkHeaderMiddlewareOptions : ISanitizableUmbrellaOptions
+/// <seealso cref="CacheableUmbrellaOptions" />
+public class LinkHeaderMiddlewareOptions : CacheableUmbrellaOptions, ISanitizableUmbrellaOptions
 {
 	/// <summary>
 	/// The URLs to be output as <c>Link</c> headers with rel=dns-prefetch and rel=preconnect values.

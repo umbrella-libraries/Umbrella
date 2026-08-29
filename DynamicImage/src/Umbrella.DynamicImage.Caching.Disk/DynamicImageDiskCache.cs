@@ -24,18 +24,16 @@ public class DynamicImageDiskCache : DynamicImagePhysicalCache<IUmbrellaDiskFile
 	/// Initializes a new instance of the <see cref="DynamicImageDiskCache"/> class.
 	/// </summary>
 	/// <param name="logger">The logger.</param>
-	/// <param name="cache">The cache.</param>
 	/// <param name="cacheKeyUtility">The cache key utility.</param>
 	/// <param name="cacheOptions">The cache options.</param>
 	/// <param name="fileProvider">The file provider.</param>
 	/// <param name="diskCacheOptions">The disk cache options.</param>
 	public DynamicImageDiskCache(ILogger<DynamicImageDiskCache> logger,
-		IHybridCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		DynamicImageCacheCoreOptions cacheOptions,
 		IUmbrellaDiskFileStorageProvider fileProvider,
 		DynamicImageDiskCacheOptions diskCacheOptions)
-		: base(logger, cache, cacheKeyUtility, cacheOptions, fileProvider)
+		: base(logger, cacheKeyUtility, cacheOptions, fileProvider)
 	{
 		Guard.IsNotNull(diskCacheOptions);
 		Guard.IsNotNullOrWhiteSpace(diskCacheOptions.DirectoryName);

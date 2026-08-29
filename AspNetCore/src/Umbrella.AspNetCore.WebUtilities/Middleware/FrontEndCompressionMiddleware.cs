@@ -1,9 +1,16 @@
 ﻿using System.Buffers;
-using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Text;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Http;
+#if NET9_0_OR_GREATER
+using Microsoft.Extensions.Caching.Hybrid;
+using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
+#else
+using Microsoft.Extensions.Caching.Distributed;
+using Umbrella.Utilities.Caching;
+using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
+#endif
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
@@ -24,14 +31,13 @@ public class FrontEndCompressionMiddleware
 {
 	#region Private Static Members
 	private static readonly char[] _headerValueSplitters = [','];
-	private static readonly ConcurrentDictionary<string, IFileInfo?> _fileInfoDictionary = new();
 	#endregion
 
 	#region Private Members
 	private readonly RequestDelegate _next;
 	private readonly ILogger _log;
 	private readonly ICacheKeyUtility _cacheKeyUtility;
-	private readonly IHybridCache _cache;
+	private readonly PlatformCache _cache;
 	private readonly IHttpHeaderValueUtility _httpHeaderValueUtility;
 	private readonly IMimeTypeUtility _mimeTypeUtility;
 	private readonly FrontEndCompressionMiddlewareOptions _options;
@@ -58,7 +64,7 @@ public class FrontEndCompressionMiddleware
 		RequestDelegate next,
 		ILogger<FrontEndCompressionMiddleware> logger,
 		ICacheKeyUtility cacheKeyUtility,
-		IHybridCache cache,
+		PlatformCache cache,
 		IUmbrellaWebHostingEnvironment hostingEnvironment,
 		IHttpHeaderValueUtility httpHeaderValueUtility,
 		IMimeTypeUtility mimeTypeUtility,
@@ -114,7 +120,7 @@ public class FrontEndCompressionMiddleware
 				using var cts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
 				CancellationToken token = cts.Token;
 
-				IFileInfo? fileInfo = GetFileInfo(path, mapping.WatchFiles);
+				IFileInfo? fileInfo = GetFileInfo(path);
 
 				if (fileInfo is null)
 				{
@@ -229,7 +235,7 @@ public class FrontEndCompressionMiddleware
 
 						string cacheKey = _cacheKeyUtility.Create<FrontEndCompressionMiddleware>(cacheKeyParts, 2);
 
-						(string? contentEncoding, byte[] bytes) result = await _cache.GetOrCreateAsync(cacheKey, async () =>
+						async Task<FrontEndCompressionCacheEntry> CreateAsync(CancellationToken cacheToken)
 						{
 							string? contentEncoding = null;
 
@@ -240,7 +246,7 @@ public class FrontEndCompressionMiddleware
 							{
 								using (var br = new BrotliStream(ms, CompressionMode.Compress))
 								{
-									await fs.CopyToAsync(br, _options.BufferSizeBytes, token);
+									await fs.CopyToAsync(br, _options.BufferSizeBytes, cacheToken);
 								}
 
 								contentEncoding = "br";
@@ -249,7 +255,7 @@ public class FrontEndCompressionMiddleware
 							{
 								using (var gz = new GZipStream(ms, CompressionMode.Compress))
 								{
-									await fs.CopyToAsync(gz, _options.BufferSizeBytes, token);
+									await fs.CopyToAsync(gz, _options.BufferSizeBytes, cacheToken);
 								}
 
 								contentEncoding = "gzip";
@@ -258,7 +264,7 @@ public class FrontEndCompressionMiddleware
 							{
 								using (var deflate = new DeflateStream(ms, CompressionMode.Compress))
 								{
-									await fs.CopyToAsync(deflate, _options.BufferSizeBytes, token);
+									await fs.CopyToAsync(deflate, _options.BufferSizeBytes, cacheToken);
 								}
 
 								contentEncoding = "deflate";
@@ -267,14 +273,30 @@ public class FrontEndCompressionMiddleware
 							{
 								// If we get here then we are dealing with an unknown content encoding.
 								// Just read the file into memory as it is.
-								await fs.CopyToAsync(ms, _options.BufferSizeBytes, token);
+								await fs.CopyToAsync(ms, _options.BufferSizeBytes, cacheToken);
 							}
 
-							return (contentEncoding, ms.ToArray());
-						},
-						mapping,
-						() => mapping.WatchFiles ? new[] { FileProvider.Watch(path) } : null,
-						context.RequestAborted);
+							return new FrontEndCompressionCacheEntry(contentEncoding, ms.ToArray());
+						}
+
+						FrontEndCompressionCacheEntry result;
+
+						if (!mapping.CacheEnabled)
+						{
+							result = await CreateAsync(context.RequestAborted).ConfigureAwait(false);
+						}
+						else
+						{
+#if NET9_0_OR_GREATER
+							result = await _cache.GetOrCreateAsync(cacheKey, async cacheToken => await CreateAsync(cacheToken).ConfigureAwait(false), CreateHybridCacheEntryOptions(mapping), cancellationToken: context.RequestAborted).ConfigureAwait(false);
+#else
+							(result, _) = await _cache.GetOrCreateAsync(
+								cacheKey,
+								async () => await CreateAsync(context.RequestAborted).ConfigureAwait(false),
+								() => CreateDistributedCacheEntryOptions(mapping),
+								cancellationToken: context.RequestAborted).ConfigureAwait(false);
+#endif
+						}
 
 						if (_log.IsEnabled(LogLevel.Debug))
 						{
@@ -288,17 +310,17 @@ public class FrontEndCompressionMiddleware
 								// from the AspNet headers collection.
 								OriginalAspNetEncodingHeaders = context.Request?.Headers?.GetCommaSeparatedValues(_options.AcceptEncodingHeaderKey),
 								TranformedOwinEncodingHeaders = lstEncodingValue,
-								CompressionAlgorithmUsed = result.contentEncoding,
-								CompressedSize = result.bytes.Length
+								CompressionAlgorithmUsed = result.ContentEncoding,
+								CompressedSize = result.Bytes.Length
 							};
 
 							_log.WriteDebug(logData);
 						}
 
-						bytes = result.bytes;
+						bytes = result.Bytes;
 
-						if (!string.IsNullOrEmpty(result.contentEncoding))
-							context.Response.Headers["Content-Encoding"] = result.contentEncoding;
+						if (!string.IsNullOrEmpty(result.ContentEncoding))
+							context.Response.Headers["Content-Encoding"] = result.ContentEncoding;
 					}
 					finally
 					{
@@ -324,18 +346,32 @@ public class FrontEndCompressionMiddleware
 					// as it is stored on disk.
 					string cacheKey = _cacheKeyUtility.Create<FrontEndCompressionMiddleware>(path);
 
-					bytes = await _cache.GetOrCreateAsync(cacheKey, async () =>
+					async Task<byte[]> CreateAsync(CancellationToken cacheToken)
 					{
 						using Stream fs = fileInfo.CreateReadStream();
 						using var ms = new MemoryStream();
 
-						await fs.CopyToAsync(ms, _options.BufferSizeBytes, token);
+						await fs.CopyToAsync(ms, _options.BufferSizeBytes, cacheToken);
 
 						return ms.ToArray();
-					},
-					mapping,
-					() => mapping.WatchFiles ? new[] { FileProvider.Watch(path) } : null,
-					context.RequestAborted);
+					}
+
+					if (!mapping.CacheEnabled)
+					{
+						bytes = await CreateAsync(context.RequestAborted).ConfigureAwait(false);
+					}
+					else
+					{
+#if NET9_0_OR_GREATER
+						bytes = await _cache.GetOrCreateAsync(cacheKey, async cacheToken => await CreateAsync(cacheToken).ConfigureAwait(false), CreateHybridCacheEntryOptions(mapping), cancellationToken: context.RequestAborted).ConfigureAwait(false);
+#else
+						(bytes, _) = await _cache.GetOrCreateAsync(
+							cacheKey,
+							async () => await CreateAsync(context.RequestAborted).ConfigureAwait(false),
+							() => CreateDistributedCacheEntryOptions(mapping),
+							cancellationToken: context.RequestAborted).ConfigureAwait(false);
+#endif
+					}
 				}
 
 				// Common headers
@@ -362,18 +398,26 @@ public class FrontEndCompressionMiddleware
 	#endregion
 
 	#region Private Methods
-	private IFileInfo? GetFileInfo(string path, bool watchFiles)
+	private IFileInfo? GetFileInfo(string path)
 	{
-		IFileInfo? LoadFileInfo()
-		{
-			IFileInfo fileInfo = FileProvider.GetFileInfo(path);
+		IFileInfo fileInfo = FileProvider.GetFileInfo(path);
 
-			return fileInfo.Exists ? fileInfo : null;
-		}
-
-		return watchFiles
-			? LoadFileInfo()
-			: _fileInfoDictionary.GetOrAdd(path.ToUpperInvariant(), key => LoadFileInfo());
+		return fileInfo.Exists ? fileInfo : null;
 	}
+
+#if NET9_0_OR_GREATER
+	private static HybridCacheEntryOptions CreateHybridCacheEntryOptions(FrontEndCompressionMiddlewareMapping mapping)
+		=> new()
+		{
+			Expiration = mapping.CacheTimeout,
+			LocalCacheExpiration = mapping.CacheTimeout,
+			Flags = mapping.CacheEntryFlags
+		};
+#else
+	private static DistributedCacheEntryOptions CreateDistributedCacheEntryOptions(FrontEndCompressionMiddlewareMapping mapping)
+		=> new DistributedCacheEntryOptions().SetAbsoluteExpiration(mapping.CacheTimeout);
+#endif
+
+	private sealed record FrontEndCompressionCacheEntry(string? ContentEncoding, byte[] Bytes);
 	#endregion
 }

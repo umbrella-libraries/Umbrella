@@ -1,6 +1,14 @@
 ﻿
 using System.Net.Http;
 using CommunityToolkit.Diagnostics;
+#if NET9_0_OR_GREATER
+using Microsoft.Extensions.Caching.Hybrid;
+using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
+#else
+using Microsoft.Extensions.Caching.Distributed;
+using Umbrella.Utilities.Caching;
+using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
+#endif
 using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Caching.Abstractions;
 using Umbrella.Utilities.Exceptions;
@@ -17,7 +25,7 @@ public class HttpResourceInfoUtility : IHttpResourceInfoUtility, IDisposable
 	private const string DefaultMimeType = "application/octet-stream";
 	private readonly ILogger _log;
 	private readonly HttpClient _httpClient;
-	private readonly IHybridCache _hybridCache;
+	private readonly PlatformCache _cache;
 	private readonly ICacheKeyUtility _cacheKeyUtility;
 	private readonly HttpResourceInfoUtilityOptions _options;
 
@@ -25,19 +33,19 @@ public class HttpResourceInfoUtility : IHttpResourceInfoUtility, IDisposable
 	/// Initializes a new instance of the <see cref="HttpResourceInfoUtility"/> class.
 	/// </summary>
 	/// <param name="logger">The logger.</param>
-	/// <param name="multiCache">The multi cache.</param>
+	/// <param name="cache">The cache.</param>
 	/// <param name="cacheKeyUtility">The cache key utility.</param>
 	/// <param name="httpClient">The HTTP Client.</param>
 	/// <param name="options">The options.</param>
 	public HttpResourceInfoUtility(
 		ILogger<HttpResourceInfoUtility> logger,
-		IHybridCache multiCache,
+		PlatformCache cache,
 		ICacheKeyUtility cacheKeyUtility,
 		HttpClient httpClient,
 		HttpResourceInfoUtilityOptions options)
 	{
 		_log = logger;
-		_hybridCache = multiCache;
+		_cache = cache;
 		_cacheKeyUtility = cacheKeyUtility;
 		_httpClient = httpClient;
 		_options = options;
@@ -59,34 +67,49 @@ public class HttpResourceInfoUtility : IHttpResourceInfoUtility, IDisposable
 
 		try
 		{
-			return await _hybridCache.GetOrCreateAsync(
-				_cacheKeyUtility.Create<HttpResourceInfoUtility>(url),
-				async () =>
+			async Task<HttpResourceInfo?> CreateAsync(CancellationToken token)
+			{
+				using var request = new HttpRequestMessage(HttpMethod.Head, url);
+				using HttpResponseMessage response = await _httpClient.SendAsync(request, token).ConfigureAwait(false);
+
+				long contentLength = response.Content.Headers.ContentLength ?? 0;
+
+				if (response.IsSuccessStatusCode && contentLength > 0)
 				{
-					var request = new HttpRequestMessage(HttpMethod.Head, url);
-					HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+					DateTime? lastModified = null;
 
-					long contentLength = response.Content.Headers.ContentLength ?? 0;
+					if (response.Headers.TryGetValues("Last-Modified", out IEnumerable<string>? values) && DateTime.TryParse(values.FirstOrDefault(), out DateTime result))
+						lastModified = result;
 
-					if (response.IsSuccessStatusCode && contentLength > 0)
-					{
-						DateTime? lastModified = null;
+					return new HttpResourceInfo(response.Content.Headers.ContentType?.MediaType ?? DefaultMimeType, contentLength, lastModified, url);
+				}
 
-						if (response.Headers.TryGetValues("Last-Modified", out IEnumerable<string>? values) && DateTime.TryParse(values.FirstOrDefault(), out DateTime result))
-							lastModified = result;
+				return null;
+			}
 
-						return new HttpResourceInfo(response.Content.Headers.ContentType?.MediaType ?? DefaultMimeType, contentLength, lastModified, url);
-					}
+			if (!_options.CacheEnabled || !useCache)
+				return await CreateAsync(cancellationToken).ConfigureAwait(false);
 
-					return null;
-				},
-				() => _options.CacheTimeout,
-				_options.CacheMode,
-				_options.CacheSlidingExpiration,
-				_options.CacheThrowOnFailure,
-				_options.CachePriority,
-				cacheEnabledOverride: _options.CacheEnabled && useCache,
+			string cacheKey = _cacheKeyUtility.Create<HttpResourceInfoUtility>(url);
+
+#if NET9_0_OR_GREATER
+			var options = new HybridCacheEntryOptions
+			{
+				Expiration = _options.CacheTimeout,
+				LocalCacheExpiration = _options.CacheTimeout,
+				Flags = _options.CacheEntryFlags
+			};
+
+			return await _cache.GetOrCreateAsync(cacheKey, async token => await CreateAsync(token).ConfigureAwait(false), options, cancellationToken: cancellationToken).ConfigureAwait(false);
+#else
+			(HttpResourceInfo? item, _) = await _cache.GetOrCreateAsync(
+				cacheKey,
+				async () => await CreateAsync(cancellationToken).ConfigureAwait(false),
+				() => new DistributedCacheEntryOptions().SetAbsoluteExpiration(_options.CacheTimeout),
 				cancellationToken: cancellationToken).ConfigureAwait(false);
+
+			return item;
+#endif
 		}
 		catch (Exception exc) when (_log.WriteError(exc, new { url }))
 		{

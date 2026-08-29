@@ -40,6 +40,8 @@ Packages listed in `frameworkCoupledFamilies` (in `nuget-upgrade-exclusions.json
 
 `System.Text.Json` and `System.Net.Http.Json` are included in `frameworkCoupledFamilies` for this reason: on `netstandard2.0`/`net462` they must stay at their current 6.x baseline and must not be upgraded to 10.x.
 
+`Microsoft.Extensions.Caching.Hybrid` is covered by the existing `Microsoft.Extensions.` family prefix. Keep its version framework-coupled: .NET 9 references stay on the 9.x line while .NET 10 references track the 10.x line.
+
 `Microsoft.Maui.` packages follow the same contract and must also appear in `frameworkCoupledFamilies`. More generally, any SDK family whose major version must match the target framework's major (MAUI, ASP.NET Core, EF Core, etc.) belongs in this list. If you encounter an already-conditional reference that was upgraded to a version whose major exceeds the condition TFM's major, that family is missing from `frameworkCoupledFamilies` — add it to `nuget-upgrade-exclusions.json` before re-running.
 
 A cap that applies to only *some* of a project's TFMs does not block the upgrade outright: the capped TFMs keep the current version and the remaining TFMs are upgraded, via the framework split described below. An unconditional reference in a multi-targeted project therefore becomes per-TFM conditional blocks on first upgrade — each tracking its own major thereafter.

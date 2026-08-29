@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Text.Json;
 
 namespace Umbrella.AI.Tools.Test;
 
@@ -20,6 +21,19 @@ public partial class AnalyzerGuidanceTest
     ];
 
     private static string RepoRoot => GetRepoRoot();
+
+    [Fact]
+    public void HybridCachePackageIsRecognizedAsFrameworkCoupled()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepoRoot, "nuget-upgrade-exclusions.json")));
+        string[] coupledFamilies = document.RootElement
+            .GetProperty("frameworkCoupledFamilies")
+            .EnumerateArray()
+            .Select(x => x.GetString()!)
+            .ToArray();
+
+        Assert.Contains(coupledFamilies, prefix => "Microsoft.Extensions.Caching.Hybrid".StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+    }
 
     [Fact]
     public void TestProjectStandardizerPreservesLayoutWhenAddingProperties()
@@ -308,8 +322,9 @@ public partial class AnalyzerGuidanceTest
         Assert.Contains("Do not accept RMG012 warnings as harmless", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("use `umbrella-dotnet-scaffold-file-handler` first", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("including create and update result mappings", mapperSkill, StringComparison.Ordinal);
-        Assert.Contains("#pragma warning disable CS0618 // UmbrellaFileHandler currently requires the legacy IHybridCache abstraction.", fileHandlerSkill, StringComparison.Ordinal);
-        Assert.Contains("Do not suppress `CS0618` project-wide", fileHandlerSkill, StringComparison.Ordinal);
+        Assert.Contains("using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;", fileHandlerSkill, StringComparison.Ordinal);
+        Assert.Contains("using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;", fileHandlerSkill, StringComparison.Ordinal);
+        Assert.DoesNotContain("#pragma warning disable CS0618", fileHandlerSkill, StringComparison.Ordinal);
         Assert.Contains("GetVersionedWebFilePathAsync", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("ImageVersionToken", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("VersionToken=\"@Model?.ImageVersionToken\"", managePageSkill, StringComparison.Ordinal);

@@ -1,17 +1,20 @@
-﻿using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Moq;
 using Umbrella.Utilities.Caching;
 using Umbrella.Utilities.Caching.Abstractions;
-using Umbrella.Utilities.Caching.Options;
 using Umbrella.Utilities.Data.Abstractions;
 using Umbrella.Utilities.Extensions;
 using Umbrella.Utilities.Imaging;
 using Umbrella.Utilities.Imaging.Abstractions;
 using Umbrella.Utilities.Mime.Abstractions;
 using Umbrella.Utilities.TypeConverters.Abstractions;
+
+#if NET9_0_OR_GREATER
+using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
+#else
+using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
+#endif
 
 namespace Umbrella.Internal.Mocks;
 
@@ -30,12 +33,17 @@ public static class CoreUtilitiesMocks
 
 	public static ICacheKeyUtility CreateCacheKeyUtility() => new CacheKeyUtility(new Mock<ILogger<CacheKeyUtility>>().Object, CreateILookupNormalizer());
 
-	public static IHybridCache CreateHybridCache(bool enableCaching = true) => new HybridCache(
-			new Mock<ILogger<HybridCache>>().Object,
-			new HybridCacheOptions { CacheEnabled = enableCaching },
-			CreateILookupNormalizer(),
-			new MemoryDistributedCache(Options.Create(new MemoryDistributedCacheOptions())),
-			new MemoryCache(Options.Create(new MemoryCacheOptions())));
+	public static PlatformCache CreateCache()
+	{
+		var services = new ServiceCollection();
+		_ = services.AddLogging();
+		_ = services.AddDistributedMemoryCache();
+#if NET9_0_OR_GREATER
+		_ = services.AddHybridCache();
+#endif
+
+		return services.BuildServiceProvider().GetRequiredService<PlatformCache>();
+	}
 
 	public static IGenericTypeConverter CreateGenericTypeConverter()
 	{
