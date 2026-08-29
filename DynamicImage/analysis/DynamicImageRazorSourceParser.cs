@@ -46,15 +46,18 @@ internal sealed class DynamicImageRazorUsage
 	public DynamicImageRazorDocument Document { get; }
 	public DynamicImageRazorUsageKind Kind { get; }
 	public ImmutableArray<DynamicImageRazorAttribute> Attributes { get; }
+	public ImmutableHashSet<string> StaticUsingTypeNames { get; }
 
 	public DynamicImageRazorUsage(
 		DynamicImageRazorDocument document,
 		DynamicImageRazorUsageKind kind,
-		ImmutableArray<DynamicImageRazorAttribute> attributes)
+		ImmutableArray<DynamicImageRazorAttribute> attributes,
+		ImmutableHashSet<string> staticUsingTypeNames)
 	{
 		Document = document;
 		Kind = kind;
 		Attributes = attributes;
+		StaticUsingTypeNames = staticUsingTypeNames;
 	}
 }
 
@@ -92,6 +95,7 @@ internal static class DynamicImageRazorSourceParser
 				continue;
 
 			string effectiveDirectives = BuildEffectiveDirectives(document, imports);
+			ImmutableHashSet<string> staticUsingTypeNames = GetStaticUsingTypeNames(effectiveDirectives);
 			bool dynamicImageComponentIsActive = hasDynamicImageComponentType &&
 				(isComponentDocument && ContainsUsing(effectiveDirectives, DynamicImageComponentNamespace));
 			bool fileImagePreviewUploadComponentIsActive = hasFileImagePreviewUploadComponentType &&
@@ -108,6 +112,7 @@ internal static class DynamicImageRazorSourceParser
 				fileImagePreviewUploadComponentIsActive,
 				hasImageTagHelperType && imageTagHelperIsActive,
 				hasPictureSourceTagHelperType && pictureSourceTagHelperIsActive,
+				staticUsingTypeNames,
 				result);
 		}
 
@@ -200,7 +205,7 @@ internal static class DynamicImageRazorSourceParser
 			parts.All(IsIdentifier);
 	}
 
-	public static bool IsDiscoverableValue(string attributeName, string value, bool isTagHelper)
+	public static bool IsDiscoverableValue(DynamicImageRazorUsage usage, string attributeName, string value, bool isTagHelper)
 	{
 		if (attributeName is "WidthRequest" or "HeightRequest" or "MaxPixelDensity" ||
 			(isTagHelper && attributeName is "ImageMaxPixelDensity"))
@@ -209,10 +214,10 @@ internal static class DynamicImageRazorSourceParser
 		}
 
 		if (attributeName is "ResizeMode")
-			return TryGetStaticEnumMember(value, DynamicResizeModeTypeName, isTagHelper, out _);
+			return TryGetStaticEnumMember(value, DynamicResizeModeTypeName, AllowsUnqualifiedEnumMember(usage, DynamicResizeModeTypeName, isTagHelper), out _);
 
 		if (attributeName is "ImageFormat")
-			return TryGetStaticEnumMember(value, DynamicImageFormatTypeName, isTagHelper, out _);
+			return TryGetStaticEnumMember(value, DynamicImageFormatTypeName, AllowsUnqualifiedEnumMember(usage, DynamicImageFormatTypeName, isTagHelper), out _);
 
 		if (attributeName is "SizeWidths")
 			return TryGetStaticString(value, out _);
@@ -223,6 +228,19 @@ internal static class DynamicImageRazorSourceParser
 		return true;
 	}
 
+	public static bool AllowsUnqualifiedEnumMember(DynamicImageRazorUsage usage, string expectedEnumTypeName, bool isTagHelper)
+	{
+		if (isTagHelper || usage.StaticUsingTypeNames.Contains(expectedEnumTypeName))
+			return true;
+
+		int lastDotIndex = expectedEnumTypeName.LastIndexOf('.');
+		string simpleTypeName = lastDotIndex >= 0
+			? expectedEnumTypeName.Substring(lastDotIndex + 1)
+			: expectedEnumTypeName;
+
+		return usage.StaticUsingTypeNames.Contains(simpleTypeName);
+	}
+
 	private static void ParseDocument(
 		DynamicImageRazorDocument document,
 		bool hasDynamicImageComponentType,
@@ -231,6 +249,7 @@ internal static class DynamicImageRazorSourceParser
 		bool fileImagePreviewUploadComponentIsActive,
 		bool imageTagHelperIsActive,
 		bool pictureSourceTagHelperIsActive,
+		ImmutableHashSet<string> staticUsingTypeNames,
 		ImmutableArray<DynamicImageRazorUsage>.Builder result)
 	{
 		string maskedText = MaskIgnoredContent(document.Text);
@@ -272,7 +291,7 @@ internal static class DynamicImageRazorSourceParser
 				break;
 
 			ImmutableArray<DynamicImageRazorAttribute> attributes = ParseAttributes(document.Text, nameEnd, tagEnd);
-			result.Add(new DynamicImageRazorUsage(document, kind.Value, attributes));
+			result.Add(new DynamicImageRazorUsage(document, kind.Value, attributes, staticUsingTypeNames));
 			index = tagEnd;
 		}
 	}
@@ -415,6 +434,68 @@ internal static class DynamicImageRazorSourceParser
 		}
 
 		return false;
+	}
+
+	private static ImmutableHashSet<string> GetStaticUsingTypeNames(string directives)
+	{
+		var result = ImmutableHashSet.CreateBuilder<string>(StringComparer.Ordinal);
+
+		foreach (string line in SplitLines(directives))
+		{
+			string trimmed = line.Trim();
+
+			if (!TryGetStaticUsingTypeName(trimmed, out string typeName))
+				continue;
+
+			if (typeName.StartsWith("global::", StringComparison.Ordinal))
+				typeName = typeName.Substring(8);
+
+			if (typeName.Length > 0)
+				_ = result.Add(typeName);
+		}
+
+		return result.ToImmutable();
+	}
+
+	private static bool TryGetStaticUsingTypeName(string value, out string typeName)
+	{
+		const string usingKeyword = "@using";
+		const string staticKeyword = "static";
+		typeName = string.Empty;
+
+		if (!value.StartsWith(usingKeyword, StringComparison.Ordinal))
+			return false;
+
+		int index = usingKeyword.Length;
+
+		if (!SkipRequiredWhitespace(value, ref index) ||
+			value.Length - index < staticKeyword.Length ||
+			string.CompareOrdinal(value, index, staticKeyword, 0, staticKeyword.Length) is not 0)
+		{
+			return false;
+		}
+
+		index += staticKeyword.Length;
+
+		if (!SkipRequiredWhitespace(value, ref index))
+			return false;
+
+		typeName = value.Substring(index).Trim().TrimEnd(';').Trim();
+		return typeName.Length > 0;
+	}
+
+	private static bool SkipRequiredWhitespace(string value, ref int index)
+	{
+		if (index >= value.Length || !char.IsWhiteSpace(value[index]))
+			return false;
+
+		do
+		{
+			index++;
+		}
+		while (index < value.Length && char.IsWhiteSpace(value[index]));
+
+		return true;
 	}
 
 	private static (bool ImageTagHelper, bool PictureSourceTagHelper) GetActiveTagHelpers(string directives)

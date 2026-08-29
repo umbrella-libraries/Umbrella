@@ -59,7 +59,7 @@ Do not infer catalog completeness from a clean build. Compare every active Razor
 - Use asynchronous Mapperly interfaces when enrichment performs file-provider I/O.
 - Resolve collection items concurrently when lookups are independent and the collection is bounded; preserve result ordering.
 - Pass the token to model-bound `UmbrellaDynamicImage` and `UmbrellaFileImagePreviewUpload` usages.
-- Keep variant-shaping Razor inputs literal. Enum members are valid; constants, model expressions, and mixed strings are not catalog-discoverable.
+- Keep variant-shaping Razor inputs literal. Enum members are valid when type-qualified or when an effective simple or fully qualified `@using static` imports the matching enum type; constants, model expressions, and mixed strings are not catalog-discoverable.
 - Focal coordinates are runtime inputs, may be model expressions, and do not participate in generated variant identity or UWDI004.
 - `EnableFocalPointSelection` is variant-shaping. A literal `true` adds `ScaleDown` selector variants alongside the preview's configured crop variants; a runtime binding reports UWDI004.
 

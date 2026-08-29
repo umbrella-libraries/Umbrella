@@ -228,6 +228,62 @@ public static class ViewRenderer
 	}
 
 	[Fact]
+	public async Task RazorComponent_WithUsingStaticEnumInputs_ShouldNotTriggerDiagnostic()
+	{
+		const string imports = """
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+@using Umbrella.DynamicImage.Abstractions
+@using    static    DynamicResizeMode
+@using static global::Umbrella.DynamicImage.Abstractions.DynamicImageFormat;
+""";
+		const string razor = """
+<UmbrellaDynamicImage WidthRequest="200"
+                      HeightRequest="100"
+                      MaxPixelDensity="1"
+                      ResizeMode="Crop"
+                      ImageFormat="Png" />
+""";
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedBlazorInfrastructureSource,
+			[
+				("C:/app/_Imports.razor", imports),
+				("C:/app/Test.razor", razor)
+			]);
+	}
+
+	[Fact]
+	public async Task RazorComponent_WithOnlyMatchingResizeModeStaticImport_ShouldReportImageFormat()
+	{
+		const string imports = """
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+@using Umbrella.DynamicImage.Abstractions
+@using static DynamicResizeMode
+""";
+		const string razor = """
+<UmbrellaDynamicImage WidthRequest="200"
+                      HeightRequest="100"
+                      MaxPixelDensity="1"
+                      ResizeMode="Crop"
+                      ImageFormat="Png" />
+""";
+
+		var expected = Diagnostic(
+			Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer.NonStaticVariantShapingInputRule,
+			5,
+			23,
+			"ImageFormat");
+
+		await VerifyAnalyzerWithAdditionalFilesAsync(
+			SharedBlazorInfrastructureSource,
+			[
+				("C:/app/_Imports.razor", imports),
+				("C:/app/Test.razor", razor)
+			],
+			expected);
+	}
+
+	[Fact]
 	public async Task RazorComponent_WithRuntimeFocalPointInputs_ShouldNotTriggerDiagnostic()
 	{
 		const string razor = """

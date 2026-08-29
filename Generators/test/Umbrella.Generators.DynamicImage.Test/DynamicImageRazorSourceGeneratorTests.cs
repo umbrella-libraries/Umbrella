@@ -60,6 +60,55 @@ public class DynamicImageRazorSourceGeneratorTests
 	}
 
 	[Fact]
+	public void RazorComponentUsingStaticEnumsFromImportsEmitsExpectedVariants()
+	{
+		AdditionalText[] files =
+		[
+			new TestAdditionalText("C:/app/_Imports.razor", """
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+@using Umbrella.DynamicImage.Abstractions
+@using    static    DynamicResizeMode
+@using static global::Umbrella.DynamicImage.Abstractions.DynamicImageFormat;
+"""),
+			new TestAdditionalText("C:/app/Test.razor", """
+<UmbrellaDynamicImage WidthRequest="32"
+                      HeightRequest="32"
+                      MaxPixelDensity="1"
+                      ResizeMode="Crop"
+                      ImageFormat="Png" />
+""")
+		];
+
+		Assembly assembly = GenerateAssembly(files, CreateCatalogMetadata(files, "Client"), out ImmutableArray<Diagnostic> diagnostics);
+
+		Assert.Empty(diagnostics);
+		AssertAutomaticPictureVariants(
+			[new DynamicImageVariant(32, 32, DynamicResizeMode.Crop, DynamicImageFormat.Png)],
+			GetVariants(assembly, "ClientDynamicImageVariantCatalog"));
+	}
+
+	[Fact]
+	public void RazorComponentWithUnqualifiedEnumsWithoutStaticImportsSkipsEntireUsage()
+	{
+		AdditionalText[] files =
+		[
+			new TestAdditionalText("C:/app/_Imports.razor", "@using Umbrella.AspNetCore.Blazor.Components.DynamicImage"),
+			new TestAdditionalText("C:/app/Test.razor", """
+<UmbrellaDynamicImage WidthRequest="32"
+                      HeightRequest="32"
+                      MaxPixelDensity="1"
+                      ResizeMode="Crop"
+                      ImageFormat="Png" />
+""")
+		];
+
+		Assembly assembly = GenerateAssembly(files, CreateCatalogMetadata(files, "Client"), out ImmutableArray<Diagnostic> diagnostics);
+
+		Assert.Empty(diagnostics);
+		Assert.Empty(GetVariants(assembly, "ClientDynamicImageVariantCatalog"));
+	}
+
+	[Fact]
 	public void RazorFileImagePreviewUploadEmitsItsDynamicImageVariants()
 	{
 		AdditionalText[] files =

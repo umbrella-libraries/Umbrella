@@ -52,7 +52,7 @@ Razor discovery understands:
 - `dynamic-image` and `dynamic-source` tag helpers;
 - effective `_Imports.razor`, `_ViewImports.cshtml`, `@using`, `@addTagHelper`, and `@removeTagHelper` directives.
 
-Width, height, density, and size-width values must be literals. Resize mode and image format may use enum-member syntax. Do not use constant references, `@Model` bindings, or mixed literal/expression strings for variant-shaping inputs. UWDI004 identifies unsupported inputs and the generator omits the whole occurrence rather than emitting a false default variant.
+Width, height, density, and size-width values must be literals. Resize mode and image format may use type-qualified enum members, fully qualified enum members, or unqualified enum members when the matching enum type is imported by an effective simple or fully qualified `@using static` directive. A static import for one enum does not authorize unqualified members of the other enum. Do not use constant references, `@Model` bindings, or mixed literal/expression strings for variant-shaping inputs. UWDI004 identifies unsupported inputs and the generator omits the whole occurrence rather than emitting a false default variant.
 
 Focal coordinates are different: `FocalPointX`/`FocalPointY` and `focal-point-x`/`focal-point-y` are runtime inputs and may use model expressions. They are intentionally excluded from `DynamicImageVariant`, do not affect generated catalog identity, and do not report UWDI004.
 

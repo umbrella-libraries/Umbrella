@@ -184,7 +184,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		{
 			if ((IsVariantShapingAttribute(entry.Key, isTagHelper) ||
 				 isFileImagePreviewUpload && entry.Key is "EnableFocalPointSelection") &&
-				!DynamicImageRazorSourceParser.IsDiscoverableValue(entry.Key, entry.Value.Value, isTagHelper))
+				!DynamicImageRazorSourceParser.IsDiscoverableValue(usage, entry.Key, entry.Value.Value, isTagHelper))
 			{
 				return;
 			}
@@ -222,7 +222,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			if (!DynamicImageRazorSourceParser.TryGetStaticEnumMember(
 					resizeAttribute.Value,
 					DynamicResizeModeTypeName,
-					isTagHelper,
+					DynamicImageRazorSourceParser.AllowsUnqualifiedEnumMember(usage, DynamicResizeModeTypeName, isTagHelper),
 					out string resizeMember) ||
 				!validResizeModes.TryGetValue(resizeMember, out int parsedResizeMode))
 			{
@@ -237,7 +237,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			if (!DynamicImageRazorSourceParser.TryGetStaticEnumMember(
 					formatAttribute.Value,
 					DynamicImageFormatTypeName,
-					isTagHelper,
+					DynamicImageRazorSourceParser.AllowsUnqualifiedEnumMember(usage, DynamicImageFormatTypeName, isTagHelper),
 					out string formatMember) ||
 				!validImageFormats.TryGetValue(formatMember, out int parsedImageFormat))
 			{

@@ -92,7 +92,10 @@ namespace Umbrella.DynamicImage.Abstractions
 
     public enum DynamicImageFormat
     {
-        Jpeg = 2
+		Jpeg = 2,
+		Png = 3,
+		WebP = 4,
+		Avif = 5
     }
 
     public readonly record struct DynamicImageVariant(
@@ -117,6 +120,12 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
 
         [Parameter]
         public int MaxPixelDensity { get; set; }
+
+		[Parameter]
+		public Umbrella.DynamicImage.Abstractions.DynamicResizeMode ResizeMode { get; set; }
+
+		[Parameter]
+		public Umbrella.DynamicImage.Abstractions.DynamicImageFormat ImageFormat { get; set; }
     }
 }
 
@@ -174,6 +183,9 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
 				"""
 @using Umbrella.AspNetCore.Blazor.Components.DynamicImage
 @using Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
+@using Umbrella.DynamicImage.Abstractions
+@using    static    DynamicResizeMode
+@using static DynamicImageFormat
 """,
 				TestContext.Current.CancellationToken);
 
@@ -183,7 +195,9 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
 <UmbrellaDynamicImage Url="/images/client.jpg"
                       WidthRequest="400"
                       HeightRequest="200"
-                      MaxPixelDensity="1" />
+                      MaxPixelDensity="1"
+                      ResizeMode="Crop"
+                      ImageFormat="Png" />
 <UmbrellaFileImagePreviewUpload Url="/images/client-preview.jpg"
                                 VersionToken="abc123"
                                 WidthRequest="450"
@@ -248,6 +262,7 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
 				Path.Combine(consumerPath, "Verification.cs"),
 				"""
 using Umbrella.Generated.DynamicImage;
+using Umbrella.DynamicImage.Abstractions;
 
 namespace PackageConsumer;
 
@@ -257,7 +272,7 @@ public static class Verification
         ServerDynamicImageVariantCatalog.All.Any(x => x.Width is 321 && x.Height is 123);
 
     public static bool HasExpectedClientVariant =>
-        ClientDynamicImageVariantCatalog.All.Any(x => x.Width is 400 && x.Height is 200) &&
+        ClientDynamicImageVariantCatalog.All.Any(x => x.Width is 400 && x.Height is 200 && x.Format is DynamicImageFormat.Png) &&
         ClientDynamicImageVariantCatalog.All.Any(x => x.Width is 450 && x.Height is 225) &&
         ClientDynamicImageVariantCatalog.All.Any(x => x.Width is 500 && x.Height is 250) &&
         ClientDynamicImageVariantCatalog.All.Any(x => x.Width is 600 && x.Height is 300);

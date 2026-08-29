@@ -340,7 +340,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 				string normalizedName = NormalizeRazorAttributeName(attribute.Name, isTagHelper);
 
 				if (!TryGetVariantShapingInputName(normalizedName, isTagHelper, isFileImagePreviewUpload, out string displayName) ||
-					DynamicImageRazorSourceParser.IsDiscoverableValue(normalizedName, attribute.Value, isTagHelper))
+					DynamicImageRazorSourceParser.IsDiscoverableValue(usage, normalizedName, attribute.Value, isTagHelper))
 				{
 					continue;
 				}
