@@ -76,6 +76,23 @@ Read and result models normally remain immutable records with `required ... { ge
 
 ---
 
+## Conditional validation
+
+Before implementing `IValidatableObject` or a custom `ValidationAttribute` for a request/form rule, inspect the installed `Umbrella.DataAnnotations` package and nearby input models for an existing contingent validation attribute. Prefer the narrowest attribute that expresses the model-local condition, including `RequiredIf`, `RequiredIfNot`, `RequiredIfTrue`, `RequiredIfFalse`, `RequiredIfEmpty`, `RequiredIfNotEmpty`, `RequiredIfRegExMatch`, and `RequiredIfNotRegExMatch` where appropriate.
+
+Reference dependent properties with `nameof(...)`, and use the feature's validation-message constants for `ErrorMessage` when that pattern exists:
+
+```csharp
+[RequiredIfNotEmpty(
+    nameof(VideoThumbnailProviderFileName),
+    ErrorMessage = IndustryConstants.VideoThumbnailAltTextRequiredErrorMessage)]
+public string? VideoThumbnailAltText { get; set; }
+```
+
+Contingent attributes evaluate only the state present on the model being validated. If a rule depends on persisted entity state, values restored later by a controller/service lifecycle hook, external data, collections, or a condition the installed attributes cannot express, enforce that portion at the appropriate server boundary. Use `IValidatableObject` only when no existing attribute cleanly expresses a model-local rule.
+
+---
+
 ## Base class hierarchies (use when models share fields)
 
 When the full read, create, and update models share properties, put those properties and their validation attributes on a mutable abstract `<Name>ModelBase`. Add an abstract `CreateUpdate<Name>ModelBase : <Name>ModelBase` as the common Blazor form type. Do not replace this hierarchy with an `I<Name>InputModel`; the base records carry the shared implementation, validation, trimming contract, and form-binding surface.
@@ -290,4 +307,5 @@ Also remove any `, new()` constraint on `TCreateResultModel` / `TUpdateResultMod
 9. A combined create/update UI uses `CreateUpdate<Name>ModelBase`; no `I<Name>InputModel` is introduced for shared form typing.
 10. Every concrete type that declares mutable trimmable strings directly implements `IUmbrellaTrimmable`; only source-generated implementations force that type to be `partial`.
 11. Collection properties expose read-only contracts unless an individual property has a justified `[UmbrellaAllowMutableProperty("reason")]`.
-12. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.
+12. Conditional model-local rules use the narrowest available `Umbrella.DataAnnotations` contingent attribute; any `IValidatableObject` or custom validator has a rule that those attributes cannot express.
+13. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.
