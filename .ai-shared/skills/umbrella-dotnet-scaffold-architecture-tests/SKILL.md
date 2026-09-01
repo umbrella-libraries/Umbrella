@@ -7,7 +7,7 @@ description: 'Add a layer-dependency and implementation-visibility architecture 
 
 ## Purpose
 
-Create one runnable architecture test project that enforces layer dependency direction and `internal sealed` visibility rules using `Umbrella.Testing.Architecture`. This skill assumes the solution uses the shared Umbrella `IsTestProject=true` test configuration pattern and singular `.Test` project naming; use `umbrella-dotnet-standardize-test-projects` first when the solution-level test config is missing or drifted.
+Create one runnable architecture test project that enforces layer dependency direction and `internal sealed` visibility rules for concrete implementations using `Umbrella.Testing.Architecture`. This skill assumes the solution uses the shared Umbrella `IsTestProject=true` test configuration pattern and singular `.Test` project naming; use `umbrella-dotnet-standardize-test-projects` first when the solution-level test config is missing or drifted.
 
 ## Prerequisites
 
@@ -202,6 +202,7 @@ dotnet test "<SolutionFile.sln>" --no-restore --verbosity minimal
 **Common failure causes:**
 
 - A repository / service / file-handler / auth-handler implementation is `public` or non-`sealed`.
+- A reusable implementation base should be `internal abstract` and use an explicit `*Base` suffix such as `FileHandlerBase`; only concrete DI-resolved implementations should use the bare `*FileHandler`, `*Service`, `*Repository`, or `*AuthorizationHandler` suffix. Current `Umbrella.Testing.Architecture` releases exclude abstract types from the sealed-implementation rule. If an older package reports an abstract base, upgrade the package rather than sealing the abstract type.
 - A `Core.Logic` type imports a type from `Web.*` (forbidden upward dependency).
 - A `Core.Domain` type transitively references `Core.Data` (usually via a wrong project reference).
 - A repo uses multiple or non-standard domain/data slices; those may need custom tests because `Umbrella.Testing.Architecture` currently models one standard `Core.Domain` / `Core.Data` pair.

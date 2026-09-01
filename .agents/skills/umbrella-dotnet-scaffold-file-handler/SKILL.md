@@ -23,6 +23,8 @@ The provider uses the handler's `DirectoryName` to construct the file path (`/<d
 2. Read the interfaces in `Core\<AppName>.Core.Logic\FileSystem\Abstractions\`.
 3. Read `Core\<AppName>.Core.Common\FileSystem\Constants\DirectoryNames.cs` to see existing constants and the `All` collection.
 4. Read `Core\<AppName>.Core.Logic\IServiceCollectionExtensions.cs` to see where handlers are registered.
+5. Read the consuming project's `TargetFramework` or `TargetFrameworks` and its direct package references. Do not infer its target frameworks from Umbrella's multi-targeted source projects.
+6. Confirm the installed `UmbrellaFileHandler<TGroupId>` constructor for every consumer target. Current Umbrella packages use Microsoft `HybridCache` on .NET 9 or later and `IDistributedCache` below .NET 9; never use the removed Umbrella `IHybridCache` abstraction.
 
 ---
 
@@ -70,19 +72,16 @@ public interface I<Name>FileHandler : IUmbrellaFileHandler<int>;
 
 **File location:** `Core\<AppName>.Core.Logic\FileSystem\<Name>FileHandler.cs`
 
+The primary examples below are for projects whose targets are all .NET 9 or later. Use the target-framework decision rules after the examples for legacy or genuinely cross-boundary multi-targeted consumers.
+
 **Minimal pattern (no post-save processing):**
 
 ```csharp
 using <AppName>.Core.Common.FileSystem.Constants;
 using <AppName>.Core.Logic.FileSystem.Abstractions;
+using Microsoft.Extensions.Caching.Hybrid;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.Utilities.Caching.Abstractions;
-
-#if NET9_0_OR_GREATER
-using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
-#else
-using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
-#endif
 
 namespace <AppName>.Core.Logic.FileSystem;
 
@@ -90,7 +89,7 @@ internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileH
 {
     public <Name>FileHandler(
         ILogger<<Name>FileHandler> logger,
-        PlatformCache cache,
+        HybridCache cache,
         ICacheKeyUtility cacheKeyUtility,
         IUmbrellaFileStorageProvider fileProvider,
         IUmbrellaFileStorageProviderOptions options)
@@ -107,15 +106,10 @@ internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileH
 ```csharp
 using <AppName>.Core.Common.FileSystem.Constants;
 using <AppName>.Core.Logic.FileSystem.Abstractions;
+using Microsoft.Extensions.Caching.Hybrid;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.Utilities.Caching.Abstractions;
-
-#if NET9_0_OR_GREATER
-using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;
-#else
-using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;
-#endif
 
 namespace <AppName>.Core.Logic.FileSystem;
 
@@ -126,7 +120,7 @@ internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileH
 
     public <Name>FileHandler(
         ILogger<<Name>FileHandler> logger,
-        PlatformCache cache,
+        HybridCache cache,
         ICacheKeyUtility cacheKeyUtility,
         IUmbrellaFileStorageProvider fileProvider,
         IUmbrellaFileStorageProviderOptions options,
@@ -154,15 +148,26 @@ internal sealed class <Name>FileHandler : UmbrellaFileHandler<int>, I<Name>FileH
 
 **Rules:**
 - Always `internal sealed class` inheriting `UmbrellaFileHandler<int>` and the marker interface
-- Base 5 constructor params in this exact order: `ILogger<T>`, `PlatformCache`, `ICacheKeyUtility`, `IUmbrellaFileStorageProvider`, `IUmbrellaFileStorageProviderOptions` — all passed to `: base(...)`
-- Define `PlatformCache` with the conditional alias shown above: `IDistributedCache` below .NET 9 and Microsoft `HybridCache` on .NET 9 or later.
-- If the consuming project directly uses the Microsoft type, add target-framework-specific `Microsoft.Extensions.Caching.Hybrid` references and keep their major version coupled to the target framework.
+- Base 5 constructor params in this exact order: `ILogger<T>`, the cache type selected below, `ICacheKeyUtility`, `IUmbrellaFileStorageProvider`, `IUmbrellaFileStorageProviderOptions` — all passed to `: base(...)`
+- Choose the cache dependency from the consuming project's targets:
+
+| Consumer targets | Constructor type | Using |
+| --- | --- | --- |
+| All targets are .NET 9 or later | `HybridCache` | `using Microsoft.Extensions.Caching.Hybrid;` |
+| All targets are below .NET 9 | `IDistributedCache` | `using Microsoft.Extensions.Caching.Distributed;` |
+| Targets exist on both sides of .NET 9 | A conditional `PlatformCache` alias | Alias `HybridCache` for `NET9_0_OR_GREATER`; otherwise alias `IDistributedCache` |
+
+- Do not emit preprocessor directives for a single-target project, or for a multi-target project whose targets all select the same cache API. Umbrella's own multi-targeting is not a reason to copy its conditional alias into consumer code.
+- If the consumer directly names `HybridCache`, add a direct `Microsoft.Extensions.Caching.Hybrid` package reference for each applicable target and keep its major version coupled to that target framework (for example, 9.x for `net9.0` and 10.x for `net10.0`).
+- On .NET 9 or later, `AddUmbrellaUtilities()` provides the baseline `HybridCache` registration. Do not add a second `AddHybridCache()` call merely to activate the handler. Use Microsoft's `AddHybridCache(options => ...)` only when the application intentionally configures cache options.
+- Below .NET 9, verify that the application registers an `IDistributedCache` implementation.
 - Extra dependencies go AFTER the 5 base params and are stored as `private readonly` fields
 - `DirectoryName` must return `DirectoryNames.<Name>` — the same constant added in Step 1
 - Do NOT add `AuthorizeAsync` here — authorization belongs in a separate `UmbrellaFileAuthorizationHandler` (see `umbrella-dotnet-scaffold-file-authorization-handler`)
 - Override `AfterSavingAsync` only when post-save processing is needed; always call `cancellationToken.ThrowIfCancellationRequested()` first
 - `using Umbrella.DynamicImage.Abstractions;` is only needed when overriding `AfterSavingAsync` for image work — confirm the package is referenced in the `.csproj`
 - Dynamic Image consumers obtain their URL/token pair from the inherited `GetVersionedWebFilePathAsync`; do not add a second token algorithm to the concrete handler.
+- If several concrete handlers share behavior, put it in an `internal abstract` base whose name ends in `FileHandlerBase`; keep each DI-resolved implementation named `*FileHandler` and `internal sealed`.
 
 ### Custom operations and logging
 
@@ -212,11 +217,11 @@ Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` a
 
 1. `DirectoryNames.<Name>` constant exists and is added to the `All` collection.
 2. The interface is an empty marker extending `IUmbrellaFileHandler<int>` with the `using Umbrella.FileSystem.Abstractions;` directive.
-3. The implementation is `internal sealed`, the constructor passes exactly the 5 base params to `: base(...)`, and `DirectoryName` returns the correct constant.
+3. The implementation is `internal sealed`, the constructor passes exactly the 5 base params to `: base(...)`, and `DirectoryName` returns the correct constant. Reusable abstract bases are `internal abstract` and end in `FileHandlerBase`.
 4. There is no `AuthorizeAsync` on the file handler — authorization is in a separate handler.
 5. `AddSingleton<I<Name>FileHandler, <Name>FileHandler>()` is present in `IServiceCollectionExtensions.cs`.
 6. If authorization is needed, the `umbrella-dotnet-scaffold-file-authorization-handler` skill has been used to create a matching `<Name>FileAuthorizationHandler` with the same `DirectoryName`.
 7. If the handler backs Dynamic Image, callers use `GetVersionedWebFilePathAsync` and propagate its URL and token together.
-8. The implementation uses the conditional `PlatformCache` alias and adds no legacy-cache warning suppression.
+8. The cache constructor type matches every consuming target: direct `HybridCache` for all-.NET-9-or-later projects, direct `IDistributedCache` for all-legacy projects, or a conditional alias only for a genuine cross-boundary multi-target project. There is no `IHybridCache` usage or legacy-cache warning suppression.
 9. Custom public methods use the `Logger.WriteError` exception-filter pattern with relevant state.
 10. Ownership or tenancy metadata is attached without ambient state or an authorization bypass, and its behavior is covered through the HTTP file endpoint.

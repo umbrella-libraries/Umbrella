@@ -52,7 +52,7 @@ public abstract class UmbrellaImplementationVisibilityTests
     private static void AssertInternalSealed(Assembly assembly, string namePattern)
     {
         NetArchTest.Rules.TestResult result = Types.InAssembly(assembly)
-            .That().AreClasses().And().HaveNameMatching(namePattern)
+            .That().AreClasses().And().AreNotAbstract().And().HaveNameMatching(namePattern)
             .Should().BeSealed().And().NotBePublic()
             .GetResult();
 

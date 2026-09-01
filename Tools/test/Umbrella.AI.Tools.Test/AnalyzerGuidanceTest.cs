@@ -258,6 +258,8 @@ public partial class AnalyzerGuidanceTest
         string modelSkill = ReadSkill("umbrella-dotnet-scaffold-api-server-models");
         string mapperSkill = ReadSkill("umbrella-dotnet-scaffold-mapperly-factories");
         string fileHandlerSkill = ReadSkill("umbrella-dotnet-scaffold-file-handler");
+        string serverBootstrapSkill = ReadSkill("umbrella-dotnet-audit-server-bootstrap");
+        string architectureTestSkill = ReadSkill("umbrella-dotnet-scaffold-architecture-tests");
         string managePageSkill = ReadSkill("umbrella-blazor-scaffold-manage-page");
         string renameClientServiceSkill = ReadSkill("umbrella-dotnet-rename-client-repository-to-service");
         string resourceAuthorizationSkill = ReadSkill("umbrella-dotnet-scaffold-resource-auth-handler");
@@ -322,8 +324,13 @@ public partial class AnalyzerGuidanceTest
         Assert.Contains("Do not accept RMG012 warnings as harmless", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("use `umbrella-dotnet-scaffold-file-handler` first", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("including create and update result mappings", mapperSkill, StringComparison.Ordinal);
-        Assert.Contains("using PlatformCache = Microsoft.Extensions.Caching.Hybrid.HybridCache;", fileHandlerSkill, StringComparison.Ordinal);
-        Assert.Contains("using PlatformCache = Microsoft.Extensions.Caching.Distributed.IDistributedCache;", fileHandlerSkill, StringComparison.Ordinal);
+        Assert.Contains("using Microsoft.Extensions.Caching.Hybrid;", fileHandlerSkill, StringComparison.Ordinal);
+        Assert.Contains("HybridCache cache", fileHandlerSkill, StringComparison.Ordinal);
+        Assert.Contains("Do not emit preprocessor directives for a single-target project", fileHandlerSkill, StringComparison.Ordinal);
+        Assert.Contains("There is no `IHybridCache` usage", fileHandlerSkill, StringComparison.Ordinal);
+        Assert.Contains("AddUmbrellaUtilities()` provides the baseline `HybridCache` registration", fileHandlerSkill, StringComparison.Ordinal);
+        Assert.Contains("removed `hybridCacheOptionsBuilder` named argument", serverBootstrapSkill, StringComparison.Ordinal);
+        Assert.Contains("Current `Umbrella.Testing.Architecture` releases exclude abstract types", architectureTestSkill, StringComparison.Ordinal);
         Assert.DoesNotContain("#pragma warning disable CS0618", fileHandlerSkill, StringComparison.Ordinal);
         Assert.Contains("GetVersionedWebFilePathAsync", mapperSkill, StringComparison.Ordinal);
         Assert.Contains("ImageVersionToken", mapperSkill, StringComparison.Ordinal);

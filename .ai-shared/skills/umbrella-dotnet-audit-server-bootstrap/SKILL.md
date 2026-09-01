@@ -42,6 +42,7 @@ Look for `ConfigureUmbrellaMvcBuilderOptions(...)` on the MVC builder, or its pa
 Confirm the presence and pairing of the core registrations the app's feature set requires:
 
 - `AddUmbrellaAspNetCoreWebUtilities(...)` (also provides `IRazorViewToStringRenderer` for email senders);
+- `AddUmbrellaUtilities(...)` using its current signature. Flag a removed `hybridCacheOptionsBuilder` named argument as a compile-time migration defect. On .NET 9 or later, this call supplies the baseline Microsoft `HybridCache` registration; do not recommend a second `AddHybridCache()` call merely to activate caching. If the application intentionally customizes cache options, preserve that behavior through Microsoft's `AddHybridCache(options => ...)`. Below .NET 9, verify a concrete `IDistributedCache` registration. Base this advice on the consuming project's actual target frameworks, not Umbrella's multi-targeted source projects;
 - `AddUmbrellaDataAccess...` + the EF Core provider registration (`...EntityFrameworkCore(SqlServer)` etc.) where repositories exist;
 - the Mapperly mapping registration (`AddUmbrellaUtilitiesMappingMapperly...`) where mappers exist;
 - file storage provider registration (e.g. Azure Blob) where file handlers exist, plus `UseUmbrellaFileAccessTokenQueryString()` when secured file access uses access tokens;
