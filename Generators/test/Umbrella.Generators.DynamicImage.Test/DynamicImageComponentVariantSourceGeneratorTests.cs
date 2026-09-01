@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Reflection;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -632,19 +632,22 @@ public class MyView : RazorPageBase
 
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
+		// A nested source renders the configured picture source formats as well as its own fallback format.
 		Assert.Equal(
 		[
 			new DynamicImageVariant(800, 400, DynamicResizeMode.Crop, DynamicImageFormat.WebP),
+			new DynamicImageVariant(800, 400, DynamicResizeMode.Crop, DynamicImageFormat.Avif),
 			new DynamicImageVariant(1600, 800, DynamicResizeMode.Crop, DynamicImageFormat.WebP),
-			new DynamicImageVariant(2400, 1200, DynamicResizeMode.Crop, DynamicImageFormat.WebP)
+			new DynamicImageVariant(1600, 800, DynamicResizeMode.Crop, DynamicImageFormat.Avif),
+			new DynamicImageVariant(2400, 1200, DynamicResizeMode.Crop, DynamicImageFormat.WebP),
+			new DynamicImageVariant(2400, 1200, DynamicResizeMode.Crop, DynamicImageFormat.Avif)
 		], variants);
 	}
 
 	[Fact]
-	public void TagHelperPictureSourceIgnoresSizeWidthsProperty()
+	public void TagHelperPictureSourceExpandsSizeWidthsProperty()
 	{
-		// DynamicImagePictureSourceTagHelper has no SizeWidths; assigning it in
-		// generated code should not expand variants.
+		// A nested source supports size widths in the same way as the image element it is declared inside.
 		const string source = """
 using Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
 
@@ -657,6 +660,8 @@ public class MyView : RazorPageBase
 		__DynamicImagePictureSourceTagHelper = CreateTagHelper<DynamicImagePictureSourceTagHelper>();
 		__DynamicImagePictureSourceTagHelper.WidthRequest = 640;
 		__DynamicImagePictureSourceTagHelper.HeightRequest = 480;
+		__DynamicImagePictureSourceTagHelper.ImageMaxPixelDensity = 1;
+		__DynamicImagePictureSourceTagHelper.SizeWidths = "320";
 	}
 }
 """ + SharedTagHelperInfrastructureSource;
@@ -665,9 +670,12 @@ public class MyView : RazorPageBase
 
 		Assert.Equal(
 		[
+			new DynamicImageVariant(320, 240, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
+			new DynamicImageVariant(320, 240, DynamicResizeMode.Crop, DynamicImageFormat.WebP),
+			new DynamicImageVariant(320, 240, DynamicResizeMode.Crop, DynamicImageFormat.Avif),
 			new DynamicImageVariant(640, 480, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
-			new DynamicImageVariant(1280, 960, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
-			new DynamicImageVariant(1920, 1440, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
+			new DynamicImageVariant(640, 480, DynamicResizeMode.Crop, DynamicImageFormat.WebP),
+			new DynamicImageVariant(640, 480, DynamicResizeMode.Crop, DynamicImageFormat.Avif)
 		], variants);
 	}
 
@@ -844,6 +852,8 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers
 		public int ImageMaxPixelDensity { get; set; } = 3;
 		public Umbrella.DynamicImage.Abstractions.DynamicResizeMode ResizeMode { get; set; }
 		public Umbrella.DynamicImage.Abstractions.DynamicImageFormat ImageFormat { get; set; }
+		public string? SizeWidths { get; set; }
+		public string? Media { get; set; }
 		public double? FocalPointX { get; set; }
 		public double? FocalPointY { get; set; }
 	}

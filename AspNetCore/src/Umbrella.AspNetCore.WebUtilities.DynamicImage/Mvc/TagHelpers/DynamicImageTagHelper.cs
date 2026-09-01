@@ -15,20 +15,21 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
 /// <summary>
 /// A tag helper used to generate picture elements with format-specific URLs for use with the Dynamic Image infrastructure.
 /// </summary>
+/// <remarks>
+/// Nested <see cref="DynamicImagePictureSourceTagHelper"/> elements can be used to contribute art directed sources that are rendered
+/// before the automatically generated format sources.
+/// </remarks>
 /// <seealso cref="DynamicImageTagHelperBase" />
 [OutputElementHint("picture")]
-[HtmlTargetElement("dynamic-image", Attributes = RequiredAttributeNames, TagStructure = TagStructure.WithoutEndTag)]
+[HtmlTargetElement("dynamic-image", Attributes = RequiredAttributeNames, TagStructure = TagStructure.NormalOrSelfClosing)]
 public class DynamicImageTagHelper : DynamicImageTagHelperBase
 {
-	/// <summary>
-	/// Gets or sets the size widths.
-	/// </summary>
-	public string? SizeWidths { get; set; }
+	private DynamicImagePictureContext? _pictureContext;
 
 	/// <summary>
 	/// Gets the name of the output tag.
 	/// </summary>
-	protected override string OutputTagName => "img";
+	protected override string OutputTagName => "picture";
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="DynamicImageTagHelper"/> class.
@@ -53,6 +54,42 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 	}
 
 	/// <summary>
+	/// Initializes the tag helper and creates the <see cref="DynamicImagePictureContext"/> shared with any nested
+	/// <see cref="DynamicImagePictureSourceTagHelper"/> instances.
+	/// </summary>
+	/// <param name="context">Contains information associated with the current HTML tag.</param>
+	/// <remarks>
+	/// This runs after the Razor infrastructure has assigned the bound properties of this tag helper and before the scope of any child
+	/// tag helper is created, which is what allows children to inherit the values declared here.
+	/// </remarks>
+	public override void Init(TagHelperContext context)
+	{
+		Guard.IsNotNull(context);
+
+		base.Init(context);
+
+		string? sourceUrl = context.AllAttributes["src"]?.Value?.ToString()?.Trim();
+		bool isExternalUrl = IsExternalUrl(sourceUrl);
+
+		_pictureContext = new DynamicImagePictureContext
+		{
+			SourcePath = isExternalUrl || string.IsNullOrEmpty(sourceUrl) ? sourceUrl ?? string.Empty : StripUrlPrefix(sourceUrl),
+			IsExternalUrl = isExternalUrl,
+			VersionToken = VersionToken,
+			ResizeMode = ResizeMode,
+			ImageFormat = ImageFormat,
+			FilterQuality = FilterQuality,
+			QualityRequest = QualityRequest,
+			MaxPixelDensity = ImageMaxPixelDensity,
+			SizeWidths = SizeWidths,
+			FocalPointX = FocalPointX,
+			FocalPointY = FocalPointY
+		};
+
+		context.Items[typeof(DynamicImagePictureContext)] = _pictureContext;
+	}
+
+	/// <summary>
 	/// Asynchronously executes the <see cref="TagHelper"/> with the given <paramref name="context"/> and <paramref name="output"/>.
 	/// </summary>
 	/// <param name="context">Contains information associated with the current HTML tag.</param>
@@ -68,8 +105,7 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 		if (string.IsNullOrWhiteSpace(sourceUrl))
 			throw new InvalidOperationException("A source URL is required.");
 
-		bool isExternalUrl = sourceUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-			|| sourceUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+		bool isExternalUrl = IsExternalUrl(sourceUrl);
 		string sourcePath;
 
 		if (isExternalUrl)
@@ -90,20 +126,26 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 			output.Attributes.SetAttribute("decoding", "async");
 		}
 
+		// Executing the child content is what runs any nested dynamic-source tag helpers. They suppress their own output and instead
+		// append their generated source tags to the shared picture context.
+		TagHelperContent childContent = await output.GetChildContentAsync().ConfigureAwait(false);
+
+		if (!childContent.IsEmptyOrWhiteSpace)
+			throw new InvalidOperationException("Only <dynamic-source> elements can be nested inside a <dynamic-image> element.");
+
+		// A nested source rejects an external parent itself, before it generates any URLs, so the list is always empty in that case.
+		List<IHtmlContent> artDirectionSources = _pictureContext?.Sources ?? [];
 		var content = new HtmlContentBuilder();
+
+		// Art directed sources must be rendered first. Browsers use the first source with a matching media condition and a supported
+		// type, so the format sources below would otherwise win regardless of the media conditions declared on the children.
+		foreach (IHtmlContent source in artDirectionSources)
+			_ = content.AppendHtml(source);
 
 		if (!isExternalUrl)
 		{
 			foreach (DynamicImageFormat format in DynamicImageTagHelperOptions.PictureSourceFormats.Where(x => x != ImageFormat))
-			{
-				var source = new TagBuilder("source")
-				{
-					TagRenderMode = TagRenderMode.SelfClosing
-				};
-				source.Attributes.Add("type", format is DynamicImageFormat.Avif ? "image/avif" : "image/webp");
-				source.Attributes.Add("srcset", GetSrcSetValue(sourcePath, format));
-				_ = content.AppendHtml(source);
-			}
+				_ = content.AppendHtml(BuildSourceTag(sourcePath, format));
 		}
 
 		var image = new TagBuilder("img")
@@ -116,36 +158,12 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 
 		_ = content.AppendHtml(image);
 		output.Attributes.Clear();
-		output.TagName = "picture";
+		output.TagName = OutputTagName;
 		output.TagMode = TagMode.StartTagAndEndTag;
 		_ = output.Content.SetHtmlContent(content);
 	}
 
-	private string GetSrcSetValue(string sourcePath, DynamicImageFormat format)
-	{
-		string cacheKey = CacheKeyUtility.Create<DynamicImageTagHelper>($"{sourcePath}:{VersionToken}:{WidthRequest}:{HeightRequest}:{ResizeMode}:{format}:{FilterQuality}:{QualityRequest}:{FocalPointX}:{FocalPointY}:{ImageMaxPixelDensity}:{SizeWidths}");
-
-		return Cache.GetOrCreate(
-			cacheKey,
-			entry =>
-			{
-				_ = entry
-					.SetAbsoluteExpiration(TimeSpan.FromHours(1))
-					.SetPriority(CacheItemPriority.Low);
-
-				IReadOnlyCollection<int> sizeWidths = ResponsiveImageHelper.GetParsedIntegerItems(SizeWidths ?? "");
-				DynamicImageOptions options = CreateDynamicImageOptions(sourcePath, WidthRequest, HeightRequest, format);
-				string src = ResolveImageUrl(GenerateVirtualPath(options));
-
-				string? srcSet = sizeWidths.Count is 0
-					? ResponsiveImageHelper.GetPixelDensitySrcSetValue(src, ImageMaxPixelDensity)
-					: ResponsiveImageHelper.GetSizeSrcSetValue(sourcePath, SizeWidths ?? "", ImageMaxPixelDensity, WidthRequest, HeightRequest, x =>
-					{
-						DynamicImageOptions sizeOptions = CreateDynamicImageOptions(sourcePath, x.imageWidth, x.imageHeight, format);
-						return ResolveImageUrl(GenerateVirtualPath(sizeOptions));
-					});
-
-				return string.IsNullOrWhiteSpace(srcSet) ? src : srcSet;
-			}) ?? string.Empty;
-	}
+	private static bool IsExternalUrl(string? url)
+		=> !string.IsNullOrEmpty(url)
+			&& (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase));
 }

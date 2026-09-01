@@ -1,0 +1,4 @@
+@foreach (DynamicImagePictureSource source in PictureSources)
+{
+    <source media="@source.Media" type="@source.ContentType" srcset="@source.SrcSet" @attributes="SourceAttributes" />
+}

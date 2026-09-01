@@ -21,7 +21,7 @@ Before acting, read:
 Identify:
 
 - the executable Server project and every Client, Shared, model-factory, or MVC project containing Dynamic Image source;
-- all `UmbrellaDynamicImage`, `UmbrellaFileImagePreviewUpload`, `dynamic-image`, and `dynamic-source` usages;
+- all `UmbrellaDynamicImage`, `UmbrellaFileImagePreviewUpload`, `dynamic-image`, `UmbrellaDynamicImageSource`, and `dynamic-source` usages, and for nested sources the element each is declared inside;
 - all `FocalPointX`/`FocalPointY` and `focal-point-x`/`focal-point-y` bindings;
 - every `EnableFocalPointSelection` usage and whether its value is a literal;
 - the service registration and `UseUmbrellaDynamicImage` middleware call;

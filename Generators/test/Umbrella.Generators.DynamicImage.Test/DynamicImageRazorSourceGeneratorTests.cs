@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Reflection;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -499,6 +499,67 @@ public class DynamicImageRazorSourceGeneratorTests
 			.ToArray();
 	}
 
+	[Fact]
+	public void NestedTagHelperSourceInheritsUndeclaredAttributesFromParent()
+	{
+		AdditionalText[] files =
+		[
+			new TestAdditionalText("C:/app/Views/_ViewImports.cshtml", "@addTagHelper *, Umbrella.AspNetCore.WebUtilities.DynamicImage"),
+			new TestAdditionalText("C:/app/Views/Test.cshtml", """
+<dynamic-image src="/images/hero.jpg"
+               width-request="800"
+               height-request="400"
+               image-density="1"
+               resize-mode="UseWidth"
+               image-format="WebP">
+    <dynamic-source media="(max-width: 599px)" width-request="300" height-request="500" />
+</dynamic-image>
+""")
+		];
+
+		Assembly assembly = GenerateAssembly(files, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), out ImmutableArray<Diagnostic> diagnostics);
+
+		Assert.Empty(diagnostics);
+
+		// The nested source declares only its own size, so the resize mode and format of the enclosing element have to be carried over.
+		// Resolving them from the tag helper defaults instead would catalog Crop/Jpeg variants and reject the URLs actually rendered.
+		AssertAutomaticPictureVariants(
+			[
+				new DynamicImageVariant(300, 500, DynamicResizeMode.UseWidth, DynamicImageFormat.WebP),
+				new DynamicImageVariant(800, 400, DynamicResizeMode.UseWidth, DynamicImageFormat.WebP)
+			],
+			GetVariants(assembly, "DynamicImageVariantCatalog"));
+	}
+
+	[Fact]
+	public void NestedComponentSourceInheritsUndeclaredParametersFromParent()
+	{
+		AdditionalText[] files =
+		[
+			new TestAdditionalText("C:/app/_Imports.razor", "@using Umbrella.AspNetCore.Blazor.Components.DynamicImage"),
+			new TestAdditionalText("C:/app/Test.razor", """
+<UmbrellaDynamicImage Url="/images/hero.jpg"
+                      WidthRequest="800"
+                      HeightRequest="400"
+                      MaxPixelDensity="1"
+                      ResizeMode="DynamicResizeMode.UseWidth"
+                      ImageFormat="DynamicImageFormat.WebP">
+    <UmbrellaDynamicImageSource Media="(max-width: 599px)" WidthRequest="300" HeightRequest="500" />
+</UmbrellaDynamicImage>
+""")
+		];
+
+		Assembly assembly = GenerateAssembly(files, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), out ImmutableArray<Diagnostic> diagnostics);
+
+		Assert.Empty(diagnostics);
+		AssertAutomaticPictureVariants(
+			[
+				new DynamicImageVariant(300, 500, DynamicResizeMode.UseWidth, DynamicImageFormat.WebP),
+				new DynamicImageVariant(800, 400, DynamicResizeMode.UseWidth, DynamicImageFormat.WebP)
+			],
+			GetVariants(assembly, "DynamicImageVariantCatalog"));
+	}
+
 	private static void AssertAutomaticPictureVariants(IEnumerable<DynamicImageVariant> expectedFallbackVariants, IEnumerable<DynamicImageVariant> actualVariants)
 	{
 		DynamicImageVariant[] expected =
@@ -526,6 +587,7 @@ public class DynamicImageRazorSourceGeneratorTests
 namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage
 {
     public class UmbrellaDynamicImage { }
+    public class UmbrellaDynamicImageSource { }
 }
 
 namespace Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload

@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text;
 
 namespace Umbrella.DynamicImage.RazorAnalysis;
@@ -8,7 +8,8 @@ internal enum DynamicImageRazorUsageKind
 	Component,
 	FileImagePreviewUploadComponent,
 	ImageTagHelper,
-	PictureSourceTagHelper
+	PictureSourceTagHelper,
+	SourceComponent
 }
 
 internal sealed class DynamicImageRazorDocument
@@ -48,16 +49,24 @@ internal sealed class DynamicImageRazorUsage
 	public ImmutableArray<DynamicImageRazorAttribute> Attributes { get; }
 	public ImmutableHashSet<string> StaticUsingTypeNames { get; }
 
+	/// <summary>
+	/// The enclosing image usage when this usage is a nested source, otherwise <see langword="null"/>. A nested source inherits any
+	/// attribute it does not declare itself, so the variant it resolves to depends on its parent.
+	/// </summary>
+	public DynamicImageRazorUsage? Parent { get; }
+
 	public DynamicImageRazorUsage(
 		DynamicImageRazorDocument document,
 		DynamicImageRazorUsageKind kind,
 		ImmutableArray<DynamicImageRazorAttribute> attributes,
-		ImmutableHashSet<string> staticUsingTypeNames)
+		ImmutableHashSet<string> staticUsingTypeNames,
+		DynamicImageRazorUsage? parent = null)
 	{
 		Document = document;
 		Kind = kind;
 		Attributes = attributes;
 		StaticUsingTypeNames = staticUsingTypeNames;
+		Parent = parent;
 	}
 }
 
@@ -65,6 +74,7 @@ internal static class DynamicImageRazorSourceParser
 {
 	private const string DynamicImageComponentNamespace = "Umbrella.AspNetCore.Blazor.Components.DynamicImage";
 	private const string FullyQualifiedDynamicImageComponentName = DynamicImageComponentNamespace + ".UmbrellaDynamicImage";
+	private const string FullyQualifiedDynamicImageSourceComponentName = DynamicImageComponentNamespace + ".UmbrellaDynamicImageSource";
 	private const string FileImagePreviewUploadComponentNamespace = "Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload";
 	private const string FullyQualifiedFileImagePreviewUploadComponentName = FileImagePreviewUploadComponentNamespace + ".UmbrellaFileImagePreviewUpload";
 	private const string TagHelperAssemblyName = "Umbrella.AspNetCore.WebUtilities.DynamicImage";
@@ -79,7 +89,8 @@ internal static class DynamicImageRazorSourceParser
 		bool hasDynamicImageComponentType,
 		bool hasFileImagePreviewUploadComponentType,
 		bool hasImageTagHelperType,
-		bool hasPictureSourceTagHelperType)
+		bool hasPictureSourceTagHelperType,
+		bool hasDynamicImageSourceComponentType)
 	{
 		DynamicImageRazorDocument[] allDocuments = [.. documents];
 		DynamicImageRazorDocument[] imports = [.. allDocuments.Where(IsImportsDocument)];
@@ -98,6 +109,9 @@ internal static class DynamicImageRazorSourceParser
 			ImmutableHashSet<string> staticUsingTypeNames = GetStaticUsingTypeNames(effectiveDirectives);
 			bool dynamicImageComponentIsActive = hasDynamicImageComponentType &&
 				(isComponentDocument && ContainsUsing(effectiveDirectives, DynamicImageComponentNamespace));
+			// The source component shares the namespace of the image component, so a single using directive activates both.
+			bool dynamicImageSourceComponentIsActive = hasDynamicImageSourceComponentType &&
+				(isComponentDocument && ContainsUsing(effectiveDirectives, DynamicImageComponentNamespace));
 			bool fileImagePreviewUploadComponentIsActive = hasFileImagePreviewUploadComponentType &&
 				(isComponentDocument && ContainsUsing(effectiveDirectives, FileImagePreviewUploadComponentNamespace));
 			(bool imageTagHelperIsActive, bool pictureSourceTagHelperIsActive) = isViewDocument
@@ -112,6 +126,8 @@ internal static class DynamicImageRazorSourceParser
 				fileImagePreviewUploadComponentIsActive,
 				hasImageTagHelperType && imageTagHelperIsActive,
 				hasPictureSourceTagHelperType && pictureSourceTagHelperIsActive,
+				hasDynamicImageSourceComponentType,
+				dynamicImageSourceComponentIsActive,
 				staticUsingTypeNames,
 				result);
 		}
@@ -249,21 +265,27 @@ internal static class DynamicImageRazorSourceParser
 		bool fileImagePreviewUploadComponentIsActive,
 		bool imageTagHelperIsActive,
 		bool pictureSourceTagHelperIsActive,
+		bool hasDynamicImageSourceComponentType,
+		bool dynamicImageSourceComponentIsActive,
 		ImmutableHashSet<string> staticUsingTypeNames,
 		ImmutableArray<DynamicImageRazorUsage>.Builder result)
 	{
 		string maskedText = MaskIgnoredContent(document.Text);
+		// Nested sources inherit from the element they are declared inside, so the open image elements have to be tracked as the document
+		// is scanned.
+		var openImageUsages = new Stack<KeyValuePair<string, DynamicImageRazorUsage>>();
 
 		for (int index = 0; index < maskedText.Length; index++)
 		{
 			if (maskedText[index] is not '<' ||
 				index + 1 >= maskedText.Length ||
-				maskedText[index + 1] is '/' or '!' or '?')
+				maskedText[index + 1] is '!' or '?')
 			{
 				continue;
 			}
 
-			int nameStart = index + 1;
+			bool isClosingTag = maskedText[index + 1] is '/';
+			int nameStart = index + (isClosingTag ? 2 : 1);
 			int nameEnd = nameStart;
 
 			while (nameEnd < maskedText.Length && IsTagNameCharacter(maskedText[nameEnd]))
@@ -273,6 +295,15 @@ internal static class DynamicImageRazorSourceParser
 				continue;
 
 			string tagName = maskedText.Substring(nameStart, nameEnd - nameStart);
+
+			if (isClosingTag)
+			{
+				if (openImageUsages.Count > 0 && string.Equals(openImageUsages.Peek().Key, tagName, StringComparison.OrdinalIgnoreCase))
+					_ = openImageUsages.Pop();
+
+				continue;
+			}
+
 			DynamicImageRazorUsageKind? kind = GetUsageKind(
 				tagName,
 				hasDynamicImageComponentType,
@@ -280,7 +311,9 @@ internal static class DynamicImageRazorSourceParser
 				hasFileImagePreviewUploadComponentType,
 				fileImagePreviewUploadComponentIsActive,
 				imageTagHelperIsActive,
-				pictureSourceTagHelperIsActive);
+				pictureSourceTagHelperIsActive,
+				hasDynamicImageSourceComponentType,
+				dynamicImageSourceComponentIsActive);
 
 			if (kind is null)
 				continue;
@@ -291,10 +324,33 @@ internal static class DynamicImageRazorSourceParser
 				break;
 
 			ImmutableArray<DynamicImageRazorAttribute> attributes = ParseAttributes(document.Text, nameEnd, tagEnd);
-			result.Add(new DynamicImageRazorUsage(document, kind.Value, attributes, staticUsingTypeNames));
+			DynamicImageRazorUsage? parent = IsNestedSourceKind(kind.Value) && openImageUsages.Count > 0
+				? openImageUsages.Peek().Value
+				: null;
+
+			var usage = new DynamicImageRazorUsage(document, kind.Value, attributes, staticUsingTypeNames, parent);
+			result.Add(usage);
+
+			bool isSelfClosing = maskedText[tagEnd - 1] is '/';
+
+			if (!isSelfClosing && IsImageKind(kind.Value))
+				openImageUsages.Push(new KeyValuePair<string, DynamicImageRazorUsage>(tagName, usage));
+
 			index = tagEnd;
 		}
 	}
+
+	/// <summary>
+	/// Returns <see langword="true"/> for the kinds that render a picture element which nested sources can be declared inside.
+	/// </summary>
+	public static bool IsImageKind(DynamicImageRazorUsageKind kind)
+		=> kind is DynamicImageRazorUsageKind.ImageTagHelper or DynamicImageRazorUsageKind.Component;
+
+	/// <summary>
+	/// Returns <see langword="true"/> for the kinds that are declared inside an image element and inherit from it.
+	/// </summary>
+	public static bool IsNestedSourceKind(DynamicImageRazorUsageKind kind)
+		=> kind is DynamicImageRazorUsageKind.PictureSourceTagHelper or DynamicImageRazorUsageKind.SourceComponent;
 
 	private static DynamicImageRazorUsageKind? GetUsageKind(
 		string tagName,
@@ -303,8 +359,17 @@ internal static class DynamicImageRazorSourceParser
 		bool hasFileImagePreviewUploadComponentType,
 		bool fileImagePreviewUploadComponentIsActive,
 		bool imageTagHelperIsActive,
-		bool pictureSourceTagHelperIsActive)
+		bool pictureSourceTagHelperIsActive,
+		bool hasDynamicImageSourceComponentType,
+		bool dynamicImageSourceComponentIsActive)
 	{
+		if (hasDynamicImageSourceComponentType &&
+			(string.Equals(tagName, FullyQualifiedDynamicImageSourceComponentName, StringComparison.Ordinal) ||
+			 dynamicImageSourceComponentIsActive && string.Equals(tagName, "UmbrellaDynamicImageSource", StringComparison.Ordinal)))
+		{
+			return DynamicImageRazorUsageKind.SourceComponent;
+		}
+
 		if (hasDynamicImageComponentType &&
 			(string.Equals(tagName, FullyQualifiedDynamicImageComponentName, StringComparison.Ordinal) ||
 			 dynamicImageComponentIsActive && string.Equals(tagName, "UmbrellaDynamicImage", StringComparison.Ordinal)))

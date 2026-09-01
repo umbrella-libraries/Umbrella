@@ -1,4 +1,5 @@
 using CommunityToolkit.Diagnostics;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -37,6 +38,11 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	/// The version token attribute name.
 	/// </summary>
 	protected const string VersionTokenAttributeName = "version-token";
+
+	/// <summary>
+	/// The size widths attribute name.
+	/// </summary>
+	protected const string SizeWidthsAttributeName = "size-widths";
 
 	/// <summary>
 	/// Gets the <see cref="IDynamicImageUtility"/>.
@@ -111,6 +117,16 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	public DynamicImageFormat ImageFormat { get; set; } = DynamicImageFormat.Jpeg;
 
 	/// <summary>
+	/// Gets or sets the size widths.
+	/// </summary>
+	/// <remarks>
+	/// If specified, these are used in combination with the values of <see cref="ResponsiveImageTagHelper.ImageMaxPixelDensity"/>,
+	/// <see cref="WidthRequest"/> and <see cref="HeightRequest"/> to set the value of the srcset attribute of the generated tags.
+	/// </remarks>
+	[HtmlAttributeName(SizeWidthsAttributeName)]
+	public string? SizeWidths { get; set; }
+
+	/// <summary>
 	/// Initializes a new instance of the <see cref="DynamicImageTagHelperBase"/> class.
 	/// </summary>
 	/// <param name="logger">The logger.</param>
@@ -157,19 +173,10 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	{
 		Guard.IsNotNull(output);
 
-		if (ResizeMode is not DynamicResizeMode.UseWidth && HeightRequest <= 0)
-			throw new InvalidOperationException($"A value for {nameof(HeightRequest)} must be provided when the resize mode is anything other than {nameof(DynamicResizeMode.UseWidth)}");
-
-		if (ResizeMode is not DynamicResizeMode.UseHeight && WidthRequest <= 0)
-			throw new InvalidOperationException($"A value for {nameof(WidthRequest)} must be provided when the resize mode is anything other than {nameof(DynamicResizeMode.UseHeight)}");
+		ValidateSizeRequests();
 
 		TagHelperAttribute attrSrc = output.Attributes["src"];
-		string? src = attrSrc?.Value?.ToString()?.Trim();
-
-		if (string.IsNullOrEmpty(src))
-			throw new UmbrellaWebException("src cannot be null or empty.");
-
-		string strippedUrl = StripUrlPrefix(src);
+		string strippedUrl = ResolveSourcePath(attrSrc?.Value?.ToString());
 		DynamicImageOptions options = CreateDynamicImageOptions(strippedUrl, WidthRequest, HeightRequest);
 
 		string x1Url = GenerateVirtualPath(options);
@@ -180,6 +187,94 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 		output.TagName = OutputTagName;
 
 		return Task.FromResult(strippedUrl);
+	}
+
+	/// <summary>
+	/// Validates that the width and height requests are compatible with the current <see cref="ResizeMode"/>.
+	/// </summary>
+	protected void ValidateSizeRequests()
+	{
+		if (ResizeMode is not DynamicResizeMode.UseWidth && HeightRequest <= 0)
+			throw new InvalidOperationException($"A value for {nameof(HeightRequest)} must be provided when the resize mode is anything other than {nameof(DynamicResizeMode.UseWidth)}");
+
+		if (ResizeMode is not DynamicResizeMode.UseHeight && WidthRequest <= 0)
+			throw new InvalidOperationException($"A value for {nameof(WidthRequest)} must be provided when the resize mode is anything other than {nameof(DynamicResizeMode.UseHeight)}");
+	}
+
+	/// <summary>
+	/// Validates the specified source URL and removes the configured prefix from it.
+	/// </summary>
+	/// <param name="src">The source URL.</param>
+	/// <returns>The source path with the configured prefix removed.</returns>
+	/// <exception cref="UmbrellaWebException">Thrown if <paramref name="src"/> is <see langword="null"/> or empty.</exception>
+	protected string ResolveSourcePath(string? src)
+	{
+		string? trimmed = src?.Trim();
+
+		return string.IsNullOrEmpty(trimmed)
+			? throw new UmbrellaWebException("src cannot be null or empty.")
+			: StripUrlPrefix(trimmed);
+	}
+
+	/// <summary>
+	/// Builds a <![CDATA[<source>]]> tag for the specified format.
+	/// </summary>
+	/// <param name="sourcePath">The source path with the configured prefix already removed.</param>
+	/// <param name="format">The image format.</param>
+	/// <param name="media">The optional value of the <c>media</c> attribute.</param>
+	/// <returns>The source tag.</returns>
+	protected TagBuilder BuildSourceTag(string sourcePath, DynamicImageFormat format, string? media = null)
+	{
+		Guard.IsNotNullOrWhiteSpace(sourcePath);
+
+		var source = new TagBuilder("source")
+		{
+			TagRenderMode = TagRenderMode.SelfClosing
+		};
+
+		if (!string.IsNullOrWhiteSpace(media))
+			source.Attributes.Add("media", media);
+
+		source.Attributes.Add("type", format.ToMimeTypeString());
+		source.Attributes.Add("srcset", GetSrcSetValue(sourcePath, format));
+
+		return source;
+	}
+
+	/// <summary>
+	/// Gets the value of the <c>srcset</c> attribute for the specified source path and format using the current tag helper configuration.
+	/// </summary>
+	/// <param name="sourcePath">The source path with the configured prefix already removed.</param>
+	/// <param name="format">The image format.</param>
+	/// <returns>The <c>srcset</c> value.</returns>
+	protected string GetSrcSetValue(string sourcePath, DynamicImageFormat format)
+	{
+		Guard.IsNotNullOrWhiteSpace(sourcePath);
+
+		string cacheKey = CacheKeyUtility.Create<DynamicImageTagHelperBase>($"{sourcePath}:{VersionToken}:{WidthRequest}:{HeightRequest}:{ResizeMode}:{format}:{FilterQuality}:{QualityRequest}:{FocalPointX}:{FocalPointY}:{ImageMaxPixelDensity}:{SizeWidths}");
+
+		return Cache.GetOrCreate(
+			cacheKey,
+			entry =>
+			{
+				_ = entry
+					.SetAbsoluteExpiration(TimeSpan.FromHours(1))
+					.SetPriority(CacheItemPriority.Low);
+
+				IReadOnlyCollection<int> sizeWidths = ResponsiveImageHelper.GetParsedIntegerItems(SizeWidths ?? "");
+				DynamicImageOptions options = CreateDynamicImageOptions(sourcePath, WidthRequest, HeightRequest, format);
+				string src = ResolveImageUrl(GenerateVirtualPath(options));
+
+				string? srcSet = sizeWidths.Count is 0
+					? ResponsiveImageHelper.GetPixelDensitySrcSetValue(src, ImageMaxPixelDensity)
+					: ResponsiveImageHelper.GetSizeSrcSetValue(sourcePath, SizeWidths ?? "", ImageMaxPixelDensity, WidthRequest, HeightRequest, x =>
+					{
+						DynamicImageOptions sizeOptions = CreateDynamicImageOptions(sourcePath, x.imageWidth, x.imageHeight, format);
+						return ResolveImageUrl(GenerateVirtualPath(sizeOptions));
+					});
+
+				return string.IsNullOrWhiteSpace(srcSet) ? src : srcSet;
+			}) ?? string.Empty;
 	}
 
 	/// <inheritdoc/>

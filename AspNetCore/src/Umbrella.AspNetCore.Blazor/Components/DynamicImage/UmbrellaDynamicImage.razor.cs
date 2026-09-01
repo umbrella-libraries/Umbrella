@@ -11,6 +11,10 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage;
 /// <summary>
 /// A component used to render images in conjunction with the <see cref="Umbrella.DynamicImage"/> infrastructure.
 /// </summary>
+/// <remarks>
+/// Nested <see cref="UmbrellaDynamicImageSource"/> components can be used to contribute art directed sources that are rendered before the
+/// automatically generated format sources.
+/// </remarks>
 /// <seealso cref="UmbrellaResponsiveImage" />
 public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 {
@@ -89,6 +93,12 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 	public string? SizeWidths { get; set; }
 
 	/// <summary>
+	/// Gets or sets the nested content, which can only contain <see cref="UmbrellaDynamicImageSource"/> components.
+	/// </summary>
+	[Parameter]
+	public RenderFragment? ChildContent { get; set; }
+
+	/// <summary>
 	/// Gets or sets the source value.
 	/// </summary>
 	protected string SrcValue { get; set; } = null!;
@@ -98,64 +108,46 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 	/// </summary>
 	protected IReadOnlyCollection<DynamicImagePictureSource> PictureSources { get; set; } = [];
 
+	/// <summary>
+	/// Gets the context cascaded to any nested <see cref="UmbrellaDynamicImageSource"/> components.
+	/// </summary>
+	protected UmbrellaDynamicImageContext? Context { get; set; }
+
 	/// <inheritdoc />
 	protected override void OnParametersSet()
 	{
 		Guard.IsNotNullOrWhiteSpace(Url, nameof(Url));
 		Guard.IsGreaterThanOrEqualTo(WidthRequest, 1);
 		Guard.IsGreaterThanOrEqualTo(HeightRequest, 1);
-		ValidateFocalPoint();
+
+		InitializeImage();
 	}
 
 	/// <inheritdoc />
-	protected override async Task OnParametersSetAsync()
-	{
-		await InitializeImageAsync();
-	}
-
-	private async Task InitializeImageAsync()
+	protected override void InitializeImage()
 	{
 		if (Url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
 		{
 			SrcValue = Url;
 			SrcSetValue = ResponsiveImageHelper.GetPixelDensitySrcSetValue(SrcValue, MaxPixelDensity);
 			PictureSources = [];
+			Context = null;
+
+			if (ChildContent is not null)
+				throw new InvalidOperationException($"{nameof(UmbrellaDynamicImageSource)} components cannot be nested inside an {nameof(UmbrellaDynamicImage)} component that refers to an external URL.");
+
 			return;
 		}
 
-		string strippedUrl = StripUrlPrefix(Url);
-		DynamicImageOptions options = CreateDynamicImageOptions(strippedUrl, WidthRequest, HeightRequest, ImageFormat);
+		var context = new UmbrellaDynamicImageContext(Options, DynamicImageUtility, ResponsiveImageHelper, CreateSettings());
+		DynamicImageSourceSettings settings = context.Settings;
 
-		SrcValue = DynamicImageUtility.GenerateVirtualPath(Options.DynamicImagePathPrefix, options).TrimStart('~').Replace("//", "/", StringComparison.Ordinal);
-		SrcSetValue = GetSrcSetValue(strippedUrl, ImageFormat, SrcValue);
-		PictureSources =
-		[
-			.. Options.PictureSourceFormats
-				.Where(x => x != ImageFormat)
-				.Select(x =>
-				{
-					DynamicImageOptions sourceOptions = CreateDynamicImageOptions(strippedUrl, WidthRequest, HeightRequest, x);
-					string sourceUrl = DynamicImageUtility.GenerateVirtualPath(Options.DynamicImagePathPrefix, sourceOptions).TrimStart('~').Replace("//", "/", StringComparison.Ordinal);
-					return new DynamicImagePictureSource(x is DynamicImageFormat.Avif ? "image/avif" : "image/webp", GetSrcSetValue(strippedUrl, x, sourceUrl));
-				})
-		];
-	}
+		settings.ValidateFocalPoint();
 
-	private string GetSrcSetValue(string sourcePath, DynamicImageFormat format, string src)
-	{
-		// TODO: Can't we just check for an empty string here or null? This parsing is done internally as well so it's a waste of time.
-		IReadOnlyCollection<int> lstSizeWidth = ResponsiveImageHelper.GetParsedIntegerItems(SizeWidths ?? "");
-
-		string? srcSet = lstSizeWidth.Count is 0
-			? ResponsiveImageHelper.GetPixelDensitySrcSetValue(src, MaxPixelDensity)
-			: ResponsiveImageHelper.GetSizeSrcSetValue(sourcePath, SizeWidths ?? "", MaxPixelDensity, WidthRequest, HeightRequest, x =>
-			{
-				DynamicImageOptions options = CreateDynamicImageOptions(sourcePath, x.imageWidth, x.imageHeight, format);
-
-				return DynamicImageUtility.GenerateVirtualPath(Options.DynamicImagePathPrefix, options).TrimStart('~').Replace("//", "/", StringComparison.Ordinal);
-			});
-
-		return string.IsNullOrWhiteSpace(srcSet) ? src : srcSet;
+		SrcValue = context.GenerateUrl(settings, settings.ImageFormat);
+		SrcSetValue = context.GetSrcSetValue(settings, settings.ImageFormat);
+		PictureSources = context.CreateSources(settings, media: null, includeFallbackFormat: false);
+		Context = context;
 	}
 
 	/// <summary>
@@ -173,36 +165,21 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 		return !string.IsNullOrEmpty(Options.StripPrefix) && url.StartsWith(Options.StripPrefix, StringComparison.OrdinalIgnoreCase) ? url[Options.StripPrefix.Length..] : url;
 	}
 
-	private DynamicImageOptions CreateDynamicImageOptions(string sourcePath, int width, int height, DynamicImageFormat format)
-		=> new(
-			sourcePath,
-			width,
-			height,
-			ResizeMode,
-			format,
-			focalPointX: FocalPointX,
-			focalPointY: FocalPointY,
-			versionToken: VersionToken);
-
-	private void ValidateFocalPoint()
+	private DynamicImageSourceSettings CreateSettings()
 	{
-		if (FocalPointX.HasValue != FocalPointY.HasValue)
-			throw new ArgumentException($"Both {nameof(FocalPointX)} and {nameof(FocalPointY)} must be defined if either is specified.");
-
-		if (!FocalPointX.HasValue)
-			return;
-
-		Guard.IsBetweenOrEqualTo(FocalPointX.Value, 0, 1);
-		Guard.IsBetweenOrEqualTo(FocalPointY!.Value, 0, 1);
-
-		if (ResizeMode is not DynamicResizeMode.CropFocalPoint)
-			throw new InvalidOperationException($"{nameof(FocalPointX)} and {nameof(FocalPointY)} can only be used with {nameof(DynamicResizeMode.CropFocalPoint)}.");
+		return new DynamicImageSourceSettings
+		{
+			// The prefix has to be stripped before the settings are built because nested sources inherit this URL as-is.
+			Url = StripUrlPrefix(Url),
+			WidthRequest = WidthRequest,
+			HeightRequest = HeightRequest,
+			ResizeMode = ResizeMode,
+			ImageFormat = ImageFormat,
+			MaxPixelDensity = MaxPixelDensity,
+			SizeWidths = SizeWidths,
+			FocalPointX = FocalPointX,
+			FocalPointY = FocalPointY,
+			VersionToken = VersionToken
+		};
 	}
-
-	/// <summary>
-	/// Describes a source rendered inside the picture element.
-	/// </summary>
-	/// <param name="ContentType">The source MIME type.</param>
-	/// <param name="SrcSet">The responsive source set.</param>
-	protected sealed record DynamicImagePictureSource(string ContentType, string SrcSet);
 }

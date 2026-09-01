@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -25,6 +25,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 
 	// Blazor component
 	private const string DynamicImageComponentTypeName = "Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage";
+	private const string DynamicImageSourceComponentTypeName = "Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImageSource";
 	private const string FileImagePreviewUploadComponentTypeName = "Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload.UmbrellaFileImagePreviewUpload";
 
 	// MVC tag helpers
@@ -100,6 +101,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 
 		bool hasDynamicImageComponentType = compilation.GetTypeByMetadataName(DynamicImageComponentTypeName) is not null;
 		bool hasFileImagePreviewUploadComponentType = compilation.GetTypeByMetadataName(FileImagePreviewUploadComponentTypeName) is not null;
+		bool hasDynamicImageSourceComponentType = compilation.GetTypeByMetadataName(DynamicImageSourceComponentTypeName) is not null;
 		bool hasComponentType = hasDynamicImageComponentType || hasFileImagePreviewUploadComponentType;
 		bool hasImageTagHelperType = compilation.GetTypeByMetadataName(DynamicImageTagHelperTypeName) is not null;
 		bool hasPictureSourceTagHelperType = compilation.GetTypeByMetadataName(DynamicImagePictureSourceTagHelperTypeName) is not null;
@@ -146,7 +148,8 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			hasDynamicImageComponentType,
 			hasFileImagePreviewUploadComponentType,
 			hasImageTagHelperType,
-			hasPictureSourceTagHelperType);
+			hasPictureSourceTagHelperType,
+			hasDynamicImageSourceComponentType);
 		var resizeModeValues = GetEnumValueMap(resizeModeType);
 		var imageFormatValues = GetEnumValueMap(imageFormatType);
 
@@ -167,16 +170,14 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		ISet<VariantEntry> variants)
 	{
 		bool isTagHelper = usage.Kind is DynamicImageRazorUsageKind.ImageTagHelper or DynamicImageRazorUsageKind.PictureSourceTagHelper;
-		bool supportsSizeWidths = usage.Kind is not DynamicImageRazorUsageKind.PictureSourceTagHelper;
 		var attributes = new Dictionary<string, DynamicImageRazorAttribute>(StringComparer.OrdinalIgnoreCase);
 
-		foreach (DynamicImageRazorAttribute attribute in usage.Attributes)
-		{
-			string normalizedName = NormalizeRazorAttributeName(attribute.Name, isTagHelper);
+		// A nested source inherits every attribute it does not declare itself, so the parent's attributes are applied first and then
+		// overwritten by the ones declared on the source.
+		if (usage.Parent is not null)
+			AddNormalizedAttributes(usage.Parent.Attributes, isTagHelper, attributes);
 
-			if (normalizedName.Length > 0)
-				attributes[normalizedName] = attribute;
-		}
+		AddNormalizedAttributes(usage.Attributes, isTagHelper, attributes);
 
 		bool isFileImagePreviewUpload = usage.Kind is DynamicImageRazorUsageKind.FileImagePreviewUploadComponent;
 
@@ -247,8 +248,7 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 			imageFormat = parsedImageFormat;
 		}
 
-		if (supportsSizeWidths &&
-			attributes.TryGetValue("SizeWidths", out DynamicImageRazorAttribute? sizeWidthsAttribute) &&
+		if (attributes.TryGetValue("SizeWidths", out DynamicImageRazorAttribute? sizeWidthsAttribute) &&
 			DynamicImageRazorSourceParser.TryGetStaticString(sizeWidthsAttribute.Value, out string sizeWidthsValue))
 		{
 			sizeWidths = ParseSizeWidths(sizeWidthsValue);
@@ -270,7 +270,9 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 				ImageFormat = imageFormat,
 				MaxPixelDensity = maxPixelDensity,
 				SizeWidths = sizeWidths,
-				IncludeAutomaticPictureFormats = usage.Kind is DynamicImageRazorUsageKind.ImageTagHelper
+				// A nested source renders the configured picture source formats as well as its own fallback format, exactly like the
+				// image element it is declared inside.
+				IncludeAutomaticPictureFormats = true
 			};
 			AddTagHelperVariants(parameters, variants);
 		}
@@ -553,12 +555,15 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 
 		string typeFullName = methodSymbol.TypeArguments[0].ToDisplayString();
 
-		if (string.Equals(typeFullName, DynamicImageTagHelperTypeName, StringComparison.Ordinal))
+		// Both helpers support size widths and render the configured picture source formats. A nested source additionally renders its own
+		// fallback format, which is covered by the same set of variants.
+		if (string.Equals(typeFullName, DynamicImageTagHelperTypeName, StringComparison.Ordinal) ||
+			string.Equals(typeFullName, DynamicImagePictureSourceTagHelperTypeName, StringComparison.Ordinal))
 		{
 			supportsSizeWidths = true;
 			includeAutomaticPictureFormats = true;
 		}
-		else if (!string.Equals(typeFullName, DynamicImagePictureSourceTagHelperTypeName, StringComparison.Ordinal))
+		else
 		{
 			return false;
 		}
@@ -1056,6 +1061,20 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		}
 
 		_ = builder.AppendLine("\t}");
+	}
+
+	private static void AddNormalizedAttributes(
+		ImmutableArray<DynamicImageRazorAttribute> source,
+		bool isTagHelper,
+		Dictionary<string, DynamicImageRazorAttribute> target)
+	{
+		foreach (DynamicImageRazorAttribute attribute in source)
+		{
+			string normalizedName = NormalizeRazorAttributeName(attribute.Name, isTagHelper);
+
+			if (normalizedName.Length > 0)
+				target[normalizedName] = attribute;
+		}
 	}
 
 	private static string NormalizeRazorAttributeName(string name, bool isTagHelper)

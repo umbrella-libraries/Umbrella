@@ -39,23 +39,39 @@ public static class Mocks
 
 	public static IMemoryCache CreateMemoryCache() => new MemoryCache(Options.Create(new MemoryCacheOptions()));
 
-	public static TagHelperContext CreateTagHelperContext(TagHelperAttributeList attributes) => new(
+	public static TagHelperContext CreateTagHelperContext(TagHelperAttributeList attributes) => CreateTagHelperContext(attributes, new Dictionary<object, object>());
+
+	/// <summary>
+	/// Creates a <see cref="TagHelperContext"/> using the specified items dictionary. Pass a copy of a parent context's items to mimic the
+	/// way the Razor infrastructure propagates them to the scope of a child tag helper.
+	/// </summary>
+	public static TagHelperContext CreateTagHelperContext(TagHelperAttributeList attributes, IDictionary<object, object> items) => new(
 			attributes,
-			items: new Dictionary<object, object>(),
+			items,
 			uniqueId: Guid.NewGuid().ToString("N"));
 
 	public static TagHelperOutput CreateImageTagHelperOutput(TagHelperAttributeList attributes, string tagName)
+		=> CreateImageTagHelperOutput(attributes, tagName, executeChildrenAsync: null);
+
+	/// <summary>
+	/// Creates a <see cref="TagHelperOutput"/> whose child content delegate runs <paramref name="executeChildrenAsync"/>, which is how the
+	/// Razor infrastructure executes nested tag helpers when the parent calls <see cref="TagHelperOutput.GetChildContentAsync()"/>.
+	/// </summary>
+	public static TagHelperOutput CreateImageTagHelperOutput(TagHelperAttributeList attributes, string tagName, Func<Task>? executeChildrenAsync)
 	{
 		attributes ??= [];
 
 		return new TagHelperOutput(
 			tagName,
 			attributes,
-			getChildContentAsync: (useCachedResult, encoder) =>
+			getChildContentAsync: async (useCachedResult, encoder) =>
 			{
+				if (executeChildrenAsync is not null)
+					await executeChildrenAsync();
+
 				var tagHelperContent = new DefaultTagHelperContent();
 				_ = tagHelperContent.SetContent(default);
-				return Task.FromResult<TagHelperContent>(tagHelperContent);
+				return tagHelperContent;
 			});
 	}
 

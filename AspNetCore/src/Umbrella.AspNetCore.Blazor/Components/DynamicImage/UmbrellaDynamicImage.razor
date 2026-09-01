@@ -1,6 +1,14 @@
-﻿@inherits Umbrella.AspNetCore.Blazor.Components.ResponsiveImage.UmbrellaResponsiveImage
+@inherits Umbrella.AspNetCore.Blazor.Components.ResponsiveImage.UmbrellaResponsiveImage
 
 <picture class="u-dynamic-image @CssClass">
+    @* Art directed sources are rendered first. Browsers use the first source with a matching media condition and a supported type, so the
+       format sources below would otherwise win regardless of the media conditions declared on the children. *@
+    @if (ChildContent is not null && Context is not null)
+    {
+        <CascadingValue Value="Context">
+            @ChildContent
+        </CascadingValue>
+    }
     @foreach (DynamicImagePictureSource source in PictureSources)
     {
         <source type="@source.ContentType" srcset="@source.SrcSet" />

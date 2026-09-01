@@ -19,6 +19,7 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	private const string EnableUrlFingerprintingPropertyName = "EnableUrlFingerprinting";
 	private const string EnableUrlFingerprintingBuildPropertyName = "build_property.UmbrellaDynamicImageEnableUrlFingerprinting";
 	private const string DynamicImageComponentTypeName = "Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImage";
+	private const string DynamicImageSourceComponentTypeName = "Umbrella.AspNetCore.Blazor.Components.DynamicImage.UmbrellaDynamicImageSource";
 	private const string FileImagePreviewUploadComponentTypeName = "Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload.UmbrellaFileImagePreviewUpload";
 
 	private static readonly string[] _dynamicImagePropertyIndicators =
@@ -275,7 +276,8 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 	{
 		bool hasDynamicImageComponentType = context.Compilation.GetTypeByMetadataName(DynamicImageComponentTypeName) is not null;
 		bool hasFileImagePreviewUploadComponentType = context.Compilation.GetTypeByMetadataName(FileImagePreviewUploadComponentTypeName) is not null;
-		bool hasComponentType = hasDynamicImageComponentType || hasFileImagePreviewUploadComponentType;
+		bool hasDynamicImageSourceComponentType = context.Compilation.GetTypeByMetadataName(DynamicImageSourceComponentTypeName) is not null;
+		bool hasComponentType = hasDynamicImageComponentType || hasFileImagePreviewUploadComponentType || hasDynamicImageSourceComponentType;
 		bool hasImageTagHelperType = context.Compilation.GetTypeByMetadataName("Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.DynamicImageTagHelper") is not null;
 		bool hasPictureSourceTagHelperType = context.Compilation.GetTypeByMetadataName("Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.DynamicImagePictureSourceTagHelper") is not null;
 
@@ -296,7 +298,8 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 			hasDynamicImageComponentType,
 			hasFileImagePreviewUploadComponentType,
 			hasImageTagHelperType,
-			hasPictureSourceTagHelperType))
+			hasPictureSourceTagHelperType,
+			hasDynamicImageSourceComponentType))
 		{
 			bool isTagHelper = usage.Kind is DynamicImageRazorUsageKind.ImageTagHelper or DynamicImageRazorUsageKind.PictureSourceTagHelper;
 			bool isFileImagePreviewUpload = usage.Kind is DynamicImageRazorUsageKind.FileImagePreviewUploadComponent;

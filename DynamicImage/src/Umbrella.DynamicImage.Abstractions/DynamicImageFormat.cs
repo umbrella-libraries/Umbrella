@@ -60,4 +60,23 @@ public static class DynamicImageFormatExtensions
 		DynamicImageFormat.Avif => "avif",
 		_ => throw new NotSupportedException($"The specified format: {value} is not supported.")
 	};
+
+	/// <summary>
+	/// Converts a <see cref="DynamicImageFormat"/> value to its corresponding MIME type.
+	/// </summary>
+	/// <param name="value">The value.</param>
+	/// <returns>The MIME type.</returns>
+	/// <remarks>
+	/// This is used to populate the <c>type</c> attribute of the <![CDATA[<source>]]> tags rendered inside a <![CDATA[<picture>]]> element.
+	/// </remarks>
+	public static string ToMimeTypeString(this DynamicImageFormat value) => value switch
+	{
+		DynamicImageFormat.Jpeg => "image/jpeg",
+		DynamicImageFormat.Bmp => "image/bmp",
+		DynamicImageFormat.Gif => "image/gif",
+		DynamicImageFormat.Png => "image/png",
+		DynamicImageFormat.WebP => "image/webp",
+		DynamicImageFormat.Avif => "image/avif",
+		_ => throw new NotSupportedException($"The specified format: {value} is not supported.")
+	};
 }

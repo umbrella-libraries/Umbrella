@@ -49,7 +49,7 @@ Razor discovery understands:
 
 - `UmbrellaDynamicImage`;
 - `UmbrellaFileImagePreviewUpload`;
-- `dynamic-image` and `dynamic-source` tag helpers;
+- `dynamic-image` and `dynamic-source` tag helpers, and `UmbrellaDynamicImage` and `UmbrellaDynamicImageSource` components, including the inheritance a nested source resolves from the element it is declared inside;
 - effective `_Imports.razor`, `_ViewImports.cshtml`, `@using`, `@addTagHelper`, and `@removeTagHelper` directives.
 
 Width, height, density, and size-width values must be literals. Resize mode and image format may use type-qualified enum members, fully qualified enum members, or unqualified enum members when the matching enum type is imported by an effective simple or fully qualified `@using static` directive. A static import for one enum does not authorize unqualified members of the other enum. Do not use constant references, `@Model` bindings, or mixed literal/expression strings for variant-shaping inputs. UWDI004 identifies unsupported inputs and the generator omits the whole occurrence rather than emitting a false default variant.
@@ -107,7 +107,11 @@ options.PictureSourceFormats =
 
 Use either the named catalogs or the aggregate catalog. Do not register both unless duplicate registration is intentional; the `HashSet` deduplicates entries, but duplication obscures ownership.
 
-Catalog variants authorize transforms requested by the URL. Automatic `UmbrellaDynamicImage`, `UmbrellaFileImagePreviewUpload`, and `dynamic-image` usages register their fallback, WebP, and AVIF variants because runtime picture-source options can select those explicit URLs. Manual `dynamic-source` usages register only their declared format.
+Catalog variants authorize transforms requested by the URL. `UmbrellaDynamicImage`, `UmbrellaFileImagePreviewUpload`, `dynamic-image`, `UmbrellaDynamicImageSource`, and `dynamic-source` usages all register their fallback, WebP, and AVIF variants because runtime picture-source options can select those explicit URLs.
+
+Nested sources are discovered from the Razor source. That is the only path that sees Razor markup: the generator's MSBuild targets add every `.razor` and `.cshtml` file as an `AdditionalFiles` entry whenever the Razor SDK is in use, and the generator's C# pass explicitly skips Razor-generated syntax trees. Inheritance is resolved there, so a source that declares only its own size still catalogs the resize mode and format of the element it is declared inside.
+
+The C# pass covers hand-authored code that constructs the components or tag helpers directly. It has no notion of nesting, so a tag helper constructed in C# is treated as a standalone usage and resolves anything it does not assign from the type defaults.
 
 ## URL and version-token propagation
 
@@ -172,6 +176,43 @@ The MVC tag helper exposes the same runtime inputs using kebab-case attributes:
                focal-point-x="@Model.ImageFocalPointX"
                focal-point-y="@Model.ImageFocalPointY" />
 ```
+
+## Art directed sources
+
+`dynamic-image` renders a `picture` element and negotiates format automatically. To vary the crop by media condition, nest `dynamic-source` elements inside it:
+
+```cshtml
+<dynamic-image src="@Model.ImageUrl" version-token="@Model.ImageVersionToken" width-request="1600" height-request="600" alt="Hero">
+    <dynamic-source media="(max-width: 599px)" width-request="600" height-request="800" />
+    <dynamic-source media="(max-width: 1023px)" width-request="1024" height-request="480" />
+</dynamic-image>
+```
+
+The Blazor equivalent nests `UmbrellaDynamicImageSource` components inside `UmbrellaDynamicImage`.
+
+Rules that apply to both:
+
+- A nested source must declare `media`, and must be nested inside its parent element. Using one anywhere else fails before rendering.
+- Any attribute a source does not declare is inherited from its parent, including `src`/`Url` and the version token. A focal point is inherited only when the effective resize mode is still `CropFocalPoint`.
+- Each source renders one `source` element per configured picture source format plus one using its own fallback format. The fallback is required because a browser that has matched a media condition will not fall back to the `img` element when it supports none of the formats offered for that condition.
+- Sources render in declaration order, before the automatic format sources and the `img`. Browsers use the first `source` with a matching media condition and a supported type, so a source declared after the automatic ones would never be selected.
+- A parent whose `src` is an external HTTP(S) URL cannot contain nested sources.
+- A nested source never receives the `id` attribute: one element renders several `source` tags, so both implementations discard it rather than repeat it. Apply `sizes` whenever size widths are in play, otherwise the browser assumes `100vw` and can select a larger candidate than the layout needs.
+
+### Migrating existing markup
+
+`dynamic-image` now renders as a normal or self-closing element rather than a void one, so a start tag with neither a closing slash nor an end tag no longer compiles:
+
+```cshtml
+<!-- No longer valid -->
+<dynamic-image src="@Model.ImageUrl" width-request="400" height-request="200">
+
+<!-- Use either form -->
+<dynamic-image src="@Model.ImageUrl" width-request="400" height-request="200" />
+<dynamic-image src="@Model.ImageUrl" width-request="400" height-request="200"></dynamic-image>
+```
+
+Razor reports this as a missing end tag at build time, so no usage can slip through unnoticed.
 
 Supply both coordinates or neither. Each value is a normalized `double` from `0` through `1`, with X measured from the left and Y from the top. Supplying either coordinate with any resize mode other than `CropFocalPoint`, supplying only one coordinate, or supplying an out-of-range value fails before rendering. Omitting both coordinates preserves the resizer's existing default focal behavior.
 
