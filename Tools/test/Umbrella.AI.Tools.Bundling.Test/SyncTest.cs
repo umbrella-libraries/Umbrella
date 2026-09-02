@@ -105,6 +105,54 @@ public class SyncTest
     }
 
     [Fact]
+    public void SyncKeepsAnotherInstalledBundlesSkillsAndAgentsOutOfThisBundlesCatalogueBlock()
+    {
+        // An authoring repo can also have bundles installed into it, and both bundles' adapters land
+        // in the same .claude\skills and .claude\agents directories. The catalogue block must
+        // enumerate this bundle's canonical sources, not the shared destinations, or every bundle
+        // ends up advertising its sibling's content under its own heading.
+        using var alpha = FixtureBundle.Create("alpha", catalogName: "Fixture");
+        using var beta = FixtureBundle.Create("beta", catalogName: "Other");
+        using var repo = new TemporaryDirectory(asRepository: true);
+
+        Assert.True(alpha.CreateInstaller().Install(new CommandOptions { TargetPath = repo.Path }).Success);
+        Assert.True(beta.CreateInstaller().Install(new CommandOptions { TargetPath = repo.Path }).Success);
+
+        alpha.CopyCanonicalSourcesTo(repo.Path);
+
+        // beta's adapters really are present in the directories the block points readers at.
+        Assert.True(File.Exists(repo.Combine(".claude", "agents", "beta-sample-agent.md")));
+        Assert.True(File.Exists(repo.Combine(".claude", "skills", "beta-sample-skill", "SKILL.md")));
+
+        var result = alpha.CreateInstaller().Sync(repo.Path);
+        Assert.True(result.Success, string.Join("; ", result.Conflicts));
+
+        string block = File.ReadAllText(repo.Combine(".ai-shared", "bundles", "alpha", "blocks", "CLAUDE.block.md"));
+        Assert.Contains("`alpha-sample-skill` -- Sample skill for alpha.", block, StringComparison.Ordinal);
+        Assert.Contains(@"Playbook: `.claude\agents\alpha-sample-agent.md`", block, StringComparison.Ordinal);
+        Assert.DoesNotContain("beta-sample-agent", block, StringComparison.Ordinal);
+        Assert.DoesNotContain("beta-sample-skill", block, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SyncFailsWhenACatalogueBlockNamesADirectoryNoAdapterGenerates()
+    {
+        // Without a declared adapter source there is no bundle-owned content to enumerate, so the
+        // block would silently fall back to a shared destination. Say so instead.
+        using var fixture = FixtureBundle.Create("alpha");
+        string bundlePath = Path.Combine(fixture.AssetRoot, ".ai-shared", "bundles", "alpha", "bundle.json");
+        JsonObject bundle = JsonNode.Parse(File.ReadAllText(bundlePath))!.AsObject();
+        bundle["skillListBlocks"]![0]!["agentsDirectory"] = @".github\agents";
+        File.WriteAllText(bundlePath, bundle.ToJsonString());
+
+        var result = fixture.CreateInstaller().Sync(fixture.AssetRoot);
+
+        Assert.False(result.Success);
+        Assert.Contains(result.Conflicts, x => x.Contains(@"agentsDirectory", StringComparison.Ordinal)
+            && x.Contains(@".github\agents", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void SyncMirrorsCanonicalServersIntoCompatibilityEntriesAndTheCodexRegion()
     {
         using var fixture = FixtureBundle.Create("alpha", new JsonObject { ["sample"] = ConfigAssert.StdioServer("sample") });

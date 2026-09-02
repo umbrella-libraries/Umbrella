@@ -73,6 +73,28 @@ internal sealed class FixtureBundle : IDisposable
     public AiBundleInstaller CreateInstaller() => new(Options, AssetRoot);
 
     /// <summary>
+    /// Copies this bundle's canonical skill and agent sources into <paramref name="repoRoot"/>, making
+    /// a repository that bundles were installed into an authoring repository for this bundle too.
+    /// That is the shape of a real repository which owns one bundle and consumes another.
+    /// </summary>
+    public void CopyCanonicalSourcesTo(string repoRoot)
+    {
+        foreach (string directory in new[] { "skills", "agents" })
+        {
+            string source = Path.Combine(AssetRoot, ".ai-shared", directory);
+            string destination = Path.Combine(repoRoot, ".ai-shared", directory);
+            _ = Directory.CreateDirectory(destination);
+
+            foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+            {
+                string target = Path.Combine(destination, Path.GetRelativePath(source, file));
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.Copy(file, target, overwrite: true);
+            }
+        }
+    }
+
+    /// <summary>
     /// Writes a complete bundle: one skill, one agent, a catalogue block, a managed doc block, MCP
     /// servers, and optionally a starter file.
     /// </summary>

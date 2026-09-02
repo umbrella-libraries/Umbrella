@@ -243,8 +243,7 @@ public class McpCoOwnershipTest
 
         // Installing already placed .ai-shared\bundles\alpha there; adding alpha's canonical sources
         // makes the same directory an authoring repo for alpha as well as an install target.
-        CopyDirectory(Path.Combine(alpha.AssetRoot, ".ai-shared", "skills"), repo.Combine(".ai-shared", "skills"));
-        CopyDirectory(Path.Combine(alpha.AssetRoot, ".ai-shared", "agents"), repo.Combine(".ai-shared", "agents"));
+        alpha.CopyCanonicalSourcesTo(repo.Path);
 
         var syncResult = alpha.CreateInstaller().Sync(repo.Path);
         Assert.True(syncResult.Success, string.Join("; ", syncResult.Conflicts));
@@ -326,18 +325,6 @@ public class McpCoOwnershipTest
 
         Assert.False(status.Success);
         Assert.Contains(status.Conflicts, x => x.Contains("Codex MCP region content drifted", StringComparison.Ordinal));
-    }
-
-    private static void CopyDirectory(string source, string destination)
-    {
-        _ = Directory.CreateDirectory(destination);
-
-        foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
-        {
-            string target = Path.Combine(destination, Path.GetRelativePath(source, file));
-            _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            File.Copy(file, target, overwrite: true);
-        }
     }
 
     private static string[] ManifestServerNames(string repoRoot, string bundleId)

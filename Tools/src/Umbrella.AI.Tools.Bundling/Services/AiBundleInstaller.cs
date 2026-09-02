@@ -100,25 +100,49 @@ public sealed partial class AiBundleInstaller
             }
         }
 
-        if (bundle.SkillListBlocks.Count > 0)
-        {
-            string firstBlockSkillsDir = bundle.SkillListBlocks[0].SkillsDirectory;
-            string skillsSource = Path.Combine(repoRoot, NormalizePath(
-                bundle.AdapterDirectories
-                    .FirstOrDefault(a => a.Targets.Any(t => t.Destination.Equals(firstBlockSkillsDir, StringComparison.OrdinalIgnoreCase)))
-                    ?.Source ?? Path.Combine(".ai-shared", "skills")));
-            List<(string Name, string Description)> skills = ReadSkillMetadata(skillsSource);
+        // Several blocks routinely resolve to the same canonical source, so each source is read once.
+        var skillsBySource = new Dictionary<string, List<(string Name, string Description)>>(StringComparer.OrdinalIgnoreCase);
+        var agentsBySource = new Dictionary<string, List<(string Name, string Description, string FileName)>>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (SkillListBlockDefinition blockConfig in bundle.SkillListBlocks)
+        foreach (SkillListBlockDefinition blockConfig in bundle.SkillListBlocks)
+        {
+            // Catalogue blocks enumerate the canonical sources this bundle owns, never the adapter
+            // destinations they are generated into. Destinations such as '.claude\agents' are shared
+            // by every bundle installed into a repository, so reading them would list a sibling
+            // bundle's skills and agents under this bundle's catalogue heading.
+            if (!TryResolveAdapterSource(bundle, repoRoot, blockConfig.SkillsDirectory, out string skillsSource))
             {
-                List<(string Name, string Description, string FileName)> agents = string.IsNullOrWhiteSpace(blockConfig.AgentsDirectory)
-                    ? []
-                    : ReadAgentMetadata(Path.Combine(repoRoot, NormalizePath(blockConfig.AgentsDirectory)));
-                string blockPath = Path.Combine(repoRoot, NormalizePath(blockConfig.TargetPath));
-                _ = Directory.CreateDirectory(Path.GetDirectoryName(blockPath)!);
-                File.WriteAllText(blockPath, GenerateSkillListBlock(bundle.ResolvedCatalogName, skills, blockConfig.SkillsDirectory, agents, blockConfig.AgentsDirectory));
-                result.Messages.Add($"Generated: {NormalizePath(blockConfig.TargetPath)}");
+                return AdapterSourceLookupFailure(blockConfig.SkillsDirectory, "skillsDirectory", blockConfig.TargetPath);
             }
+
+            if (!skillsBySource.TryGetValue(skillsSource, out List<(string Name, string Description)>? skills))
+            {
+                skills = ReadSkillMetadata(skillsSource);
+                skillsBySource[skillsSource] = skills;
+            }
+
+            List<(string Name, string Description, string FileName)> agents = [];
+
+            if (!string.IsNullOrWhiteSpace(blockConfig.AgentsDirectory))
+            {
+                if (!TryResolveAdapterSource(bundle, repoRoot, blockConfig.AgentsDirectory, out string agentsSource))
+                {
+                    return AdapterSourceLookupFailure(blockConfig.AgentsDirectory, "agentsDirectory", blockConfig.TargetPath);
+                }
+
+                if (!agentsBySource.TryGetValue(agentsSource, out List<(string Name, string Description, string FileName)>? cachedAgents))
+                {
+                    cachedAgents = ReadAgentMetadata(agentsSource);
+                    agentsBySource[agentsSource] = cachedAgents;
+                }
+
+                agents = cachedAgents;
+            }
+
+            string blockPath = Path.Combine(repoRoot, NormalizePath(blockConfig.TargetPath));
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(blockPath)!);
+            File.WriteAllText(blockPath, GenerateSkillListBlock(bundle.ResolvedCatalogName, skills, blockConfig.SkillsDirectory, agents, blockConfig.AgentsDirectory));
+            result.Messages.Add($"Generated: {NormalizePath(blockConfig.TargetPath)}");
         }
 
         // Re-check every target against a fresh read of its source. This catches sources
@@ -240,6 +264,33 @@ public sealed partial class AiBundleInstaller
 
         return null;
     }
+
+    /// <summary>
+    /// Maps an adapter destination declared by a catalogue block back to the canonical source
+    /// directory this bundle generates it from, so the block enumerates only bundle-owned content.
+    /// </summary>
+    /// <returns><see langword="true"/> when an adapter directory declares <paramref name="destination"/> as a target.</returns>
+    private static bool TryResolveAdapterSource(AiBundleDefinition bundle, string repoRoot, string destination, out string sourceDirectory)
+    {
+        string? source = bundle.AdapterDirectories
+            .FirstOrDefault(a => a.Targets.Any(t => PathEquals(t.Destination, destination)))
+            ?.Source;
+
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            sourceDirectory = "";
+            return false;
+        }
+
+        sourceDirectory = Path.Combine(repoRoot, NormalizePath(source));
+        return true;
+    }
+
+    private static OperationResult AdapterSourceLookupFailure(string destination, string propertyName, string blockTargetPath) => Failure(
+        $"The '{propertyName}' value '{NormalizePath(destination)}' on skill list block '{NormalizePath(blockTargetPath)}' is not "
+        + "declared as a target by any entry in 'adapterDirectories'. Catalogue blocks are generated from the canonical sources "
+        + $"this bundle owns, so add an 'adapterDirectories' entry targeting '{NormalizePath(destination)}' or remove "
+        + $"'{propertyName}' from the block.");
 
     private static List<(string Name, string Description)> ReadSkillMetadata(string skillsDirectory)
     {
