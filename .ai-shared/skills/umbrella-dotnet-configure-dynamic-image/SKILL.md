@@ -56,6 +56,8 @@ Do not infer catalog completeness from a clean build. Compare every active Razor
 - Add nullable matching `*VersionToken` properties for Dynamic Image model URLs.
 - Obtain the pair through `GetVersionedWebFilePathAsync`; do not manufacture tokens independently.
 - Assign URL and token together in object initialization, mapping, post-save enrichment, and client-side copying.
+- Treat a missing stored source as a recoverable state on administrative manage surfaces: keep the admin URL/token pair nullable, allow the form to load with both values null, and let the administrator upload a replacement. User-facing surfaces may remain strict when that is the application's explicit policy.
+- On update, tolerate an unresolved pre-existing image when no replacement was requested. When a replacement was requested, fail if the newly promoted file still cannot be resolved; create operations remain strict.
 - Use asynchronous Mapperly interfaces when enrichment performs file-provider I/O.
 - Resolve collection items concurrently when lookups are independent and the collection is bounded; preserve result ordering.
 - Pass the token to model-bound `UmbrellaDynamicImage` and `UmbrellaFileImagePreviewUpload` usages.

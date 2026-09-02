@@ -124,6 +124,8 @@ model.ImageUrl = image?.Url;
 model.ImageVersionToken = image?.VersionToken;
 ```
 
+For an administrative manage model, a null result can represent a missing stored source that the administrator must be able to repair. Keep that admin URL/token pair nullable and return the model with both values null instead of failing the read. This recovery policy need not be applied to user-facing models. After an update, an unresolved image is acceptable only when no replacement was requested; if a replacement was requested but the promoted file cannot be resolved, fail the operation. Creation remains strict because a newly required upload must exist.
+
 Use asynchronous mapper interfaces for this enrichment. For a bounded page of independent items, resolve pairs concurrently and apply them in the same index/order as the mapped models. Do not start unbounded work over arbitrary streams.
 
 ```razor

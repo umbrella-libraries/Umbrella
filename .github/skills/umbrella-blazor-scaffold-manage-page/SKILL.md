@@ -253,6 +253,12 @@ public async Task<IOperationResult?> UploadFileToTempDirectoryAsync(UmbrellaFile
         if (fileUploadResult.IsSuccess)
         {
             CreateUpdateModel.<FilePropertyName> = fileUploadResult.Result.tempFileName;
+
+            // Updating the filename alone is not enough on an edit: the server uses this flag
+            // to delete the old stored file and promote the new temporary upload.
+            if (CreateUpdateModel is Update<Name>Model updateModel)
+                updateModel.ReplaceExistingImage = true;
+
             // Temporary/no-store uploads normally have no token. If the upload contract returns one,
             // pass it as the second argument so the preview emits the fingerprint directly.
             ImagePreviewUpload.Update(fileUploadResult.Result.url);
@@ -295,4 +301,5 @@ protected void OnDeleteImage()
 9. `UmbrellaModelLayoutStateView` wraps the form content in the `.razor`.
 10. Client-side mapper classes exist in `Web.Client.Data\Mappings\Api\` for the `<Name>Model → Update<Name>Model` and `Update<Name>ResultModel → Update<Name>Model` mappings.
 11. When the displayed file uses Dynamic Image URL fingerprinting, its model declares `ImageVersionToken`, mappings assign URL/token together, and `UmbrellaFileImagePreviewUpload` receives and forwards `VersionToken`.
-12. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.
+12. A successful upload while editing sets the matching replacement flag (`ReplaceExistingImage`, `ReplaceExistingFile`, or the feature-specific equivalent) after assigning the temporary provider filename. Do not rely only on the delete/replace button handler; image-preview upload controls can upload directly over an existing preview.
+13. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.
