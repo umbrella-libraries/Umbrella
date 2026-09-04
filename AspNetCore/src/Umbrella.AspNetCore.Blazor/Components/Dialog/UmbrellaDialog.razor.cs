@@ -8,10 +8,21 @@ namespace Umbrella.AspNetCore.Blazor.Components.Dialog;
 /// A dialog component rendered by the <see cref="UmbrellaDialogHost"/> infrastructure.
 /// </summary>
 /// <seealso cref="ComponentBase" />
-public partial class UmbrellaDialog
+public partial class UmbrellaDialog : IAsyncDisposable
 {
+	private readonly string _dialogId = $"u-dialog-{Guid.NewGuid():N}";
+	private readonly string _titleId = $"u-dialog-title-{Guid.NewGuid():N}";
+	private DotNetObjectReference<UmbrellaDialog>? _interopReference;
+	private ElementReference _backdropElement;
+	private ElementReference _dialogElement;
+	private bool _isInteropInitialized;
+	private bool _isDisposed;
+
 	[Inject]
 	private NavigationManager Navigation { get; [RequiresUnreferencedCode(TrimConstants.DI)] set; } = null!;
+
+	[Inject]
+	private IJSRuntime JSRuntime { get; [RequiresUnreferencedCode(TrimConstants.DI)] set; } = null!;
 
 	/// <summary>
 	/// Gets or sets the dialog instance as a cascading parameter.
@@ -122,6 +133,14 @@ public partial class UmbrellaDialog
 		_ => throw new SwitchExpressionException(Size)
 	};
 
+	private bool HasDefaultVisibleTitle => ModalInstance.HideHeader is not true && Header is null && !string.IsNullOrWhiteSpace(ModalInstance.Title);
+
+	private string? AccessibleLabel => HasDefaultVisibleTitle
+		? null
+		: string.IsNullOrWhiteSpace(ModalInstance.Title) ? "Dialog" : ModalInstance.Title;
+
+	private string? AccessibleLabelledBy => HasDefaultVisibleTitle ? _titleId : null;
+
 	/// <inheritdoc/>
 	protected override void OnInitialized()
 	{
@@ -129,6 +148,45 @@ public partial class UmbrellaDialog
 
 		ModalInstance.HideHeader = !ShowHeader;
 		ModalInstance.HideCloseButton = !ShowCloseButton;
+	}
+
+	/// <inheritdoc/>
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		await base.OnAfterRenderAsync(firstRender);
+
+		if (_isInteropInitialized || _isDisposed)
+			return;
+
+		_interopReference ??= DotNetObjectReference.Create(this);
+
+		try
+		{
+			await JSRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.initializeDialog", _dialogElement, _backdropElement, _dialogId, _interopReference);
+			_isInteropInitialized = true;
+		}
+		catch (InvalidOperationException)
+		{
+			// JavaScript interop is unavailable during static rendering / prerendering.
+		}
+		catch (JSDisconnectedException)
+		{
+			// The browser connection ended while the dialog was being initialized.
+		}
+		catch (JSException)
+		{
+			// Keep the dialog usable when the package script has not loaded yet and retry after a later render.
+		}
+	}
+
+	/// <summary>
+	/// Cancels this dialog when the browser focus manager handles Escape for the active dialog.
+	/// </summary>
+	[JSInvokable]
+	public async Task CancelFromKeyboardAsync()
+	{
+		if (!_isDisposed)
+			await ModalInstance.CancelAsync();
 	}
 
 	/// <summary>
@@ -164,6 +222,38 @@ public partial class UmbrellaDialog
 		else
 		{
 			await ModalInstance.CloseAsync(ModalResult.Ok(button));
+		}
+	}
+
+	/// <inheritdoc/>
+	public async ValueTask DisposeAsync()
+	{
+		if (_isDisposed)
+			return;
+
+		_isDisposed = true;
+
+		try
+		{
+			if (_isInteropInitialized)
+				await JSRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.disposeDialog", _dialogId);
+		}
+		catch (InvalidOperationException)
+		{
+			// JavaScript interop is unavailable during static rendering / prerendering.
+		}
+		catch (JSDisconnectedException)
+		{
+			// The browser connection has already ended, so there is nothing left to clean up.
+		}
+		catch (JSException)
+		{
+			// The package script may already have been unloaded during navigation.
+		}
+		finally
+		{
+			_interopReference?.Dispose();
+			GC.SuppressFinalize(this);
 		}
 	}
 }

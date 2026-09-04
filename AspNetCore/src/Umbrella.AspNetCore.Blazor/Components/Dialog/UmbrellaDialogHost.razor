@@ -3,6 +3,6 @@
 @foreach (var entry in DialogService.ActiveDialogs)
 {
     <CascadingValue Value="@entry.Instance">
-        <DynamicComponent Type="@entry.ComponentType" Parameters="@entry.Parameters.ToDictionary()" />
+        <DynamicComponent @key="entry.Instance" Type="@entry.ComponentType" Parameters="@entry.Parameters.ToDictionary()" />
     </CascadingValue>
 }
