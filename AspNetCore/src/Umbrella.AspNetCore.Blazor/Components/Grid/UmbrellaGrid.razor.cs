@@ -277,6 +277,18 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	[Parameter]
 	public bool ShowCaption { get; set; } = true;
 
+	/// <summary>
+	/// Gets or sets the singular item name used by the grid caption. Defaults to <c>item</c>.
+	/// </summary>
+	[Parameter]
+	public string CaptionItemName { get; set; } = "item";
+
+	/// <summary>
+	/// Gets or sets the plural item name used by the grid caption. Defaults to <c>items</c>.
+	/// </summary>
+	[Parameter]
+	public string CaptionItemNamePlural { get; set; } = "items";
+
 	/// <inheritdoc />
 	[Parameter]
 	public UmbrellaGridRenderMode RenderMode { get; set; } = UmbrellaGridRenderMode.Table;
@@ -458,15 +470,19 @@ public partial class UmbrellaGrid<TItem> : IUmbrellaGrid<TItem>, IAsyncDisposabl
 	/// <summary>
 	/// Gets the caption text.
 	/// </summary>
-	private string CaptionText
-	{
-		get
-		{
-			int startItem = ((PageNumber - 1) * PageSize) + 1;
-			int endItem = Math.Min(PageSize, Items.Count) + (PageNumber == 1 ? 0 : startItem - 1);
+	private string CaptionText => BuildCaptionText(TotalCount, PageNumber, PageSize, Items.Count);
 
-			return TotalCount == 1 ? "Showing 1 of 1 items" : $"Showing items {startItem} to {endItem} of {TotalCount}";
-		}
+	private string BuildCaptionText(int totalCount, int pageNumber, int pageSize, int displayedItemCount)
+	{
+		if (totalCount is 0)
+			return $"Showing 0 of 0 {CaptionItemNamePlural}";
+
+		int startItem = ((pageNumber - 1) * pageSize) + 1;
+		int endItem = Math.Min(pageSize, displayedItemCount) + (pageNumber == 1 ? 0 : startItem - 1);
+
+		return totalCount is 1
+			? $"Showing 1 of 1 {CaptionItemName}"
+			: $"Showing {CaptionItemNamePlural} {startItem} to {endItem} of {totalCount}";
 	}
 
 	/// <inheritdoc />

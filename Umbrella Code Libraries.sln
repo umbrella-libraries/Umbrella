@@ -328,6 +328,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.AI.Tools.Bundling"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.AI.Tools.Bundling.Test", "Tools\test\Umbrella.AI.Tools.Bundling.Test\Umbrella.AI.Tools.Bundling.Test.csproj", "{9D5D12EA-3B0B-4200-A23A-FE5D30FC6730}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbrella.AspNetCore.Blazor.Test", "AspNetCore\test\Umbrella.AspNetCore.Blazor.Test\Umbrella.AspNetCore.Blazor.Test.csproj", "{17BB6917-73F4-4751-93D9-04A183C8132D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		AzureDevOps|Any CPU = AzureDevOps|Any CPU
@@ -2087,6 +2089,24 @@ Global
 		{9D5D12EA-3B0B-4200-A23A-FE5D30FC6730}.Release|x64.Build.0 = Release|Any CPU
 		{9D5D12EA-3B0B-4200-A23A-FE5D30FC6730}.Release|x86.ActiveCfg = Release|Any CPU
 		{9D5D12EA-3B0B-4200-A23A-FE5D30FC6730}.Release|x86.Build.0 = Release|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.AzureDevOps|Any CPU.ActiveCfg = AzureDevOps|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.AzureDevOps|Any CPU.Build.0 = AzureDevOps|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.AzureDevOps|x64.ActiveCfg = AzureDevOps|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.AzureDevOps|x64.Build.0 = AzureDevOps|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.AzureDevOps|x86.ActiveCfg = AzureDevOps|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.AzureDevOps|x86.Build.0 = AzureDevOps|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.Debug|x64.Build.0 = Debug|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.Debug|x86.Build.0 = Debug|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.Release|x64.ActiveCfg = Release|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.Release|x64.Build.0 = Release|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.Release|x86.ActiveCfg = Release|Any CPU
+		{17BB6917-73F4-4751-93D9-04A183C8132D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -2228,6 +2248,7 @@ Global
 		{09536CFA-BA16-4966-A125-D699BE69AD8D} = {D8FC59AF-00A0-4187-8622-15AF5457E48F}
 		{4BA88F66-54C0-4286-994C-B4A1DA0A5346} = {67824254-6371-76FD-C40D-F076954CCDE1}
 		{9D5D12EA-3B0B-4200-A23A-FE5D30FC6730} = {F9AB5661-066F-FE61-8147-DE58B0B17705}
+		{17BB6917-73F4-4751-93D9-04A183C8132D} = {1695D124-726F-446B-988E-61B9B440D345}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {44122B62-15B4-40B8-86EA-4E3A743B0C7C}
