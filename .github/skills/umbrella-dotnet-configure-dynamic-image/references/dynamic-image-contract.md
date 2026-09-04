@@ -195,11 +195,52 @@ The Blazor equivalent nests `UmbrellaDynamicImageSource` components inside `Umbr
 Rules that apply to both:
 
 - A nested source must declare `media`, and must be nested inside its parent element. Using one anywhere else fails before rendering.
-- Any attribute a source does not declare is inherited from its parent, including `src`/`Url` and the version token. A focal point is inherited only when the effective resize mode is still `CropFocalPoint`.
+- Any attribute a source does not declare is inherited from its parent, including the image itself and the version token. A focal point is inherited only when the effective resize mode is still `CropFocalPoint`.
 - Each source renders one `source` element per configured picture source format plus one using its own fallback format. The fallback is required because a browser that has matched a media condition will not fall back to the `img` element when it supports none of the formats offered for that condition.
 - Sources render in declaration order, before the automatic format sources and the `img`. Browsers use the first `source` with a matching media condition and a supported type, so a source declared after the automatic ones would never be selected.
-- A parent whose `src` is an external HTTP(S) URL cannot contain nested sources.
+- Nested sources cannot be used at all under a parent whose resolved image is an external HTTP(S) URL, and a source whose own resolved path is external fails the same way. External images are served as-is and cannot be transformed.
 - A nested source never receives the `id` attribute: one element renders several `source` tags, so both implementations discard it rather than repeat it. Apply `sizes` whenever size widths are in play, otherwise the browser assumes `100vw` and can select a larger candidate than the layout needs.
+
+### Sources resolved at runtime
+
+A source path is not always an attribute value. When the image is identified by something that has to be looked up first, such as an asset reference resolved through a content or DAM query, override the resolver on `DynamicImageTagHelper`:
+
+```csharp
+protected override async Task<string> ResolveSourcePathAsync(TagHelperContext context)
+```
+
+Blazor has the same seam on `UmbrellaDynamicImage`:
+
+```csharp
+protected override async Task<string> ResolveSourcePathAsync(UmbrellaDynamicImageSource? source)
+```
+
+Both default implementations read the authored URL: the tag helper from the `src` attribute of the supplied context, the component from `Url` on the nested source when it has one and otherwise from itself. An override returns the path the Dynamic Image URL is built from, with any configured `StripPrefix` already removed, or the URL unaltered when it is external.
+
+The parent resolves its own path before nested sources run, so they observe the resolved value rather than whatever was authored. In MVC this is why the seam being asynchronous costs nothing: `Init` is synchronous and cannot await, but it does not need to, because resolution happens inside `ProcessAsync` ahead of the children. In Blazor it happens in `OnParametersSetAsync` before the context is cascaded.
+
+The element or component asking is passed in, so one override serves the whole picture:
+
+- A source that supplies nothing of its own inherits the parent's resolved image and renders it at a different crop, performing no further resolution.
+- A source that supplies its own is resolved from its own context or component, so an override can give a breakpoint its own asset.
+
+A source is asked for an image of its own when it says it has one. That test is overridable in both, because a source identified by something other than a URL carries no `src`:
+
+```csharp
+protected override bool HasOwnSource(TagHelperContext context) => context.AllAttributes.ContainsName("asset-id");   // MVC
+protected override bool HasOwnSource => !string.IsNullOrWhiteSpace(AssetId);                                        // Blazor
+```
+
+Without it such a source inherits the parent's image silently. Overriding it without also overriding the resolver fails with the unresolved-source error rather than falling back to the parent, which is deliberate.
+
+The parent's own path is resolved once and shared with every source that inherits it — `ResolveParentSourcePathAsync` in MVC, `Settings` in Blazor — so an override performing I/O runs once for the picture plus once per source that supplies its own image. A source that supplies its own is **not** cached: Razor keeps one `TagHelperContext` per nesting depth and reinitializes it for each sibling, so that instance is not a stable identity for an element and caching against it would hand the first sibling's image to every later one. Returning null or whitespace fails before rendering with an error naming the element.
+
+Two consequences specific to Blazor:
+
+- `Url` is no longer validated when parameters are set, because an override may identify the image by something else entirely. A missing source is reported after resolution instead.
+- Nothing is rendered until the source resolves. Blazor renders once before an incomplete `OnParametersSetAsync` completes, so a resolver performing I/O would otherwise emit an `img` with no `src` on that pass. A resolver that completes synchronously, including the default, renders in a single pass as before.
+
+Runtime resolution does not affect generated variants. Catalog identity is width, height, resize mode, and format; the source path is not part of it. Those four inputs must still be literals wherever a variant is expected, and UWDI004 continues to report a usage that binds them dynamically, whether or not the path itself is resolved at runtime.
 
 ### Migrating existing markup
 

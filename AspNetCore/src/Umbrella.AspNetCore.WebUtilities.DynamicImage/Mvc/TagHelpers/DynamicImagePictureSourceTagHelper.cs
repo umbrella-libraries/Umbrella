@@ -1,4 +1,4 @@
-using CommunityToolkit.Diagnostics;
+﻿using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 using Microsoft.Extensions.Caching.Memory;
@@ -79,7 +79,7 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 	/// <param name="context">Contains information associated with the current HTML tag.</param>
 	/// <param name="output">A stateful HTML element used to generate an HTML tag.</param>
 	/// <returns>A <see cref="Task"/> that on completion updates the output.</returns>
-	public override Task ProcessAsync(TagHelperContext context, TagHelperOutput output)
+	public override async Task ProcessAsync(TagHelperContext context, TagHelperOutput output)
 	{
 		Guard.IsNotNull(context);
 		Guard.IsNotNull(output);
@@ -87,15 +87,28 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 		if (!context.Items.TryGetValue(typeof(DynamicImagePictureContext), out object? item) || item is not DynamicImagePictureContext pictureContext)
 			throw new InvalidOperationException("A <dynamic-source> element can only be used inside a <dynamic-image> element.");
 
-		// Checked before any URL is generated. The parent cannot report this until its child content has already run, by which point a
-		// source inheriting the absolute URL would have generated and cached meaningless Dynamic Image URLs from it.
-		if (pictureContext.IsExternalUrl)
-			throw new InvalidOperationException("A <dynamic-source> element cannot be used inside a <dynamic-image> element that refers to an external URL.");
-
 		if (string.IsNullOrWhiteSpace(Media))
 			throw new InvalidOperationException($"A value for the {MediaAttributeName} attribute must be provided on a <dynamic-source> element.");
 
-		string sourcePath = ApplyInheritedValues(context, pictureContext);
+		ApplyInheritedValues(context, pictureContext);
+
+		// The parent resolved and cached this before running its child content, so asking for it is free and is also how the parent being
+		// external is detected without the child having to be told separately.
+		string parentSourcePath = await pictureContext.ResolveParentSourcePathAsync().ConfigureAwait(false);
+
+		if (IsExternalUrl(parentSourcePath))
+			throw new InvalidOperationException("A <dynamic-source> element cannot be used inside a <dynamic-image> element that refers to an external URL.");
+
+		// A source that supplies its own image resolves from its own context. Otherwise it inherits the image already resolved by the parent.
+		string sourcePath = HasOwnSource(context)
+			? await pictureContext.ResolveSourcePathAsync(context).ConfigureAwait(false)
+			: parentSourcePath;
+
+		if (string.IsNullOrWhiteSpace(sourcePath))
+			throw new InvalidOperationException("A source URL could not be resolved for a <dynamic-source> element. Declare a src attribute on it, or on the <dynamic-image> element it is nested inside.");
+
+		if (IsExternalUrl(sourcePath))
+			throw new InvalidOperationException("A <dynamic-source> element cannot be used with an external URL.");
 
 		ValidateSizeRequests();
 		ValidateFocalPoint();
@@ -110,26 +123,34 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 		}
 
 		output.SuppressOutput();
-
-		return Task.CompletedTask;
 	}
 
 	/// <summary>
-	/// Applies the values of the parent <c>dynamic-image</c> element for every attribute that has not been explicitly declared on this
-	/// element and returns the source path to generate URLs from.
+	/// Determines whether this element supplies an image of its own rather than inheriting the image of its parent.
+	/// </summary>
+	/// <param name="context">Contains information associated with the current HTML tag.</param>
+	/// <returns><see langword="true"/> when the parent resolver should be asked for an image for this element.</returns>
+	/// <remarks>
+	/// Override this in a tag helper that identifies its image by an attribute other than <c>src</c>, so that the resolver of the parent
+	/// element is asked for a path rather than the inherited one being used.
+	/// </remarks>
+	protected virtual bool HasOwnSource(TagHelperContext context)
+	{
+		Guard.IsNotNull(context);
+
+		return context.AllAttributes.ContainsName("src");
+	}
+
+	/// <summary>
+	/// Applies the values of the parent <c>dynamic-image</c> element for every attribute that has not been explicitly declared on this element.
 	/// </summary>
 	/// <param name="context">Contains information associated with the current HTML tag.</param>
 	/// <param name="pictureContext">The state shared with the parent element.</param>
-	/// <returns>The source path with the configured prefix removed.</returns>
-	private string ApplyInheritedValues(TagHelperContext context, DynamicImagePictureContext pictureContext)
+	private void ApplyInheritedValues(TagHelperContext context, DynamicImagePictureContext pictureContext)
 	{
 		// TagHelperContext.AllAttributes contains exactly the attributes present in the Razor source, which is what allows an explicitly
 		// declared value to be told apart from a property that is simply sitting at its default.
 		bool IsDeclared(string name) => context.AllAttributes.ContainsName(name);
-
-		string sourcePath = IsDeclared("src")
-			? ResolveSourcePath(context.AllAttributes["src"]?.Value?.ToString())
-			: pictureContext.SourcePath;
 
 		if (!IsDeclared(VersionTokenAttributeName))
 			VersionToken = pictureContext.VersionToken;
@@ -162,8 +183,6 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 			if (!IsDeclared("focal-point-y"))
 				FocalPointY = pictureContext.FocalPointY;
 		}
-
-		return sourcePath;
 	}
 
 	/// <summary>

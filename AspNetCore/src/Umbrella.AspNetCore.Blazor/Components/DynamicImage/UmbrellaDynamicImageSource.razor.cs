@@ -1,4 +1,4 @@
-using CommunityToolkit.Diagnostics;
+﻿using CommunityToolkit.Diagnostics;
 using Umbrella.AspNetCore.Blazor.Components.DynamicImage.Options;
 using Umbrella.DynamicImage.Abstractions;
 
@@ -118,15 +118,35 @@ public partial class UmbrellaDynamicImageSource : ComponentBase
 	/// </summary>
 	protected IReadOnlyDictionary<string, object>? SourceAttributes { get; private set; }
 
+	/// <summary>
+	/// Gets a value indicating whether this component supplies a source of its own rather than inheriting the image of its parent.
+	/// </summary>
+	/// <remarks>
+	/// Override this in a component that identifies its image by something other than <see cref="Url"/>, so that the resolver of the parent
+	/// component is asked for a path rather than the inherited one being used.
+	/// </remarks>
+	protected virtual bool HasOwnSource => !string.IsNullOrWhiteSpace(Url);
+
 	/// <inheritdoc />
-	protected override void OnParametersSet()
+	protected override async Task OnParametersSetAsync()
 	{
 		if (Context is null)
 			throw new InvalidOperationException($"An {nameof(UmbrellaDynamicImageSource)} component can only be used inside an {nameof(UmbrellaDynamicImage)} component.");
 
 		Guard.IsNotNullOrWhiteSpace(Media);
 
-		DynamicImageSourceSettings settings = CreateSettings(Context.Settings);
+		// The parent has already resolved and published its own path, so a component that inherits the image performs no further work here.
+		string sourcePath = HasOwnSource
+			? await Context.ResolveSourcePathAsync(this)
+			: Context.Settings.Url;
+
+		if (string.IsNullOrWhiteSpace(sourcePath))
+			throw new InvalidOperationException($"A source could not be resolved for an {nameof(UmbrellaDynamicImageSource)} component.");
+
+		if (UmbrellaDynamicImageContext.IsExternalUrl(sourcePath))
+			throw new InvalidOperationException($"An {nameof(UmbrellaDynamicImageSource)} component cannot be used with an external URL.");
+
+		DynamicImageSourceSettings settings = CreateSettings(Context.Settings, sourcePath);
 		settings.ValidateFocalPoint();
 
 		PictureSources = Context.CreateSources(settings, Media, includeFallbackFormat: true);
@@ -151,7 +171,7 @@ public partial class UmbrellaDynamicImageSource : ComponentBase
 			.ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal);
 	}
 
-	private DynamicImageSourceSettings CreateSettings(DynamicImageSourceSettings inherited)
+	private DynamicImageSourceSettings CreateSettings(DynamicImageSourceSettings inherited, string sourcePath)
 	{
 		DynamicResizeMode resizeMode = ResizeMode ?? inherited.ResizeMode;
 
@@ -161,7 +181,7 @@ public partial class UmbrellaDynamicImageSource : ComponentBase
 
 		return new DynamicImageSourceSettings
 		{
-			Url = Url is null ? inherited.Url : Context!.StripUrlPrefix(Url),
+			Url = sourcePath,
 			WidthRequest = WidthRequest ?? inherited.WidthRequest,
 			HeightRequest = HeightRequest ?? inherited.HeightRequest,
 			ResizeMode = resizeMode,

@@ -1,4 +1,6 @@
+﻿using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Html;
+using Microsoft.AspNetCore.Razor.TagHelpers;
 using Umbrella.DynamicImage.Abstractions;
 
 namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
@@ -7,21 +9,29 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
 /// The state shared between a <see cref="DynamicImageTagHelper"/> and the <see cref="DynamicImagePictureSourceTagHelper"/> instances nested inside it.
 /// </summary>
 /// <remarks>
-/// An instance of this type is added to the <see cref="Microsoft.AspNetCore.Razor.TagHelpers.TagHelperContext.Items"/> dictionary by the parent
-/// tag helper before its child content is executed. Child tag helpers resolve it from their own context, use it to inherit any values they have not
-/// explicitly declared, and append their generated source tags to <see cref="Sources"/>.
+/// An instance of this type is added to the <see cref="TagHelperContext.Items"/> dictionary by the parent tag helper before its child content is
+/// executed. Child tag helpers resolve it from their own context, use it to inherit any values they have not explicitly declared, and append
+/// their generated source tags to <see cref="Sources"/>.
 /// </remarks>
 public sealed class DynamicImagePictureContext
 {
-	/// <summary>
-	/// Gets the source path of the parent image with the configured prefix already stripped.
-	/// </summary>
-	public required string SourcePath { get; init; }
+	private Task<string>? _parentSourcePathTask;
 
 	/// <summary>
-	/// Gets a value indicating whether the parent image refers to an external URL.
+	/// Sets the delegate used to resolve the source path for a given tag helper context.
 	/// </summary>
-	public required bool IsExternalUrl { get; init; }
+	/// <remarks>
+	/// Resolution is deferred and asynchronous so that a source path that is only known at runtime, e.g. one obtained from a digital asset
+	/// management system, can be produced by an overridden <see cref="DynamicImageTagHelper.ResolveSourcePathAsync"/>. The getter is private
+	/// so that the delegate is only invoked through <see cref="ResolveParentSourcePathAsync"/> and <see cref="ResolveSourcePathAsync"/>,
+	/// which decide what may be shared between elements.
+	/// </remarks>
+	public required Func<TagHelperContext, Task<string>> SourcePathResolver { private get; init; }
+
+	/// <summary>
+	/// Gets the <see cref="TagHelperContext"/> of the parent element.
+	/// </summary>
+	public required TagHelperContext ParentTagHelperContext { get; init; }
 
 	/// <summary>
 	/// Gets the version token of the parent image.
@@ -72,4 +82,32 @@ public sealed class DynamicImagePictureContext
 	/// Gets the source tags contributed by nested <see cref="DynamicImagePictureSourceTagHelper"/> instances, in declaration order.
 	/// </summary>
 	public List<IHtmlContent> Sources { get; } = [];
+
+	/// <summary>
+	/// Resolves the source path of the parent element.
+	/// </summary>
+	/// <returns>The source path with the configured prefix removed, or the URL unaltered when it is external.</returns>
+	/// <remarks>
+	/// The task is resolved once and returned to every subsequent caller, so a picture containing several nested sources that inherit the
+	/// image resolves it once rather than once per source, which matters when resolution performs I/O.
+	/// </remarks>
+	public Task<string> ResolveParentSourcePathAsync() => _parentSourcePathTask ??= SourcePathResolver(ParentTagHelperContext);
+
+	/// <summary>
+	/// Resolves the source path of a nested source that declares a source of its own.
+	/// </summary>
+	/// <param name="context">The context of the nested source.</param>
+	/// <returns>The source path with the configured prefix removed, or the URL unaltered when it is external.</returns>
+	/// <remarks>
+	/// This deliberately does not cache. Razor pools a <see cref="TagHelperContext"/> per nesting depth and reinitializes it in place for
+	/// each sibling element, so the instance is not a stable identity for one element and using it as a cache key would serve the first
+	/// sibling's path to every later one. Each source declaring its own image resolves it once here, which is the same number of resolutions
+	/// as there are distinct images.
+	/// </remarks>
+	public Task<string> ResolveSourcePathAsync(TagHelperContext context)
+	{
+		Guard.IsNotNull(context);
+
+		return SourcePathResolver(context);
+	}
 }

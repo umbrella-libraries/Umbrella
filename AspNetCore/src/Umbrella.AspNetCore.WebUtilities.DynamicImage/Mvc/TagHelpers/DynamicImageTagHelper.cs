@@ -1,4 +1,4 @@
-using CommunityToolkit.Diagnostics;
+﻿using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Razor.TagHelpers;
@@ -68,13 +68,10 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 
 		base.Init(context);
 
-		string? sourceUrl = context.AllAttributes["src"]?.Value?.ToString()?.Trim();
-		bool isExternalUrl = IsExternalUrl(sourceUrl);
-
 		_pictureContext = new DynamicImagePictureContext
 		{
-			SourcePath = isExternalUrl || string.IsNullOrEmpty(sourceUrl) ? sourceUrl ?? string.Empty : StripUrlPrefix(sourceUrl),
-			IsExternalUrl = isExternalUrl,
+			SourcePathResolver = ResolveSourcePathAsync,
+			ParentTagHelperContext = context,
 			VersionToken = VersionToken,
 			ResizeMode = ResizeMode,
 			ImageFormat = ImageFormat,
@@ -100,23 +97,23 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 		Guard.IsNotNull(output);
 		ValidateFocalPoint();
 
-		string? sourceUrl = output.Attributes["src"]?.Value?.ToString()?.Trim();
+		// Resolved through the shared context so that this element and any nested sources agree on the image, and so that an overridden
+		// ResolveSourcePathAsync runs once no matter how many of them ask for it. Init always assigns the context before this runs.
+		string sourcePath = await _pictureContext!.ResolveParentSourcePathAsync().ConfigureAwait(false);
 
-		if (string.IsNullOrWhiteSpace(sourceUrl))
+		if (string.IsNullOrWhiteSpace(sourcePath))
 			throw new InvalidOperationException("A source URL is required.");
 
-		bool isExternalUrl = IsExternalUrl(sourceUrl);
-		string sourcePath;
+		bool isExternalUrl = IsExternalUrl(sourcePath);
 
 		if (isExternalUrl)
 		{
-			sourcePath = sourceUrl;
-			output.TagName = "img";
-			output.Attributes.SetAttribute("srcset", ResponsiveImageHelper.GetPixelDensitySrcSetValue(sourceUrl, ImageMaxPixelDensity));
+			output.Attributes.SetAttribute("src", sourcePath);
+			output.Attributes.SetAttribute("srcset", ResponsiveImageHelper.GetPixelDensitySrcSetValue(sourcePath, ImageMaxPixelDensity));
 		}
 		else
 		{
-			sourcePath = await BuildCoreTagAsync(output).ConfigureAwait(false);
+			ApplyResolvedSourcePath(output, sourcePath);
 			output.Attributes.SetAttribute("srcset", GetSrcSetValue(sourcePath, ImageFormat));
 		}
 
@@ -133,8 +130,8 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 		if (!childContent.IsEmptyOrWhiteSpace)
 			throw new InvalidOperationException("Only <dynamic-source> elements can be nested inside a <dynamic-image> element.");
 
-		// A nested source rejects an external parent itself, before it generates any URLs, so the list is always empty in that case.
-		List<IHtmlContent> artDirectionSources = _pictureContext?.Sources ?? [];
+		// A nested source rejects an external parent itself, before it generates any URLs, so this is empty whenever the parent is external.
+		List<IHtmlContent> artDirectionSources = _pictureContext!.Sources;
 		var content = new HtmlContentBuilder();
 
 		// Art directed sources must be rendered first. Browsers use the first source with a matching media condition and a supported
@@ -163,7 +160,32 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 		_ = output.Content.SetHtmlContent(content);
 	}
 
-	private static bool IsExternalUrl(string? url)
-		=> !string.IsNullOrEmpty(url)
-			&& (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase));
+	/// <summary>
+	/// Resolves the source path of the image described by the specified tag helper context.
+	/// </summary>
+	/// <param name="context">The context to resolve the source path from. This is the context of this element, or that of a nested
+	/// <c>dynamic-source</c> element that declares a source of its own.</param>
+	/// <returns>The source path with the configured prefix removed, or the URL unaltered when it is external.</returns>
+	/// <remarks>
+	/// <para>
+	/// The default implementation reads the <c>src</c> attribute. Override this to resolve a source that is only known at runtime, for
+	/// example an identifier that has to be looked up in a digital asset management system, which is why the result is a task.
+	/// </para>
+	/// <para>
+	/// This runs before any nested source is executed and its result is shared with them, so an override does not need to be concerned with
+	/// ordering. The result is retained per context, so an override performing I/O is invoked once per distinct element rather than once per
+	/// generated tag.
+	/// </para>
+	/// </remarks>
+	protected virtual Task<string> ResolveSourcePathAsync(TagHelperContext context)
+	{
+		Guard.IsNotNull(context);
+
+		string? sourceUrl = context.AllAttributes["src"]?.Value?.ToString()?.Trim();
+
+		if (string.IsNullOrEmpty(sourceUrl))
+			return Task.FromResult(string.Empty);
+
+		return Task.FromResult(IsExternalUrl(sourceUrl) ? sourceUrl : StripUrlPrefix(sourceUrl));
+	}
 }

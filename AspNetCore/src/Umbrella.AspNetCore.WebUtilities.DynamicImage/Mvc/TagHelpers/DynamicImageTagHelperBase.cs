@@ -1,4 +1,4 @@
-using CommunityToolkit.Diagnostics;
+﻿using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 using Microsoft.Extensions.Caching.Memory;
@@ -151,43 +151,31 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	}
 
 	/// <summary>
-	/// Asynchronously executes the <see cref="TagHelper"/> with the given <paramref name="context"/> and <paramref name="output"/>.
-	/// </summary>
-	/// <param name="context">Contains information associated with the current HTML tag.</param>
-	/// <param name="output">A stateful HTML element used to generate an HTML tag.</param>
-	public override async Task ProcessAsync(TagHelperContext context, TagHelperOutput output)
-	{
-		ValidateFocalPoint();
-
-		_ = await BuildCoreTagAsync(output).ConfigureAwait(false);
-
-		await base.ProcessAsync(context, output).ConfigureAwait(false);
-	}
-
-	/// <summary>
-	/// Builds the core tag and returns the <c>src</c> attribute.
+	/// Sets the <c>src</c> attribute and tag name of the output from an already resolved source path.
 	/// </summary>
 	/// <param name="output">A stateful HTML element used to generate an HTML tag.</param>
-	/// <returns>The <c>src</c> attribute of the tag.</returns>
-	protected Task<string> BuildCoreTagAsync(TagHelperOutput output)
+	/// <param name="sourcePath">The source path with the configured prefix already removed.</param>
+	protected void ApplyResolvedSourcePath(TagHelperOutput output, string sourcePath)
 	{
 		Guard.IsNotNull(output);
+		Guard.IsNotNullOrWhiteSpace(sourcePath);
 
 		ValidateSizeRequests();
 
-		TagHelperAttribute attrSrc = output.Attributes["src"];
-		string strippedUrl = ResolveSourcePath(attrSrc?.Value?.ToString());
-		DynamicImageOptions options = CreateDynamicImageOptions(strippedUrl, WidthRequest, HeightRequest);
+		DynamicImageOptions options = CreateDynamicImageOptions(sourcePath, WidthRequest, HeightRequest);
 
-		string x1Url = GenerateVirtualPath(options);
-
-		_ = output.Attributes.Remove(attrSrc);
-		output.Attributes.Add("src", ResolveImageUrl(x1Url));
-
+		output.Attributes.SetAttribute("src", ResolveImageUrl(GenerateVirtualPath(options)));
 		output.TagName = OutputTagName;
-
-		return Task.FromResult(strippedUrl);
 	}
+
+	/// <summary>
+	/// Determines whether the specified URL points at an external host and therefore cannot be transformed by the Dynamic Image infrastructure.
+	/// </summary>
+	/// <param name="url">The URL.</param>
+	/// <returns><see langword="true"/> if the URL is external; otherwise <see langword="false"/>.</returns>
+	protected static bool IsExternalUrl(string? url)
+		=> !string.IsNullOrEmpty(url)
+			&& (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", StringComparison.OrdinalIgnoreCase));
 
 	/// <summary>
 	/// Validates that the width and height requests are compatible with the current <see cref="ResizeMode"/>.

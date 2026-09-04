@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Diagnostics;
 using Umbrella.AspNetCore.Blazor.Components.DynamicImage.Options;
 using Umbrella.AspNetCore.Blazor.Components.ResponsiveImage;
@@ -116,19 +116,63 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 	/// <inheritdoc />
 	protected override void OnParametersSet()
 	{
-		Guard.IsNotNullOrWhiteSpace(Url, nameof(Url));
+		// Url is deliberately not checked here. An override of ResolveSourcePathAsync may identify the image by something other than a URL,
+		// so the presence of a source is validated after resolution instead.
 		Guard.IsGreaterThanOrEqualTo(WidthRequest, 1);
 		Guard.IsGreaterThanOrEqualTo(HeightRequest, 1);
-
-		InitializeImage();
 	}
 
 	/// <inheritdoc />
-	protected override void InitializeImage()
+	protected override async Task OnParametersSetAsync() => await InitializeImageAsync();
+
+	/// <inheritdoc />
+	/// <remarks>
+	/// Sealed and intentionally empty. A dynamic image source may resolve asynchronously, so initialization happens in
+	/// <see cref="OnParametersSetAsync"/> instead. Sealing this turns an override that would silently never run into a compile error.
+	/// </remarks>
+	protected sealed override void InitializeImage()
 	{
-		if (Url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+	}
+
+	/// <summary>
+	/// Resolves the source path of the image described by the specified nested source, or of this component when it is <see langword="null"/>.
+	/// </summary>
+	/// <param name="source">The nested source requesting a path of its own, or <see langword="null"/> for this component.</param>
+	/// <returns>The source path with the configured prefix removed, or the URL unaltered when it is external.</returns>
+	/// <remarks>
+	/// <para>
+	/// The default implementation reads <see cref="UmbrellaResponsiveImage.Url"/> from the nested source when it has one, and otherwise from
+	/// this component. Override this to resolve a source that is only known at runtime, for example an identifier that has to be looked up in
+	/// a digital asset management system, which is why the result is a task.
+	/// </para>
+	/// <para>
+	/// This is awaited for this component before the cascaded context is published, so a nested source that inherits the image observes the
+	/// resolved value. A nested source that supplies a source of its own calls this through
+	/// <see cref="UmbrellaDynamicImageContext.ResolveSourcePathAsync"/>, passing itself, which lets one override serve the whole picture.
+	/// </para>
+	/// </remarks>
+	protected virtual Task<string> ResolveSourcePathAsync(UmbrellaDynamicImageSource? source)
+	{
+		// When a source is asking, only its own url is considered. Falling back to the parent's here would mean a component that overrides
+		// HasOwnSource without also overriding this silently renders the parent's image instead of failing.
+		string? url = source is not null ? source.Url : Url;
+
+		if (string.IsNullOrWhiteSpace(url))
+			return Task.FromResult(string.Empty);
+
+		return Task.FromResult(UmbrellaDynamicImageContext.IsExternalUrl(url) ? url : StripUrlPrefix(url));
+	}
+
+	private async Task InitializeImageAsync()
+	{
+		string sourcePath = await ResolveSourcePathAsync(null);
+
+		if (string.IsNullOrWhiteSpace(sourcePath))
+			throw new InvalidOperationException($"A source could not be resolved for an {nameof(UmbrellaDynamicImage)} component. Supply a value for {nameof(Url)}, or override {nameof(ResolveSourcePathAsync)}.");
+
+		if (UmbrellaDynamicImageContext.IsExternalUrl(sourcePath))
 		{
-			SrcValue = Url;
+			SrcValue = sourcePath;
 			SrcSetValue = ResponsiveImageHelper.GetPixelDensitySrcSetValue(SrcValue, MaxPixelDensity);
 			PictureSources = [];
 			Context = null;
@@ -139,7 +183,7 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 			return;
 		}
 
-		var context = new UmbrellaDynamicImageContext(Options, DynamicImageUtility, ResponsiveImageHelper, CreateSettings());
+		var context = new UmbrellaDynamicImageContext(Options, DynamicImageUtility, ResponsiveImageHelper, CreateSettings(sourcePath), ResolveSourcePathAsync);
 		DynamicImageSourceSettings settings = context.Settings;
 
 		settings.ValidateFocalPoint();
@@ -165,12 +209,12 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 		return !string.IsNullOrEmpty(Options.StripPrefix) && url.StartsWith(Options.StripPrefix, StringComparison.OrdinalIgnoreCase) ? url[Options.StripPrefix.Length..] : url;
 	}
 
-	private DynamicImageSourceSettings CreateSettings()
+	private DynamicImageSourceSettings CreateSettings(string sourcePath)
 	{
 		return new DynamicImageSourceSettings
 		{
-			// The prefix has to be stripped before the settings are built because nested sources inherit this URL as-is.
-			Url = StripUrlPrefix(Url),
+			// Already resolved and stripped, and inherited as-is by any nested source that does not supply one of its own.
+			Url = sourcePath,
 			WidthRequest = WidthRequest,
 			HeightRequest = HeightRequest,
 			ResizeMode = ResizeMode,

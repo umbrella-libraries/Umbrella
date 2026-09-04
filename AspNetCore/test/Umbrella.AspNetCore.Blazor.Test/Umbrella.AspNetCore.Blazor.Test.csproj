@@ -11,6 +11,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\..\..\Internal\src\Umbrella.Internal.Mocks\Umbrella.Internal.Mocks.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.AspNetCore.Blazor\Umbrella.AspNetCore.Blazor.csproj" />
 	</ItemGroup>
 

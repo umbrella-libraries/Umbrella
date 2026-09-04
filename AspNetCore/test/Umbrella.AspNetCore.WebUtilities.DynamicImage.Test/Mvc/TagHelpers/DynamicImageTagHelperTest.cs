@@ -1,5 +1,11 @@
-using System.Text.Encodings.Web;
+﻿using System.Text.Encodings.Web;
+using Microsoft.AspNetCore.Razor.Runtime.TagHelpers;
 using Microsoft.AspNetCore.Razor.TagHelpers;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using Umbrella.Utilities.Caching.Abstractions;
+using Umbrella.Utilities.Imaging.Abstractions;
+using Umbrella.WebUtilities.Hosting;
 using Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
 using Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers.Options;
 using Umbrella.AspNetCore.WebUtilities.Test;
@@ -15,6 +21,7 @@ public class DynamicImageTagHelperTest
 	{
 		var tagHelper = CreateTagHelper();
 		var (ctx, output) = CreateContextAndOutput();
+		tagHelper.Init(ctx);
 
 		await tagHelper.ProcessAsync(ctx, output);
 
@@ -32,6 +39,7 @@ public class DynamicImageTagHelperTest
 		var tagHelper = CreateTagHelper();
 		tagHelper.VersionToken = "AbC123";
 		var (ctx, output) = CreateContextAndOutput();
+		tagHelper.Init(ctx);
 
 		await tagHelper.ProcessAsync(ctx, output);
 
@@ -46,6 +54,7 @@ public class DynamicImageTagHelperTest
 		var tagHelper = CreateTagHelper();
 		tagHelper.ImageMaxPixelDensity = 3;
 		var (ctx, output) = CreateContextAndOutput();
+		tagHelper.Init(ctx);
 
 		await tagHelper.ProcessAsync(ctx, output);
 
@@ -60,6 +69,7 @@ public class DynamicImageTagHelperTest
 		var tagHelper = CreateTagHelper();
 		tagHelper.SizeWidths = "100,200";
 		var (ctx, output) = CreateContextAndOutput();
+		tagHelper.Init(ctx);
 
 		await tagHelper.ProcessAsync(ctx, output);
 
@@ -75,6 +85,7 @@ public class DynamicImageTagHelperTest
 		tagHelper.VersionToken = "abc123";
 		tagHelper.SizeWidths = "100,200";
 		var (ctx, output) = CreateContextAndOutput();
+		tagHelper.Init(ctx);
 
 		await tagHelper.ProcessAsync(ctx, output);
 
@@ -93,6 +104,7 @@ public class DynamicImageTagHelperTest
 		DynamicImageTagHelper tagHelper = CreateTagHelper(options);
 		tagHelper.ImageFormat = DynamicImageFormat.WebP;
 		var (ctx, output) = CreateContextAndOutput();
+		tagHelper.Init(ctx);
 
 		await tagHelper.ProcessAsync(ctx, output);
 
@@ -107,6 +119,7 @@ public class DynamicImageTagHelperTest
 	{
 		DynamicImageTagHelper tagHelper = CreateTagHelper();
 		var (ctx, output) = CreateContextAndOutput("https://cdn.example.com/images/test.jpg");
+		tagHelper.Init(ctx);
 
 		await tagHelper.ProcessAsync(ctx, output);
 
@@ -124,6 +137,7 @@ public class DynamicImageTagHelperTest
 		tagHelper.FocalPointY = 0.75;
 		tagHelper.SizeWidths = "100,200";
 		var (ctx, output) = CreateContextAndOutput();
+		tagHelper.Init(ctx);
 
 		await tagHelper.ProcessAsync(ctx, output);
 
@@ -141,6 +155,7 @@ public class DynamicImageTagHelperTest
 		tagHelper.ResizeMode = DynamicResizeMode.CropFocalPoint;
 		tagHelper.FocalPointX = 0.25;
 		var (ctx, output) = CreateContextAndOutput();
+		tagHelper.Init(ctx);
 
 		_ = await Assert.ThrowsAsync<ArgumentException>(() => tagHelper.ProcessAsync(ctx, output));
 	}
@@ -153,6 +168,7 @@ public class DynamicImageTagHelperTest
 		tagHelper.FocalPointX = -0.01;
 		tagHelper.FocalPointY = 0.75;
 		var (ctx, output) = CreateContextAndOutput();
+		tagHelper.Init(ctx);
 
 		_ = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => tagHelper.ProcessAsync(ctx, output));
 	}
@@ -164,6 +180,7 @@ public class DynamicImageTagHelperTest
 		tagHelper.FocalPointX = 0.25;
 		tagHelper.FocalPointY = 0.75;
 		var (ctx, output) = CreateContextAndOutput();
+		tagHelper.Init(ctx);
 
 		_ = await Assert.ThrowsAsync<InvalidOperationException>(() => tagHelper.ProcessAsync(ctx, output));
 	}
@@ -321,26 +338,181 @@ public class DynamicImageTagHelperTest
 		Assert.Equal(2, html.Split("class=\"promo\"").Length - 1);
 	}
 
+	[Fact]
+	public async Task ProcessAsync_ChildInheritsSourcePathResolvedAsynchronously()
+	{
+		AsyncSourceDynamicImageTagHelper tagHelper = CreateTagHelper<AsyncSourceDynamicImageTagHelper>();
+
+		ChildSource child = CreateChildSource("(max-width: 599px)", widthRequest: 600, heightRequest: 800);
+
+		// The authored src is a placeholder that only the override can turn into a real path, so a source rendering the resolved path proves
+		// it saw the value produced during ProcessAsync rather than the one authored on the element.
+		string html = await RenderWithChildrenAsync(tagHelper, "asset://catalogue-hero", child);
+
+		Assert.Contains("media=\"(max-width: 599px)\" srcset=\"/dynamicimage/600/800/Crop/jpg/images/catalogue-hero.webp\"", html, StringComparison.Ordinal);
+		Assert.Contains("src=\"/dynamicimage/100/50/Crop/jpg/images/catalogue-hero.jpg\"", html, StringComparison.Ordinal);
+
+		// The parent and the source both ask for the same image, so the resolution behind it happens once.
+		Assert.Equal(1, tagHelper.ResolveCount);
+	}
+
+	private sealed class AsyncSourceDynamicImageTagHelper(
+		ILogger<DynamicImageTagHelper> logger,
+		IUmbrellaWebHostingEnvironment umbrellaHostingEnvironment,
+		IMemoryCache cache,
+		ICacheKeyUtility cacheKeyUtility,
+		IResponsiveImageHelper responsiveImageHelper,
+		IDynamicImageUtility dynamicImageUtility,
+		DynamicImageTagHelperOptions dynamicImageTagHelperOptions)
+		: DynamicImageTagHelper(logger, umbrellaHostingEnvironment, cache, cacheKeyUtility, responsiveImageHelper, dynamicImageUtility, dynamicImageTagHelperOptions)
+	{
+		public int ResolveCount { get; private set; }
+
+		protected override async Task<string> ResolveSourcePathAsync(TagHelperContext context)
+		{
+			ResolveCount++;
+
+			await Task.Yield();
+
+			// Stands in for a lookup keyed on whatever the element uses to identify its image.
+			string? assetId = context.AllAttributes["asset-id"]?.Value?.ToString();
+
+			if (!string.IsNullOrWhiteSpace(assetId))
+				return $"/images/{assetId}.jpg";
+
+			string? src = context.AllAttributes["src"]?.Value?.ToString();
+
+			return src is not null && src.StartsWith("asset://", StringComparison.Ordinal)
+				? $"/images/{src["asset://".Length..]}.jpg"
+				: string.Empty;
+		}
+	}
+
+	[Fact]
+	public async Task ProcessAsync_SiblingChildrenEachResolveTheirOwnSource()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		ChildSource mobile = CreateChildSource("(max-width: 599px)", widthRequest: 600, heightRequest: 600);
+		mobile.DeclaredAttributes.Add(new TagHelperAttribute("src", "/images/mobile.jpg"));
+		ChildSource tablet = CreateChildSource("(max-width: 999px)", widthRequest: 900, heightRequest: 600);
+		tablet.DeclaredAttributes.Add(new TagHelperAttribute("src", "/images/tablet.jpg"));
+
+		string html = await RenderWithChildrenAsync(tagHelper, "/images/test.jpg", mobile, tablet);
+
+		// Razor reuses one TagHelperContext instance across siblings, so anything keyed on that instance would hand the first sibling
+		// image to the second.
+		Assert.Contains("/dynamicimage/600/600/Crop/jpg/images/mobile.webp", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/900/600/Crop/jpg/images/tablet.webp", html, StringComparison.Ordinal);
+		Assert.DoesNotContain("/dynamicimage/900/600/Crop/jpg/images/mobile", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_ChildResolvesItsOwnSourceThroughAnOverriddenResolver()
+	{
+		AsyncSourceDynamicImageTagHelper tagHelper = CreateAsyncSourceTagHelper();
+		ChildSource child = CreateChildSource("(max-width: 599px)", widthRequest: 600, heightRequest: 800);
+		child.DeclaredAttributes.Add(new TagHelperAttribute("src", "asset://breakpoint"));
+
+		string html = await RenderWithChildrenAsync(tagHelper, "asset://catalogue-hero", child);
+
+		// The override is handed the context of the child, so it can give a breakpoint an image of its own.
+		Assert.Contains("/dynamicimage/600/800/Crop/jpg/images/breakpoint.webp", html, StringComparison.Ordinal);
+		Assert.Contains("src=\"/dynamicimage/100/50/Crop/jpg/images/catalogue-hero.jpg\"", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_ChildUsesOverriddenHasOwnSourceForNonSrcAttributes()
+	{
+		AsyncSourceDynamicImageTagHelper tagHelper = CreateAsyncSourceTagHelper();
+		ChildSource child = CreateChildSource("(max-width: 599px)", widthRequest: 600, heightRequest: 800, assetIdentified: true);
+		child.DeclaredAttributes.Add(new TagHelperAttribute("asset-id", "breakpoint"));
+
+		string html = await RenderWithChildrenAsync(tagHelper, "asset://catalogue-hero", child);
+
+		// The element carries no src, so without an overridden HasOwnSource it would silently inherit the parent image at its own crop.
+		Assert.Contains("/dynamicimage/600/800/Crop/jpg/images/breakpoint.webp", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_ChildRejectsAnExternalSourceOfItsOwn()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		ChildSource child = CreateChildSource("(max-width: 599px)", widthRequest: 600, heightRequest: 800);
+		child.DeclaredAttributes.Add(new TagHelperAttribute("src", "https://cdn.example.com/images/test.jpg"));
+
+		InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+			() => RenderWithChildrenAsync(tagHelper, "/images/test.jpg", child));
+
+		Assert.Contains("cannot be used with an external URL", exception.Message, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_RejectsAnEmptyResolvedSource()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper<EmptySourceDynamicImageTagHelper>();
+
+		_ = await Assert.ThrowsAsync<InvalidOperationException>(() => RenderWithChildrenAsync(tagHelper, "/images/test.jpg"));
+	}
+
+	private sealed class EmptySourceDynamicImageTagHelper(
+		ILogger<DynamicImageTagHelper> logger,
+		IUmbrellaWebHostingEnvironment umbrellaHostingEnvironment,
+		IMemoryCache cache,
+		ICacheKeyUtility cacheKeyUtility,
+		IResponsiveImageHelper responsiveImageHelper,
+		IDynamicImageUtility dynamicImageUtility,
+		DynamicImageTagHelperOptions dynamicImageTagHelperOptions)
+		: DynamicImageTagHelper(logger, umbrellaHostingEnvironment, cache, cacheKeyUtility, responsiveImageHelper, dynamicImageUtility, dynamicImageTagHelperOptions)
+	{
+		protected override Task<string> ResolveSourcePathAsync(TagHelperContext context) => Task.FromResult(string.Empty);
+	}
+
+	/// <summary>
+	/// A source element that identifies its image by an attribute other than src, standing in for a digital asset management reference.
+	/// </summary>
+	private sealed class AssetIdentifiedPictureSourceTagHelper(
+		ILogger<DynamicImagePictureSourceTagHelper> logger,
+		IUmbrellaWebHostingEnvironment umbrellaHostingEnvironment,
+		IMemoryCache cache,
+		ICacheKeyUtility cacheKeyUtility,
+		IResponsiveImageHelper responsiveImageHelper,
+		IDynamicImageUtility dynamicImageUtility,
+		DynamicImageTagHelperOptions dynamicImageTagHelperOptions)
+		: DynamicImagePictureSourceTagHelper(logger, umbrellaHostingEnvironment, cache, cacheKeyUtility, responsiveImageHelper, dynamicImageUtility, dynamicImageTagHelperOptions)
+	{
+		protected override bool HasOwnSource(TagHelperContext context) => context.AllAttributes.ContainsName("asset-id");
+	}
+
 	private sealed record ChildSource(
 		DynamicImagePictureSourceTagHelper TagHelper,
 		TagHelperAttributeList DeclaredAttributes,
 		TagHelperAttributeList OutputAttributes);
 
-	private static ChildSource CreateChildSource(string? media, int widthRequest, int heightRequest, DynamicImageTagHelperOptions? options = null)
+	private static ChildSource CreateChildSource(string? media, int widthRequest, int heightRequest, DynamicImageTagHelperOptions? options = null, bool assetIdentified = false)
 	{
-		var tagHelper = new DynamicImagePictureSourceTagHelper(
-			CoreUtilitiesMocks.CreateLogger<DynamicImagePictureSourceTagHelper>(),
-			Mocks.CreateUmbrellaWebHostingEnvironment(),
-			Mocks.CreateMemoryCache(),
-			CoreUtilitiesMocks.CreateCacheKeyUtility(),
-			CoreUtilitiesMocks.CreateResponsiveImageHelper(),
-			new DynamicImageUtility(CoreUtilitiesMocks.CreateLogger<DynamicImageUtility>()),
-			options ?? new DynamicImageTagHelperOptions())
-		{
-			Media = media,
-			WidthRequest = widthRequest,
-			HeightRequest = heightRequest
-		};
+		DynamicImageTagHelperOptions effectiveOptions = options ?? new DynamicImageTagHelperOptions();
+
+		DynamicImagePictureSourceTagHelper tagHelper = assetIdentified
+			? new AssetIdentifiedPictureSourceTagHelper(
+				CoreUtilitiesMocks.CreateLogger<DynamicImagePictureSourceTagHelper>(),
+				Mocks.CreateUmbrellaWebHostingEnvironment(),
+				Mocks.CreateMemoryCache(),
+				CoreUtilitiesMocks.CreateCacheKeyUtility(),
+				CoreUtilitiesMocks.CreateResponsiveImageHelper(),
+				new DynamicImageUtility(CoreUtilitiesMocks.CreateLogger<DynamicImageUtility>()),
+				effectiveOptions)
+			: new DynamicImagePictureSourceTagHelper(
+				CoreUtilitiesMocks.CreateLogger<DynamicImagePictureSourceTagHelper>(),
+				Mocks.CreateUmbrellaWebHostingEnvironment(),
+				Mocks.CreateMemoryCache(),
+				CoreUtilitiesMocks.CreateCacheKeyUtility(),
+				CoreUtilitiesMocks.CreateResponsiveImageHelper(),
+				new DynamicImageUtility(CoreUtilitiesMocks.CreateLogger<DynamicImageUtility>()),
+				effectiveOptions);
+
+		tagHelper.Media = media;
+		tagHelper.WidthRequest = widthRequest;
+		tagHelper.HeightRequest = heightRequest;
 
 		// The Razor infrastructure records every authored attribute on the context and removes the ones bound to tag helper properties
 		// from the output, so the two lists are populated separately here.
@@ -356,18 +528,39 @@ public class DynamicImageTagHelperTest
 		return new ChildSource(tagHelper, declaredAttributes, []);
 	}
 
+	/// <summary>
+	/// Renders a dynamic image and its nested sources using the real Razor scope manager, so the contexts handed to the tag helpers are
+	/// created and pooled exactly as they are at runtime.
+	/// </summary>
+	/// <remarks>
+	/// This matters for more than fidelity. Razor keeps one <see cref="TagHelperContext"/> per nesting depth and reinitializes it in place
+	/// for each sibling, so a handwritten context per child would hide any defect that depends on siblings sharing an instance.
+	/// </remarks>
 	private static async Task<string> RenderWithChildrenAsync(
 		DynamicImageTagHelper tagHelper,
 		string src = "/images/test.jpg",
 		params ChildSource[] children)
 	{
-		TagHelperContext ctx = Mocks.CreateTagHelperContext(
-		[
-			new TagHelperAttribute("src", src),
-			new TagHelperAttribute("alt", "hello"),
-			new TagHelperAttribute("width-request", 100),
-			new TagHelperAttribute("height-request", 50)
-		]);
+		var scopeManager = new TagHelperScopeManager(_ => { }, () => new DefaultTagHelperContent());
+
+		TagHelperExecutionContext parentExecutionContext = scopeManager.Begin(
+			"dynamic-image",
+			TagMode.StartTagAndEndTag,
+			"parent",
+			() => Task.CompletedTask);
+
+		foreach (TagHelperAttribute attribute in new TagHelperAttributeList
+		{
+			new("src", src),
+			new("alt", "hello"),
+			new("width-request", 100),
+			new("height-request", 50)
+		})
+		{
+			parentExecutionContext.AddTagHelperAttribute(attribute);
+		}
+
+		TagHelperContext ctx = parentExecutionContext.Context;
 
 		TagHelperOutput output = Mocks.CreateImageTagHelperOutput(
 			[new TagHelperAttribute("src", src), new TagHelperAttribute("alt", "hello")],
@@ -376,18 +569,62 @@ public class DynamicImageTagHelperTest
 			{
 				foreach (ChildSource child in children)
 				{
-					// Razor copies the items of the enclosing scope into the scope of each child, which is what shares the picture context.
-					TagHelperContext childContext = Mocks.CreateTagHelperContext(child.DeclaredAttributes, new Dictionary<object, object>(ctx.Items));
+					TagHelperExecutionContext childExecutionContext = scopeManager.Begin(
+						"dynamic-source",
+						TagMode.SelfClosing,
+						"child",
+						() => Task.CompletedTask);
+
+					foreach (TagHelperAttribute attribute in child.DeclaredAttributes)
+						childExecutionContext.AddTagHelperAttribute(attribute);
+
 					TagHelperOutput childOutput = Mocks.CreateImageTagHelperOutput(child.OutputAttributes, "dynamic-source");
 
-					await child.TagHelper.ProcessAsync(childContext, childOutput);
+					try
+					{
+						await child.TagHelper.ProcessAsync(childExecutionContext.Context, childOutput);
+					}
+					finally
+					{
+						_ = scopeManager.End();
+					}
 				}
 			});
 
 		tagHelper.Init(ctx);
-		await tagHelper.ProcessAsync(ctx, output);
+
+		try
+		{
+			await tagHelper.ProcessAsync(ctx, output);
+		}
+		finally
+		{
+			_ = scopeManager.End();
+		}
 
 		return RenderOutput(output);
+	}
+
+	private static AsyncSourceDynamicImageTagHelper CreateAsyncSourceTagHelper() => CreateTagHelper<AsyncSourceDynamicImageTagHelper>();
+
+	private static TImage CreateTagHelper<TImage>()
+		where TImage : DynamicImageTagHelper
+	{
+		var image = (TImage)Activator.CreateInstance(
+			typeof(TImage),
+			CoreUtilitiesMocks.CreateLogger<DynamicImageTagHelper>(),
+			Mocks.CreateUmbrellaWebHostingEnvironment(),
+			Mocks.CreateMemoryCache(),
+			CoreUtilitiesMocks.CreateCacheKeyUtility(),
+			CoreUtilitiesMocks.CreateResponsiveImageHelper(),
+			new DynamicImageUtility(CoreUtilitiesMocks.CreateLogger<DynamicImageUtility>()),
+			new DynamicImageTagHelperOptions())!;
+
+		image.ImageMaxPixelDensity = 1;
+		image.WidthRequest = 100;
+		image.HeightRequest = 50;
+
+		return image;
 	}
 
 	private static DynamicImageTagHelper CreateTagHelper(DynamicImageTagHelperOptions? options = null)
