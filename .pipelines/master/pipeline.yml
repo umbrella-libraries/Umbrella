@@ -23,6 +23,13 @@ stages:
         workingDir: 'AspNetCore/src/Umbrella.AspNetCore.Blazor'
 
     - task: Npm@1
+      displayName: NPM Test (Umbrella.AspNetCore.Blazor)
+      inputs:
+        command: 'custom'
+        workingDir: 'AspNetCore/src/Umbrella.AspNetCore.Blazor'
+        customCommand: 'test'
+
+    - task: Npm@1
       displayName: NPM Build Release (Umbrella.AspNetCore.Blazor)
       inputs:
         command: 'custom'
