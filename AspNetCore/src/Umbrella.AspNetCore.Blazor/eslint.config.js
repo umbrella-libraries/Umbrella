@@ -18,7 +18,7 @@ module.exports = tseslint.config(
 		]
 	},
 	{
-		files: ["Content/scripts/**/*.ts"],
+		files: ["Content/scripts/**/*.ts", "FrontendTest/**/*.ts"],
 		extends: [
 			js.configs.recommended,
 			...tseslint.configs.recommendedTypeChecked

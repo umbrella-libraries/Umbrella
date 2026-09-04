@@ -43,7 +43,8 @@ export class UmbrellaBlazorInterop
 	#dialogHostCount = 0;
 	#lastFocusedOutsideDialogs: HTMLElement | null = null;
 	#dialogListenersAttached = false;
-	#dialogKeyDownHandler = (event: KeyboardEvent): void => this.handleDialogKeyDown(event);
+	#dialogTabKeyDownHandler = (event: KeyboardEvent): void => this.handleDialogTabKeyDown(event);
+	#dialogEscapeKeyDownHandler = (event: KeyboardEvent): void => this.handleDialogEscapeKeyDown(event);
 	#dialogFocusInHandler = (event: FocusEvent): void => this.handleDialogFocusIn(event);
 
 	scrollTimeout: number | null = null;
@@ -305,7 +306,8 @@ export class UmbrellaBlazorInterop
 		if (this.#dialogListenersAttached)
 			return;
 
-		document.addEventListener("keydown", this.#dialogKeyDownHandler, true);
+		document.addEventListener("keydown", this.#dialogTabKeyDownHandler, true);
+		window.addEventListener("keydown", this.#dialogEscapeKeyDownHandler);
 		document.addEventListener("focusin", this.#dialogFocusInHandler, true);
 		this.#dialogListenersAttached = true;
 	}
@@ -315,42 +317,49 @@ export class UmbrellaBlazorInterop
 		if (!this.#dialogListenersAttached || this.#dialogs.length > 0 || this.#dialogHostCount > 0)
 			return;
 
-		document.removeEventListener("keydown", this.#dialogKeyDownHandler, true);
+		document.removeEventListener("keydown", this.#dialogTabKeyDownHandler, true);
+		window.removeEventListener("keydown", this.#dialogEscapeKeyDownHandler);
 		document.removeEventListener("focusin", this.#dialogFocusInHandler, true);
 		this.#dialogListenersAttached = false;
 		this.#lastFocusedOutsideDialogs = null;
 	}
 
-	private handleDialogKeyDown(event: KeyboardEvent): void
+	private handleDialogEscapeKeyDown(event: KeyboardEvent): void
 	{
+		if (event.key !== "Escape" || event.defaultPrevented)
+			return;
+
 		const activeDialog = this.getActiveDialog();
 
 		if (!activeDialog)
 			return;
 
-		if (event.key === "Escape")
+		event.preventDefault();
+		event.stopPropagation();
+
+		if (!activeDialog.cancelPending)
 		{
-			event.preventDefault();
-			event.stopPropagation();
-
-			if (!activeDialog.cancelPending)
-			{
-				activeDialog.cancelPending = true;
-				activeDialog.dotNetObjectReference.invokeMethodAsync("CancelFromKeyboardAsync")
-					.catch((error: unknown) =>
-					{
-						activeDialog.cancelPending = false;
-						console.error("Failed to cancel the active dialog.", error);
-					});
-			}
-
-			return;
+			activeDialog.cancelPending = true;
+			activeDialog.dotNetObjectReference.invokeMethodAsync("CancelFromKeyboardAsync")
+				.catch((error: unknown) =>
+				{
+					activeDialog.cancelPending = false;
+					console.error("Failed to cancel the active dialog.", error);
+				});
 		}
+	}
 
+	private handleDialogTabKeyDown(event: KeyboardEvent): void
+	{
 		if (event.key !== "Tab")
 			return;
 
-		const focusableElements = this.getFocusableElements(activeDialog.surface);
+		const activeDialog = this.getActiveDialog();
+
+		if (!activeDialog)
+			return;
+
+		const focusableElements = this.getTabbableElements(activeDialog.surface);
 
 		if (focusableElements.length === 0)
 		{
@@ -455,14 +464,14 @@ export class UmbrellaBlazorInterop
 		const autofocusElement = registration.surface.querySelector<HTMLElement>("[autofocus]");
 		const focusTarget = autofocusElement && this.isFocusable(autofocusElement)
 			? autofocusElement
-			: this.getFocusableElements(registration.surface)[0] ?? registration.surface;
+			: this.getTabbableElements(registration.surface)[0] ?? registration.surface;
 
 		focusTarget.focus({ preventScroll: true });
 	}
 
-	private getFocusableElements(surface: HTMLElement): HTMLElement[]
+	private getTabbableElements(surface: HTMLElement): HTMLElement[]
 	{
-		return Array.from(surface.querySelectorAll<HTMLElement>(dialogFocusableSelector)).filter(x => this.isFocusable(x));
+		return Array.from(surface.querySelectorAll<HTMLElement>(dialogFocusableSelector)).filter(x => x.tabIndex >= 0 && this.isFocusable(x));
 	}
 
 	private isFocusable(element: HTMLElement): boolean
