@@ -1,0 +1,16 @@
+/*
+	Define and specify values for the following variables to override the default styling.
+
+	--u-managed-file-upload-button-spacing
+*/
+
+.u-managed-file-upload
+{
+	&__buttons
+	{
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--u-managed-file-upload-button-spacing, 0.5rem);
+	}
+}

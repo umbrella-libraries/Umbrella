@@ -1,0 +1,32 @@
+<div class="u-managed-file-upload">
+	@if (IsShowingExistingFile)
+	{
+		<div class="u-managed-file-upload__buttons" role="group" aria-label="@ExistingFileActionsAriaLabel">
+			@if (ShowViewButton)
+			{
+				<a class="@ViewButtonCssClass"
+				   href="@ExistingFileUrl"
+				   target="@(OpenExistingFileInNewWindow ? "_blank" : null)"
+				   rel="@(OpenExistingFileInNewWindow ? "noopener noreferrer" : null)">@ViewButtonText</a>
+			}
+
+			@if (ShowReplaceButton)
+			{
+				<button type="button" class="@ReplaceButtonCssClass" @onclick="ReplaceFileClickAsync">@ReplaceButtonText</button>
+			}
+
+			@if (ShowRemoveButton && OnRemoveFile.HasDelegate)
+			{
+				<button type="button" class="@RemoveButtonCssClass" @onclick="RemoveFileClickAsync">@RemoveButtonText</button>
+			}
+		</div>
+	}
+	else
+	{
+		<UmbrellaFileUpload OnRequestUpload="OnRequestUploadInnerAsync"
+							Accept="@Accept"
+							MaxFileSizeBytes="@MaxFileSizeBytes"
+							ShowCancelWarning="@ShowCancelWarning"
+							ShowClearWarning="@ShowClearWarning" />
+	}
+</div>
