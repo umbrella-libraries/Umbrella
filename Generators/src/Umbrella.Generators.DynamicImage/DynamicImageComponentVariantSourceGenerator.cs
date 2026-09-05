@@ -172,12 +172,22 @@ public sealed class DynamicImageComponentVariantSourceGenerator : IIncrementalGe
 		bool isTagHelper = usage.Kind is DynamicImageRazorUsageKind.ImageTagHelper or DynamicImageRazorUsageKind.PictureSourceTagHelper;
 		var attributes = new Dictionary<string, DynamicImageRazorAttribute>(StringComparer.OrdinalIgnoreCase);
 
-		// A nested source inherits every attribute it does not declare itself, so the parent's attributes are applied first and then
-		// overwritten by the ones declared on the source.
+		// A nested source inherits shared settings, but must declare its own dimensions.
+		// Apply the parent's settings first, remove dimensions, then apply the source's declarations.
 		if (usage.Parent is not null)
 			AddNormalizedAttributes(usage.Parent.Attributes, isTagHelper, attributes);
 
+		bool isSource = usage.Kind is DynamicImageRazorUsageKind.PictureSourceTagHelper or DynamicImageRazorUsageKind.SourceComponent;
+		if (isSource)
+		{
+			_ = attributes.Remove("WidthRequest");
+			_ = attributes.Remove("HeightRequest");
+		}
+
 		AddNormalizedAttributes(usage.Attributes, isTagHelper, attributes);
+
+		if (isSource && (!attributes.ContainsKey("WidthRequest") || !attributes.ContainsKey("HeightRequest")))
+			return;
 
 		bool isFileImagePreviewUpload = usage.Kind is DynamicImageRazorUsageKind.FileImagePreviewUploadComponent;
 

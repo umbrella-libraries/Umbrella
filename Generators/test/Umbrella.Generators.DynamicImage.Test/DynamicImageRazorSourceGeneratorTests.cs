@@ -560,6 +560,30 @@ public class DynamicImageRazorSourceGeneratorTests
 			GetVariants(assembly, "DynamicImageVariantCatalog"));
 	}
 
+	[Theory]
+	[InlineData("")]
+	[InlineData("WidthRequest=\"300\"")]
+	[InlineData("HeightRequest=\"500\"")]
+	public void NestedComponentSourceDoesNotInheritDimensions(string dimensions)
+	{
+		AdditionalText[] files =
+		[
+			new TestAdditionalText("C:/app/_Imports.razor", "@using Umbrella.AspNetCore.Blazor.Components.DynamicImage"),
+			new TestAdditionalText("C:/app/Test.razor", $$"""
+<UmbrellaDynamicImage Url="/images/hero.jpg" WidthRequest="800" HeightRequest="400" MaxPixelDensity="1">
+    <UmbrellaDynamicImageSource Media="(max-width: 599px)" ResizeMode="DynamicResizeMode.ScaleDown" {{dimensions}} />
+</UmbrellaDynamicImage>
+""")
+		];
+
+		Assembly assembly = GenerateAssembly(files, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), out ImmutableArray<Diagnostic> diagnostics);
+
+		Assert.Empty(diagnostics);
+		AssertAutomaticPictureVariants(
+			[new DynamicImageVariant(800, 400, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)],
+			GetVariants(assembly, "DynamicImageVariantCatalog"));
+	}
+
 	private static void AssertAutomaticPictureVariants(IEnumerable<DynamicImageVariant> expectedFallbackVariants, IEnumerable<DynamicImageVariant> actualVariants)
 	{
 		DynamicImageVariant[] expected =

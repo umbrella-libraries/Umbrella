@@ -16,7 +16,7 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage;
 /// not support any of the formats offered for that condition.
 /// </para>
 /// <para>
-/// Every parameter is nullable, and a parameter that has not been set is inherited from the parent component.
+/// Width and height must be declared explicitly. Other optional parameters inherit from the parent component when not set.
 /// </para>
 /// </remarks>
 /// <seealso cref="ComponentBase" />
@@ -42,15 +42,17 @@ public partial class UmbrellaDynamicImageSource : ComponentBase
 	public string? Url { get; set; }
 
 	/// <summary>
-	/// Gets or sets the width request in pixels. Inherited from the parent component when not specified.
+	/// Gets or sets the width request in pixels. Must be declared explicitly, even when the resize mode does not use it.
 	/// </summary>
 	[Parameter]
+	[EditorRequired]
 	public int? WidthRequest { get; set; }
 
 	/// <summary>
-	/// Gets or sets the height request in pixels. Inherited from the parent component when not specified.
+	/// Gets or sets the height request in pixels. Must be declared explicitly, even when the resize mode does not use it.
 	/// </summary>
 	[Parameter]
+	[EditorRequired]
 	public int? HeightRequest { get; set; }
 
 	/// <summary>
@@ -146,6 +148,8 @@ public partial class UmbrellaDynamicImageSource : ComponentBase
 		if (UmbrellaDynamicImageContext.IsExternalUrl(sourcePath))
 			throw new InvalidOperationException($"An {nameof(UmbrellaDynamicImageSource)} component cannot be used with an external URL.");
 
+		ValidateSizeRequests();
+
 		DynamicImageSourceSettings settings = CreateSettings(Context.Settings, sourcePath);
 		settings.ValidateFocalPoint();
 
@@ -171,6 +175,18 @@ public partial class UmbrellaDynamicImageSource : ComponentBase
 			.ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal);
 	}
 
+	private void ValidateSizeRequests()
+	{
+		if (!WidthRequest.HasValue || !HeightRequest.HasValue)
+			throw new InvalidOperationException($"Both {nameof(WidthRequest)} and {nameof(HeightRequest)} must be declared explicitly on an {nameof(UmbrellaDynamicImageSource)} component.");
+
+		if (WidthRequest.Value <= 0)
+			throw new InvalidOperationException($"A positive {nameof(WidthRequest)} must be provided.");
+
+		if (HeightRequest.Value <= 0)
+			throw new InvalidOperationException($"A positive {nameof(HeightRequest)} must be provided.");
+	}
+
 	private DynamicImageSourceSettings CreateSettings(DynamicImageSourceSettings inherited, string sourcePath)
 	{
 		DynamicResizeMode resizeMode = ResizeMode ?? inherited.ResizeMode;
@@ -182,8 +198,8 @@ public partial class UmbrellaDynamicImageSource : ComponentBase
 		return new DynamicImageSourceSettings
 		{
 			Url = sourcePath,
-			WidthRequest = WidthRequest ?? inherited.WidthRequest,
-			HeightRequest = HeightRequest ?? inherited.HeightRequest,
+			WidthRequest = WidthRequest!.Value,
+			HeightRequest = HeightRequest!.Value,
 			ResizeMode = resizeMode,
 			ImageFormat = ImageFormat ?? inherited.ImageFormat,
 			MaxPixelDensity = MaxPixelDensity ?? inherited.MaxPixelDensity,

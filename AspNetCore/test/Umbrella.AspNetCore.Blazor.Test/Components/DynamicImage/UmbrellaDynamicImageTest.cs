@@ -12,6 +12,42 @@ namespace Umbrella.AspNetCore.Blazor.Test.Components.DynamicImage;
 
 public sealed class UmbrellaDynamicImageTest
 {
+	[Theory]
+	[InlineData(null, null)]
+	[InlineData(null, 800)]
+	[InlineData(600, null)]
+	public async Task Art_directed_source_requires_explicit_dimensions(int? width, int? height)
+	{
+		InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+			RenderAsync(childSources: [new ArtDirectedSource("(max-width: 599px)", width, height)]));
+
+		Assert.Contains("must be declared explicitly", exception.Message, StringComparison.Ordinal);
+	}
+
+	[Theory]
+	[InlineData(0, 800)]
+	[InlineData(600, 0)]
+	[InlineData(-1, 800)]
+	[InlineData(600, -1)]
+	public async Task Art_directed_crop_requires_positive_dimensions(int width, int height)
+	{
+		_ = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+			RenderAsync(childSources: [new ArtDirectedSource("(max-width: 599px)", width, height)]));
+	}
+
+	[Theory]
+	[InlineData(DynamicResizeMode.UseWidth, 600, 1)]
+	[InlineData(DynamicResizeMode.UseHeight, 1, 800)]
+	public async Task Art_directed_source_supports_single_axis_resize_modes(DynamicResizeMode resizeMode, int width, int height)
+	{
+		string html = await RenderAsync(childSources:
+		[
+			new ArtDirectedSource("(max-width: 599px)", width, height) { ResizeMode = resizeMode }
+		]);
+
+		Assert.Contains($"/dynamicimage/{width}/{height}/{resizeMode}/", html, StringComparison.Ordinal);
+	}
+
 	[Fact]
 	public async Task Picture_renders_format_sources_before_the_fallback_image()
 	{
@@ -206,8 +242,10 @@ public sealed class UmbrellaDynamicImageTest
 		}
 	}
 
-	private sealed record ArtDirectedSource(string Media, int WidthRequest, int HeightRequest)
+	private sealed record ArtDirectedSource(string Media, int? WidthRequest, int? HeightRequest)
 	{
+		public DynamicResizeMode? ResizeMode { get; init; }
+
 		public string? Url { get; init; }
 
 		public string? AssetId { get; init; }
@@ -267,27 +305,29 @@ public sealed class UmbrellaDynamicImageTest
 
 	private static RenderFragment BuildChildContent(IReadOnlyCollection<ArtDirectedSource> childSources) => builder =>
 	{
-		int sequence = 0;
-
 		foreach (ArtDirectedSource source in childSources)
 		{
 			if (source.AssetId is not null)
-				builder.OpenComponent<AssetDynamicImageSource>(sequence++);
+				builder.OpenComponent<AssetDynamicImageSource>(0);
 			else
-				builder.OpenComponent<UmbrellaDynamicImageSource>(sequence++);
+				builder.OpenComponent<UmbrellaDynamicImageSource>(1);
 
 			if (source.AssetId is not null)
-				builder.AddComponentParameter(sequence++, nameof(AssetDynamicImageSource.AssetId), source.AssetId);
+				builder.AddComponentParameter(2, nameof(AssetDynamicImageSource.AssetId), source.AssetId);
 
-			builder.AddComponentParameter(sequence++, nameof(UmbrellaDynamicImageSource.Media), source.Media);
-			builder.AddComponentParameter(sequence++, nameof(UmbrellaDynamicImageSource.WidthRequest), source.WidthRequest);
-			builder.AddComponentParameter(sequence++, nameof(UmbrellaDynamicImageSource.HeightRequest), source.HeightRequest);
+			builder.AddComponentParameter(3, nameof(UmbrellaDynamicImageSource.Media), source.Media);
+			if (source.WidthRequest.HasValue)
+				builder.AddComponentParameter(4, nameof(UmbrellaDynamicImageSource.WidthRequest), source.WidthRequest.Value);
+			if (source.HeightRequest.HasValue)
+				builder.AddComponentParameter(5, nameof(UmbrellaDynamicImageSource.HeightRequest), source.HeightRequest.Value);
+			if (source.ResizeMode.HasValue)
+				builder.AddComponentParameter(6, nameof(UmbrellaDynamicImageSource.ResizeMode), source.ResizeMode.Value);
 
 			if (source.Url is not null)
-				builder.AddComponentParameter(sequence++, nameof(UmbrellaDynamicImageSource.Url), source.Url);
+				builder.AddComponentParameter(7, nameof(UmbrellaDynamicImageSource.Url), source.Url);
 
 			if (source.AdditionalAttributes is not null)
-				builder.AddMultipleAttributes(sequence++, source.AdditionalAttributes!);
+				builder.AddMultipleAttributes(8, source.AdditionalAttributes!);
 
 			builder.CloseComponent();
 		}
