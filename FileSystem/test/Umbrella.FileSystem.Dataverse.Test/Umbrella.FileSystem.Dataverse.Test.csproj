@@ -13,7 +13,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.26" />
+		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.27" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.11" />
 		<PackageReference Include="Xunit.v3.Priority" Version="1.1.18" />
 	</ItemGroup>
