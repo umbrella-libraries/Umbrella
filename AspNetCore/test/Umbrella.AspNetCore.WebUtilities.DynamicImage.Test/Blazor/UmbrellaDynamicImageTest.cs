@@ -14,6 +14,35 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Test.Blazor;
 public class UmbrellaDynamicImageTest
 {
 	[Fact]
+	public async Task DescriptorPropagatesApprovalToEveryFormatAndResponsiveSize()
+	{
+		var signer = DynamicImageFocalPointApprovalTest.CreateService();
+		var image = signer.Create(new Umbrella.FileSystem.Abstractions.UmbrellaVersionedUrl("/files/images/test.jpg", "version"), 0.25, 0.75)!;
+		string html = await RenderAsync(new UmbrellaDynamicImageOptions(), new Dictionary<string, object?>
+		{
+			[nameof(UmbrellaDynamicImage.Image)] = image,
+			[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.CropFocalPoint,
+			[nameof(UmbrellaDynamicImage.WidthRequest)] = 100,
+			[nameof(UmbrellaDynamicImage.HeightRequest)] = 50,
+			[nameof(UmbrellaDynamicImage.SizeWidths)] = "100,200"
+		});
+		Assert.Contains("fpa=" + image.FocalPointApproval, html, StringComparison.Ordinal);
+		Assert.Contains("/200/100/CropFocalPoint/", html, StringComparison.Ordinal);
+		Assert.Contains("fpx=0.25&amp;fpy=0.75&amp;fpa=", html, StringComparison.Ordinal);
+		DynamicImageFocalPointApprovalTest.AssertRenderedApprovals(html, signer);
+	}
+
+	[Fact]
+	public async Task DescriptorRejectsConflictingInputs()
+	{
+		_ = await Assert.ThrowsAsync<InvalidOperationException>(() => RenderAsync(new UmbrellaDynamicImageOptions(), new Dictionary<string, object?>
+		{
+			[nameof(UmbrellaDynamicImage.Image)] = null,
+			[nameof(UmbrellaDynamicImage.Url)] = "/images/test.jpg"
+		}));
+	}
+
+	[Fact]
 	public async Task RendersPictureAsRootWithConfiguredSourcesAndFallback()
 	{
 		var options = new UmbrellaDynamicImageOptions

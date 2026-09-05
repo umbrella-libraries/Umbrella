@@ -22,6 +22,7 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
 /// <seealso cref="DynamicImageTagHelperBase" />
 [OutputElementHint("picture")]
 [HtmlTargetElement("dynamic-image", Attributes = RequiredAttributeNames, TagStructure = TagStructure.NormalOrSelfClosing)]
+[HtmlTargetElement("dynamic-image", Attributes = "image,width-request,height-request", TagStructure = TagStructure.NormalOrSelfClosing)]
 public class DynamicImageTagHelper : DynamicImageTagHelperBase
 {
 	private DynamicImagePictureContext? _pictureContext;
@@ -67,6 +68,7 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 		Guard.IsNotNull(context);
 
 		base.Init(context);
+		ApplyImageDescriptor(context);
 
 		_pictureContext = new DynamicImagePictureContext
 		{
@@ -80,7 +82,8 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 			MaxPixelDensity = ImageMaxPixelDensity,
 			SizeWidths = SizeWidths,
 			FocalPointX = FocalPointX,
-			FocalPointY = FocalPointY
+			FocalPointY = FocalPointY,
+			FocalPointApproval = FocalPointApproval
 		};
 
 		context.Items[typeof(DynamicImagePictureContext)] = _pictureContext;
@@ -181,7 +184,9 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 	{
 		Guard.IsNotNull(context);
 
-		string? sourceUrl = context.AllAttributes["src"]?.Value?.ToString()?.Trim();
+		string? sourceUrl = context.AllAttributes["image"]?.Value is DynamicImageDescriptor descriptor
+			? descriptor.Url
+			: context.AllAttributes["src"]?.Value?.ToString()?.Trim();
 
 		if (string.IsNullOrEmpty(sourceUrl))
 			return Task.FromResult(string.Empty);

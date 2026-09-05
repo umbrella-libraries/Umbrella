@@ -13,6 +13,22 @@ namespace Umbrella.Generators.DynamicImage.Test;
 public class DynamicImageRazorSourceGeneratorTests
 {
 	[Fact]
+	public void DescriptorBindingStillGeneratesTransformCatalog()
+	{
+		AdditionalText[] files =
+		[
+			new TestAdditionalText("C:/app/_Imports.razor", "@using Umbrella.AspNetCore.Blazor.Components.DynamicImage"),
+			new TestAdditionalText("C:/app/Test.razor", """
+<UmbrellaDynamicImage Image="@Model.Image" WidthRequest="321" HeightRequest="123" MaxPixelDensity="1" ResizeMode="DynamicResizeMode.CropFocalPoint" />
+""")
+		];
+		var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["C:/app/_Imports.razor"] = "Server", ["C:/app/Test.razor"] = "Server" };
+		Assembly assembly = GenerateAssembly(files, metadata, out ImmutableArray<Diagnostic> diagnostics);
+		Assert.Empty(diagnostics);
+		AssertAutomaticPictureVariants([new DynamicImageVariant(321, 123, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg)], GetVariants(assembly, "ServerDynamicImageVariantCatalog"));
+	}
+
+	[Fact]
 	public void RazorComponentsFromNamedCatalogsEmitNamedAndAggregateCatalogs()
 	{
 		AdditionalText[] files =

@@ -22,6 +22,20 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage;
 /// <seealso cref="ComponentBase" />
 public partial class UmbrellaDynamicImageSource : ComponentBase
 {
+	/// <summary>Gets or sets this source's own server-resolved image metadata.</summary>
+	[Parameter]
+	public DynamicImageDescriptor? Image { get; set; }
+
+	/// <summary>Gets or sets the approval for separately supplied focal coordinates.</summary>
+	[Parameter]
+	public string? FocalPointApproval { get; set; }
+
+	/// <inheritdoc />
+	public override Task SetParametersAsync(ParameterView parameters)
+	{
+		DynamicImageParameterValidation.Validate(parameters);
+		return base.SetParametersAsync(parameters);
+	}
 	/// <summary>
 	/// Gets or sets the context cascaded by the parent <see cref="UmbrellaDynamicImage"/> component.
 	/// </summary>
@@ -127,7 +141,7 @@ public partial class UmbrellaDynamicImageSource : ComponentBase
 	/// Override this in a component that identifies its image by something other than <see cref="Url"/>, so that the resolver of the parent
 	/// component is asked for a path rather than the inherited one being used.
 	/// </remarks>
-	protected virtual bool HasOwnSource => !string.IsNullOrWhiteSpace(Url);
+	protected virtual bool HasOwnSource => Image is not null || !string.IsNullOrWhiteSpace(Url);
 
 	/// <inheritdoc />
 	protected override async Task OnParametersSetAsync()
@@ -193,7 +207,8 @@ public partial class UmbrellaDynamicImageSource : ComponentBase
 
 		// A focal point is only meaningful for the CropFocalPoint resize mode, so it is only inherited when the effective resize mode still
 		// calls for one. Without this, specifying a different resize mode on a child of a focal point parent would throw.
-		bool inheritFocalPoint = resizeMode is DynamicResizeMode.CropFocalPoint;
+		bool inheritFocalPoint = !HasOwnSource && resizeMode is DynamicResizeMode.CropFocalPoint;
+		bool inheritApproval = inheritFocalPoint && !FocalPointX.HasValue && !FocalPointY.HasValue && VersionToken is null;
 
 		return new DynamicImageSourceSettings
 		{
@@ -204,9 +219,10 @@ public partial class UmbrellaDynamicImageSource : ComponentBase
 			ImageFormat = ImageFormat ?? inherited.ImageFormat,
 			MaxPixelDensity = MaxPixelDensity ?? inherited.MaxPixelDensity,
 			SizeWidths = SizeWidths ?? inherited.SizeWidths,
-			FocalPointX = FocalPointX ?? (inheritFocalPoint ? inherited.FocalPointX : null),
-			FocalPointY = FocalPointY ?? (inheritFocalPoint ? inherited.FocalPointY : null),
-			VersionToken = VersionToken ?? inherited.VersionToken
+			FocalPointX = Image is not null ? Image.FocalPoint?.X : FocalPointX ?? (inheritFocalPoint ? inherited.FocalPointX : null),
+			FocalPointY = Image is not null ? Image.FocalPoint?.Y : FocalPointY ?? (inheritFocalPoint ? inherited.FocalPointY : null),
+			VersionToken = Image is not null ? Image.VersionToken : VersionToken ?? (!HasOwnSource ? inherited.VersionToken : null),
+			FocalPointApproval = Image is not null ? Image.FocalPointApproval : FocalPointApproval ?? (inheritApproval ? inherited.FocalPointApproval : null)
 		};
 	}
 }

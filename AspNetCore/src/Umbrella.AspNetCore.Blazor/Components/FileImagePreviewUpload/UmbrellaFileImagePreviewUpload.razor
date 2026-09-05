@@ -47,7 +47,7 @@
 				</div>
 
 				<div class="u-file-image-preview-upload__crop-preview">
-					@RenderCropPreview()
+					<canvas @ref="CropPreviewElement" style="max-width:100%;height:auto" role="img" aria-label="Focal crop preview"></canvas>
 				</div>
 			</div>
 		}
@@ -80,5 +80,6 @@
 															 VersionToken="@UpdatedImageVersionToken"
 															 FocalPointX="@UpdatedFocalPointX"
 															 FocalPointY="@UpdatedFocalPointY"
+															 FocalPointApproval="@UpdatedFocalPointApproval"
 															 @key="@UpdatedImageUrl" />;
 }

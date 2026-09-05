@@ -151,7 +151,8 @@ public sealed class UmbrellaDynamicImageContext
 			format,
 			focalPointX: settings.FocalPointX,
 			focalPointY: settings.FocalPointY,
-			versionToken: settings.VersionToken);
+			versionToken: settings.VersionToken,
+			focalPointApproval: settings.FocalPointApproval);
 
 		return _dynamicImageUtility.GenerateVirtualPath(_options.DynamicImagePathPrefix, options).TrimStart('~').Replace("//", "/", StringComparison.Ordinal);
 	}

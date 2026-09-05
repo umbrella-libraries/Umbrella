@@ -1,5 +1,6 @@
 /* eslint-disable */
 import { BrowserEventAggregator } from "./browserEventAggregator";
+import { updateFocalPointPreview } from "./focalPointPreview";
 
 const dialogFocusableSelector = [
 	"a[href]",
@@ -119,6 +120,12 @@ export class UmbrellaBlazorInterop
 			}
 		});
 		this.#imageFocalPointSelectors.add(element);
+	}
+
+	/** Updates a local preview without making image requests. */
+	public updateImageFocalPointPreview(selector: HTMLElement, canvas: HTMLCanvasElement, width: number, height: number, x: number | null, y: number | null): void
+	{
+		updateFocalPointPreview(selector, canvas, width, height, x, y);
 	}
 
 	/**

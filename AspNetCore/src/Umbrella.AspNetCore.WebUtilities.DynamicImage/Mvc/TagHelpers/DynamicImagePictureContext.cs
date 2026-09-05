@@ -15,6 +15,8 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
 /// </remarks>
 public sealed class DynamicImagePictureContext
 {
+	/// <summary>Gets the approval for the parent's image and focal point.</summary>
+	public string? FocalPointApproval { get; init; }
 	private Task<string>? _parentSourcePathTask;
 
 	/// <summary>

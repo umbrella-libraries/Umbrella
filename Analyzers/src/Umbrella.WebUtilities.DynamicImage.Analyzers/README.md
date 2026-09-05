@@ -19,8 +19,11 @@ UWDI001–UWDI003 are configured with **Error** severity (compile blocking) and 
 | UWDI003 | DynamicImage UI usages must assign VersionToken                                     | `UmbrellaDynamicImage`, `UmbrellaFileImagePreviewUpload`, and `DynamicImage` tag helper usages bound to a DynamicImage URL model property must also assign the `VersionToken` input. Direct Razor source is checked, including ordinary and null-conditional model bindings. |
 | UWDI004 | DynamicImage variant discovery coverage is reduced by non-static inputs             | Dynamic Image usages with variant-shaping inputs other than literals or enum members cannot be added safely to the generated catalog. The diagnostic points to the original Razor attribute and the entire occurrence is omitted from generation. |
 | UWDI005 | Dynamic Image catalog configuration is invalid                                     | The generator reports an error for empty or conflicting catalog names, or when more than one catalog owns the same physical Razor file. |
+| UWDI006 | Explicit focal points require server approval under middleware validation | Warns about authored Razor focal coordinates without `FocalPointApproval`. Bind a server-created `Image` descriptor or pass approval with the individual inputs. Literal interactive local previews are exempt. |
 
 ### Activation
+
+UWDI006 is a warning independent of fingerprinting and is available when the compilation references `DynamicImageDescriptor`. It checks authored Razor inputs; it cannot prove the validity of a supplied approval or the server's runtime validation configuration. Middleware enforces approval. Descriptor-bound usages require no separate URL/version-token inputs and still participate in catalog discovery.
 
 UWDI001–UWDI003 are gated on explicit URL-fingerprinting enablement. In the project containing the real
 `AddUmbrellaWebUtilitiesDynamicImage` registration callback, its direct assignment to the real

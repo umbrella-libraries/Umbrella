@@ -91,6 +91,7 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 			throw new InvalidOperationException($"A value for the {MediaAttributeName} attribute must be provided on a <dynamic-source> element.");
 
 		ApplyInheritedValues(context, pictureContext);
+		ApplyImageDescriptor(context);
 
 		// The parent resolved and cached this before running its child content, so asking for it is free and is also how the parent being
 		// external is detected without the child having to be told separately.
@@ -138,7 +139,7 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 	{
 		Guard.IsNotNull(context);
 
-		return context.AllAttributes.ContainsName("src");
+		return context.AllAttributes.ContainsName("src") || context.AllAttributes.ContainsName("image");
 	}
 
 	/// <summary>
@@ -152,7 +153,7 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 		// declared value to be told apart from a property that is simply sitting at its default.
 		bool IsDeclared(string name) => context.AllAttributes.ContainsName(name);
 
-		if (!IsDeclared(VersionTokenAttributeName))
+		if (!HasOwnSource(context) && !IsDeclared(VersionTokenAttributeName))
 			VersionToken = pictureContext.VersionToken;
 
 		if (!IsDeclared("resize-mode"))
@@ -175,8 +176,10 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 
 		// A focal point is only meaningful for the CropFocalPoint resize mode, so it is only inherited when the effective resize mode
 		// still calls for one. Without this, declaring a different resize mode on a child of a focal point parent would throw.
-		if (ResizeMode is DynamicResizeMode.CropFocalPoint)
+		if (!HasOwnSource(context) && ResizeMode is DynamicResizeMode.CropFocalPoint)
 		{
+			if (!IsDeclared("focal-point-approval") && !IsDeclared("focal-point-x") && !IsDeclared("focal-point-y") && !IsDeclared(VersionTokenAttributeName))
+				FocalPointApproval = pictureContext.FocalPointApproval;
 			if (!IsDeclared("focal-point-x"))
 				FocalPointX = pictureContext.FocalPointX;
 

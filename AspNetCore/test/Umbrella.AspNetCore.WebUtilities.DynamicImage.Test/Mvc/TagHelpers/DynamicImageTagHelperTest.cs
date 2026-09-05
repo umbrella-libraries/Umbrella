@@ -17,6 +17,30 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Test.Mvc.TagHelpers;
 public class DynamicImageTagHelperTest
 {
 	[Fact]
+	public async Task DescriptorSuppliesSourceVersionAndApproval()
+	{
+		var image = DynamicImageFocalPointApprovalTest.CreateService().Create(new Umbrella.FileSystem.Abstractions.UmbrellaVersionedUrl("/images/test.jpg", "version"), 0.25, 0.75)!;
+		var tagHelper = CreateTagHelper();
+		tagHelper.Image = image;
+		tagHelper.ResizeMode = DynamicResizeMode.CropFocalPoint;
+		var context = Mocks.CreateTagHelperContext([new TagHelperAttribute("image", image), new TagHelperAttribute("width-request", 100), new TagHelperAttribute("height-request", 50)]);
+		var output = Mocks.CreateImageTagHelperOutput([], "dynamic-image");
+		tagHelper.Init(context);
+		await tagHelper.ProcessAsync(context, output);
+		string html = RenderOutput(output);
+		Assert.Contains("_v_version/images/test.webp?fpx=0.25&fpy=0.75&fpa=" + image.FocalPointApproval, html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void DescriptorRejectsConflictingSourceAttribute()
+	{
+		var tagHelper = CreateTagHelper();
+		tagHelper.Image = DynamicImageFocalPointApprovalTest.CreateService().Create(new Umbrella.FileSystem.Abstractions.UmbrellaVersionedUrl("/images/test.jpg", "version"));
+		var (context, _) = CreateContextAndOutput();
+		_ = Assert.Throws<InvalidOperationException>(() => tagHelper.Init(context));
+	}
+
+	[Fact]
 	public async Task ProcessAsync_GeneratesUnversionedUrl()
 	{
 		var tagHelper = CreateTagHelper();

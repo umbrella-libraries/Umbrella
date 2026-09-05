@@ -1,0 +1,11 @@
+@using Umbrella.AspNetCore.Blazor.Components.DynamicImage
+@using Umbrella.DynamicImage.Abstractions
+
+@* Compile the consumer-facing contract with RZ2012 treated as an error. *@
+<UmbrellaDynamicImage Image="@Image" WidthRequest="100" HeightRequest="50"
+                      ResizeMode="DynamicResizeMode.CropFocalPoint" />
+
+@code {
+    [Microsoft.AspNetCore.Components.Parameter]
+    public DynamicImageDescriptor? Image { get; set; }
+}

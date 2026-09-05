@@ -19,6 +19,29 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
 /// <seealso cref="ResponsiveImageTagHelper" />
 public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 {
+	private static readonly string[] _individualImageAttributeNames = ["src", "version-token", "focal-point-x", "focal-point-y", "focal-point-approval"];
+
+	/// <summary>Gets or sets server-resolved image metadata.</summary>
+	[HtmlAttributeName("image")]
+	public DynamicImageDescriptor? Image { get; set; }
+
+	/// <summary>Gets or sets the approval for separately supplied focal coordinates.</summary>
+	public string? FocalPointApproval { get; set; }
+
+	/// <summary>Applies descriptor metadata, rejecting conflicting authored attributes.</summary>
+	/// <param name="context">The authored attributes.</param>
+	protected void ApplyImageDescriptor(TagHelperContext context)
+	{
+		Guard.IsNotNull(context);
+		if (!context.AllAttributes.ContainsName("image") && Image is null)
+			return;
+		if (context.AllAttributes.Any(a => _individualImageAttributeNames.Contains(a.Name, StringComparer.OrdinalIgnoreCase)))
+			throw new InvalidOperationException("Supply image or individual image metadata attributes, not both.");
+		VersionToken = Image?.VersionToken;
+		FocalPointX = Image?.FocalPoint?.X;
+		FocalPointY = Image?.FocalPoint?.Y;
+		FocalPointApproval = Image?.FocalPointApproval;
+	}
 	/// <summary>
 	/// The required attribute names
 	/// </summary>
@@ -239,7 +262,7 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	{
 		Guard.IsNotNullOrWhiteSpace(sourcePath);
 
-		string cacheKey = CacheKeyUtility.Create<DynamicImageTagHelperBase>($"{sourcePath}:{VersionToken}:{WidthRequest}:{HeightRequest}:{ResizeMode}:{format}:{FilterQuality}:{QualityRequest}:{FocalPointX}:{FocalPointY}:{ImageMaxPixelDensity}:{SizeWidths}");
+		string cacheKey = CacheKeyUtility.Create<DynamicImageTagHelperBase>($"{sourcePath}:{VersionToken}:{WidthRequest}:{HeightRequest}:{ResizeMode}:{format}:{FilterQuality}:{QualityRequest}:{FocalPointX}:{FocalPointY}:{FocalPointApproval}:{ImageMaxPixelDensity}:{SizeWidths}");
 
 		return Cache.GetOrCreate(
 			cacheKey,
@@ -307,7 +330,8 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 			QualityRequest,
 			FocalPointX,
 			FocalPointY,
-			VersionToken);
+			VersionToken,
+			FocalPointApproval);
 
 	/// <summary>
 	/// Removes the configured prefix from the specified URL if it is present.

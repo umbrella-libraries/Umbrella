@@ -18,6 +18,25 @@ namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage;
 /// <seealso cref="UmbrellaResponsiveImage" />
 public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 {
+	/// <summary>Gets or sets the source URL when an <see cref="Image"/> descriptor or custom source resolver is not used.</summary>
+	/// <remarks>Unlike the ordinary responsive image, this component accepts alternative image sources, so the URL is not editor-required.</remarks>
+	[Parameter]
+	public override string Url { get; set; } = null!;
+
+	/// <summary>Gets or sets image metadata resolved together on the server.</summary>
+	[Parameter]
+	public DynamicImageDescriptor? Image { get; set; }
+
+	/// <summary>Gets or sets the approval for separately supplied focal coordinates.</summary>
+	[Parameter]
+	public string? FocalPointApproval { get; set; }
+
+	/// <inheritdoc />
+	public override Task SetParametersAsync(ParameterView parameters)
+	{
+		DynamicImageParameterValidation.Validate(parameters);
+		return base.SetParametersAsync(parameters);
+	}
 	/// <summary>
 	/// Gets or set the dynamic image options.
 	/// </summary>
@@ -155,7 +174,7 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 	{
 		// When a source is asking, only its own url is considered. Falling back to the parent's here would mean a component that overrides
 		// HasOwnSource without also overriding this silently renders the parent's image instead of failing.
-		string? url = source is not null ? source.Url : Url;
+		string? url = source is not null ? source.Image?.Url ?? source.Url : Image?.Url ?? Url;
 
 		if (string.IsNullOrWhiteSpace(url))
 			return Task.FromResult(string.Empty);
@@ -221,9 +240,10 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 			ImageFormat = ImageFormat,
 			MaxPixelDensity = MaxPixelDensity,
 			SizeWidths = SizeWidths,
-			FocalPointX = FocalPointX,
-			FocalPointY = FocalPointY,
-			VersionToken = VersionToken
+			FocalPointX = Image is not null ? Image.FocalPoint?.X : FocalPointX,
+			FocalPointY = Image is not null ? Image.FocalPoint?.Y : FocalPointY,
+			VersionToken = Image is not null ? Image.VersionToken : VersionToken,
+			FocalPointApproval = Image is not null ? Image.FocalPointApproval : FocalPointApproval
 		};
 	}
 }

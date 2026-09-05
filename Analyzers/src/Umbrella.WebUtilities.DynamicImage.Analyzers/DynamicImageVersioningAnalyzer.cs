@@ -87,7 +87,17 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 		customTags: [WellKnownDiagnosticTags.CompilationEnd]);
 
 	/// <inheritdoc />
-	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [MissingVersionTokenPropertyRule, MissingVersionTokenAssignmentRule, MissingVersionTokenUsageRule, NonStaticVariantShapingInputRule];
+	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [MissingVersionTokenPropertyRule, MissingVersionTokenAssignmentRule, MissingVersionTokenUsageRule, NonStaticVariantShapingInputRule, MissingFocalApprovalRule];
+
+	/// <summary>Warns about separate focal coordinates without their approval input.</summary>
+	public static readonly DiagnosticDescriptor MissingFocalApprovalRule = new(
+		id: "UWDI006",
+		title: "Explicit focal points require server approval under middleware validation",
+		messageFormat: "Pass an Image descriptor or a FocalPointApproval with explicit focal coordinates; middleware validation rejects unsigned focal crops",
+		category: "DynamicImageVersioning",
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true,
+		customTags: [WellKnownDiagnosticTags.CompilationEnd]);
 
 	/// <inheritdoc />
 	public override void Initialize(AnalysisContext context)
@@ -305,6 +315,19 @@ public sealed class DynamicImageVersioningAnalyzer : DiagnosticAnalyzer
 			bool isFileImagePreviewUpload = usage.Kind is DynamicImageRazorUsageKind.FileImagePreviewUploadComponent;
 			string urlName = isTagHelper ? "src" : "Url";
 			DynamicImageRazorAttribute? urlAttribute = usage.Attributes.FirstOrDefault(x => string.Equals(x.Name, urlName, StringComparison.OrdinalIgnoreCase));
+
+			bool HasAttribute(string name) => usage.Attributes.Any(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+			bool localPreview = isFileImagePreviewUpload && usage.Attributes.Any(x => x.Name is "EnableFocalPointSelection" && x.Value is "true");
+			DynamicImageRazorAttribute? focalAttribute = usage.Attributes.FirstOrDefault(x =>
+				string.Equals(x.Name, isTagHelper ? "focal-point-x" : "FocalPointX", StringComparison.OrdinalIgnoreCase)
+				&& x.Value is not "null" and not "@null");
+			if (context.Compilation.GetTypeByMetadataName("Umbrella.DynamicImage.Abstractions.DynamicImageDescriptor") is not null &&
+				focalAttribute is not null && !localPreview && !HasAttribute("image") && !HasAttribute(isTagHelper ? "focal-point-approval" : "FocalPointApproval"))
+			{
+				var text = SourceText.From(usage.Document.Text);
+				var focalSpan = new TextSpan(focalAttribute.NameStart, focalAttribute.NameLength);
+				context.ReportDiagnostic(Diagnostic.Create(MissingFocalApprovalRule, Location.Create(usage.Document.Path, focalSpan, text.Lines.GetLinePositionSpan(focalSpan))));
+			}
 
 			if (urlAttribute is not null &&
 				DynamicImageRazorSourceParser.TryGetStaticString(urlAttribute.Value, out string url) &&

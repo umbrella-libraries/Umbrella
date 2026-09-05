@@ -1,5 +1,13 @@
 # Dynamic Image contract reference
 
+## Signed focal points in ASP.NET Core
+
+Middleware validation requires `FocalPointApproval` for explicit coordinate pairs, bound to the source path, file version, and canonical X/Y. Catalogs still approve dimensions, modes, and formats. Ordinary images and implicit center crops need no signing configuration.
+
+Prefer `IDynamicImageDescriptorFactory.GetImageAsync(fileHandler, groupId, fileName, x, y, cancellationToken)` during trusted server enrichment, then bind `Image` on Blazor or `image` on MVC. The descriptor carries all metadata atomically; do not combine it with individual inputs. Configure persistent server-only HMAC keys through `AddUmbrellaAspNetCoreWebUtilitiesDynamicImage`'s `focalPointSigningOptionsBuilder`. Share keys across instances, retain previous keys during rotation, and match renderer `StripPrefix`. Never provide an unrestricted signing endpoint. Missing files remain null.
+
+For individual-input examples below, also pass `FocalPointApproval="@Model.ImageFocalPointApproval"` (MVC: `focal-point-approval`) for server-rendered explicit focal crops. UWDI006 warns about missing inputs in authored Razor. Descriptor-based usage needs no separate version-token binding. Stale signed focal URLs return `404` instead of being redirected or re-signed.
+
 ## Package and project layout
 
 Keep package versions aligned with the repository's central version policy.
@@ -159,7 +167,7 @@ private void OnImageFocalPointChanged(UmbrellaFileImagePreviewUploadFocalPointCh
 }
 ```
 
-Interactive selection displays an uncropped `ScaleDown` image with a marker and an adjacent live `CropFocalPoint` preview. Mouse, touch, pen, and keyboard changes invoke `OnFocalPointChanged` immediately. The clear control emits a null pair and restores the resizer's default center. The consuming application must load `_content/Umbrella.AspNetCore.Blazor/dist/umbrella-blazor.js` so the picker can normalize pointer coordinates against the displayed image bounds; component code accesses that JavaScript only through `IUmbrellaBlazorInteropService`.
+Interactive selection displays an uncropped `ScaleDown` image with a marker and an adjacent local canvas preview; changing coordinates creates no focal-crop HTTP requests. Mouse, touch, pen, and keyboard changes invoke `OnFocalPointChanged` immediately. Clearing emits a null pair and restores center framing. Load the rebuilt `_content/Umbrella.AspNetCore.Blazor/dist/umbrella-blazor.js` bundle. All JavaScript access goes through `IUmbrellaBlazorInteropService`. Return a fresh descriptor after saving; `UpdateImage(descriptor)` replaces upload metadata atomically.
 
 After an upload, update the URL, token, and optional focal point atomically. Omitting the coordinates intentionally clears the previous selection and programmatic updates do not invoke the user-interaction callback:
 

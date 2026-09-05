@@ -1,4 +1,4 @@
-﻿
+
 using System.Globalization;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Diagnostics;
@@ -73,11 +73,12 @@ public partial class DynamicImageUtility : IDynamicImageUtility
 
 		try
 		{
-			string url = relativeUrl.TrimToLowerInvariant();
+			string url = relativeUrl.Trim();
 
 			// Extract focal point before stripping the query string.
 			double? focalPointX = null;
 			double? focalPointY = null;
+			string? focalPointApproval = null;
 
 #if NET6_0_OR_GREATER
 			int qsIdx = url.IndexOf('?', StringComparison.Ordinal);
@@ -86,9 +87,11 @@ public partial class DynamicImageUtility : IDynamicImageUtility
 #endif
 			if (qsIdx >= 0)
 			{
-				(focalPointX, focalPointY) = ParseFocalPointFromQueryString(url.AsSpan(qsIdx + 1));
+				(focalPointX, focalPointY, focalPointApproval) = ParseFocalPointFromQueryString(url.AsSpan(qsIdx + 1));
 				url = url[..qsIdx];
 			}
+
+			url = url.ToLowerInvariant();
 
 			if (!Path.HasExtension(url))
 				return (DynamicImageParseUrlResult.Invalid, default);
@@ -171,7 +174,8 @@ public partial class DynamicImageUtility : IDynamicImageUtility
 				overrideFormat ?? ParseImageFormat(targetExtension),
 				focalPointX: focalPointX,
 				focalPointY: focalPointY,
-				versionToken: versionToken);
+				versionToken: versionToken,
+				focalPointApproval: focalPointApproval);
 
 			return (DynamicImageParseUrlResult.Success, imageOptions);
 		}
@@ -265,6 +269,9 @@ public partial class DynamicImageUtility : IDynamicImageUtility
 				virtualPath += FormattableString.Invariant($"{separator}fpx={options.FocalPointX.Value:G4}&fpy={options.FocalPointY.Value:G4}");
 			}
 
+			if (!string.IsNullOrEmpty(options.FocalPointApproval))
+				virtualPath += (options.FocalPointX.HasValue || !string.IsNullOrEmpty(qs) ? "&" : "?") + "fpa=" + Uri.EscapeDataString(options.FocalPointApproval);
+
 			return virtualPath;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { dynamicImagePathPrefix, options }))
@@ -273,10 +280,11 @@ public partial class DynamicImageUtility : IDynamicImageUtility
 		}
 	}
 
-	private static (double? fpx, double? fpy) ParseFocalPointFromQueryString(ReadOnlySpan<char> queryString)
+	private static (double? fpx, double? fpy, string? approval) ParseFocalPointFromQueryString(ReadOnlySpan<char> queryString)
 	{
 		double? fpx = null;
 		double? fpy = null;
+		string? approval = null;
 
 		static bool TryParseDouble(ReadOnlySpan<char> span, out double result)
 		{
@@ -296,28 +304,32 @@ public partial class DynamicImageUtility : IDynamicImageUtility
 			remaining = ampIdx >= 0 ? remaining[(ampIdx + 1)..] : [];
 
 			int eqIdx = pair.IndexOf('=');
-			if (eqIdx < 0)
-				continue;
-
-			ReadOnlySpan<char> key = pair[..eqIdx];
-			ReadOnlySpan<char> value = pair[(eqIdx + 1)..];
+			ReadOnlySpan<char> key = Uri.UnescapeDataString((eqIdx < 0 ? pair : pair[..eqIdx]).ToString()).AsSpan();
+			ReadOnlySpan<char> value = eqIdx < 0 ? [] : pair[(eqIdx + 1)..];
 
 			if (key.Equals("fpx".AsSpan(), StringComparison.OrdinalIgnoreCase))
 			{
-				if (TryParseDouble(value, out double v))
-					fpx = v;
+				if (fpx.HasValue || !TryParseDouble(value, out double v))
+					throw new FormatException("Invalid or duplicate fpx.");
+				fpx = v;
 			}
 			else if (key.Equals("fpy".AsSpan(), StringComparison.OrdinalIgnoreCase))
 			{
-				if (TryParseDouble(value, out double v))
-					fpy = v;
+				if (fpy.HasValue || !TryParseDouble(value, out double v))
+					throw new FormatException("Invalid or duplicate fpy.");
+				fpy = v;
 			}
-
-			if (fpx.HasValue && fpy.HasValue)
-				return (fpx, fpy);
+			else if (key.Equals("fpa".AsSpan(), StringComparison.OrdinalIgnoreCase))
+			{
+				if (approval is not null || value.IsEmpty || value.Length > 160)
+					throw new FormatException("Invalid or duplicate fpa.");
+				approval = value.ToString();
+			}
 		}
 
-		return (fpx, fpy);
+		if (approval is not null && (!fpx.HasValue || !fpy.HasValue))
+			throw new FormatException("Focal approval requires a coordinate pair.");
+		return (fpx, fpy, approval);
 	}
 
 	private static string GenerateVersionTokenPathSegment(string versionToken)

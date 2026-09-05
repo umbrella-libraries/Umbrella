@@ -16,6 +16,42 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Test.Middleware;
 
 public class DynamicImageMiddlewareTest
 {
+	[Theory]
+	[InlineData("valid", 304)]
+	[InlineData("missing", 404)]
+	[InlineData("tampered", 404)]
+	[InlineData("stale", 404)]
+	[InlineData("uncatalogued", 404)]
+	[InlineData("nokeys", 404)]
+	[InlineData("center", 304)]
+	public async Task FocalApprovalsAreCheckedBeforeConditionalResponses(string scenario, int expectedStatus)
+	{
+		DateTimeOffset modified = new(2026, 9, 5, 12, 0, 0, TimeSpan.Zero);
+		string version = UmbrellaFileVersionTokenUtility.Create(modified, 123);
+		var provider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
+		var file = new Mock<IUmbrellaFileInfo>(MockBehavior.Strict);
+		_ = file.SetupGet(x => x.LastModified).Returns(modified);
+		_ = file.SetupGet(x => x.Length).Returns(123);
+		_ = provider.Setup(x => x.GetAsync("/images/test.jpg", It.IsAny<CancellationToken>())).ReturnsAsync(file.Object);
+		var options = CreateOptions(provider.Object);
+		_ = options.AddAllowedVariants([new(100, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP)]);
+		var signer = DynamicImageFocalPointApprovalTest.CreateService();
+		var image = signer.Create(new UmbrellaVersionedUrl("/images/test.jpg", scenario is "stale" ? "old" : version), 0.25, 0.75)!;
+		var request = new DynamicImageOptions(image.Url, scenario is "uncatalogued" ? 101 : 100, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP,
+			focalPointX: scenario is "center" ? null : scenario is "tampered" ? 0.5 : 0.25,
+			focalPointY: scenario is "center" ? null : 0.75,
+			versionToken: image.VersionToken,
+			focalPointApproval: scenario is "missing" or "center" ? null : image.FocalPointApproval);
+		var headers = new Mock<IHttpHeaderValueUtility>(MockBehavior.Strict);
+		_ = headers.Setup(x => x.CreateLastModifiedHeaderValue(modified)).Returns(modified.ToString("R"));
+		var context = CreateHttpContext(new DynamicImageUtility(CoreUtilitiesMocks.CreateLogger<DynamicImageUtility>()).GenerateVirtualPath("dynamicimage", request).TrimStart('~'));
+		context.Request.Headers.IfNoneMatch = $"\"{version}\"";
+		await CreateMiddleware(options, headers.Object, focalApprovalService: scenario is "nokeys" ? null : signer).InvokeAsync(context);
+		Assert.Equal(expectedStatus, context.Response.StatusCode);
+		Assert.False(context.Response.Headers.ContainsKey("Location"));
+		provider.Verify(x => x.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), scenario is "valid" or "stale" or "center" ? Times.Once() : Times.Never());
+	}
+
 	[Fact]
 	public void AddAllowedVariants_EnablesValidationAndMergesUniqueVariants()
 	{
@@ -158,7 +194,7 @@ public class DynamicImageMiddlewareTest
 	}
 
 	[Fact]
-	public async Task InvokeAsync_AllowsRuntimeFocalPoints_WhenWhitelistVariantMatches()
+	public async Task InvokeAsync_RejectsUnsignedRuntimeFocalPoints_EvenWhenWhitelistVariantMatches()
 	{
 		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
 		_ = fileProvider.Setup(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>())).ReturnsAsync((IUmbrellaFileInfo?)null);
@@ -174,7 +210,7 @@ public class DynamicImageMiddlewareTest
 		await middleware.InvokeAsync(context);
 
 		Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
-		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Once);
+		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Never);
 	}
 
 	[Theory]
@@ -608,7 +644,8 @@ public class DynamicImageMiddlewareTest
 	private static DynamicImageMiddleware CreateMiddleware(
 		DynamicImageMiddlewareOptions options,
 		IHttpHeaderValueUtility? headerValueUtility = null,
-		IDynamicImageResizer? resizer = null)
+		IDynamicImageResizer? resizer = null,
+		DynamicImageFocalPointApprovalService? focalApprovalService = null)
 	{
 		RequestDelegate next = _ => Task.CompletedTask;
 
@@ -624,7 +661,8 @@ public class DynamicImageMiddlewareTest
 			resizer ?? defaultResizer.Object,
 			headerValueUtility ?? defaultHeaderValueUtility.Object,
 			mimeTypeUtility,
-			options);
+			options,
+			focalApprovalService);
 	}
 
 	private static DynamicImageMiddlewareOptions CreateOptions(IUmbrellaFileStorageProvider fileProvider)

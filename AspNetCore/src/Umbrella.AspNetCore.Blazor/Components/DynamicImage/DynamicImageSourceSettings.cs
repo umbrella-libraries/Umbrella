@@ -58,6 +58,9 @@ public sealed record DynamicImageSourceSettings
 	/// </summary>
 	public required string? VersionToken { get; init; }
 
+	/// <summary>Gets the approval bound to the effective image and focal point.</summary>
+	public string? FocalPointApproval { get; init; }
+
 	/// <summary>
 	/// Validates the focal point configuration.
 	/// </summary>

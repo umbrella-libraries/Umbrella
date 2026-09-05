@@ -26,6 +26,7 @@ public class DynamicImageMiddleware : IDisposable
 	private readonly IHttpHeaderValueUtility _headerValueUtility;
 	private readonly IMimeTypeUtility _mimeTypeUtility;
 	private readonly DynamicImageMiddlewareOptions _options;
+	private readonly DynamicImageFocalPointApprovalService? _focalApprovalService;
 	private readonly ConcurrencyLimiter? _requestConcurrencyLimiter;
 	private bool _disposedValue;
 
@@ -39,6 +40,7 @@ public class DynamicImageMiddleware : IDisposable
 	/// <param name="headerValueUtility">The header value utility.</param>
 	/// <param name="mimeTypeUtility">The MIME type utility.</param>
 	/// <param name="options">The options.</param>
+	/// <param name="focalApprovalService">The optional focal approval verifier. Required to accept explicit focal points under validation.</param>
 	public DynamicImageMiddleware(
 		RequestDelegate next,
 		ILogger<DynamicImageMiddleware> logger,
@@ -46,7 +48,8 @@ public class DynamicImageMiddleware : IDisposable
 		IDynamicImageResizer dynamicImageResizer,
 		IHttpHeaderValueUtility headerValueUtility,
 		IMimeTypeUtility mimeTypeUtility,
-		DynamicImageMiddlewareOptions options)
+		DynamicImageMiddlewareOptions options,
+		DynamicImageFocalPointApprovalService? focalApprovalService = null)
 	{
 		Guard.IsNotNull(options);
 
@@ -57,6 +60,7 @@ public class DynamicImageMiddleware : IDisposable
 		_headerValueUtility = headerValueUtility;
 		_mimeTypeUtility = mimeTypeUtility;
 		_options = options;
+		_focalApprovalService = focalApprovalService;
 
 		if (_options.MaxConcurrentResizingRequests > 0)
 		{
@@ -124,6 +128,12 @@ public class DynamicImageMiddleware : IDisposable
 			}
 
 			DynamicImageOptions imageOptions = requestedImageOptions;
+			bool requiresFocalApproval = _options.EnableValidation && imageOptions.FocalPointX.HasValue;
+			if (requiresFocalApproval && (_focalApprovalService is null || !_focalApprovalService.Verify(imageOptions)))
+			{
+				context.Response.SendStatusCode(HttpStatusCode.NotFound);
+				return;
+			}
 
 			IUmbrellaFileInfo? sourceFile = await mapping.FileProviderMapping.FileProvider.GetAsync(imageOptions.SourcePath, context.RequestAborted);
 
@@ -134,6 +144,12 @@ public class DynamicImageMiddleware : IDisposable
 			}
 
 			string? currentVersionToken = await UmbrellaFileVersionTokenUtility.CreateAsync(sourceFile, context.RequestAborted).ConfigureAwait(false);
+			if (requiresFocalApproval && !string.Equals(imageOptions.VersionToken, currentVersionToken, StringComparison.Ordinal))
+			{
+				context.Response.SendStatusCode(HttpStatusCode.NotFound);
+				return;
+			}
+
 			bool hasLastModified = sourceFile.LastModified.HasValue;
 			bool hasValidators = !string.IsNullOrWhiteSpace(currentVersionToken);
 			bool supportsConditionalRequests = hasValidators
@@ -145,7 +161,7 @@ public class DynamicImageMiddleware : IDisposable
 				: null;
 			string? eTagValue = hasValidators ? $"\"{currentVersionToken}\"" : null;
 
-			if (TryRedirectToCanonicalUrl(context, requestedImageOptions, currentVersionToken))
+			if (!requiresFocalApproval && TryRedirectToCanonicalUrl(context, requestedImageOptions, currentVersionToken))
 			{
 				return;
 			}

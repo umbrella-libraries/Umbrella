@@ -2,7 +2,7 @@
 
 Use this reference when an Umbrella skill or agent creates or changes C# or Razor. The installed analyzer packages remain authoritative; inspect their current diagnostics when a build disagrees with this summary.
 
-Current coverage: UA001, UA002, UA003, UA004, UA005, UA006, UA007, UA008, UA009, UA010, UA011, UA012, UA013, UA014, UA015, UA016, UA017, UA018, UA019, UA020, UA021, UA022, UA023, UA024; UDA001, UDA002, UDA003, UDA004, UDA005; UMA001, UMA002, UMA003; UWDI001, UWDI002, UWDI003, UWDI004, UWDI005.
+Current coverage: UA001, UA002, UA003, UA004, UA005, UA006, UA007, UA008, UA009, UA010, UA011, UA012, UA013, UA014, UA015, UA016, UA017, UA018, UA019, UA020, UA021, UA022, UA023, UA024; UDA001, UDA002, UDA003, UDA004, UDA005; UMA001, UMA002, UMA003; UWDI001, UWDI002, UWDI003, UWDI004, UWDI005, UWDI006.
 
 ## Public method contracts (UA001-UA010, UA016, UA020)
 
@@ -32,7 +32,9 @@ Current coverage: UA001, UA002, UA003, UA004, UA005, UA006, UA007, UA008, UA009,
 - Repository query names match their result shape: `Find*` for single/count, `FindAll*` for collections, and `Exists*` for boolean existence checks. No public repository method exposes `IQueryable<T>`, directly or through a wrapper (UDA001-UDA005).
 - Mapperly calls require a referenced generated catalog. `[Mapper]` classes/record classes are partial and accessible to the generated catalog; public and internal top-level mappers are supported. Prefer the async mapper interfaces when enrichment requires asynchronous work. Bodyless partial mappings are generated; authored method bodies follow the normal logging rules (UMA001-UMA003, UA008, UA016).
 
-## Dynamic Image (UWDI001-UWDI005)
+## Dynamic Image (UWDI001-UWDI006)
+
+- UWDI006 warns when authored Razor supplies focal coordinates without an approval input. Prefer a server-created `DynamicImageDescriptor` bound through `Image`; literal interactive previews crop locally and are exempt. ASP.NET Core middleware validation enforces image/version-bound approval independently of generated transform catalogs.
 
 - When URL fingerprinting is active, every Dynamic Image `*Url` model property has a nullable matching `*VersionToken`, assignments populate the pair together, and model-bound Razor usages pass `VersionToken`.
 - Enable cross-project checks with `UmbrellaDynamicImageEnableUrlFingerprinting=true` in the projects containing models, assignments, or Razor. A local explicit `EnableUrlFingerprinting` registration remains authoritative in its compilation.

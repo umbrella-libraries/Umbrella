@@ -57,6 +57,17 @@ public interface IUmbrellaBlazorInteropService
 	/// <returns>A <see cref="ValueTask"/> that completes when initialization has completed.</returns>
 	ValueTask InitializeImageFocalPointSelectorAsync(ElementReference element, CancellationToken cancellationToken = default);
 
+	/// <summary>Draws a local crop preview from the selector's already loaded image.</summary>
+	/// <param name="selector">The uncropped image container.</param>
+	/// <param name="canvas">The preview canvas.</param>
+	/// <param name="width">The requested crop width.</param>
+	/// <param name="height">The requested crop height.</param>
+	/// <param name="x">The optional focal X coordinate.</param>
+	/// <param name="y">The optional focal Y coordinate.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The asynchronous operation.</returns>
+	ValueTask UpdateImageFocalPointPreviewAsync(ElementReference selector, ElementReference canvas, int width, int height, double? x, double? y, CancellationToken cancellationToken = default);
+
 	/// <summary>
 	/// Opens the specified <paramref name="url"/> using the specified <paramref name="target"/>.
 	/// </summary>

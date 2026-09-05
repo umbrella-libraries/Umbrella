@@ -28,8 +28,9 @@ public class UmbrellaFileImagePreviewUploadTest
 		Assert.Contains("Clear focal point", html, StringComparison.Ordinal);
 		Assert.Contains("/dynamicimage/100/50/ScaleDown/jpg/_v_version/images/test.webp 100w", html, StringComparison.Ordinal);
 		Assert.Contains("/dynamicimage/200/100/ScaleDown/jpg/_v_version/images/test.webp 200w", html, StringComparison.Ordinal);
-		Assert.Contains("/dynamicimage/100/50/CropFocalPoint/jpg/_v_version/images/test.webp?fpx=0.25&amp;fpy=0.75 100w", html, StringComparison.Ordinal);
-		Assert.Contains("/dynamicimage/200/100/CropFocalPoint/jpg/_v_version/images/test.jpg?fpx=0.25&amp;fpy=0.75 200w", html, StringComparison.Ordinal);
+		Assert.Contains("<canvas", html, StringComparison.Ordinal);
+		Assert.DoesNotContain("/CropFocalPoint/", html, StringComparison.Ordinal);
+		Assert.DoesNotContain("fpx=", html, StringComparison.Ordinal);
 	}
 
 	[Fact]

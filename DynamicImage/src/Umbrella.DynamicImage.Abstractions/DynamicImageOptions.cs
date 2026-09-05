@@ -62,6 +62,9 @@ public readonly record struct DynamicImageOptions
 	/// </summary>
 	public double? FocalPointY { get; }
 
+	/// <summary>Gets the server-issued approval for the image and focal point.</summary>
+	public string? FocalPointApproval { get; }
+
 	/// <summary>
 	/// Initializes a new instance of the <see cref="DynamicImageOptions"/> struct.
 	/// </summary>
@@ -75,6 +78,7 @@ public readonly record struct DynamicImageOptions
 	/// <param name="focalPointX"></param>
 	/// <param name="focalPointY"></param>
 	/// <param name="versionToken">The optional version token used by versioned Dynamic Image URLs.</param>
+	/// <param name="focalPointApproval">The optional server-issued focal approval.</param>
 	public DynamicImageOptions(
 		string path,
 		int width,
@@ -85,7 +89,8 @@ public readonly record struct DynamicImageOptions
 		int qualityRequest = 100,
 		double? focalPointX = null,
 		double? focalPointY = null,
-		string? versionToken = null)
+		string? versionToken = null,
+		string? focalPointApproval = null)
 	{
 		Guard.IsBetweenOrEqualTo(qualityRequest, 1, 100);
 
@@ -106,8 +111,9 @@ public readonly record struct DynamicImageOptions
 		FilterQuality = filterQuality;
 		VersionToken = string.IsNullOrWhiteSpace(versionToken) ? null : versionToken!.Trim().ToLowerInvariant();
 		QualityRequest = qualityRequest;
-		FocalPointX = focalPointX;
-		FocalPointY = focalPointY;
+		FocalPointX = focalPointX.HasValue ? DynamicImageFocalPoint.Normalize(focalPointX.Value) : null;
+		FocalPointY = focalPointY.HasValue ? DynamicImageFocalPoint.Normalize(focalPointY.Value) : null;
+		FocalPointApproval = focalPointApproval;
 	}
 
 	/// <summary>

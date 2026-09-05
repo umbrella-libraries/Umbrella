@@ -155,6 +155,20 @@ public class UmbrellaBlazorInteropService : IUmbrellaBlazorInteropService
 	}
 
 	/// <inheritdoc />
+	public async ValueTask UpdateImageFocalPointPreviewAsync(ElementReference selector, ElementReference canvas, int width, int height, double? x, double? y, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		try
+		{
+			await _jsRuntime.InvokeVoidAsync("UmbrellaBlazorInterop.updateImageFocalPointPreview", cancellationToken, selector, canvas, width, height, x, y);
+		}
+		catch (Exception exc) when (_logger.WriteError(exc))
+		{
+			throw new UmbrellaBlazorException("There has been a problem drawing the focal-point preview.", exc);
+		}
+	}
+
+	/// <inheritdoc />
 	[JSInvokable]
 	public async ValueTask OnWindowScrolledTopAsync() => await Task.WhenAll(_windowScrolledTopEventHandlerList.Select(x => x.Invoke()));
 

@@ -49,6 +49,7 @@ Do not infer catalog completeness from a clean build. Compare every active Razor
 - Keep validation enabled unless the application has an explicit reason not to constrain transforms.
 - Place `UseUmbrellaDynamicImage` where requests reach it before terminal endpoint/fallback handling.
 - Supply focal coordinates as a pair of normalized values from 0 through 1 and only with `CropFocalPoint`; invalid UI combinations fail before a Dynamic Image URL is rendered.
+- ASP.NET Core validation requires image-bound approval for explicit coordinate pairs. Resolve `DynamicImageDescriptor` with `IDynamicImageDescriptorFactory` from trusted server metadata and bind `Image`, or propagate `FocalPointApproval`. Ordinary images and implicit center crops need no keys. Persist signing keys in server secrets, share them across instances, and never expose an unrestricted signing endpoint.
 - Enable interactive preview selection only with a literal `EnableFocalPointSelection="true"`. The picker renders the complete image with `ScaleDown`, reports pointer or keyboard changes atomically, and clears to a null coordinate pair.
 
 ### 4. Preserve the URL/token contract
@@ -73,9 +74,9 @@ Build all participating projects with analyzers enabled, then:
 2. Inspect the generated named and aggregate catalog source and reconcile it with every active Razor usage.
 3. Confirm generated catalog types exist in the Server assembly and do not ship in browser boot assets.
 4. Request canonical fingerprinted fallback, WebP, and configured AVIF URLs; when focal cropping is used, confirm every URL preserves the same `fpx`/`fpy` pair and returns its explicit format without `Vary: Accept`.
-5. For an interactive image preview, confirm the selector uses uncropped `ScaleDown` URLs, the adjacent crop uses the selected `fpx`/`fpy` pair, clearing removes both coordinates, and the generated catalog contains both resize modes.
+5. For an interactive image preview, confirm the selector uses uncropped `ScaleDown` URLs and the adjacent canvas updates without focal-crop HTTP requests. Clearing emits a null pair. Save returns a fresh descriptor; catalogs retain the configured crop and selector variants.
 6. Confirm changed dimensions, resize modes, and unregistered explicit formats return `404`.
-7. Confirm missing/stale fingerprints redirect with `Cache-Control: no-store`.
+7. Confirm ordinary missing/stale fingerprints redirect with `Cache-Control: no-store`; invalid or stale signed focal requests return `404` before cache/conditional responses. Check UWDI006 for missing approval propagation in authored Razor.
 8. Confirm mapping-specific cache headers, ETag/Last-Modified validators, and explicit conditional `304` responses.
 9. Change a disposable source file and verify its token and canonical URL change before removing the probe.
 

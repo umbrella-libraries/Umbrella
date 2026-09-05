@@ -5,6 +5,7 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
+UWDI006 | DynamicImageVersioning | Warning | Explicit Razor focal coordinates should carry a server-issued approval or use an image descriptor; interactive local previews are exempt
 UWDI001 | DynamicImageVersioning | Error | DynamicImageVersioningAnalyzer - model types with DynamicImage URL properties must declare matching VersionToken properties when URL fingerprinting is explicitly enabled by local registration or the compiler-visible build property
 UWDI002 | DynamicImageVersioning | Error | DynamicImageVersioningAnalyzer - DynamicImage URL assignments must also assign matching VersionToken properties when URL fingerprinting is explicitly enabled by local registration or the compiler-visible build property
 UWDI003 | DynamicImageVersioning | Error | DynamicImageVersioningAnalyzer - direct Razor and manually authored C# usages of UmbrellaDynamicImage, UmbrellaFileImagePreviewUpload, and DynamicImage tag helpers must assign VersionToken when bound to DynamicImage URL model properties and URL fingerprinting is explicitly enabled by local registration or the compiler-visible build property
