@@ -32,12 +32,10 @@ public class CacheKeyUtilityBenchmark
 		// Length of 150
 		_cacheKeyUtility.Create<CacheKeyUtilityBenchmark>(_keyItemsLong);
 
-#if !AzureDevOps
 	[Benchmark(Baseline = true)]
 	public string CreateCacheKeyOld() =>
 #pragma warning disable CS0612 // Type or member is obsolete
 		_cacheKeyUtility.CreateOld<CacheKeyUtilityBenchmark>(_keyItems);
 #pragma warning restore CS0612 // Type or member is obsolete
 
-#endif
 }

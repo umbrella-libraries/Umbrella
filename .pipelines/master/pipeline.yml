@@ -10,7 +10,7 @@ variables:
 stages:
 - stage: Build
   variables:
-    buildConfiguration: 'AzureDevOps'
+    buildConfiguration: 'Release'
     targetProjectFilter: '**/*.csproj'
   jobs:
   - job: Build
@@ -63,7 +63,14 @@ stages:
         workingDirectory: '$(Build.SourcesDirectory)'
         script: |
           $ErrorActionPreference = 'Stop'
+          $containerTestProjects = @(
+            'Umbrella.AzureServiceBus.Test.csproj'
+            'Umbrella.DynamicImage.Test.csproj'
+            'Umbrella.FileSystem.Test.csproj'
+            'Umbrella.Utilities.Threading.Redis.Test.csproj'
+          )
           $testProjects = Get-ChildItem -Path "$(Build.SourcesDirectory)" -Filter *.Test.csproj -Recurse |
+            Where-Object Name -NotIn $containerTestProjects |
             Sort-Object FullName
           if (-not $testProjects) {
             throw "No test projects were found."
@@ -134,6 +141,69 @@ stages:
           Write-Host "##vso[task.setvariable variable=packageVersion;isOutput=true]$version"
           Write-Host "##vso[task.setvariable variable=isPreRelease;isOutput=true]$isPreRelease"
           Write-Host "Package version: $version (pre-release: $isPreRelease)"
+
+  - job: ContainerTests
+    displayName: Test container-backed packages
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: DotNetCoreCLI@2
+      displayName: Restore container test projects
+      inputs:
+        command: 'restore'
+        projects: |
+          Core/test/Umbrella.Utilities.Threading.Redis.Test/Umbrella.Utilities.Threading.Redis.Test.csproj
+          DynamicImage/test/Umbrella.DynamicImage.Test/Umbrella.DynamicImage.Test.csproj
+          FileSystem/test/Umbrella.FileSystem.Test/Umbrella.FileSystem.Test.csproj
+          Messaging/test/Umbrella.AzureServiceBus.Test/Umbrella.AzureServiceBus.Test.csproj
+        feedsToUse: 'config'
+        nugetConfigPath: 'NuGet.config'
+
+    - task: PowerShell@2
+      displayName: Test container-backed packages
+      inputs:
+        targetType: inline
+        pwsh: true
+        workingDirectory: '$(Build.SourcesDirectory)'
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $env:UMBRELLA_FILESYSTEM_DISABLED_PROVIDERS = 'SharePoint,Dataverse'
+          $testProjects = @(
+            'Core/test/Umbrella.Utilities.Threading.Redis.Test/Umbrella.Utilities.Threading.Redis.Test.csproj'
+            'DynamicImage/test/Umbrella.DynamicImage.Test/Umbrella.DynamicImage.Test.csproj'
+            'FileSystem/test/Umbrella.FileSystem.Test/Umbrella.FileSystem.Test.csproj'
+            'Messaging/test/Umbrella.AzureServiceBus.Test/Umbrella.AzureServiceBus.Test.csproj'
+          )
+          foreach ($testProject in $testProjects) {
+            Write-Host "Running container tests for '$testProject'."
+            & dotnet test `
+              --project $testProject `
+              --configuration "$(buildConfiguration)" `
+              --no-restore `
+              --output Detailed `
+              --report-trx `
+              --coverage `
+              --coverage-output-format cobertura `
+              --coverage-output coverage.cobertura.xml
+            if ($LASTEXITCODE -ne 0) {
+              throw "dotnet test failed for '$testProject' with exit code $LASTEXITCODE."
+            }
+          }
+
+    - task: PublishTestResults@2
+      displayName: Publish container test results
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '$(Build.SourcesDirectory)/**/*.trx'
+        mergeTestResults: true
+        failTaskOnFailedTests: false
+        testRunTitle: 'dotnet test (Testcontainers)'
+
+    - task: PublishCodeCoverageResults@2
+      displayName: Publish container test coverage
+      inputs:
+        summaryFileLocation: '$(Build.SourcesDirectory)/**/*.cobertura.xml'
 
 - stage: Deploy
   dependsOn: Build

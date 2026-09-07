@@ -25,17 +25,10 @@ using Xunit.v3.Priority;
 
 namespace Umbrella.FileSystem.Test;
 
-public class UmbrellaFileProviderTest
+public class UmbrellaFileProviderTest : IClassFixture<FileSystemAzuriteContainerFixture>
 {
 	private const string DisabledProvidersEnvironmentVariableName = "UMBRELLA_FILESYSTEM_DISABLED_PROVIDERS";
-
-#if AZUREDEVOPS
-        private static readonly string _storageConnectionString = Environment.GetEnvironmentVariable("StorageConnectionString")!;
-#else
-#pragma warning disable CA1802 // Use literals where appropriate
-	private static readonly string _storageConnectionString = "UseDevelopmentStorage=true";
-#pragma warning restore CA1802 // Use literals where appropriate
-#endif
+	private static string _storageConnectionString = null!;
 
 	private static readonly HashSet<string> _disabledProviders =
 		(Environment.GetEnvironmentVariable(DisabledProvidersEnvironmentVariableName) ?? "")
@@ -64,8 +57,8 @@ public class UmbrellaFileProviderTest
 		{
 			if (string.IsNullOrEmpty(_baseDirectory))
 			{
-				string baseDirectory = AppContext.BaseDirectory.ToLowerInvariant();
-				int indexToEndAt = baseDirectory.IndexOf(PathHelper.PlatformNormalize($@"\bin\{DebugUtility.BuildConfiguration}\net10.0"), StringComparison.Ordinal);
+				string baseDirectory = AppContext.BaseDirectory;
+				int indexToEndAt = baseDirectory.IndexOf(PathHelper.PlatformNormalize($@"\bin\{DebugUtility.BuildConfiguration}\net10.0"), StringComparison.OrdinalIgnoreCase);
 				_baseDirectory = baseDirectory.Remove(indexToEndAt, baseDirectory.Length - indexToEndAt);
 			}
 
@@ -137,6 +130,12 @@ public class UmbrellaFileProviderTest
 	public static List<object[]> PathsToTestMemberData = PathsToTest.Select(x => new object[] { x }).ToList();
 
 	public static Collection<object[]> ProvidersAndPathsMemberData = [];
+
+	public UmbrellaFileProviderTest(FileSystemAzuriteContainerFixture fixture)
+	{
+		ArgumentNullException.ThrowIfNull(fixture);
+		_storageConnectionString = fixture.ConnectionString;
+	}
 
 	static UmbrellaFileProviderTest()
 	{

@@ -3,8 +3,16 @@
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
 		<IsTestProject>true</IsTestProject>
-		<UserSecretsId>bc0ff87b-21dd-4f67-9fb7-a1e58161fc46</UserSecretsId>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Testcontainers.Azurite" />
+		<PackageReference Include="Testcontainers.ServiceBus" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="ServiceBusEmulatorConfig.json" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
 
 	<ItemGroup>
 	  <ProjectReference Include="..\..\..\Internal\src\Umbrella.Internal.Mocks\Umbrella.Internal.Mocks.csproj" />

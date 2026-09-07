@@ -16,6 +16,7 @@
 		<PackageReference Include="Azure.Identity" />
 		<PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" />
+		<PackageReference Include="Testcontainers.Azurite" />
 		<PackageReference Include="Xunit.v3.Priority" />
 	</ItemGroup>
 
