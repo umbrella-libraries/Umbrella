@@ -16,10 +16,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="CommunityToolkit.Diagnostics" Version="8.4.2" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
-		<PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
-		<PackageReference Include="System.CommandLine" Version="2.0.11" />
+		<PackageReference Include="CommunityToolkit.Diagnostics" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" />
+		<PackageReference Include="System.CommandLine" />
 	</ItemGroup>
 
 	<ItemGroup>

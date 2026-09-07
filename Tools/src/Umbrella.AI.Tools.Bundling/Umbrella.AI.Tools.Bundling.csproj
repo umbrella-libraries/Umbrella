@@ -7,9 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.4.2" />
-    <PackageReference Include="System.CommandLine" Version="2.0.11" />
-    <PackageReference Include="Tomlyn" Version="2.10.1" />
+    <PackageReference Include="CommunityToolkit.Diagnostics" />
+    <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="Tomlyn" />
   </ItemGroup>
 
   <ItemGroup>

@@ -19,13 +19,13 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Brotli.NET" Version="2.1.1" />
-		<PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="6.0.1" />
-		<PackageReference Include="Microsoft.AspNet.Mvc" Version="5.3.0" />
-		<PackageReference Include="Microsoft.AspNet.WebApi" Version="5.3.0" />
-		<PackageReference Include="Microsoft.AspNet.WebApi.Owin" Version="5.3.0" />
-		<PackageReference Include="Microsoft.Owin" Version="4.2.3" />
-		<PackageReference Include="Microsoft.Owin.Host.SystemWeb" Version="4.2.3" />
+		<PackageReference Include="Brotli.NET" />
+		<PackageReference Include="Microsoft.Extensions.Caching.Abstractions" />
+		<PackageReference Include="Microsoft.AspNet.Mvc" />
+		<PackageReference Include="Microsoft.AspNet.WebApi" />
+		<PackageReference Include="Microsoft.AspNet.WebApi.Owin" />
+		<PackageReference Include="Microsoft.Owin" />
+		<PackageReference Include="Microsoft.Owin.Host.SystemWeb" />
 	</ItemGroup>
 
 	<ItemGroup>

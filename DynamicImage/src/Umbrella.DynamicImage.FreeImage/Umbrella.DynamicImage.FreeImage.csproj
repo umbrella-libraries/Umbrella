@@ -10,7 +10,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="FreeImage.Standard" Version="4.3.8" />
+		<PackageReference Include="FreeImage.Standard" />
 	</ItemGroup>
 
 	<ItemGroup>

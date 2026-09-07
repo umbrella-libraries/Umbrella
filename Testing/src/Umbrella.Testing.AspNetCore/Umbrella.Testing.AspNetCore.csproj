@@ -10,27 +10,27 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Testcontainers" Version="4.14.0" />
-		<PackageReference Include="Testcontainers.MsSql" Version="4.14.0" />
-		<PackageReference Include="xunit.v3.assert" Version="4.0.0" />
-		<PackageReference Include="xunit.v3.extensibility.core" Version="4.0.0" />
+		<PackageReference Include="Testcontainers" />
+		<PackageReference Include="Testcontainers.MsSql" />
+		<PackageReference Include="xunit.v3.assert" />
+		<PackageReference Include="xunit.v3.extensibility.core" />
 		<ProjectReference Include="..\Umbrella.Testing.Xunit\Umbrella.Testing.Xunit.csproj" />
 		<ProjectReference Include="..\..\..\AspNetCore\src\Umbrella.AspNetCore.WebUtilities\Umbrella.AspNetCore.WebUtilities.csproj" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.30" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.30" />
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.19" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.19" />
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.11" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
 	</ItemGroup>
 
 	<ItemGroup>
