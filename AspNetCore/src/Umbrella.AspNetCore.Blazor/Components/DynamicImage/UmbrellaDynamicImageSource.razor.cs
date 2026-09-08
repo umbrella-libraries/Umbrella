@@ -94,18 +94,29 @@ public partial class UmbrellaDynamicImageSource : ComponentBase
 	public string? SizeWidths { get; set; }
 
 	/// <summary>
-	/// Gets or sets the normalised X coordinate of the focal point. Inherited from the parent component when not specified and the effective
-	/// resize mode is <see cref="DynamicResizeMode.CropFocalPoint"/>.
+	/// Gets or sets the normalised X coordinate of the focal point. Inherited from the parent component when not specified, the effective
+	/// resize mode is <see cref="DynamicResizeMode.Crop"/> and <see cref="IgnoreFocalPoint"/> has not been set.
 	/// </summary>
 	[Parameter]
 	public double? FocalPointX { get; set; }
 
 	/// <summary>
-	/// Gets or sets the normalised Y coordinate of the focal point. Inherited from the parent component when not specified and the effective
-	/// resize mode is <see cref="DynamicResizeMode.CropFocalPoint"/>.
+	/// Gets or sets the normalised Y coordinate of the focal point. Inherited from the parent component when not specified, the effective
+	/// resize mode is <see cref="DynamicResizeMode.Crop"/> and <see cref="IgnoreFocalPoint"/> has not been set.
 	/// </summary>
 	[Parameter]
 	public double? FocalPointY { get; set; }
+
+	/// <summary>
+	/// Gets or sets a value indicating whether this source should ignore the focal point cascaded by the parent component and crop from the
+	/// image center instead. Has no effect when this source declares its own <see cref="Image"/> or focal point coordinates.
+	/// </summary>
+	/// <remarks>
+	/// Use this for an art directed source whose aspect ratio suits a center crop even though the parent has an approved focal point,
+	/// e.g. a wide banner cut from a portrait original.
+	/// </remarks>
+	[Parameter]
+	public bool IgnoreFocalPoint { get; set; }
 
 	/// <summary>
 	/// Gets or sets the optional version token that should be embedded in generated Dynamic Image URLs. Inherited from the parent component
@@ -205,9 +216,10 @@ public partial class UmbrellaDynamicImageSource : ComponentBase
 	{
 		DynamicResizeMode resizeMode = ResizeMode ?? inherited.ResizeMode;
 
-		// A focal point is only meaningful for the CropFocalPoint resize mode, so it is only inherited when the effective resize mode still
-		// calls for one. Without this, specifying a different resize mode on a child of a focal point parent would throw.
-		bool inheritFocalPoint = !HasOwnSource && resizeMode is DynamicResizeMode.CropFocalPoint;
+		// A focal point only affects a cropping resize mode, so it is only inherited when the effective resize mode still calls for one.
+		// Without this, specifying a non cropping resize mode on a child of a focal point parent would throw. IgnoreFocalPoint lets a
+		// cropping source opt out of the cascaded focal point and fall back to a center crop.
+		bool inheritFocalPoint = !HasOwnSource && !IgnoreFocalPoint && resizeMode is DynamicResizeMode.Crop;
 		bool inheritApproval = inheritFocalPoint && !FocalPointX.HasValue && !FocalPointY.HasValue && VersionToken is null;
 
 		return new DynamicImageSourceSettings

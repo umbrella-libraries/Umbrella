@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Umbrella.DynamicImage.Abstractions;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.Internal.Mocks;
@@ -43,7 +43,7 @@ public class DynamicImageFocalPointApprovalTest
 	}
 
 	internal static DynamicImageOptions ToOptions(DynamicImageDescriptor image, string? path = null, string? version = null, double? x = null, string? approval = null)
-		=> new(path ?? image.Url, 100, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP, focalPointX: x ?? image.FocalPoint!.Value.X, focalPointY: image.FocalPoint!.Value.Y, versionToken: version ?? image.VersionToken, focalPointApproval: approval ?? image.FocalPointApproval);
+		=> new(path ?? image.Url, 100, 50, DynamicResizeMode.Crop, DynamicImageFormat.WebP, focalPointX: x ?? image.FocalPoint!.Value.X, focalPointY: image.FocalPoint!.Value.Y, versionToken: version ?? image.VersionToken, focalPointApproval: approval ?? image.FocalPointApproval);
 
 	[Fact]
 	public void ApprovalIsStableAndRoundTripsThroughJsonAndUrls()
@@ -71,7 +71,7 @@ public class DynamicImageFocalPointApprovalTest
 		Assert.False(service.Verify(ToOptions(image, x: 0.5)));
 		Assert.False(CreateService(route: "other").Verify(ToOptions(image)));
 		Assert.False(service.Verify(ToOptions(image, approval: "1.keyA.invalid")));
-		Assert.True(service.Verify(new DynamicImageOptions(image.Url, 800, 600, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Avif, focalPointX: 0.25, focalPointY: 0.75, versionToken: image.VersionToken, focalPointApproval: image.FocalPointApproval)));
+		Assert.True(service.Verify(new DynamicImageOptions(image.Url, 800, 600, DynamicResizeMode.Crop, DynamicImageFormat.Avif, focalPointX: 0.25, focalPointY: 0.75, versionToken: image.VersionToken, focalPointApproval: image.FocalPointApproval)));
 	}
 
 	[Fact]
@@ -114,6 +114,6 @@ public class DynamicImageFocalPointApprovalTest
 	public void InvalidQueryParametersAreRejected(string query)
 	{
 		var utility = new DynamicImageUtility(CoreUtilitiesMocks.CreateLogger<DynamicImageUtility>());
-		Assert.Equal(DynamicImageParseUrlResult.Invalid, utility.TryParseUrl("dynamicimage", "/dynamicimage/100/50/CropFocalPoint/jpg/images/test.webp?" + query).status);
+		Assert.Equal(DynamicImageParseUrlResult.Invalid, utility.TryParseUrl("dynamicimage", "/dynamicimage/100/50/Crop/jpg/images/test.webp?" + query).status);
 	}
 }

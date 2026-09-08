@@ -156,8 +156,8 @@ public abstract class DynamicImageResizerBase : IDynamicImageResizer
 	/// <param name="format">The format.</param>
 	/// <param name="filterQuality">The options for filter quality when resizing.</param>
 	/// <param name="qualityRequest">A value between 0-100.</param>
-	/// <param name="focalPointX">Normalised X coordinate of the focal point (0–1), used with <see cref="DynamicResizeMode.CropFocalPoint"/>.</param>
-	/// <param name="focalPointY">Normalised Y coordinate of the focal point (0–1), used with <see cref="DynamicResizeMode.CropFocalPoint"/>.</param>
+	/// <param name="focalPointX">Normalised X coordinate of the focal point (0–1), used with <see cref="DynamicResizeMode.Crop"/>. The image center is used when not specified.</param>
+	/// <param name="focalPointY">Normalised Y coordinate of the focal point (0–1), used with <see cref="DynamicResizeMode.Crop"/>. The image center is used when not specified.</param>
 	/// <returns>The resized image together with its new width and height.</returns>
 	public abstract (byte[] resizedBytes, int resizedWidth, int resizedHeight) ResizeImage(byte[] originalImage, int width, int height, DynamicResizeMode resizeMode, DynamicImageFormat format, DynamicImageFilterQuality filterQuality = DynamicImageFilterQuality.Medium, int qualityRequest = 75, double? focalPointX = null, double? focalPointY = null);
 
@@ -224,6 +224,14 @@ public abstract class DynamicImageResizerBase : IDynamicImageResizer
 
 				break;
 			case DynamicResizeMode.Crop:
+				// The crop is anchored on the focal point when one has been supplied, and on the image center when one has not.
+				// A center anchor is just the 0.5, 0.5 focal point, so both cases share the same offset calculation.
+				// The offset is computed in floating point and floored so that a 0.5 anchor reduces exactly to (original - crop) / 2.
+				// Rounding the anchor and truncating the half crop separately would shift a center crop by a pixel for many
+				// combinations of original and crop dimension, so the two must not be rounded independently.
+				double anchorX = focalPointX ?? 0.5;
+				double anchorY = focalPointY ?? 0.5;
+
 				// Resize based on width first. If this means that height is less than target height, we resize based on height.
 				if (targetWidth < originalWidth || targetHeight < originalHeight)
 				{
@@ -239,55 +247,21 @@ public abstract class DynamicImageResizerBase : IDynamicImageResizer
 						int tempWidth;
 						(tempWidth, _) = CalculateOutputDimensions(originalWidth, originalHeight, null, targetHeight);
 
-						// Then crop width and calculate offset.
+						// Then crop width and calculate the offset, clamped so the crop window stays inside the image.
 						requestedWidth = targetWidth;
 						cropWidth = (int)(targetWidth / (float)tempWidth * originalWidth);
-						offsetX = (originalWidth - cropWidth) / 2;
+						int idealOffsetX = (int)Math.Floor((anchorX * originalWidth) - (cropWidth / 2.0));
+						offsetX = Math.Max(0, Math.Min(idealOffsetX, originalWidth - cropWidth));
 					}
 					else
 					{
 						// If not, we have our max dimension.
 						requestedWidth = targetWidth;
 
-						// Then crop height and calculate offset.
+						// Then crop height and calculate the offset, clamped so the crop window stays inside the image.
 						requestedHeight = targetHeight;
 						cropHeight = (int)(targetHeight / (float)tempHeight * originalHeight);
-						offsetY = (originalHeight - cropHeight) / 2;
-					}
-				}
-				else
-				{
-					requestedWidth = originalWidth;
-					requestedHeight = originalHeight;
-				}
-
-				break;
-
-			case DynamicResizeMode.CropFocalPoint:
-				double fpX = focalPointX ?? 0.5;
-				double fpY = focalPointY ?? 0.5;
-
-				if (targetWidth < originalWidth || targetHeight < originalHeight)
-				{
-					var (_, tempHeightFP) = CalculateOutputDimensions(originalWidth, originalHeight, targetWidth, null);
-
-					if (tempHeightFP < targetHeight)
-					{
-						requestedHeight = targetHeight;
-						int tempWidthFP;
-						(tempWidthFP, _) = CalculateOutputDimensions(originalWidth, originalHeight, null, targetHeight);
-
-						requestedWidth = targetWidth;
-						cropWidth = (int)(targetWidth / (float)tempWidthFP * originalWidth);
-						int idealOffsetX = (int)Math.Round(fpX * originalWidth) - cropWidth / 2;
-						offsetX = Math.Max(0, Math.Min(idealOffsetX, originalWidth - cropWidth));
-					}
-					else
-					{
-						requestedWidth = targetWidth;
-						requestedHeight = targetHeight;
-						cropHeight = (int)(targetHeight / (float)tempHeightFP * originalHeight);
-						int idealOffsetY = (int)Math.Round(fpY * originalHeight) - cropHeight / 2;
+						int idealOffsetY = (int)Math.Floor((anchorY * originalHeight) - (cropHeight / 2.0));
 						offsetY = Math.Max(0, Math.Min(idealOffsetY, originalHeight - cropHeight));
 					}
 				}

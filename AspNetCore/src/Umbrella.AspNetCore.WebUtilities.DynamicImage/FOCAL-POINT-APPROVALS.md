@@ -1,6 +1,6 @@
 # Focal-point approvals
 
-Images without explicit focal coordinates need no signing configuration, including `CropFocalPoint` with its implicit center. Generated catalogs continue to validate dimensions, resize modes, and formats.
+Images without explicit focal coordinates need no signing configuration, including `Crop` with its implicit center. Generated catalogs continue to validate dimensions, resize modes, and formats.
 
 With ASP.NET Core middleware validation enabled, explicit X/Y pairs require approval bound to the source path, file version, and canonical coordinates. Missing, invalid, tampered, or stale approvals return `404` before cache access or `304` responses. Signed focal requests never redirect to a newly approved file version.
 
@@ -45,13 +45,13 @@ The model exposes a nullable `DynamicImageDescriptor`, carrying URL, version, op
 @if (Model.Image is not null)
 {
     <UmbrellaDynamicImage Image="@Model.Image" WidthRequest="400" HeightRequest="200"
-                          ResizeMode="DynamicResizeMode.CropFocalPoint" />
+                          ResizeMode="DynamicResizeMode.Crop" />
 }
 ```
 
 ```cshtml
 <dynamic-image image="@Model.Image" width-request="400" height-request="200"
-               resize-mode="DynamicResizeMode.CropFocalPoint" />
+               resize-mode="DynamicResizeMode.Crop" />
 ```
 
 Supply the descriptor or individual metadata inputs, not both. For incremental migration, retain URL, version, X and Y inputs and add `FocalPointApproval` (`focal-point-approval` in MVC). UWDI006 warns about missing approval inputs in authored Razor; middleware remains authoritative. Descriptor bindings need no separate version-token input.

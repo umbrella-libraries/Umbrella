@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Moq;
 using Umbrella.DynamicImage.Abstractions;
 
@@ -128,9 +128,9 @@ public class DynamicImageUtilityTest
 	{
 		DynamicImageUtility utility = CreateDynamicImageUtility();
 
-		string url = utility.GenerateVirtualPath(DynamicImageConstants.DefaultPathPrefix, new DynamicImageOptions("/images/test.png", 100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.3));
+		string url = utility.GenerateVirtualPath(DynamicImageConstants.DefaultPathPrefix, new DynamicImageOptions("/images/test.png", 100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.3));
 
-		Assert.Equal($"~/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/images/test.jpg?fpx=0.5&fpy=0.3", url);
+		Assert.Equal($"~/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg?fpx=0.5&fpy=0.3", url);
 	}
 
 	[Fact]
@@ -138,9 +138,9 @@ public class DynamicImageUtilityTest
 	{
 		DynamicImageUtility utility = CreateDynamicImageUtility();
 
-		string url = utility.GenerateVirtualPath(DynamicImageConstants.DefaultPathPrefix, new DynamicImageOptions("/images/test.png?key=value.test.onEX&stuff=xxx", 100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.3));
+		string url = utility.GenerateVirtualPath(DynamicImageConstants.DefaultPathPrefix, new DynamicImageOptions("/images/test.png?key=value.test.onEX&stuff=xxx", 100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.3));
 
-		Assert.Equal($"~/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/images/test.jpg?key=value.test.onEX&stuff=xxx&fpx=0.5&fpy=0.3", url);
+		Assert.Equal($"~/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg?key=value.test.onEX&stuff=xxx&fpx=0.5&fpy=0.3", url);
 	}
 
 	[Fact]
@@ -158,13 +158,13 @@ public class DynamicImageUtilityTest
 	{
 		DynamicImageUtility utility = CreateDynamicImageUtility();
 
-		string path = $"/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/images/test.jpg?fpx=0.5&fpy=0.3";
+		string path = $"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg?fpx=0.5&fpy=0.3";
 
 		(DynamicImageParseUrlResult status, DynamicImageOptions imageOptions) = utility.TryParseUrl(DynamicImageConstants.DefaultPathPrefix, path);
 
 		Assert.Equal(DynamicImageParseUrlResult.Success, status);
 
-		var expected = new DynamicImageOptions("/images/test.png", 100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.3);
+		var expected = new DynamicImageOptions("/images/test.png", 100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.3);
 
 		Assert.Equal(expected, imageOptions);
 	}
@@ -174,13 +174,13 @@ public class DynamicImageUtilityTest
 	{
 		DynamicImageUtility utility = CreateDynamicImageUtility();
 
-		string path = $"/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/images/test@2x.jpg?fpx=0.25&fpy=0.75";
+		string path = $"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test@2x.jpg?fpx=0.25&fpy=0.75";
 
 		(DynamicImageParseUrlResult status, DynamicImageOptions imageOptions) = utility.TryParseUrl(DynamicImageConstants.DefaultPathPrefix, path);
 
 		Assert.Equal(DynamicImageParseUrlResult.Success, status);
 
-		var expected = new DynamicImageOptions("/images/test.png", 200, 400, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75);
+		var expected = new DynamicImageOptions("/images/test.png", 200, 400, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75);
 
 		Assert.Equal(expected, imageOptions);
 	}
@@ -217,8 +217,8 @@ public class DynamicImageUtilityTest
 	public void ImageOptionsValid_FocalPointVariant_IgnoresRuntimeFocalPoint()
 	{
 		DynamicImageUtility utility = CreateDynamicImageUtility();
-		DynamicImageOptions imageOptions = new("/images/test.png", 100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75);
-		DynamicImageVariant[] validVariants = [new(100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg)];
+		DynamicImageOptions imageOptions = new("/images/test.png", 100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75);
+		DynamicImageVariant[] validVariants = [new(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)];
 
 		bool result = utility.ImageOptionsValid(imageOptions, validVariants);
 
@@ -226,11 +226,23 @@ public class DynamicImageUtilityTest
 	}
 
 	[Fact]
-	public void ImageOptionsValid_NonMatchingVariant_ReturnsFalse()
+	public void ImageOptionsValid_NonMatchingResizeMode_ReturnsFalse()
 	{
 		DynamicImageUtility utility = CreateDynamicImageUtility();
-		DynamicImageOptions imageOptions = new("/images/test.png", 100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75);
-		DynamicImageVariant[] validVariants = [new(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)];
+		DynamicImageOptions imageOptions = new("/images/test.png", 100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg);
+		DynamicImageVariant[] validVariants = [new(100, 200, DynamicResizeMode.ScaleDown, DynamicImageFormat.Jpeg)];
+
+		bool result = utility.ImageOptionsValid(imageOptions, validVariants);
+
+		Assert.False(result);
+	}
+
+	[Fact]
+	public void ImageOptionsValid_NonMatchingSize_ReturnsFalse()
+	{
+		DynamicImageUtility utility = CreateDynamicImageUtility();
+		DynamicImageOptions imageOptions = new("/images/test.png", 100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75);
+		DynamicImageVariant[] validVariants = [new(300, 400, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)];
 
 		bool result = utility.ImageOptionsValid(imageOptions, validVariants);
 

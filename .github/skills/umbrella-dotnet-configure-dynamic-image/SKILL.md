@@ -48,7 +48,7 @@ Do not infer catalog completeness from a clean build. Compare every active Razor
 - Use long max-age values only with URL fingerprinting. Keep unversioned/stale redirects non-cacheable.
 - Keep validation enabled unless the application has an explicit reason not to constrain transforms.
 - Place `UseUmbrellaDynamicImage` where requests reach it before terminal endpoint/fallback handling.
-- Supply focal coordinates as a pair of normalized values from 0 through 1 and only with `CropFocalPoint`; invalid UI combinations fail before a Dynamic Image URL is rendered.
+- Supply focal coordinates as a pair of normalized values from 0 through 1 and only with `Crop`, which crops from the image center when no focal point is supplied; invalid UI combinations fail before a Dynamic Image URL is rendered.
 - ASP.NET Core validation requires image-bound approval for explicit coordinate pairs. Resolve `DynamicImageDescriptor` with `IDynamicImageDescriptorFactory` from trusted server metadata and bind `Image`, or propagate `FocalPointApproval`. Ordinary images and implicit center crops need no keys. Persist signing keys in server secrets, share them across instances, and never expose an unrestricted signing endpoint.
 - Enable interactive preview selection only with a literal `EnableFocalPointSelection="true"`. The picker renders the complete image with `ScaleDown`, reports pointer or keyboard changes atomically, and clears to a null coordinate pair.
 

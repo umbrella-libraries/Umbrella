@@ -41,6 +41,11 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 	protected const string MediaAttributeName = "media";
 
 	/// <summary>
+	/// The ignore focal point attribute name.
+	/// </summary>
+	protected const string IgnoreFocalPointAttributeName = "ignore-focal-point";
+
+	/// <summary>
 	/// Gets the name of the output tag.
 	/// </summary>
 	protected override string OutputTagName => "source";
@@ -50,6 +55,17 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 	/// </summary>
 	[HtmlAttributeName(MediaAttributeName)]
 	public string? Media { get; set; }
+
+	/// <summary>
+	/// Gets or sets a value indicating whether this source should ignore the focal point inherited from the parent <c>dynamic-image</c>
+	/// element and crop from the image center instead. Has no effect when this source declares its own <c>src</c> or focal point attributes.
+	/// </summary>
+	/// <remarks>
+	/// Use this for an art directed source whose aspect ratio suits a center crop even though the parent has an approved focal point,
+	/// e.g. a wide banner cut from a portrait original.
+	/// </remarks>
+	[HtmlAttributeName(IgnoreFocalPointAttributeName)]
+	public bool IgnoreFocalPoint { get; set; }
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="DynamicImagePictureSourceTagHelper"/> class.
@@ -174,9 +190,10 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 		if (!IsDeclared(SizeWidthsAttributeName))
 			SizeWidths = pictureContext.SizeWidths;
 
-		// A focal point is only meaningful for the CropFocalPoint resize mode, so it is only inherited when the effective resize mode
-		// still calls for one. Without this, declaring a different resize mode on a child of a focal point parent would throw.
-		if (!HasOwnSource(context) && ResizeMode is DynamicResizeMode.CropFocalPoint)
+		// A focal point only affects a cropping resize mode, so it is only inherited when the effective resize mode still calls for one.
+		// Without this, declaring a non cropping resize mode on a child of a focal point parent would throw. The ignore-focal-point
+		// attribute lets a cropping source opt out of the inherited focal point and fall back to a center crop.
+		if (!HasOwnSource(context) && !IgnoreFocalPoint && ResizeMode is DynamicResizeMode.Crop)
 		{
 			if (!IsDeclared("focal-point-approval") && !IsDeclared("focal-point-x") && !IsDeclared("focal-point-y") && !IsDeclared(VersionTokenAttributeName))
 				FocalPointApproval = pictureContext.FocalPointApproval;

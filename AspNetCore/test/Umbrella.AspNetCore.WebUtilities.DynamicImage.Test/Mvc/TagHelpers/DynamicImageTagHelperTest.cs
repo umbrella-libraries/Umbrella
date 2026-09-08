@@ -22,7 +22,7 @@ public class DynamicImageTagHelperTest
 		var image = DynamicImageFocalPointApprovalTest.CreateService().Create(new Umbrella.FileSystem.Abstractions.UmbrellaVersionedUrl("/images/test.jpg", "version"), 0.25, 0.75)!;
 		var tagHelper = CreateTagHelper();
 		tagHelper.Image = image;
-		tagHelper.ResizeMode = DynamicResizeMode.CropFocalPoint;
+		tagHelper.ResizeMode = DynamicResizeMode.Crop;
 		var context = Mocks.CreateTagHelperContext([new TagHelperAttribute("image", image), new TagHelperAttribute("width-request", 100), new TagHelperAttribute("height-request", 50)]);
 		var output = Mocks.CreateImageTagHelperOutput([], "dynamic-image");
 		tagHelper.Init(context);
@@ -156,7 +156,7 @@ public class DynamicImageTagHelperTest
 	public async Task ProcessAsync_GeneratesFocalPointUrlsForSourcesAndResponsiveFallback()
 	{
 		DynamicImageTagHelper tagHelper = CreateTagHelper();
-		tagHelper.ResizeMode = DynamicResizeMode.CropFocalPoint;
+		tagHelper.ResizeMode = DynamicResizeMode.Crop;
 		tagHelper.FocalPointX = 0.25;
 		tagHelper.FocalPointY = 0.75;
 		tagHelper.SizeWidths = "100,200";
@@ -166,17 +166,17 @@ public class DynamicImageTagHelperTest
 		await tagHelper.ProcessAsync(ctx, output);
 
 		string html = RenderOutput(output);
-		Assert.Contains("/dynamicimage/100/50/CropFocalPoint/jpg/images/test.webp?fpx=0.25&fpy=0.75 100w", html, StringComparison.Ordinal);
-		Assert.Contains("/dynamicimage/200/100/CropFocalPoint/jpg/images/test.webp?fpx=0.25&fpy=0.75 200w", html, StringComparison.Ordinal);
-		Assert.Contains("/dynamicimage/100/50/CropFocalPoint/jpg/images/test.jpg?fpx=0.25&fpy=0.75 100w", html, StringComparison.Ordinal);
-		Assert.Contains("/dynamicimage/200/100/CropFocalPoint/jpg/images/test.jpg?fpx=0.25&fpy=0.75 200w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/100/50/Crop/jpg/images/test.webp?fpx=0.25&fpy=0.75 100w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/200/100/Crop/jpg/images/test.webp?fpx=0.25&fpy=0.75 200w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/100/50/Crop/jpg/images/test.jpg?fpx=0.25&fpy=0.75 100w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/200/100/Crop/jpg/images/test.jpg?fpx=0.25&fpy=0.75 200w", html, StringComparison.Ordinal);
 	}
 
 	[Fact]
 	public async Task ProcessAsync_RejectsIncompleteFocalPoint()
 	{
 		DynamicImageTagHelper tagHelper = CreateTagHelper();
-		tagHelper.ResizeMode = DynamicResizeMode.CropFocalPoint;
+		tagHelper.ResizeMode = DynamicResizeMode.Crop;
 		tagHelper.FocalPointX = 0.25;
 		var (ctx, output) = CreateContextAndOutput();
 		tagHelper.Init(ctx);
@@ -188,7 +188,7 @@ public class DynamicImageTagHelperTest
 	public async Task ProcessAsync_RejectsOutOfRangeFocalPoint()
 	{
 		DynamicImageTagHelper tagHelper = CreateTagHelper();
-		tagHelper.ResizeMode = DynamicResizeMode.CropFocalPoint;
+		tagHelper.ResizeMode = DynamicResizeMode.Crop;
 		tagHelper.FocalPointX = -0.01;
 		tagHelper.FocalPointY = 0.75;
 		var (ctx, output) = CreateContextAndOutput();
@@ -198,9 +198,10 @@ public class DynamicImageTagHelperTest
 	}
 
 	[Fact]
-	public async Task ProcessAsync_RejectsFocalPointForNonFocalResizeMode()
+	public async Task ProcessAsync_RejectsFocalPointForNonCroppingResizeMode()
 	{
 		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		tagHelper.ResizeMode = DynamicResizeMode.ScaleDown;
 		tagHelper.FocalPointX = 0.25;
 		tagHelper.FocalPointY = 0.75;
 		var (ctx, output) = CreateContextAndOutput();
@@ -272,6 +273,51 @@ public class DynamicImageTagHelperTest
 
 		Assert.Contains("/dynamicimage/600/800/UseWidth/jpg/images/other.webp", html, StringComparison.Ordinal);
 		Assert.DoesNotContain("Crop/jpg/images/other", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_ChildInheritsFocalPointFromParent()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		tagHelper.ResizeMode = DynamicResizeMode.Crop;
+		tagHelper.FocalPointX = 0.25;
+		tagHelper.FocalPointY = 0.75;
+		ChildSource child = CreateChildSource("(max-width: 599px)", widthRequest: 600, heightRequest: 800);
+
+		string html = await RenderWithChildrenAsync(tagHelper, src: "/images/test.jpg", children: child);
+
+		Assert.Contains("/dynamicimage/600/800/Crop/jpg/images/test.webp?fpx=0.25&fpy=0.75", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_ChildIgnoresInheritedFocalPointWhenOptedOut()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		tagHelper.ResizeMode = DynamicResizeMode.Crop;
+		tagHelper.FocalPointX = 0.25;
+		tagHelper.FocalPointY = 0.75;
+		ChildSource child = CreateChildSource("(max-width: 599px)", widthRequest: 600, heightRequest: 800);
+		child.TagHelper.IgnoreFocalPoint = true;
+		child.DeclaredAttributes.Add(new TagHelperAttribute("ignore-focal-point", "true"));
+
+		string html = await RenderWithChildrenAsync(tagHelper, src: "/images/test.jpg", children: child);
+
+		// The child still crops, but from the image center, so no focal point reaches its URLs.
+		Assert.Contains("media=\"(max-width: 599px)\" srcset=\"/dynamicimage/600/800/Crop/jpg/images/test.webp\"", html, StringComparison.Ordinal);
+		Assert.DoesNotContain("/dynamicimage/600/800/Crop/jpg/images/test.webp?fpx=", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_ChildIgnoreFocalPointAttributeIsNotCopiedOntoSources()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		ChildSource child = CreateChildSource("(max-width: 599px)", widthRequest: 600, heightRequest: 800);
+		child.TagHelper.IgnoreFocalPoint = true;
+		child.DeclaredAttributes.Add(new TagHelperAttribute("ignore-focal-point", "true"));
+
+		string html = await RenderWithChildrenAsync(tagHelper, src: "/images/test.jpg", children: child);
+
+		Assert.DoesNotContain("ignore-focal-point", html, StringComparison.Ordinal);
 	}
 
 	[Fact]

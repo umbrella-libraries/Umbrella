@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.Web.HtmlRendering;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,7 +29,7 @@ public class UmbrellaFileImagePreviewUploadTest
 		Assert.Contains("/dynamicimage/100/50/ScaleDown/jpg/_v_version/images/test.webp 100w", html, StringComparison.Ordinal);
 		Assert.Contains("/dynamicimage/200/100/ScaleDown/jpg/_v_version/images/test.webp 200w", html, StringComparison.Ordinal);
 		Assert.Contains("<canvas", html, StringComparison.Ordinal);
-		Assert.DoesNotContain("/CropFocalPoint/", html, StringComparison.Ordinal);
+		Assert.DoesNotContain("/Crop/", html, StringComparison.Ordinal);
 		Assert.DoesNotContain("fpx=", html, StringComparison.Ordinal);
 	}
 
@@ -43,7 +43,7 @@ public class UmbrellaFileImagePreviewUploadTest
 
 		Assert.DoesNotContain("u-file-image-preview-upload__focal-selector", html, StringComparison.Ordinal);
 		Assert.DoesNotContain("/ScaleDown/", html, StringComparison.Ordinal);
-		Assert.Contains("CropFocalPoint", html, StringComparison.Ordinal);
+		Assert.Contains("/Crop/", html, StringComparison.Ordinal);
 		Assert.Contains("fpx=0.25&amp;fpy=0.75", html, StringComparison.Ordinal);
 	}
 
@@ -66,10 +66,10 @@ public class UmbrellaFileImagePreviewUploadTest
 	}
 
 	[Fact]
-	public async Task RejectsInteractiveSelectionForNonFocalResizeMode()
+	public async Task RejectsInteractiveSelectionForNonCroppingResizeMode()
 	{
 		Dictionary<string, object?> parameters = CreateValidParameters();
-		parameters[nameof(UmbrellaFileImagePreviewUpload.ResizeMode)] = DynamicResizeMode.Crop;
+		parameters[nameof(UmbrellaFileImagePreviewUpload.ResizeMode)] = DynamicResizeMode.ScaleDown;
 
 		_ = await Assert.ThrowsAsync<InvalidOperationException>(() => RenderAsync(parameters));
 	}
@@ -103,7 +103,7 @@ public class UmbrellaFileImagePreviewUploadTest
 	[Fact]
 	public async Task UserChangesAndClearsFocalPointAtomically()
 	{
-		var component = new UmbrellaFileImagePreviewUpload { ResizeMode = DynamicResizeMode.CropFocalPoint };
+		var component = new UmbrellaFileImagePreviewUpload { ResizeMode = DynamicResizeMode.Crop };
 		var changes = new List<UmbrellaFileImagePreviewUploadFocalPointChangedEventArgs>();
 		component.OnFocalPointChanged = EventCallback.Factory.Create<UmbrellaFileImagePreviewUploadFocalPointChangedEventArgs>(
 			new object(),
@@ -129,7 +129,7 @@ public class UmbrellaFileImagePreviewUploadTest
 	[Fact]
 	public async Task KeyboardFineAdjustmentUsesCurrentPointAndClampsEdges()
 	{
-		var component = new UmbrellaFileImagePreviewUpload { ResizeMode = DynamicResizeMode.CropFocalPoint };
+		var component = new UmbrellaFileImagePreviewUpload { ResizeMode = DynamicResizeMode.Crop };
 
 		await component.SetFocalPointAndNotifyAsync(0.995, 0.5);
 		await component.FocalPointKeyDownAsync(new KeyboardEventArgs { Key = "ArrowRight" });
@@ -142,7 +142,7 @@ public class UmbrellaFileImagePreviewUploadTest
 	[Fact]
 	public void UpdateReplacesImageTokenAndFocalStateAtomically()
 	{
-		var component = new UmbrellaFileImagePreviewUpload { ResizeMode = DynamicResizeMode.CropFocalPoint };
+		var component = new UmbrellaFileImagePreviewUpload { ResizeMode = DynamicResizeMode.Crop };
 
 		component.Update("/images/new.jpg", "token", 0.4, 0.6);
 
@@ -161,7 +161,7 @@ public class UmbrellaFileImagePreviewUploadTest
 		var component = new TestFileImagePreviewUpload
 		{
 			Url = "/images/current.jpg",
-			ResizeMode = DynamicResizeMode.CropFocalPoint,
+			ResizeMode = DynamicResizeMode.Crop,
 			FocalPointX = 0.3,
 			FocalPointY = 0.7
 		};
@@ -190,7 +190,7 @@ public class UmbrellaFileImagePreviewUploadTest
 			[nameof(UmbrellaFileImagePreviewUpload.HeightRequest)] = 50,
 			[nameof(UmbrellaFileImagePreviewUpload.MaxPixelDensity)] = 1,
 			[nameof(UmbrellaFileImagePreviewUpload.SizeWidths)] = "100,200",
-			[nameof(UmbrellaFileImagePreviewUpload.ResizeMode)] = DynamicResizeMode.CropFocalPoint,
+			[nameof(UmbrellaFileImagePreviewUpload.ResizeMode)] = DynamicResizeMode.Crop,
 			[nameof(UmbrellaFileImagePreviewUpload.FocalPointX)] = 0.25,
 			[nameof(UmbrellaFileImagePreviewUpload.FocalPointY)] = 0.75,
 			[nameof(UmbrellaFileImagePreviewUpload.EnableFocalPointSelection)] = true

@@ -97,8 +97,10 @@ public class DynamicImageMiddlewareOptions : IValidatableUmbrellaOptions, ISanit
 	/// <returns><see langword="true" /> if the options are allowed; otherwise <see langword="false" />.</returns>
 	public bool ImageOptionsAllowed(in DynamicImageOptions imageOptions)
 	{
+		// A focal point only affects the output of a cropping resize mode. Rejecting it elsewhere stops a caller
+		// appending focal point parameters to a URL for a mode that would silently ignore them.
 		if ((imageOptions.FocalPointX.HasValue || imageOptions.FocalPointY.HasValue)
-			&& imageOptions.ResizeMode is not DynamicResizeMode.CropFocalPoint)
+			&& imageOptions.ResizeMode is not DynamicResizeMode.Crop)
 		{
 			return false;
 		}
