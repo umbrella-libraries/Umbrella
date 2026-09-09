@@ -55,6 +55,50 @@
     }
   ],
   "mcpSourcePath": ".mcp.json",
+  "codexMcpServerOverrides": {
+    "ado-zinofi": {
+      "type": "stdio",
+      "command": "powershell",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "if ([string]::IsNullOrWhiteSpace($env:ZINOFI_ADO_PAT)) { throw 'ZINOFI_ADO_PAT is not set' }; $credential = 'codex:' + $env:ZINOFI_ADO_PAT; $env:PERSONAL_ACCESS_TOKEN = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($credential)); Remove-Variable credential; & npx -y @azure-devops/mcp zinofi --authentication pat; exit $LASTEXITCODE"
+      ],
+      "env_vars": [
+        "ZINOFI_ADO_PAT"
+      ]
+    },
+    "ado-thrive": {
+      "type": "stdio",
+      "command": "powershell",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "if ([string]::IsNullOrWhiteSpace($env:THRIVE_ADO_PAT)) { throw 'THRIVE_ADO_PAT is not set' }; $credential = 'codex:' + $env:THRIVE_ADO_PAT; $env:PERSONAL_ACCESS_TOKEN = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($credential)); Remove-Variable credential; & npx -y @azure-devops/mcp thriveforsend --authentication pat; exit $LASTEXITCODE"
+      ],
+      "env_vars": [
+        "THRIVE_ADO_PAT"
+      ]
+    },
+    "ado-remarkablexcp": {
+      "type": "stdio",
+      "command": "powershell",
+      "args": [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "if ([string]::IsNullOrWhiteSpace($env:REMARKABLEXCP_ADO_PAT)) { throw 'REMARKABLEXCP_ADO_PAT is not set' }; $credential = 'codex:' + $env:REMARKABLEXCP_ADO_PAT; $env:PERSONAL_ACCESS_TOKEN = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($credential)); Remove-Variable credential; & npx -y @azure-devops/mcp remarkablexcp --authentication pat; exit $LASTEXITCODE"
+      ],
+      "env_vars": [
+        "REMARKABLEXCP_ADO_PAT"
+      ]
+    }
+  },
   "starterFiles": [
     {
       "sourcePath": ".ai-shared\\bundles\\umbrella\\templates\\nuget-upgrade-exclusions.starter.json",

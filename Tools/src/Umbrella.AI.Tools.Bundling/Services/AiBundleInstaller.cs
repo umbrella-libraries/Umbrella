@@ -185,12 +185,21 @@ public sealed partial class AiBundleInstaller
                 .Select(x => x.Key)
                 .Where(x => manifest is null || OwnsServer(manifest, x) || !otherManifests.Any(y => OwnsServer(y, x))));
 
-            JsonObject unionServers = BuildUnionServers(allServers, ownServers, otherManifests);
+            // The authoring repository may also host another installed bundle. Its servers remain in
+            // the root .mcp.json but are deliberately excluded from this bundle's ownership subset;
+            // overrides for such co-owned entries must not make sync fail merely because this bundle
+            // is not the owner selected for the current run.
+            _ = ApplyCodexOverrides(allServers, bundle.CodexMcpServerOverrides);
+            JsonObject ownCodexServers = ApplyCodexOverrides(
+                ownServers,
+                bundle.CodexMcpServerOverrides,
+                requireEveryOverride: false);
+            JsonObject unionServers = BuildCodexUnionServers(allServers, ownCodexServers, otherManifests);
 
             string codexPath = Path.Combine(repoRoot, NormalizePath(CodexMcpConfigManager.RelativePath));
             string existingCodexConfig = File.Exists(codexPath) ? File.ReadAllText(codexPath) : string.Empty;
 
-            if (!CodexMcpConfigManager.TryBuildUpdatedConfig(existingCodexConfig, unionServers, ownServers,
+            if (!CodexMcpConfigManager.TryBuildUpdatedConfig(existingCodexConfig, unionServers, ownCodexServers,
                 expectedOwnHash: null, force: false, allowUntrackedManagedBlockReplacement: true,
                 previouslyOwnedServers: [],
                 out string updatedCodexConfig, out List<string> codexConflicts))
@@ -221,10 +230,11 @@ public sealed partial class AiBundleInstaller
                 [
                     .. ownServers.Select(x => new NameHashRecord { Name = x.Key, Hash = HashUtility.ComputeJsonHash(x.Value!) })
                 ];
+                manifest.ManagedCodexMcpServers = CreateCodexManifestRecords(ownCodexServers);
                 manifest.ManagedCodexMcp = new PathHashRecord
                 {
                     Path = NormalizePath(CodexMcpConfigManager.RelativePath),
-                    Hash = CodexMcpConfigManager.ComputeManagedHash(CodexMcpConfigManager.RenderManagedContent(ownServers))
+                    Hash = CodexMcpConfigManager.ComputeManagedHash(CodexMcpConfigManager.RenderManagedContent(ownCodexServers))
                 };
             }
         }
@@ -510,8 +520,8 @@ public sealed partial class AiBundleInstaller
         {
             string codexPath = Path.Combine(targetRoot, NormalizePath(manifest.ManagedCodexMcp.Path));
             string codexContent = File.Exists(codexPath) ? File.ReadAllText(codexPath) : string.Empty;
-            JsonObject ownServers = RestrictServers(servers, manifest.ManagedMcpServers.Select(x => x.Name));
-            string expectedOwnHash = CodexMcpConfigManager.ComputeManagedHash(CodexMcpConfigManager.RenderManagedContent(ownServers));
+            JsonObject ownCodexServers = GetManifestCodexServers(manifest, servers);
+            string expectedOwnHash = CodexMcpConfigManager.ComputeManagedHash(CodexMcpConfigManager.RenderManagedContent(ownCodexServers));
 
             if (!CodexMcpConfigManager.TryGetManagedServerNames(codexContent, out HashSet<string> regionNames, out string? regionError))
             {
@@ -536,7 +546,7 @@ public sealed partial class AiBundleInstaller
             else if (!CodexMcpConfigManager.TryGetManagedContent(codexContent, out string? regionContent)
                 || CodexMcpConfigManager.ComputeManagedHash(regionContent!)
                     != CodexMcpConfigManager.ComputeManagedHash(
-                        CodexMcpConfigManager.RenderManagedContent(BuildUnionServers(servers, ownServers, otherManifests))))
+                        CodexMcpConfigManager.RenderManagedContent(BuildCodexUnionServers(servers, ownCodexServers, otherManifests))))
             {
                 driftedCodexConfigs++;
                 result.Conflicts.Add($"Managed Codex MCP region content drifted: {manifest.ManagedCodexMcp.Path}");
@@ -700,7 +710,7 @@ public sealed partial class AiBundleInstaller
         if (manifest.ManagedCodexMcp is not null && File.Exists(codexPath))
         {
             // Re-render the shared region from whatever the surviving bundles still own.
-            JsonObject remainingUnion = RestrictServers(servers, survivingManifests.SelectMany(x => x.ManagedMcpServers).Select(x => x.Name));
+            JsonObject remainingUnion = BuildCodexUnionServers(servers, [], survivingManifests);
             string updatedCodexContent;
 
             if (remainingUnion.Count == 0)
@@ -765,16 +775,20 @@ public sealed partial class AiBundleInstaller
 
         Dictionary<string, ManagedFileEntry> sourceFiles = EnumerateAllManagedFiles(bundle);
         JsonObject sourceServers = LoadSourceServers(bundle.McpSourcePath);
+        JsonObject sourceCodexServers = ApplyCodexOverrides(sourceServers, bundle.CodexMcpServerOverrides);
         var result = new OperationResult();
 
         ValidateManagedFiles(targetRoot, sourceFiles, currentManifest, otherManifests, options, result);
         ValidateManagedBlocks(targetRoot, bundle, currentManifest, options, result);
-        ValidateManagedMcp(targetRoot, sourceServers, currentManifest, otherManifests, options, result);
+        ValidateManagedMcp(targetRoot, sourceServers, sourceCodexServers, currentManifest, otherManifests, options, result);
 
         string targetMcpPath = Path.Combine(targetRoot, ".mcp.json");
         JsonObject targetMcpRoot = LoadMcpRoot(targetMcpPath) ?? [];
         JsonObject targetServers = GetOrCreateServers(targetMcpRoot);
         JsonObject targetMcpServers = GetOrCreateMcpServers(targetMcpRoot);
+        List<(AiBundleManifest Manifest, List<string> ServerNames)> displacedOwners = options.Force
+            ? ReconcileForcedMcpTakeovers(sourceServers, sourceCodexServers, targetServers, otherManifests)
+            : [];
 
         // Project the post-merge server set so the Codex region can be validated and rendered before
         // anything is written. Every conflict must be known before the first mutation.
@@ -806,15 +820,17 @@ public sealed partial class AiBundleInstaller
             }
         }
 
-        JsonObject unionServers = BuildUnionServers(projectedServers, sourceServers, otherManifests);
-        JsonObject ownServers = RestrictServers(projectedServers, sourceServers.Select(x => x.Key));
+        JsonObject ownCodexServers = ApplyCodexOverrides(
+            RestrictServers(projectedServers, sourceServers.Select(x => x.Key)),
+            bundle.CodexMcpServerOverrides);
+        JsonObject unionServers = BuildCodexUnionServers(projectedServers, ownCodexServers, otherManifests);
 
         string targetCodexPath = Path.Combine(targetRoot, NormalizePath(CodexMcpConfigManager.RelativePath));
         string existingCodexConfig = File.Exists(targetCodexPath) ? File.ReadAllText(targetCodexPath) : string.Empty;
         string updatedCodexConfig = existingCodexConfig;
 
         if (managesMcp
-            && !CodexMcpConfigManager.TryBuildUpdatedConfig(existingCodexConfig, unionServers, ownServers,
+            && !CodexMcpConfigManager.TryBuildUpdatedConfig(existingCodexConfig, unionServers, ownCodexServers,
                 currentManifest?.ManagedCodexMcp?.Hash, options.Force, allowUntrackedManagedBlockReplacement: false,
                 previouslyOwnedServers: currentManifest?.ManagedMcpServers.Select(x => x.Name) ?? [],
                 out updatedCodexConfig, out List<string> codexConflicts))
@@ -907,12 +923,21 @@ public sealed partial class AiBundleInstaller
 
             _ = Directory.CreateDirectory(Path.GetDirectoryName(targetCodexPath)!);
             File.WriteAllText(targetCodexPath, updatedCodexConfig);
+            newManifest.ManagedCodexMcpServers = CreateCodexManifestRecords(ownCodexServers);
             newManifest.ManagedCodexMcp = new PathHashRecord
             {
                 Path = NormalizePath(CodexMcpConfigManager.RelativePath),
-                Hash = CodexMcpConfigManager.ComputeManagedHash(CodexMcpConfigManager.RenderManagedContent(ownServers))
+                Hash = CodexMcpConfigManager.ComputeManagedHash(CodexMcpConfigManager.RenderManagedContent(ownCodexServers))
             };
             result.Messages.Add($"Managed Codex MCP config {operationName}ed: {CodexMcpConfigManager.RelativePath}");
+
+            foreach ((AiBundleManifest displacedManifest, List<string> serverNames) in displacedOwners)
+            {
+                string displacedManifestPath = GetManifestPath(targetRoot, displacedManifest.BundleId);
+                File.WriteAllText(displacedManifestPath, JsonSerializer.Serialize(displacedManifest, _serializerOptions));
+                result.Messages.Add(
+                    $"Transferred MCP server ownership from bundle '{displacedManifest.BundleId}': {string.Join(", ", serverNames)}");
+            }
         }
 
         _ = Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
@@ -923,20 +948,174 @@ public sealed partial class AiBundleInstaller
     }
 
     /// <summary>
-    /// Builds the set of servers rendered into the shared Codex region: everything owned by this bundle
-    /// plus everything still owned by any other installed bundle. Definitions come from the merged
-    /// <c>.mcp.json</c>, which is the canonical source.
+    /// Builds the set of effective servers rendered into the shared Codex region: everything owned by
+    /// this bundle plus everything still owned by any other installed bundle. New manifests retain each
+    /// bundle's Codex-specific projection; older manifests fall back to the canonical definition from
+    /// <c>.mcp.json</c> for backwards compatibility.
     /// </summary>
-    private static JsonObject BuildUnionServers(JsonObject? mergedServers, JsonObject ownServers, List<AiBundleManifest> otherManifests)
+    private static JsonObject BuildCodexUnionServers(
+        JsonObject? mergedServers,
+        JsonObject ownCodexServers,
+        List<AiBundleManifest> otherManifests)
     {
-        var ownedNames = new HashSet<string>(ownServers.Select(x => x.Key), StringComparer.OrdinalIgnoreCase);
+        var union = new JsonObject();
 
         foreach (AiBundleManifest manifest in otherManifests)
         {
-            ownedNames.UnionWith(manifest.ManagedMcpServers.Select(x => x.Name));
+            foreach ((string serverName, JsonNode? serverNode) in GetManifestCodexServers(manifest, mergedServers))
+            {
+                if (serverNode is not null && !union.ContainsKey(serverName))
+                {
+                    union[serverName] = serverNode.DeepClone();
+                }
+            }
         }
 
-        return RestrictServers(mergedServers, ownedNames);
+        // The bundle being installed or updated wins only when --force allowed a disagreement.
+        foreach ((string serverName, JsonNode? serverNode) in ownCodexServers)
+        {
+            if (serverNode is not null)
+            {
+                union[serverName] = serverNode.DeepClone();
+            }
+        }
+
+        return union;
+    }
+
+    private static JsonObject ApplyCodexOverrides(
+        JsonObject canonicalServers,
+        IReadOnlyDictionary<string, JsonObject> overrides,
+        bool requireEveryOverride = true)
+    {
+        JsonObject effectiveServers = canonicalServers.DeepClone().AsObject();
+
+        foreach ((string overrideName, JsonObject overrideServer) in overrides)
+        {
+            string? canonicalName = canonicalServers
+                .Select(x => x.Key)
+                .FirstOrDefault(x => x.Equals(overrideName, StringComparison.OrdinalIgnoreCase));
+
+            if (canonicalName is null)
+            {
+                if (requireEveryOverride)
+                {
+                    throw new InvalidOperationException(
+                        $"Codex MCP override '{overrideName}' does not match a server in the canonical MCP source.");
+                }
+
+                continue;
+            }
+
+            effectiveServers[canonicalName] = overrideServer.DeepClone();
+        }
+
+        // Validate the effective shape immediately, including overrides whose command/url is missing.
+        _ = CodexMcpConfigManager.RenderManagedContent(effectiveServers);
+        return effectiveServers;
+    }
+
+    private static JsonObject GetManifestCodexServers(AiBundleManifest manifest, JsonObject? canonicalServers)
+    {
+        if (manifest.ManagedCodexMcpServers.Count == 0)
+        {
+            return RestrictServers(canonicalServers, manifest.ManagedMcpServers.Select(x => x.Name));
+        }
+
+        var servers = new JsonObject();
+
+        foreach (NameConfigurationRecord record in manifest.ManagedCodexMcpServers)
+        {
+            servers[record.Name] = record.Configuration.DeepClone();
+        }
+
+        return servers;
+    }
+
+    private static List<NameConfigurationRecord> CreateCodexManifestRecords(JsonObject codexServers)
+        =>
+        [
+            .. codexServers.Select(x => new NameConfigurationRecord
+            {
+                Name = x.Key,
+                Configuration = x.Value!.DeepClone().AsObject()
+            })
+        ];
+
+    /// <summary>
+    /// A forced takeover replaces both the canonical and Codex definitions. Conflicting bundles must
+    /// relinquish those server records as part of the same successful operation; otherwise a later
+    /// union rebuild can resurrect whichever stale manifest happens to be enumerated first.
+    /// </summary>
+    private static List<(AiBundleManifest Manifest, List<string> ServerNames)> ReconcileForcedMcpTakeovers(
+        JsonObject sourceServers,
+        JsonObject sourceCodexServers,
+        JsonObject targetServers,
+        List<AiBundleManifest> otherManifests)
+    {
+        var displacedOwners = new List<(AiBundleManifest Manifest, List<string> ServerNames)>();
+
+        foreach (AiBundleManifest manifest in otherManifests)
+        {
+            JsonObject manifestCodexServers = GetManifestCodexServers(manifest, targetServers);
+            var displacedServerNames = new List<string>();
+
+            foreach ((string serverName, JsonNode? sourceServer) in sourceServers)
+            {
+                if (sourceServer is null)
+                {
+                    continue;
+                }
+
+                NameHashRecord? ownedServer = manifest.ManagedMcpServers.FirstOrDefault(
+                    x => x.Name.Equals(serverName, StringComparison.OrdinalIgnoreCase));
+
+                if (ownedServer is null)
+                {
+                    continue;
+                }
+
+                JsonNode? sourceCodexServer = sourceCodexServers[serverName];
+                bool canonicalDefinitionsMatch = ownedServer.Hash == HashUtility.ComputeJsonHash(sourceServer);
+                // Older manifests did not persist their effective Codex definitions. When their
+                // canonical hash matches, their Codex definition was necessarily that same canonical
+                // object; do not infer it from a possibly user-modified target .mcp.json entry.
+                JsonNode? manifestCodexServer = manifest.ManagedCodexMcpServers.Count == 0 && canonicalDefinitionsMatch
+                    ? sourceServer
+                    : manifestCodexServers[serverName];
+                bool codexDefinitionsMatch = sourceCodexServer is not null
+                    && manifestCodexServer is not null
+                    && HashUtility.ComputeJsonHash(sourceCodexServer) == HashUtility.ComputeJsonHash(manifestCodexServer);
+
+                if (canonicalDefinitionsMatch && codexDefinitionsMatch)
+                {
+                    continue;
+                }
+
+                _ = manifest.ManagedMcpServers.Remove(ownedServer);
+                _ = manifest.ManagedCodexMcpServers.RemoveAll(
+                    x => x.Name.Equals(serverName, StringComparison.OrdinalIgnoreCase));
+                displacedServerNames.Add(serverName);
+            }
+
+            if (displacedServerNames.Count == 0)
+            {
+                continue;
+            }
+
+            JsonObject remainingCodexServers = GetManifestCodexServers(manifest, targetServers);
+            manifest.ManagedCodexMcp = remainingCodexServers.Count == 0
+                ? null
+                : new PathHashRecord
+                {
+                    Path = NormalizePath(CodexMcpConfigManager.RelativePath),
+                    Hash = CodexMcpConfigManager.ComputeManagedHash(
+                        CodexMcpConfigManager.RenderManagedContent(remainingCodexServers))
+                };
+            displacedOwners.Add((manifest, displacedServerNames));
+        }
+
+        return displacedOwners;
     }
 
     private static JsonObject RestrictServers(JsonObject? servers, IEnumerable<string> serverNames)
@@ -1071,7 +1250,14 @@ public sealed partial class AiBundleInstaller
         }
     }
 
-    private static void ValidateManagedMcp(string targetRoot, JsonObject sourceServers, AiBundleManifest? currentManifest, List<AiBundleManifest> otherManifests, CommandOptions options, OperationResult result)
+    private static void ValidateManagedMcp(
+        string targetRoot,
+        JsonObject sourceServers,
+        JsonObject sourceCodexServers,
+        AiBundleManifest? currentManifest,
+        List<AiBundleManifest> otherManifests,
+        CommandOptions options,
+        OperationResult result)
     {
         string mcpPath = Path.Combine(targetRoot, ".mcp.json");
         JsonObject? mcpRoot = LoadMcpRoot(mcpPath);
@@ -1106,6 +1292,22 @@ public sealed partial class AiBundleInstaller
                     $"MCP server '{serverName}' is owned by bundle '{otherOwner.BundleId}' with a different definition. "
                     + "Align the definitions in both bundles, or use --force to take ownership.");
                 continue;
+            }
+
+            if (otherOwner is not null && !options.Force)
+            {
+                JsonNode? sourceCodexNode = sourceCodexServers[serverName];
+                JsonNode? otherCodexNode = GetManifestCodexServers(otherOwner, targetServers)[serverName];
+
+                if (sourceCodexNode is not null
+                    && otherCodexNode is not null
+                    && HashUtility.ComputeJsonHash(sourceCodexNode) != HashUtility.ComputeJsonHash(otherCodexNode))
+                {
+                    result.Conflicts.Add(
+                        $"MCP server '{serverName}' is owned by bundle '{otherOwner.BundleId}' with a different Codex definition. "
+                        + "Align the Codex overrides in both bundles, or use --force to take ownership.");
+                    continue;
+                }
             }
 
             if (existingNode is null)

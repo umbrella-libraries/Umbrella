@@ -129,6 +129,58 @@ public class McpCoOwnershipTest
     }
 
     [Fact]
+    public void UpdatingAnotherBundlePreservesAnInstalledCodexOverride()
+    {
+        JsonObject alphaOverride = new()
+        {
+            ["alpha-only"] = new JsonObject
+            {
+                ["type"] = "stdio",
+                ["command"] = "powershell",
+                ["args"] = new JsonArray("-NoProfile", "-Command", "& alpha"),
+                ["env_vars"] = new JsonArray("ALPHA_TOKEN")
+            }
+        };
+        using var alpha = FixtureBundle.Create("alpha", AlphaServers, codexMcpServerOverrides: alphaOverride);
+        using var beta = FixtureBundle.Create("beta", BetaServers);
+        using var repo = new TemporaryDirectory(asRepository: true);
+
+        Assert.True(alpha.CreateInstaller().Install(new CommandOptions { TargetPath = repo.Path }).Success);
+        Assert.True(beta.CreateInstaller().Install(new CommandOptions { TargetPath = repo.Path }).Success);
+        Assert.True(beta.CreateInstaller().Update(new CommandOptions { TargetPath = repo.Path }).Success);
+
+        string codexConfig = File.ReadAllText(repo.Combine(".codex", "config.toml"));
+        Assert.Contains("\"command\" = \"powershell\"", codexConfig, StringComparison.Ordinal);
+        Assert.Contains("\"env_vars\" = [\"ALPHA_TOKEN\"]", codexConfig, StringComparison.Ordinal);
+        Assert.True(alpha.CreateInstaller().GetStatus(new CommandOptions { TargetPath = repo.Path }).Success);
+    }
+
+    [Fact]
+    public void CoOwnedServerRequiresMatchingCodexOverrides()
+    {
+        JsonObject alphaOverride = new()
+        {
+            ["shared-http"] = ConfigAssert.HttpServer("https://alpha.example.test/mcp")
+        };
+        JsonObject betaOverride = new()
+        {
+            ["shared-http"] = ConfigAssert.HttpServer("https://beta.example.test/mcp")
+        };
+        using var alpha = FixtureBundle.Create("alpha", AlphaServers, codexMcpServerOverrides: alphaOverride);
+        using var beta = FixtureBundle.Create("beta", BetaServers, codexMcpServerOverrides: betaOverride);
+        using var repo = new TemporaryDirectory(asRepository: true);
+
+        Assert.True(alpha.CreateInstaller().Install(new CommandOptions { TargetPath = repo.Path }).Success);
+
+        var result = beta.CreateInstaller().Install(new CommandOptions { TargetPath = repo.Path });
+
+        Assert.False(result.Success);
+        Assert.Contains(result.Conflicts, x =>
+            x.Contains("shared-http", StringComparison.Ordinal)
+            && x.Contains("different Codex definition", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void RemovingOneBundleRetainsCoOwnedServersAndDropsExclusiveOnes()
     {
         using var alpha = FixtureBundle.Create("alpha", AlphaServers);
@@ -203,6 +255,38 @@ public class McpCoOwnershipTest
         Assert.True(result.Success, string.Join("; ", result.Conflicts));
         Assert.Equal("beta-command", ConfigAssert.Servers(repo.Combine(".mcp.json"))["contested"]!["command"]!.GetValue<string>());
         _ = Assert.Single(ConfigAssert.CodexServerNames(repo.Combine(".codex", "config.toml")), x => x == "contested");
+        Assert.DoesNotContain("contested", ManifestServerNames(repo.Path, "alpha"));
+        Assert.Contains("contested", ManifestServerNames(repo.Path, "beta"));
+        Assert.Contains(result.Messages, x => x.Contains("Transferred MCP server ownership from bundle 'alpha'", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ForcedTakeoverSurvivesAnUnrelatedInstallAndANormalWinnerUpdate()
+    {
+        using var alpha = FixtureBundle.Create("alpha", new JsonObject { ["contested"] = ConfigAssert.StdioServer("alpha-command") });
+        using var beta = FixtureBundle.Create("beta", new JsonObject { ["contested"] = ConfigAssert.StdioServer("beta-command") });
+        using var gamma = FixtureBundle.Create("gamma", new JsonObject { ["unrelated"] = ConfigAssert.StdioServer("gamma-command") });
+        using var repo = new TemporaryDirectory(asRepository: true);
+        var options = new CommandOptions { TargetPath = repo.Path };
+
+        Assert.True(alpha.CreateInstaller().Install(options).Success);
+        Assert.True(beta.CreateInstaller().Install(new CommandOptions { TargetPath = repo.Path, Force = true }).Success);
+
+        var gammaInstall = gamma.CreateInstaller().Install(options);
+
+        Assert.True(gammaInstall.Success, string.Join("; ", gammaInstall.Conflicts));
+        Assert.Equal(
+            "beta-command",
+            ConfigAssert.Servers(repo.Combine(".mcp.json"))["contested"]!["command"]!.GetValue<string>());
+
+        string codexConfig = File.ReadAllText(repo.Combine(".codex", "config.toml"));
+        Assert.Contains("\"command\" = \"beta-command\"", codexConfig, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"command\" = \"alpha-command\"", codexConfig, StringComparison.Ordinal);
+
+        var betaUpdate = beta.CreateInstaller().Update(options);
+
+        Assert.True(betaUpdate.Success, string.Join("; ", betaUpdate.Conflicts));
+        Assert.True(alpha.CreateInstaller().GetStatus(options).Success);
     }
 
     [Fact]

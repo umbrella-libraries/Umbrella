@@ -8,14 +8,14 @@ installed into the same repository will routinely both want servers such as `mic
 
 ## Rules
 
-1. The root `.mcp.json` `servers` object is the canonical MCP source for a bundle; generated `mcpServers` and Codex entries must never be treated as inputs.
+1. The root `.mcp.json` `servers` object is the canonical MCP source for a bundle; generated `mcpServers` and Codex entries must never be treated as inputs. A bundle may declare complete, Codex-only replacements in `bundle.json` under `codexMcpServerOverrides` when the two clients require different launch semantics.
 2. Repository sync replaces `mcpServers` with a complete compatibility mirror of canonical `servers`, including additions, updates, and removals.
-3. Install and update merge only the canonical server entries owned by the current bundle into a target repository and leave unrelated server entries untouched.
-4. A server already owned by another bundle is **co-owned** when both bundles describe it identically. Co-ownership needs no force flag; each owner records the server in its own manifest.
-5. When two bundles describe the same server name differently, the operation is blocked. The user either aligns the two definitions or forces a takeover.
+3. Install and update merge only the canonical server entries owned by the current bundle into a target repository and leave unrelated server entries untouched. Codex overrides never flow into `.mcp.json`.
+4. A server already owned by another bundle is **co-owned** when both bundles describe its canonical and effective Codex definitions identically. Co-ownership needs no force flag; each owner records the server in its own manifest.
+5. When two bundles describe the same server name differently, the operation is blocked. The user either aligns the two definitions or forces a takeover. A successful forced takeover removes that server from every conflicting owner's canonical and Codex manifest records so a later bundle operation cannot resurrect a stale definition.
 6. Removal deletes a server entry and its compatibility entry only when no surviving bundle manifest still owns that server. Co-owned servers are retained and reported as retained.
 7. Content outside the managed Codex markers remains user-owned and must be preserved.
-8. Record owned MCP server names and hashes, plus the Codex region path and this bundle's contribution hash, in the bundle manifest.
+8. Record owned MCP server names and hashes, effective Codex server definitions, plus the Codex region path and this bundle's contribution hash, in the bundle manifest. Older manifests without effective definitions fall back to their canonical `.mcp.json` definitions.
 9. Empty `.mcp.json` or `.codex\config.toml` files are deleted only when the user requested cleanup.
 
 ## The shared Codex MCP region
@@ -34,7 +34,7 @@ url = "https://learn.microsoft.com/api/mcp"
 
 Rules specific to the shared region:
 
-1. The region content is the union of the servers contributed by every installed bundle, rendered from the canonical `.mcp.json` `servers` object.
+1. The region content is the union of the effective Codex servers contributed by every installed bundle. Each effective definition is either the canonical `.mcp.json` server or its complete `codexMcpServerOverrides` replacement.
 2. Servers are rendered in ordinal name order, so the result never depends on the order bundles were installed.
 3. Rendering translates JSON `headers` to Codex `http_headers` and omits the transport-only `type` property.
 4. Install, update, and remove each re-render the whole region from the manifests of all installed bundles. A bundle rewriting the region is not taking ownership of another bundle's servers; it is recomputing a derived value.

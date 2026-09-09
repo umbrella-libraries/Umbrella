@@ -1,17 +1,22 @@
 # ai-bundle:codex-mcp:start
 [mcp_servers."ado-remarkablexcp"]
-"command" = "npx"
-"args" = ["-y", "@azure-devops/mcp", "remarkablexcp", "--authentication", "envvar"]
-"env" = { "ADO_MCP_AUTH_TOKEN" = "${REMARKABLEXCP_ADO_PAT}" }
+"command" = "powershell"
+"args" = ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "if ([string]::IsNullOrWhiteSpace($env:REMARKABLEXCP_ADO_PAT)) { throw \u0027REMARKABLEXCP_ADO_PAT is not set\u0027 }; $credential = \u0027codex:\u0027 \u002B $env:REMARKABLEXCP_ADO_PAT; $env:PERSONAL_ACCESS_TOKEN = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($credential)); Remove-Variable credential; \u0026 npx -y @azure-devops/mcp remarkablexcp --authentication pat; exit $LASTEXITCODE"]
+"env_vars" = ["REMARKABLEXCP_ADO_PAT"]
 
 [mcp_servers."ado-remote-mcp"]
 "url" = "https://mcp.dev.azure.com/"
 "http_headers" = { "X-MCP-Readonly" = "true", "X-MCP-Toolsets" = "repos,wiki,wit,pipelines" }
 
+[mcp_servers."ado-thrive"]
+"command" = "powershell"
+"args" = ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "if ([string]::IsNullOrWhiteSpace($env:THRIVE_ADO_PAT)) { throw \u0027THRIVE_ADO_PAT is not set\u0027 }; $credential = \u0027codex:\u0027 \u002B $env:THRIVE_ADO_PAT; $env:PERSONAL_ACCESS_TOKEN = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($credential)); Remove-Variable credential; \u0026 npx -y @azure-devops/mcp thriveforsend --authentication pat; exit $LASTEXITCODE"]
+"env_vars" = ["THRIVE_ADO_PAT"]
+
 [mcp_servers."ado-zinofi"]
-"command" = "npx"
-"args" = ["-y", "@azure-devops/mcp", "zinofi", "--authentication", "envvar"]
-"env" = { "ADO_MCP_AUTH_TOKEN" = "${ZINOFI_ADO_PAT}" }
+"command" = "powershell"
+"args" = ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "if ([string]::IsNullOrWhiteSpace($env:ZINOFI_ADO_PAT)) { throw \u0027ZINOFI_ADO_PAT is not set\u0027 }; $credential = \u0027codex:\u0027 \u002B $env:ZINOFI_ADO_PAT; $env:PERSONAL_ACCESS_TOKEN = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($credential)); Remove-Variable credential; \u0026 npx -y @azure-devops/mcp zinofi --authentication pat; exit $LASTEXITCODE"]
+"env_vars" = ["ZINOFI_ADO_PAT"]
 
 [mcp_servers."aspire"]
 "command" = "aspire"

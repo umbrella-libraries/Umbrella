@@ -197,4 +197,41 @@ public class SyncTest
         Assert.Contains("\"http_headers\" = { \"X-Test\" = \"value\" }", codexConfig, StringComparison.Ordinal);
         Assert.DoesNotContain("\"type\" =", codexConfig, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void SyncUsesCodexOverridesWithoutChangingTheCanonicalMcpDefinition()
+    {
+        JsonObject canonicalServer = new()
+        {
+            ["type"] = "stdio",
+            ["command"] = "npx",
+            ["args"] = new JsonArray("package-name"),
+            ["env"] = new JsonObject { ["DESTINATION_TOKEN"] = "${SOURCE_TOKEN}" }
+        };
+        JsonObject codexOverride = new()
+        {
+            ["type"] = "stdio",
+            ["command"] = "powershell",
+            ["args"] = new JsonArray("-NoProfile", "-Command", "& npx package-name"),
+            ["env_vars"] = new JsonArray("SOURCE_TOKEN")
+        };
+
+        using var fixture = FixtureBundle.Create(
+            "alpha",
+            new JsonObject { ["mapped"] = canonicalServer },
+            codexMcpServerOverrides: new JsonObject { ["mapped"] = codexOverride });
+
+        var result = fixture.CreateInstaller().Sync(fixture.AssetRoot);
+
+        Assert.True(result.Success, string.Join("; ", result.Conflicts));
+
+        string mcpPath = Path.Combine(fixture.AssetRoot, ".mcp.json");
+        Assert.True(JsonNode.DeepEquals(canonicalServer, ConfigAssert.Servers(mcpPath)["mapped"]));
+        Assert.True(JsonNode.DeepEquals(canonicalServer, ConfigAssert.CompatServers(mcpPath)["mapped"]));
+
+        string codexConfig = File.ReadAllText(Path.Combine(fixture.AssetRoot, ".codex", "config.toml"));
+        Assert.Contains("\"command\" = \"powershell\"", codexConfig, StringComparison.Ordinal);
+        Assert.Contains("\"env_vars\" = [\"SOURCE_TOKEN\"]", codexConfig, StringComparison.Ordinal);
+        Assert.DoesNotContain("${SOURCE_TOKEN}", codexConfig, StringComparison.Ordinal);
+    }
 }

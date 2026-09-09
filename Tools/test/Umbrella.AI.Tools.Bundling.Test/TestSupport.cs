@@ -100,13 +100,15 @@ internal sealed class FixtureBundle : IDisposable
     /// </summary>
     /// <param name="bundleId">Bundle id, also used to prefix skill and agent names so two fixtures never collide.</param>
     /// <param name="servers">Canonical MCP servers, or null for none.</param>
+    /// <param name="codexMcpServerOverrides">Optional complete Codex-specific definitions keyed by canonical server name.</param>
     /// <param name="catalogName">Catalogue heading prefix. Pass null to omit it and exercise the bundle id fallback.</param>
     /// <param name="starterFile">Starter file target path, or null for none.</param>
     public static FixtureBundle Create(
         string bundleId,
         JsonObject? servers = null,
         string? catalogName = "Fixture",
-        string? starterFile = null)
+        string? starterFile = null,
+        JsonObject? codexMcpServerOverrides = null)
     {
         var fixture = new FixtureBundle(bundleId, catalogName ?? bundleId);
         string root = fixture.AssetRoot;
@@ -181,6 +183,11 @@ internal sealed class FixtureBundle : IDisposable
             File.WriteAllText(
                 Path.Combine(root, ".mcp.json"),
                 new JsonObject { ["servers"] = servers.DeepClone() }.ToJsonString());
+        }
+
+        if (codexMcpServerOverrides is not null)
+        {
+            bundle["codexMcpServerOverrides"] = codexMcpServerOverrides.DeepClone();
         }
 
         if (starterFile is not null)

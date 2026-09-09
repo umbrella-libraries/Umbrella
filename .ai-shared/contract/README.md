@@ -13,8 +13,8 @@ This directory documents the shared on-disk contract used by installer tools tha
 ## Source-of-truth files
 
 - Bundle block fragments live under `.ai-shared\bundles\<bundle-id>\blocks\`.
-- A bundle definition may identify a canonical root `.mcp.json`; its `servers` object is the only editable MCP source.
-- Compatibility `mcpServers` entries and namespaced `.codex\config.toml` MCP blocks are generated from that canonical `servers` object.
+- A bundle definition may identify a canonical root `.mcp.json`; its `servers` object remains the editable cross-client MCP source.
+- Compatibility `mcpServers` entries are exact mirrors of canonical `servers`. When Codex needs different launch semantics, `bundle.json` may provide complete per-server replacements under `codexMcpServerOverrides`; those replacements affect only generated `.codex\config.toml` entries.
 - Bundle manifests are written to target repos under `.ai-shared\bundles\<bundle-id>\manifest.json`.
 - The manifest schema for installed bundles is defined in `bundle-manifest.schema.json`.
 

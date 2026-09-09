@@ -50,6 +50,13 @@
         "$ref": "#/$defs/nameHashRecord"
       }
     },
+    "managedCodexMcpServers": {
+      "description": "Effective Codex server definitions after applying this bundle's Codex-specific overrides. Optional for manifests written by older tool versions.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nameConfigurationRecord"
+      }
+    },
     "managedCodexMcp": {
       "description": "The shared Codex MCP region. 'path' is the region's file, always .codex/config.toml. 'hash' is this bundle's own contribution rendered in isolation, never the hash of the whole region, so another bundle installing or removing does not register as drift here.",
       "oneOf": [
@@ -86,6 +93,21 @@
         },
         "hash": {
           "type": "string"
+        }
+      }
+    },
+    "nameConfigurationRecord": {
+      "type": "object",
+      "required": [
+        "name",
+        "configuration"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "configuration": {
+          "type": "object"
         }
       }
     }

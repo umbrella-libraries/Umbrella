@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace Umbrella.AI.Tools.Bundling.Models;
@@ -37,6 +38,14 @@ public sealed class AiBundleDefinition
 
     [JsonPropertyName("mcpSourcePath")]
     public string McpSourcePath { get; set; } = "";
+
+    /// <summary>
+    /// Optional complete Codex-specific server definitions keyed by canonical MCP server name.
+    /// These definitions replace only the generated Codex representation; <c>.mcp.json</c> remains
+    /// unchanged for clients that support its environment-variable interpolation syntax.
+    /// </summary>
+    [JsonPropertyName("codexMcpServerOverrides")]
+    public Dictionary<string, JsonObject> CodexMcpServerOverrides { get; set; } = [];
 
     /// <summary>
     /// Files copied into the target repository on install only when the destination does not already

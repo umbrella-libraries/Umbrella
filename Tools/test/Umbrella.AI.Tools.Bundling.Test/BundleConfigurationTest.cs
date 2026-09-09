@@ -137,4 +137,23 @@ public class BundleConfigurationTest
             Path.Combine(".codex", "config.toml"),
             manifest["managedCodexMcp"]!["path"]!.GetValue<string>());
     }
+
+    [Fact]
+    public void InstallRejectsACodexOverrideWithoutACanonicalServer()
+    {
+        using var fixture = FixtureBundle.Create(
+            "alpha",
+            new JsonObject { ["canonical"] = ConfigAssert.StdioServer("canonical") },
+            codexMcpServerOverrides: new JsonObject
+            {
+                ["unknown"] = ConfigAssert.StdioServer("override")
+            });
+        using var repo = new TemporaryDirectory(asRepository: true);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => fixture.CreateInstaller().Install(new CommandOptions { TargetPath = repo.Path }));
+
+        Assert.Contains("unknown", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("canonical MCP source", exception.Message, StringComparison.Ordinal);
+    }
 }

@@ -117,7 +117,24 @@ public class UmbrellaBundleContentTest
         Assert.Contains("[mcp_servers.\"aspire\"]", codexConfig, StringComparison.Ordinal);
         Assert.Contains("[mcp_servers.\"ado-remote-mcp\"]", codexConfig, StringComparison.Ordinal);
         Assert.Contains("\"http_headers\" =", codexConfig, StringComparison.Ordinal);
+        Assert.Contains("\"env_vars\" = [\"ZINOFI_ADO_PAT\"]", codexConfig, StringComparison.Ordinal);
+        Assert.Contains("\"env_vars\" = [\"THRIVE_ADO_PAT\"]", codexConfig, StringComparison.Ordinal);
+        Assert.Contains("\"env_vars\" = [\"REMARKABLEXCP_ADO_PAT\"]", codexConfig, StringComparison.Ordinal);
+        Assert.Contains("--authentication pat", codexConfig, StringComparison.Ordinal);
+        Assert.DoesNotContain("${ZINOFI_ADO_PAT}", codexConfig, StringComparison.Ordinal);
+        Assert.DoesNotContain("${THRIVE_ADO_PAT}", codexConfig, StringComparison.Ordinal);
+        Assert.DoesNotContain("${REMARKABLEXCP_ADO_PAT}", codexConfig, StringComparison.Ordinal);
         Assert.DoesNotContain("\"type\" =", codexConfig, StringComparison.Ordinal);
+
+        Assert.Equal(
+            "${ZINOFI_ADO_PAT}",
+            servers["ado-zinofi"]!["env"]!["ADO_MCP_AUTH_TOKEN"]!.GetValue<string>());
+        Assert.Equal(
+            "${REMARKABLEXCP_ADO_PAT}",
+            servers["ado-remarkablexcp"]!["env"]!["ADO_MCP_AUTH_TOKEN"]!.GetValue<string>());
+        Assert.Equal(
+            "${THRIVE_ADO_PAT}",
+            servers["ado-thrive"]!["env"]!["ADO_MCP_AUTH_TOKEN"]!.GetValue<string>());
     }
 
     [Fact]

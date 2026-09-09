@@ -42,6 +42,20 @@
         "ADO_MCP_AUTH_TOKEN": "${ZINOFI_ADO_PAT}"
       }
     },
+    "ado-thrive": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@azure-devops/mcp",
+        "thriveforsend",
+        "--authentication",
+        "envvar"
+      ],
+      "env": {
+        "ADO_MCP_AUTH_TOKEN": "${THRIVE_ADO_PAT}"
+      }
+    },
     "ado-remarkablexcp": {
       "type": "stdio",
       "command": "npx",
@@ -126,6 +140,20 @@
       ],
       "env": {
         "ADO_MCP_AUTH_TOKEN": "${ZINOFI_ADO_PAT}"
+      }
+    },
+    "ado-thrive": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@azure-devops/mcp",
+        "thriveforsend",
+        "--authentication",
+        "envvar"
+      ],
+      "env": {
+        "ADO_MCP_AUTH_TOKEN": "${THRIVE_ADO_PAT}"
       }
     },
     "ado-remarkablexcp": {
