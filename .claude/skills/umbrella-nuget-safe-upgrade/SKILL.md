@@ -13,6 +13,7 @@ This skill safely analyzes and applies NuGet package upgrades while respecting e
 
 - `scripts\Invoke-NuGetSafeUpgrade.ps1`
 - `scripts\NuGetSafeUpgrade.Common.ps1`
+- `scripts\Test-NuGetSafeUpgrade.Common.ps1`
 - `nuget-upgrade-exclusions.schema.json`
 
 ## Inputs
@@ -56,6 +57,8 @@ When a package upgrade is blocked on some TFMs but would be safe on others, the 
 Split candidates appear in the `successful` list with action `Analyzed (split candidate)` or `Applied (split by framework)` and include `upgradeFrameworks`/`keepFrameworks` fields.
 
 Split only applies to unconditional `PackageReference` items directly in `.csproj` files. `PackageVersion` entries in `Directory.Packages.props` and already-conditional references are not split.
+
+For Central Package Management, each `PackageVersion` condition is evaluated against the consuming project's `TargetFramework` and `MSBuildProjectName`. Only matching project/framework pairs are validated, and the exact centralized item is updated even when multiple conditional entries share a package ID and version.
 
 **TFM ordering:** Condition strings and `<ItemGroup>` blocks are written in ascending semantic order: `netstandard*` (lowest) → `net4*` → `net5+` (ascending by major version). Lower TFMs always appear first in the file, matching conventional `.csproj` reading order.
 
@@ -107,6 +110,7 @@ powershell -ExecutionPolicy Bypass -File .claude\skills\umbrella-nuget-safe-upgr
 - Never ignore `nuget-upgrade-exclusions.json`.
 - Never flatten framework-specific versions into a single package version.
 - Never keep a candidate that fails restore.
+- Never treat a NuGet source/query failure as evidence that no newer versions exist; stop and surface the failure.
 - Never keep a candidate that resolves framework-coupled package families beyond the target framework major unless explicitly overridden.
 - Always verify that already-conditional package references are upgraded to a version compatible with their condition's TFM. If a package family is TFM-version-coupled but absent from `frameworkCoupledFamilies`, add it before applying upgrades.
 - Never declare an Apply pass complete without running `dotnet build` to confirm the solution compiles cleanly.

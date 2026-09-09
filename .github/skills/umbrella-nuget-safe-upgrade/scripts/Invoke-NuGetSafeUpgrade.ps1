@@ -177,7 +177,7 @@ foreach ($definition in $definitions) {
                 Split-NuGetUpgradePackageReference -FilePath $definition.FilePath -ItemName $definition.ItemName -PackageId $definition.PackageId -CurrentVersion $definition.CurrentVersion -NewVersion $candidateVersion -UpgradeFrameworks @($allValidationFrameworks | Where-Object { $guardrailBlockedFrameworks -notcontains $_ }) -KeepFrameworks $guardrailBlockedFrameworks
             }
             else {
-                Set-NuGetUpgradeVersionInFile -FilePath $definition.FilePath -ItemName $definition.ItemName -PackageId $definition.PackageId -CurrentVersion $definition.CurrentVersion -NewVersion $candidateVersion
+                Set-NuGetUpgradeVersionInFile -FilePath $definition.FilePath -ItemName $definition.ItemName -PackageId $definition.PackageId -CurrentVersion $definition.CurrentVersion -NewVersion $candidateVersion -ItemIndex $definition.ItemIndex
             }
 
             $restoreTargets = if (@($definition.ValidationReferences).Count -gt 0) {

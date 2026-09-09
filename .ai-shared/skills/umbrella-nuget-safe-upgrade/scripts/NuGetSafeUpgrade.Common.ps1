@@ -1,4 +1,5 @@
 Set-StrictMode -Version Latest
+$script:NuGetUpgradeAvailableVersionsCache = @{}
 
 function Resolve-NuGetUpgradeRepoRoot {
     param(
@@ -97,6 +98,20 @@ function Get-NuGetUpgradeXmlAttributeValue {
     }
 
     return [string]$attribute.Value
+}
+
+function Join-NuGetUpgradeConditions {
+    param(
+        [string[]]$Conditions
+    )
+
+    $conditionParts = @(
+        $Conditions |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { '({0})' -f $_.Trim() }
+    )
+
+    return [string]::Join(' AND ', $conditionParts)
 }
 
 function Get-NuGetUpgradeConfig {
@@ -215,31 +230,91 @@ function Get-NuGetUpgradeProjectTargetFrameworks {
 function Get-NuGetUpgradeApplicableFrameworks {
     param(
         [string]$Condition,
-        [string[]]$ProjectTargetFrameworks
+        [string[]]$ProjectTargetFrameworks,
+        [string]$ProjectName = ''
     )
 
     if ($null -eq $ProjectTargetFrameworks -or $ProjectTargetFrameworks.Count -eq 0) {
         return @()
     }
 
-    if ([string]::IsNullOrWhiteSpace($Condition)) {
-        return @($ProjectTargetFrameworks)
-    }
-
     $applicable = New-Object System.Collections.Generic.List[string]
 
     foreach ($framework in $ProjectTargetFrameworks) {
-        $escaped = [regex]::Escape($framework)
-        if ($Condition -match "'$escaped'" -or $Condition -match '"' + $escaped + '"') {
+        if (Test-NuGetUpgradeConditionApplies -Condition $Condition -TargetFramework $framework -ProjectName $ProjectName) {
             $applicable.Add($framework)
         }
     }
 
-    if ($applicable.Count -gt 0) {
-        return $applicable.ToArray()
+    return $applicable.ToArray()
+}
+
+function Test-NuGetUpgradeConditionApplies {
+    param(
+        [string]$Condition,
+        [string]$TargetFramework,
+        [string]$ProjectName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Condition)) {
+        return $true
     }
 
-    return @($ProjectTargetFrameworks)
+    $properties = @{
+        TargetFramework = $TargetFramework
+        MSBuildProjectName = $ProjectName
+    }
+    $hasUnknownProperty = $false
+    $expanded = [regex]::Replace(
+        $Condition,
+        '\$\((?<name>[^)]+)\)',
+        [System.Text.RegularExpressions.MatchEvaluator]{
+            param($match)
+
+            $name = $match.Groups['name'].Value
+            if (-not $properties.ContainsKey($name)) {
+                $hasUnknownProperty = $true
+                return $match.Value
+            }
+
+            return [string]$properties[$name]
+        }
+    )
+
+    # Unknown MSBuild properties can affect applicability. Stay conservative and validate
+    # every framework rather than accidentally omitting a real consumer.
+    if ($hasUnknownProperty) {
+        return $true
+    }
+
+    $evaluated = [regex]::Replace(
+        $expanded,
+        '(?<left>''[^'']*''|"[^"]*")\s*(?<operator>==|!=)\s*(?<right>''[^'']*''|"[^"]*")',
+        [System.Text.RegularExpressions.MatchEvaluator]{
+            param($match)
+
+            $leftToken = $match.Groups['left'].Value
+            $rightToken = $match.Groups['right'].Value
+            $left = $leftToken.Substring(1, $leftToken.Length - 2)
+            $right = $rightToken.Substring(1, $rightToken.Length - 2)
+            $equal = $left.Equals($right, [System.StringComparison]::OrdinalIgnoreCase)
+            $result = if ($match.Groups['operator'].Value -eq '==') { $equal } else { -not $equal }
+            return $result.ToString()
+        }
+    )
+
+    $unsupported = [regex]::Replace($evaluated, '(?i)\b(?:True|False|And|Or)\b|[\s()]', '')
+    if (-not [string]::IsNullOrWhiteSpace($unsupported)) {
+        return $true
+    }
+
+    try {
+        $table = [System.Data.DataTable]::new()
+        return [bool]$table.Compute($evaluated, '')
+    }
+    catch {
+        return $true
+    }
 }
 
 function Get-NuGetUpgradeProjectReferences {
@@ -257,7 +332,8 @@ function Get-NuGetUpgradeProjectReferences {
         $projectTargetFrameworks = Get-NuGetUpgradeProjectTargetFrameworks -ProjectXml $xml
         $packageNodes = $xml.SelectNodes("//*[local-name()='PackageReference']")
 
-        foreach ($node in $packageNodes) {
+        for ($itemIndex = 0; $itemIndex -lt $packageNodes.Count; $itemIndex++) {
+            $node = $packageNodes[$itemIndex]
             $include = Get-NuGetUpgradeXmlAttributeValue -Node $node -Name 'Include'
             $update = Get-NuGetUpgradeXmlAttributeValue -Node $node -Name 'Update'
             $version = Get-NuGetUpgradeXmlAttributeValue -Node $node -Name 'Version'
@@ -266,12 +342,10 @@ function Get-NuGetUpgradeProjectReferences {
                 continue
             }
 
-            $conditionParts = @(@(
+            $combinedCondition = Join-NuGetUpgradeConditions -Conditions @(
                 (Get-NuGetUpgradeXmlAttributeValue -Node $node.ParentNode -Name 'Condition')
                 (Get-NuGetUpgradeXmlAttributeValue -Node $node -Name 'Condition')
-            ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-
-            $combinedCondition = [string]::Join(' AND ', $conditionParts)
+            )
 
             $results.Add([pscustomobject]@{
                 ProjectPath = $project.FullName
@@ -281,7 +355,8 @@ function Get-NuGetUpgradeProjectReferences {
                 HasVersion = -not [string]::IsNullOrWhiteSpace($version)
                 CurrentVersion = $version
                 Condition = $combinedCondition
-                ApplicableTargetFrameworks = @(Get-NuGetUpgradeApplicableFrameworks -Condition $combinedCondition -ProjectTargetFrameworks $projectTargetFrameworks)
+                ItemIndex = $itemIndex
+                ApplicableTargetFrameworks = @(Get-NuGetUpgradeApplicableFrameworks -Condition $combinedCondition -ProjectTargetFrameworks $projectTargetFrameworks -ProjectName ([System.IO.Path]::GetFileNameWithoutExtension($project.Name)))
                 ProjectTargetFrameworks = @($projectTargetFrameworks)
             })
         }
@@ -305,6 +380,7 @@ function Get-NuGetUpgradeVersionDefinitions {
             CurrentVersion = $reference.CurrentVersion
             ItemName = 'PackageReference'
             Condition = $reference.Condition
+            ItemIndex = $reference.ItemIndex
             RelativePath = $reference.RelativeProjectPath
             ValidationReferences = @(
                 [pscustomobject]@{
@@ -324,7 +400,8 @@ function Get-NuGetUpgradeVersionDefinitions {
         [xml]$propsXml = Get-Content -Path $propsFile.FullName -Raw -ErrorAction Stop
         $packageNodes = $propsXml.SelectNodes("//*[local-name()='PackageVersion']")
 
-        foreach ($node in $packageNodes) {
+        for ($itemIndex = 0; $itemIndex -lt $packageNodes.Count; $itemIndex++) {
+            $node = $packageNodes[$itemIndex]
             $include = Get-NuGetUpgradeXmlAttributeValue -Node $node -Name 'Include'
             $update = Get-NuGetUpgradeXmlAttributeValue -Node $node -Name 'Update'
             $packageId = if (-not [string]::IsNullOrWhiteSpace($include)) { $include } else { $update }
@@ -334,6 +411,11 @@ function Get-NuGetUpgradeVersionDefinitions {
                 continue
             }
 
+            $combinedCondition = Join-NuGetUpgradeConditions -Conditions @(
+                (Get-NuGetUpgradeXmlAttributeValue -Node $node.ParentNode -Name 'Condition')
+                (Get-NuGetUpgradeXmlAttributeValue -Node $node -Name 'Condition')
+            )
+
             $referencingProjects = $ProjectReferences | Where-Object {
                 $_.PackageId.Equals($packageId, [System.StringComparison]::OrdinalIgnoreCase)
             }
@@ -341,16 +423,24 @@ function Get-NuGetUpgradeVersionDefinitions {
             $validationReferences = $referencingProjects |
                 Group-Object -Property ProjectPath |
                 ForEach-Object {
-                    [pscustomobject]@{
-                        ProjectPath = $_.Name
-                        ProjectName = ($_.Group | Select-Object -First 1).ProjectName
-                        RelativeProjectPath = ($_.Group | Select-Object -First 1).RelativeProjectPath
-                        TargetFrameworks = @(
-                            $_.Group |
-                                ForEach-Object { $_.ApplicableTargetFrameworks } |
-                                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-                                Sort-Object -Unique
-                        )
+                    $firstReference = $_.Group | Select-Object -First 1
+                    $targetFrameworks = @(
+                        $_.Group |
+                            ForEach-Object { $_.ApplicableTargetFrameworks } |
+                            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                            Sort-Object -Unique |
+                            Where-Object {
+                                Test-NuGetUpgradeConditionApplies -Condition $combinedCondition -TargetFramework $_ -ProjectName $firstReference.ProjectName
+                            }
+                    )
+
+                    if ($targetFrameworks.Count -gt 0) {
+                        [pscustomobject]@{
+                            ProjectPath = $_.Name
+                            ProjectName = $firstReference.ProjectName
+                            RelativeProjectPath = $firstReference.RelativeProjectPath
+                            TargetFrameworks = $targetFrameworks
+                        }
                     }
                 }
 
@@ -359,7 +449,8 @@ function Get-NuGetUpgradeVersionDefinitions {
                 PackageId = $packageId
                 CurrentVersion = $currentVersion
                 ItemName = 'PackageVersion'
-                Condition = Get-NuGetUpgradeXmlAttributeValue -Node $node -Name 'Condition'
+                Condition = $combinedCondition
+                ItemIndex = $itemIndex
                 RelativePath = Resolve-NuGetUpgradeRelativePath -RepoRoot $RepoRoot -Path $propsFile.FullName
                 ValidationReferences = @($validationReferences)
             })
@@ -451,13 +542,19 @@ function Get-NuGetUpgradeAvailableVersions {
     )
 
     $lowerId = $PackageId.ToLowerInvariant()
+    if ($script:NuGetUpgradeAvailableVersionsCache.ContainsKey($lowerId)) {
+        return @($script:NuGetUpgradeAvailableVersionsCache[$lowerId])
+    }
+
     $url = "https://api.nuget.org/v3-flatcontainer/$lowerId/index.json"
     try {
         $response = Invoke-RestMethod -Uri $url -Method Get -ErrorAction Stop
-        return @($response.versions)
+        $versions = @($response.versions)
+        $script:NuGetUpgradeAvailableVersionsCache[$lowerId] = $versions
+        return $versions
     }
     catch {
-        return @()
+        throw "Failed to query available versions for '$PackageId' from '$url': $($_.Exception.Message)"
     }
 }
 
@@ -576,7 +673,8 @@ function Set-NuGetUpgradeVersionInFile {
         [string]$ItemName,
         [string]$PackageId,
         [string]$CurrentVersion,
-        [string]$NewVersion
+        [string]$NewVersion,
+        [int]$ItemIndex = -1
     )
 
     $content = Get-Content -Path $FilePath -Raw -ErrorAction Stop
@@ -584,9 +682,39 @@ function Set-NuGetUpgradeVersionInFile {
     $versionAttribute = 'Version="' + [regex]::Escape($CurrentVersion) + '"'
     $pattern = "<$ItemName\b(?=[^>]*\b(?:Include|Update)\s*=\s*`"$packagePattern`")[^>]*\b$versionAttribute"
     $regex = [regex]::new($pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    $match = $regex.Match($content)
+    $itemRegex = [regex]::new("<$ItemName\b[^>]*", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    $commentRegex = [regex]::new('<!--[\s\S]*?-->', [System.Text.RegularExpressions.RegexOptions]::None)
+    $commentMatches = $commentRegex.Matches($content)
+    $itemMatches = @(
+        $itemRegex.Matches($content) | Where-Object {
+            $candidateIndex = $_.Index
+            $containingComments = @(
+                $commentMatches | Where-Object {
+                    $candidateIndex -ge $_.Index -and $candidateIndex -lt ($_.Index + $_.Length)
+                }
+            )
 
-    if (-not $match.Success) {
+            $containingComments.Count -eq 0
+        }
+    )
+
+    $match = if ($ItemIndex -ge 0) {
+        if ($ItemIndex -ge $itemMatches.Count) {
+            throw "Unable to find $ItemName item index $ItemIndex in '$FilePath'."
+        }
+
+        $candidate = $itemMatches[$ItemIndex]
+        if (-not $regex.IsMatch($candidate.Value)) {
+            throw "The $ItemName at item index $ItemIndex is not '$PackageId' with version '$CurrentVersion' in '$FilePath'."
+        }
+
+        $candidate
+    }
+    else {
+        $itemMatches | Where-Object { $regex.IsMatch($_.Value) } | Select-Object -First 1
+    }
+
+    if ($null -eq $match -or -not $match.Success) {
         throw "Unable to find $ItemName '$PackageId' with version '$CurrentVersion' in '$FilePath'."
     }
 
