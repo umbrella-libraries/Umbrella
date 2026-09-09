@@ -124,13 +124,13 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 
 	/// <summary>
 	/// Gets or sets the normalised X coordinate of the focal point for the image, between 0 and 1 starting from the left of the image.
-	/// Only used with <see cref="DynamicResizeMode.CropFocalPoint"/>.
+	/// Only used with <see cref="DynamicResizeMode.Crop"/>, which crops from the image center when no focal point is specified.
 	/// </summary>
 	public double? FocalPointX { get; set; }
 
 	/// <summary>
 	/// Gets or sets the normalised Y coordinate of the focal point for the image, between 0 and 1 starting from the top of the image.
-	/// Only used with <see cref="DynamicResizeMode.CropFocalPoint"/>.
+	/// Only used with <see cref="DynamicResizeMode.Crop"/>, which crops from the image center when no focal point is specified.
 	/// </summary>
 	public double? FocalPointY { get; set; }
 
@@ -362,7 +362,7 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 		Guard.IsBetweenOrEqualTo(FocalPointX.Value, 0, 1);
 		Guard.IsBetweenOrEqualTo(FocalPointY!.Value, 0, 1);
 
-		if (ResizeMode is not DynamicResizeMode.CropFocalPoint)
-			throw new InvalidOperationException($"{nameof(FocalPointX)} and {nameof(FocalPointY)} can only be used with {nameof(DynamicResizeMode.CropFocalPoint)}.");
+		if (ResizeMode is not DynamicResizeMode.Crop)
+			throw new InvalidOperationException($"{nameof(FocalPointX)} and {nameof(FocalPointY)} can only be used with {nameof(DynamicResizeMode.Crop)}.");
 	}
 }

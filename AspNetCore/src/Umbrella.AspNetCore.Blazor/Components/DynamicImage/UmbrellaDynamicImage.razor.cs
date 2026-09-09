@@ -78,14 +78,14 @@ public partial class UmbrellaDynamicImage : UmbrellaResponsiveImage
 
 	/// <summary>
 	/// Gets or sets the normalised X coordinate of the focal point, between 0 and 1 starting from the left of the image.
-	/// Only used with <see cref="DynamicResizeMode.CropFocalPoint"/>.
+	/// Only used with <see cref="DynamicResizeMode.Crop"/>, which crops from the image center when no focal point is specified.
 	/// </summary>
 	[Parameter]
 	public double? FocalPointX { get; set; }
 
 	/// <summary>
 	/// Gets or sets the normalised Y coordinate of the focal point, between 0 and 1 starting from the top of the image.
-	/// Only used with <see cref="DynamicResizeMode.CropFocalPoint"/>.
+	/// Only used with <see cref="DynamicResizeMode.Crop"/>, which crops from the image center when no focal point is specified.
 	/// </summary>
 	[Parameter]
 	public double? FocalPointY { get; set; }

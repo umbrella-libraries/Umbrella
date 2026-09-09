@@ -1,4 +1,4 @@
-namespace Umbrella.WebUtilities.DynamicImage.Analyzers.Test;
+﻿namespace Umbrella.WebUtilities.DynamicImage.Analyzers.Test;
 
 public class UWDI004_DynamicImageGeneratedVariantCoverageTests : AnalyzerTestBase<Umbrella.WebUtilities.DynamicImage.Analyzers.DynamicImageVersioningAnalyzer>
 {
@@ -290,7 +290,7 @@ public static class ViewRenderer
 @using Umbrella.AspNetCore.Blazor.Components.DynamicImage
 <UmbrellaDynamicImage WidthRequest="200"
                       HeightRequest="100"
-                      ResizeMode="DynamicResizeMode.CropFocalPoint"
+                      ResizeMode="DynamicResizeMode.Crop"
                       FocalPointX="@Model.ImageFocalPointX"
                       FocalPointY="@Model.ImageFocalPointY" />
 """;
@@ -330,7 +330,7 @@ public static class ViewRenderer
 @using Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
 <UmbrellaFileImagePreviewUpload WidthRequest="200"
                                 HeightRequest="100"
-                                ResizeMode="DynamicResizeMode.CropFocalPoint"
+                                ResizeMode="DynamicResizeMode.Crop"
                                 EnableFocalPointSelection="true"
                                 FocalPointX="@Model.ImageFocalPointX"
                                 FocalPointY="@Model.ImageFocalPointY" />
@@ -348,7 +348,7 @@ public static class ViewRenderer
 @using Umbrella.AspNetCore.Blazor.Components.FileImagePreviewUpload
 <UmbrellaFileImagePreviewUpload WidthRequest="200"
                                 HeightRequest="100"
-                                ResizeMode="DynamicResizeMode.CropFocalPoint"
+                                ResizeMode="DynamicResizeMode.Crop"
                                 EnableFocalPointSelection="@Model.EnableFocalPointSelection" />
 """;
 
@@ -493,7 +493,7 @@ public static class RenderFragmentFactory
 <dynamic-image src="/images/test.jpg"
                width-request="200"
                height-request="100"
-               resize-mode="CropFocalPoint"
+               resize-mode="Crop"
                focal-point-x="@Model.ImageFocalPointX"
                focal-point-y="@Model.ImageFocalPointY" />
 """;

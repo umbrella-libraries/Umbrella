@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Net.Http.Headers;
 using Moq;
@@ -34,10 +34,10 @@ public class DynamicImageMiddlewareTest
 		_ = file.SetupGet(x => x.Length).Returns(123);
 		_ = provider.Setup(x => x.GetAsync("/images/test.jpg", It.IsAny<CancellationToken>())).ReturnsAsync(file.Object);
 		var options = CreateOptions(provider.Object);
-		_ = options.AddAllowedVariants([new(100, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP)]);
+		_ = options.AddAllowedVariants([new(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.WebP)]);
 		var signer = DynamicImageFocalPointApprovalTest.CreateService();
 		var image = signer.Create(new UmbrellaVersionedUrl("/images/test.jpg", scenario is "stale" ? "old" : version), 0.25, 0.75)!;
-		var request = new DynamicImageOptions(image.Url, scenario is "uncatalogued" ? 101 : 100, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP,
+		var request = new DynamicImageOptions(image.Url, scenario is "uncatalogued" ? 101 : 100, 50, DynamicResizeMode.Crop, DynamicImageFormat.WebP,
 			focalPointX: scenario is "center" ? null : scenario is "tampered" ? 0.5 : 0.25,
 			focalPointY: scenario is "center" ? null : 0.75,
 			versionToken: image.VersionToken,
@@ -146,12 +146,15 @@ public class DynamicImageMiddlewareTest
 		fileProvider.Verify(x => x.GetAsync("/images/test.png", It.IsAny<CancellationToken>()), Times.Once);
 	}
 
-	[Fact]
-	public async Task InvokeAsync_ReturnsNotFound_WhenFocalPointSpecifiedForNonCropFocalPointMode()
+	[Theory]
+	[InlineData(nameof(DynamicResizeMode.ScaleDown))]
+	[InlineData(nameof(DynamicResizeMode.UseWidth))]
+	[InlineData(nameof(DynamicResizeMode.UseHeight))]
+	public async Task InvokeAsync_ReturnsNotFound_WhenFocalPointSpecifiedForNonCroppingMode(string resizeMode)
 	{
 		var fileProvider = new Mock<IUmbrellaFileStorageProvider>(MockBehavior.Strict);
 		DynamicImageMiddleware middleware = CreateMiddleware(CreateOptions(fileProvider.Object));
-		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg?fpx=0.5&fpy=0.5");
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/{resizeMode}/png/images/test.jpg?fpx=0.5&fpy=0.5");
 
 		await middleware.InvokeAsync(context);
 
@@ -202,10 +205,10 @@ public class DynamicImageMiddlewareTest
 		options.EnableValidation = true;
 		options.AllowedVariants =
 		[
-			new DynamicImageVariant(100, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg)
+			new DynamicImageVariant(100, 200, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
 		];
 		DynamicImageMiddleware middleware = CreateMiddleware(options);
-		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/images/test.jpg?fpx=0.25&fpy=0.75");
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg?fpx=0.25&fpy=0.75");
 
 		await middleware.InvokeAsync(context);
 
@@ -520,12 +523,12 @@ public class DynamicImageMiddlewareTest
 		_ = headerValueUtility.Setup(x => x.CreateLastModifiedHeaderValue(lastModified)).Returns("Mon, 14 Jul 2026 12:00:00 GMT");
 		string versionToken = UmbrellaFileVersionTokenUtility.Create(lastModified, 123L);
 		DynamicImageMiddleware middleware = CreateMiddleware(CreateOptions(fileProvider.Object), headerValueUtility.Object);
-		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/images/test.jpg?fpx=.25&fpy=.75&filter=first&filter=&encoded=%2Fimages%2Fhello%20world&flag");
+		DefaultHttpContext context = CreateHttpContext($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/images/test.jpg?fpx=.25&fpy=.75&filter=first&filter=&encoded=%2Fimages%2Fhello%20world&flag");
 
 		await middleware.InvokeAsync(context);
 
 		Assert.Equal(StatusCodes.Status301MovedPermanently, context.Response.StatusCode);
-		Assert.Equal($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/CropFocalPoint/png/{DynamicImageConstants.VersionTokenPathSegmentPrefix}{versionToken}/images/test.jpg?fpx=.25&fpy=.75&filter=first&filter=&encoded=%2Fimages%2Fhello%20world&flag", context.Response.Headers.Location);
+		Assert.Equal($"/{DynamicImageConstants.DefaultPathPrefix}/100/200/Crop/png/{DynamicImageConstants.VersionTokenPathSegmentPrefix}{versionToken}/images/test.jpg?fpx=.25&fpy=.75&filter=first&filter=&encoded=%2Fimages%2Fhello%20world&flag", context.Response.Headers.Location);
 		Assert.Equal("no-store", context.Response.Headers.CacheControl);
 	}
 

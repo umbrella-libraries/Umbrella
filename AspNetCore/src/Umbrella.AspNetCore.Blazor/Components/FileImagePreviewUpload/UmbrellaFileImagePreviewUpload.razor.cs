@@ -238,8 +238,8 @@ public partial class UmbrellaFileImagePreviewUpload : ComponentBase
 		string? approval = Image is not null ? Image.FocalPointApproval : FocalPointApproval;
 		ValidateFocalPoint(x, y);
 
-		if (EnableFocalPointSelection && ResizeMode is not DynamicResizeMode.CropFocalPoint)
-			throw new InvalidOperationException($"{nameof(EnableFocalPointSelection)} can only be used with {nameof(DynamicResizeMode.CropFocalPoint)}.");
+		if (EnableFocalPointSelection && ResizeMode is not DynamicResizeMode.Crop)
+			throw new InvalidOperationException($"{nameof(EnableFocalPointSelection)} can only be used with {nameof(DynamicResizeMode.Crop)}.");
 
 		bool imageParametersChanged = !_parametersInitialized ||
 			!string.Equals(url, _lastUrlParameter, StringComparison.OrdinalIgnoreCase) ||
@@ -454,8 +454,8 @@ public partial class UmbrellaFileImagePreviewUpload : ComponentBase
 		Guard.IsBetweenOrEqualTo(focalPointX.Value, 0, 1);
 		Guard.IsBetweenOrEqualTo(focalPointY!.Value, 0, 1);
 
-		if (ResizeMode is not DynamicResizeMode.CropFocalPoint)
-			throw new InvalidOperationException($"{nameof(FocalPointX)} and {nameof(FocalPointY)} can only be used with {nameof(DynamicResizeMode.CropFocalPoint)}.");
+		if (ResizeMode is not DynamicResizeMode.Crop)
+			throw new InvalidOperationException($"{nameof(FocalPointX)} and {nameof(FocalPointY)} can only be used with {nameof(DynamicResizeMode.Crop)}.");
 	}
 
 	internal static (double X, double Y) NormalizeFocalPoint(

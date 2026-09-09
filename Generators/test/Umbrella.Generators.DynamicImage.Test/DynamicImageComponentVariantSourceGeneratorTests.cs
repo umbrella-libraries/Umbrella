@@ -26,7 +26,7 @@ public static class RenderFragmentFactory
 		builder.AddAttribute(2, "WidthRequest", 100);
 		builder.AddAttribute(3, "HeightRequest", 50);
 		builder.AddAttribute(4, "MaxPixelDensity", 2);
-		builder.AddAttribute(5, "ResizeMode", DynamicResizeMode.CropFocalPoint);
+		builder.AddAttribute(5, "ResizeMode", DynamicResizeMode.Crop);
 		builder.AddAttribute(6, "ImageFormat", DynamicImageFormat.WebP);
 		builder.CloseComponent();
 	}
@@ -37,8 +37,8 @@ public static class RenderFragmentFactory
 
 		AssertAutomaticPictureVariants(
 		[
-			new DynamicImageVariant(100, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP),
-			new DynamicImageVariant(200, 100, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP)
+			new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.WebP),
+			new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.WebP)
 		], variants);
 	}
 
@@ -57,7 +57,7 @@ public static class RenderFragmentFactory
 		builder.AddAttribute(2, "WidthRequest", 100);
 		builder.AddAttribute(3, "HeightRequest", 50);
 		builder.AddAttribute(4, "MaxPixelDensity", 1);
-		builder.AddAttribute(5, "ResizeMode", DynamicResizeMode.CropFocalPoint);
+		builder.AddAttribute(5, "ResizeMode", DynamicResizeMode.Crop);
 		builder.AddAttribute(6, "FocalPointX", focalPointX);
 		builder.AddAttribute(7, "FocalPointY", focalPointY);
 		builder.CloseComponent();
@@ -68,7 +68,7 @@ public static class RenderFragmentFactory
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
 		AssertAutomaticPictureVariants(
-			[new DynamicImageVariant(100, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg)],
+			[new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)],
 			variants);
 	}
 
@@ -87,7 +87,7 @@ public static class RenderFragmentFactory
 		builder.AddAttribute(2, "WidthRequest", 100);
 		builder.AddAttribute(3, "HeightRequest", 50);
 		builder.AddAttribute(4, "MaxPixelDensity", 2);
-		builder.AddAttribute(5, "ResizeMode", DynamicResizeMode.CropFocalPoint);
+		builder.AddAttribute(5, "ResizeMode", DynamicResizeMode.Crop);
 		builder.AddAttribute(6, "EnableFocalPointSelection", true);
 		builder.AddAttribute(7, "FocalPointX", focalPointX);
 		builder.AddAttribute(8, "FocalPointY", focalPointY);
@@ -101,9 +101,9 @@ public static class RenderFragmentFactory
 		AssertAutomaticPictureVariants(
 			[
 				new DynamicImageVariant(100, 50, DynamicResizeMode.ScaleDown, DynamicImageFormat.Jpeg),
-				new DynamicImageVariant(100, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg),
+				new DynamicImageVariant(100, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg),
 				new DynamicImageVariant(200, 100, DynamicResizeMode.ScaleDown, DynamicImageFormat.Jpeg),
-				new DynamicImageVariant(200, 100, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg)
+				new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)
 			],
 			variants);
 	}
@@ -441,7 +441,7 @@ public class MyView : RazorPageBase
 		__DynamicImageTagHelper = CreateTagHelper<DynamicImageTagHelper>();
 		__DynamicImageTagHelper.WidthRequest = 200;
 		__DynamicImageTagHelper.HeightRequest = 100;
-		__DynamicImageTagHelper.ResizeMode = DynamicResizeMode.CropFocalPoint;
+		__DynamicImageTagHelper.ResizeMode = DynamicResizeMode.Crop;
 		__DynamicImageTagHelper.ImageFormat = DynamicImageFormat.WebP;
 	}
 }
@@ -451,10 +451,10 @@ public class MyView : RazorPageBase
 
 		AssertAutomaticPictureVariants(
 		[
-			new DynamicImageVariant(200, 100, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP)
+			new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.WebP)
 			,
-			new DynamicImageVariant(400, 200, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP),
-			new DynamicImageVariant(600, 300, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.WebP)
+			new DynamicImageVariant(400, 200, DynamicResizeMode.Crop, DynamicImageFormat.WebP),
+			new DynamicImageVariant(600, 300, DynamicResizeMode.Crop, DynamicImageFormat.WebP)
 		], variants);
 	}
 
@@ -475,7 +475,7 @@ public class MyView : RazorPageBase
 		__DynamicImageTagHelper.WidthRequest = 200;
 		__DynamicImageTagHelper.HeightRequest = 100;
 		__DynamicImageTagHelper.ImageMaxPixelDensity = 1;
-		__DynamicImageTagHelper.ResizeMode = DynamicResizeMode.CropFocalPoint;
+		__DynamicImageTagHelper.ResizeMode = DynamicResizeMode.Crop;
 		__DynamicImageTagHelper.FocalPointX = focalPointX;
 		__DynamicImageTagHelper.FocalPointY = focalPointY;
 	}
@@ -485,7 +485,7 @@ public class MyView : RazorPageBase
 		DynamicImageVariant[] variants = GenerateVariants(source);
 
 		AssertAutomaticPictureVariants(
-			[new DynamicImageVariant(200, 100, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg)],
+			[new DynamicImageVariant(200, 100, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg)],
 			variants);
 	}
 

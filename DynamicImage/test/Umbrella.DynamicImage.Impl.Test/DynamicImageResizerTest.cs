@@ -1,4 +1,4 @@
-
+﻿
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
@@ -105,14 +105,14 @@ public class DynamicImageResizerTest
 		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.UseHeight, DynamicImageFormat.Avif), new Size(233, 150)),
 		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.UseWidth, DynamicImageFormat.Avif), new Size(50, 32)),
 
-		// CropFocalPoint Tests — output dimensions match Crop; only crop position differs
-		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.5), new Size(50, 150)),
-		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.0, focalPointY: 0.0), new Size(50, 150)),
-		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 1.0, focalPointY: 1.0), new Size(50, 150)),
-		(new DynamicImageOptions("/dummypath.png", 150, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.5), new Size(150, 50)),
-		(new DynamicImageOptions("/dummypath.png", 150, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.0, focalPointY: 0.0), new Size(150, 50)),
-		(new DynamicImageOptions("/dummypath.png", 150, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 1.0, focalPointY: 1.0), new Size(150, 50)),
-		(new DynamicImageOptions("/dummypath.png", 150, 50, DynamicResizeMode.CropFocalPoint, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75), new Size(150, 50)),
+		// Focal point crop tests — output dimensions match a center crop; only crop position differs
+		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.5), new Size(50, 150)),
+		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 0.0, focalPointY: 0.0), new Size(50, 150)),
+		(new DynamicImageOptions("/dummypath.png", 50, 150, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 1.0, focalPointY: 1.0), new Size(50, 150)),
+		(new DynamicImageOptions("/dummypath.png", 150, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 0.5, focalPointY: 0.5), new Size(150, 50)),
+		(new DynamicImageOptions("/dummypath.png", 150, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 0.0, focalPointY: 0.0), new Size(150, 50)),
+		(new DynamicImageOptions("/dummypath.png", 150, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 1.0, focalPointY: 1.0), new Size(150, 50)),
+		(new DynamicImageOptions("/dummypath.png", 150, 50, DynamicResizeMode.Crop, DynamicImageFormat.Jpeg, focalPointX: 0.25, focalPointY: 0.75), new Size(150, 50)),
 	];
 
 	public static Collection<object[]> OptionsList = [];
@@ -157,6 +157,58 @@ public class DynamicImageResizerTest
 			//byte[] bytes = File.ReadAllBytes(freeImagePath);
 			//AppDomain.CurrentDomain.
 		}
+	}
+
+	[Theory]
+	[MemberData(nameof(ResizersList))]
+	public async Task GenerateImageAsync_CropWithoutFocalPoint_MatchesExplicitCenterFocalPointAsync(DynamicImageResizerBase resizer)
+	{
+		Guard.IsNotNull(resizer);
+
+		DynamicImageOptions implicitCenter = new("/dummypath.png", 50, 150, DynamicResizeMode.Crop, DynamicImageFormat.Png);
+		DynamicImageOptions explicitCenter = new("/dummypath.png", 50, 150, DynamicResizeMode.Crop, DynamicImageFormat.Png, focalPointX: 0.5, focalPointY: 0.5);
+
+		ReadOnlyMemory<byte> implicitBytes = await ResizeAsync(resizer, implicitCenter);
+		ReadOnlyMemory<byte> explicitBytes = await ResizeAsync(resizer, explicitCenter);
+
+		Assert.False(implicitBytes.IsEmpty);
+		Assert.Equal(explicitBytes.ToArray(), implicitBytes.ToArray());
+	}
+
+	[Theory]
+	[MemberData(nameof(ResizersList))]
+	public async Task GenerateImageAsync_CropWithOffCenterFocalPoint_DiffersFromCenterCropAsync(DynamicImageResizerBase resizer)
+	{
+		Guard.IsNotNull(resizer);
+
+		DynamicImageOptions center = new("/dummypath.png", 50, 150, DynamicResizeMode.Crop, DynamicImageFormat.Png);
+		DynamicImageOptions offCenter = new("/dummypath.png", 50, 150, DynamicResizeMode.Crop, DynamicImageFormat.Png, focalPointX: 0, focalPointY: 0);
+
+		ReadOnlyMemory<byte> centerBytes = await ResizeAsync(resizer, center);
+		ReadOnlyMemory<byte> offCenterBytes = await ResizeAsync(resizer, offCenter);
+
+		Assert.False(centerBytes.IsEmpty);
+		Assert.False(offCenterBytes.IsEmpty);
+		Assert.NotEqual(centerBytes.ToArray(), offCenterBytes.ToArray());
+	}
+
+	private static async Task<ReadOnlyMemory<byte>> ResizeAsync(DynamicImageResizerBase resizer, DynamicImageOptions options)
+	{
+		byte[] bytes = Convert.FromBase64String(TestPNG);
+
+		var fileMock = new Mock<IUmbrellaFileInfo>();
+		_ = fileMock.Setup(x => x.ReadAsByteArrayAsync(null, default)).Returns(Task.FromResult(bytes));
+		_ = fileMock.Setup(x => x.LastModified).Returns(DateTimeOffset.UtcNow);
+		_ = fileMock.Setup(x => x.ExistsAsync(default)).Returns(Task.FromResult(true));
+		_ = fileMock.Setup(x => x.Length).Returns(bytes.LongLength);
+
+		var fileProviderMock = new Mock<IUmbrellaFileStorageProvider>();
+		_ = fileProviderMock.Setup(x => x.GetAsync("/dummypath.png", default)).Returns(Task.FromResult<IUmbrellaFileInfo?>(fileMock.Object));
+
+		// The file mocks above are set up against the default token, so this must stay CancellationToken.None to match them.
+		DynamicImageItem? result = await resizer.GenerateImageAsync(fileProviderMock.Object, options, CancellationToken.None);
+
+		return result is not null ? await result.GetContentAsync(TestContext.Current.CancellationToken) : default;
 	}
 
 	[Theory]

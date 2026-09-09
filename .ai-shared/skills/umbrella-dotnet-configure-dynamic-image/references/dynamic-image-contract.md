@@ -141,7 +141,7 @@ Use asynchronous mapper interfaces for this enrichment. For a bounded page of in
                       VersionToken="@Model.ImageVersionToken"
                       WidthRequest="400"
                       HeightRequest="200"
-                      ResizeMode="DynamicResizeMode.CropFocalPoint"
+                      ResizeMode="DynamicResizeMode.Crop"
                       FocalPointX="@Model.ImageFocalPointX"
                       FocalPointY="@Model.ImageFocalPointY"
                       ImageFormat="DynamicImageFormat.Jpeg" />
@@ -150,7 +150,7 @@ Use asynchronous mapper interfaces for this enrichment. For a bounded page of in
                                 VersionToken="@Model.ImageVersionToken"
                                 WidthRequest="400"
 								HeightRequest="200"
-								ResizeMode="DynamicResizeMode.CropFocalPoint"
+								ResizeMode="DynamicResizeMode.Crop"
 								FocalPointX="@Model.ImageFocalPointX"
 								FocalPointY="@Model.ImageFocalPointY"
 								EnableFocalPointSelection="true"
@@ -182,7 +182,7 @@ The MVC tag helper exposes the same runtime inputs using kebab-case attributes:
                version-token="@Model.ImageVersionToken"
                width-request="400"
                height-request="200"
-               resize-mode="DynamicResizeMode.CropFocalPoint"
+               resize-mode="DynamicResizeMode.Crop"
                focal-point-x="@Model.ImageFocalPointX"
                focal-point-y="@Model.ImageFocalPointY" />
 ```
@@ -203,7 +203,7 @@ The Blazor equivalent nests `UmbrellaDynamicImageSource` components inside `Umbr
 Rules that apply to both:
 
 - A nested source must declare `media`, and must be nested inside its parent element. Using one anywhere else fails before rendering.
-- Any attribute a source does not declare is inherited from its parent, including the image itself and the version token. A focal point is inherited only when the effective resize mode is still `CropFocalPoint`.
+- Any attribute a source does not declare is inherited from its parent, including the image itself and the version token. A focal point is inherited only when the effective resize mode is still `Crop` and the source has not set `IgnoreFocalPoint` (`ignore-focal-point` in MVC), which forces a center crop on that source.
 - Each source renders one `source` element per configured picture source format plus one using its own fallback format. The fallback is required because a browser that has matched a media condition will not fall back to the `img` element when it supports none of the formats offered for that condition.
 - Sources render in declaration order, before the automatic format sources and the `img`. Browsers use the first `source` with a matching media condition and a supported type, so a source declared after the automatic ones would never be selected.
 - Nested sources cannot be used at all under a parent whose resolved image is an external HTTP(S) URL, and a source whose own resolved path is external fails the same way. External images are served as-is and cannot be transformed.
@@ -265,7 +265,7 @@ Runtime resolution does not affect generated variants. Catalog identity is width
 
 Razor reports this as a missing end tag at build time, so no usage can slip through unnoticed.
 
-Supply both coordinates or neither. Each value is a normalized `double` from `0` through `1`, with X measured from the left and Y from the top. Supplying either coordinate with any resize mode other than `CropFocalPoint`, supplying only one coordinate, or supplying an out-of-range value fails before rendering. Omitting both coordinates preserves the resizer's existing default focal behavior.
+Supply both coordinates or neither. Each value is a normalized `double` from `0` through `1`, with X measured from the left and Y from the top. Supplying either coordinate with any resize mode other than `Crop`, supplying only one coordinate, or supplying an out-of-range value fails before rendering. Omitting both coordinates makes `Crop` anchor on the image center.
 
 Static external HTTP(S) URLs do not create local variants.
 

@@ -1,4 +1,4 @@
-using CommunityToolkit.Diagnostics;
+﻿using CommunityToolkit.Diagnostics;
 using Umbrella.DynamicImage.Abstractions;
 
 namespace Umbrella.AspNetCore.Blazor.Components.DynamicImage;
@@ -77,7 +77,7 @@ public sealed record DynamicImageSourceSettings
 		Guard.IsBetweenOrEqualTo(FocalPointX.Value, 0, 1);
 		Guard.IsBetweenOrEqualTo(FocalPointY!.Value, 0, 1);
 
-		if (ResizeMode is not DynamicResizeMode.CropFocalPoint)
-			throw new InvalidOperationException($"{nameof(FocalPointX)} and {nameof(FocalPointY)} can only be used with {nameof(DynamicResizeMode.CropFocalPoint)}.");
+		if (ResizeMode is not DynamicResizeMode.Crop)
+			throw new InvalidOperationException($"{nameof(FocalPointX)} and {nameof(FocalPointY)} can only be used with {nameof(DynamicResizeMode.Crop)}.");
 	}
 }

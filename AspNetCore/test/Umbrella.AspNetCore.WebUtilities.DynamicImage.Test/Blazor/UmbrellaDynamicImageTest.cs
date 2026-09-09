@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.Web.HtmlRendering;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,13 +21,13 @@ public class UmbrellaDynamicImageTest
 		string html = await RenderAsync(new UmbrellaDynamicImageOptions(), new Dictionary<string, object?>
 		{
 			[nameof(UmbrellaDynamicImage.Image)] = image,
-			[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.CropFocalPoint,
+			[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.Crop,
 			[nameof(UmbrellaDynamicImage.WidthRequest)] = 100,
 			[nameof(UmbrellaDynamicImage.HeightRequest)] = 50,
 			[nameof(UmbrellaDynamicImage.SizeWidths)] = "100,200"
 		});
 		Assert.Contains("fpa=" + image.FocalPointApproval, html, StringComparison.Ordinal);
-		Assert.Contains("/200/100/CropFocalPoint/", html, StringComparison.Ordinal);
+		Assert.Contains("/200/100/Crop/", html, StringComparison.Ordinal);
 		Assert.Contains("fpx=0.25&amp;fpy=0.75&amp;fpa=", html, StringComparison.Ordinal);
 		DynamicImageFocalPointApprovalTest.AssertRenderedApprovals(html, signer);
 	}
@@ -100,15 +100,15 @@ public class UmbrellaDynamicImageTest
 				[nameof(UmbrellaDynamicImage.HeightRequest)] = 50,
 				[nameof(UmbrellaDynamicImage.MaxPixelDensity)] = 1,
 				[nameof(UmbrellaDynamicImage.SizeWidths)] = "100,200",
-				[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.CropFocalPoint,
+				[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.Crop,
 				[nameof(UmbrellaDynamicImage.FocalPointX)] = 0.25,
 				[nameof(UmbrellaDynamicImage.FocalPointY)] = 0.75
 			});
 
-		Assert.Contains("/dynamicimage/100/50/CropFocalPoint/jpg/images/test.webp?fpx=0.25&amp;fpy=0.75 100w", html, StringComparison.Ordinal);
-		Assert.Contains("/dynamicimage/200/100/CropFocalPoint/jpg/images/test.webp?fpx=0.25&amp;fpy=0.75 200w", html, StringComparison.Ordinal);
-		Assert.Contains("/dynamicimage/100/50/CropFocalPoint/jpg/images/test.jpg?fpx=0.25&amp;fpy=0.75 100w", html, StringComparison.Ordinal);
-		Assert.Contains("/dynamicimage/200/100/CropFocalPoint/jpg/images/test.jpg?fpx=0.25&amp;fpy=0.75 200w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/100/50/Crop/jpg/images/test.webp?fpx=0.25&amp;fpy=0.75 100w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/200/100/Crop/jpg/images/test.webp?fpx=0.25&amp;fpy=0.75 200w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/100/50/Crop/jpg/images/test.jpg?fpx=0.25&amp;fpy=0.75 100w", html, StringComparison.Ordinal);
+		Assert.Contains("/dynamicimage/200/100/Crop/jpg/images/test.jpg?fpx=0.25&amp;fpy=0.75 200w", html, StringComparison.Ordinal);
 	}
 
 	[Fact]
@@ -130,10 +130,10 @@ public class UmbrellaDynamicImageTest
 	}
 
 	[Fact]
-	public async Task RejectsFocalPointForNonFocalResizeMode()
+	public async Task RejectsFocalPointForNonCroppingResizeMode()
 	{
 		Dictionary<string, object?> parameters = CreateFocalPointParameters();
-		parameters[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.Crop;
+		parameters[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.ScaleDown;
 
 		_ = await Assert.ThrowsAsync<InvalidOperationException>(() => RenderAsync(new UmbrellaDynamicImageOptions(), parameters));
 	}
@@ -144,9 +144,50 @@ public class UmbrellaDynamicImageTest
 			[nameof(UmbrellaDynamicImage.Url)] = "/images/test.jpg",
 			[nameof(UmbrellaDynamicImage.WidthRequest)] = 100,
 			[nameof(UmbrellaDynamicImage.HeightRequest)] = 50,
-			[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.CropFocalPoint,
+			[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.Crop,
 			[nameof(UmbrellaDynamicImage.FocalPointX)] = 0.25,
 			[nameof(UmbrellaDynamicImage.FocalPointY)] = 0.75
+		};
+
+	[Fact]
+	public async Task NestedSourceInheritsFocalPointFromParent()
+	{
+		string html = await RenderAsync(new UmbrellaDynamicImageOptions(), CreatePictureParameters(ignoreFocalPoint: false));
+
+		Assert.Contains("/dynamicimage/600/800/Crop/jpg/images/test.webp?fpx=0.25&amp;fpy=0.75 1x", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task NestedSourceIgnoresInheritedFocalPointWhenOptedOut()
+	{
+		string html = await RenderAsync(new UmbrellaDynamicImageOptions(), CreatePictureParameters(ignoreFocalPoint: true));
+
+		// The nested source still crops, but from the image center, so no focal point reaches its URLs.
+		Assert.Contains("/dynamicimage/600/800/Crop/jpg/images/test.webp 1x", html, StringComparison.Ordinal);
+		Assert.DoesNotContain("/dynamicimage/600/800/Crop/jpg/images/test.webp?fpx=", html, StringComparison.Ordinal);
+
+		// Opting out on the source must not disturb the focal point on the parent's own sources.
+		Assert.Contains("/dynamicimage/100/50/Crop/jpg/images/test.webp?fpx=0.25&amp;fpy=0.75 1x", html, StringComparison.Ordinal);
+	}
+
+	private static Dictionary<string, object?> CreatePictureParameters(bool ignoreFocalPoint)
+		=> new()
+		{
+			[nameof(UmbrellaDynamicImage.Url)] = "/images/test.jpg",
+			[nameof(UmbrellaDynamicImage.WidthRequest)] = 100,
+			[nameof(UmbrellaDynamicImage.HeightRequest)] = 50,
+			[nameof(UmbrellaDynamicImage.ResizeMode)] = DynamicResizeMode.Crop,
+			[nameof(UmbrellaDynamicImage.FocalPointX)] = 0.25,
+			[nameof(UmbrellaDynamicImage.FocalPointY)] = 0.75,
+			[nameof(UmbrellaDynamicImage.ChildContent)] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<UmbrellaDynamicImageSource>(0);
+				builder.AddComponentParameter(1, nameof(UmbrellaDynamicImageSource.Media), "(max-width: 599px)");
+				builder.AddComponentParameter(2, nameof(UmbrellaDynamicImageSource.WidthRequest), 600);
+				builder.AddComponentParameter(3, nameof(UmbrellaDynamicImageSource.HeightRequest), 800);
+				builder.AddComponentParameter(4, nameof(UmbrellaDynamicImageSource.IgnoreFocalPoint), ignoreFocalPoint);
+				builder.CloseComponent();
+			})
 		};
 
 	private static async Task<string> RenderAsync(UmbrellaDynamicImageOptions options, IDictionary<string, object?> parameters)

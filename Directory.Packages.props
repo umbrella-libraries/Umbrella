@@ -2,7 +2,6 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageVersion Include="AutoMapper" Version="10.0.0" />
     <PackageVersion Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.1" Condition="'$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net9.0'" />
@@ -116,9 +115,9 @@
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="9.0.19" Condition="'$(TargetFramework)' == 'net9.0'" />
     <PackageVersion Include="Microsoft.Graph" Version="6.6.0" />
     <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.22.0" />
-    <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.100" Condition="'$(TargetFramework)' == 'net10.0'" />
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.101" Condition="'$(TargetFramework)' == 'net10.0'" />
     <PackageVersion Include="Microsoft.Maui.Controls" Version="9.0.120" Condition="'$(TargetFramework)' == 'net9.0'" />
-    <PackageVersion Include="Microsoft.Maui.Controls.Compatibility" Version="10.0.100" Condition="'$(TargetFramework)' == 'net10.0'" />
+    <PackageVersion Include="Microsoft.Maui.Controls.Compatibility" Version="10.0.101" Condition="'$(TargetFramework)' == 'net10.0'" />
     <PackageVersion Include="Microsoft.Maui.Controls.Compatibility" Version="9.0.120" Condition="'$(TargetFramework)' == 'net9.0'" />
     <PackageVersion Include="Microsoft.Owin" Version="4.2.3" />
     <PackageVersion Include="Microsoft.Owin.Host.SystemWeb" Version="4.2.3" />
@@ -149,8 +148,8 @@
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.4" Condition="'$(TargetFramework)' == 'net8.0'" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="9.0.19" Condition="'$(TargetFramework)' == 'net9.0'" />
     <PackageVersion Include="System.Text.Json" Version="6.0.11" />
-    <PackageVersion Include="Testcontainers" Version="4.14.0" />
-    <PackageVersion Include="Testcontainers.MsSql" Version="4.14.0" />
+    <PackageVersion Include="Testcontainers" Version="4.15.0" />
+    <PackageVersion Include="Testcontainers.MsSql" Version="4.15.0" />
     <PackageVersion Include="Tomlyn" Version="2.10.1" />
     <PackageVersion Include="Xamarin.CommunityToolkit" Version="2.0.6" />
     <PackageVersion Include="Xamarin.Essentials" Version="1.8.1" />
@@ -160,13 +159,11 @@
     <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.0" />
     <PackageVersion Include="Xunit.v3.Priority" Version="1.1.18" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
     <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="All" />
     <PackageReference Include="PolySharp" PrivateAssets="All" />
   </ItemGroup>
-
   <ItemGroup Condition="'$(IsTestProject)' == 'true'">
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
