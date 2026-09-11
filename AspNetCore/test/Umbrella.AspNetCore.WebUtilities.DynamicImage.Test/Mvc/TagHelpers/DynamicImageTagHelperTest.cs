@@ -1,4 +1,5 @@
-﻿using System.Text.Encodings.Web;
+﻿using System.Globalization;
+using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Razor.Runtime.TagHelpers;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 using Microsoft.Extensions.Caching.Memory;
@@ -553,6 +554,118 @@ public class DynamicImageTagHelperTest
 		protected override bool HasOwnSource(TagHelperContext context) => context.AllAttributes.ContainsName("asset-id");
 	}
 
+	[Fact]
+	public async Task ProcessAsync_PixelDensityCandidatesUseTheApplyPixelDensityOverride()
+	{
+		QueryStringDynamicImageTagHelper tagHelper = CreateTagHelper<QueryStringDynamicImageTagHelper>();
+		tagHelper.ImageMaxPixelDensity = 3;
+		ChildSource child = CreateChildSource(CreateQueryStringPictureSourceTagHelper(), "(min-width: 1200px)", widthRequest: 600, heightRequest: 800);
+
+		string html = await RenderWithChildrenAsync(tagHelper, children: child);
+
+		// A resizer that carries its dimensions in the query string can only produce a higher density candidate by scaling them, so the
+		// override has to be handed the whole URL. Falling back to the helper would instead insert a suffix before the last dot in the URL.
+		Assert.Contains("srcset=\"/images/test.jpg?width=100&height=50 1x, /images/test.jpg?width=200&height=100 2x, /images/test.jpg?width=300&height=150 3x\"", html, StringComparison.Ordinal);
+		Assert.Contains("media=\"(min-width: 1200px)\" srcset=\"/images/test.jpg?width=600&height=800 1x, /images/test.jpg?width=1200&height=1600 2x, /images/test.jpg?width=1800&height=2400 3x\" type=\"image/webp\"", html, StringComparison.Ordinal);
+		Assert.DoesNotContain("@2x", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_ExternalUrlPixelDensityCandidatesUseTheApplyPixelDensityOverride()
+	{
+		QueryStringDynamicImageTagHelper tagHelper = CreateTagHelper<QueryStringDynamicImageTagHelper>();
+		tagHelper.ImageMaxPixelDensity = 2;
+		var (ctx, output) = CreateContextAndOutput("https://cdn.example.com/images/test.jpg?width=100&height=50");
+		tagHelper.Init(ctx);
+
+		await tagHelper.ProcessAsync(ctx, output);
+
+		string html = RenderOutput(output);
+		Assert.Contains("srcset=\"https://cdn.example.com/images/test.jpg?width=100&height=50 1x, https://cdn.example.com/images/test.jpg?width=200&height=100 2x\"", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_DefaultPixelDensityCandidatesKeepTheQueryString()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		tagHelper.ImageMaxPixelDensity = 2;
+		var (ctx, output) = CreateContextAndOutput("/images/test.jpg?v=1.2");
+		tagHelper.Init(ctx);
+
+		await tagHelper.ProcessAsync(ctx, output);
+
+		// The default density suffix belongs on the file name, so the query string, which may itself contain a dot, has to be set aside
+		// while it is applied and restored afterwards.
+		string html = RenderOutput(output);
+		Assert.Contains("srcset=\"/dynamicimage/100/50/Crop/jpg/images/test.jpg?v=1.2 1x, /dynamicimage/100/50/Crop/jpg/images/test@2x.jpg?v=1.2 2x\"", html, StringComparison.Ordinal);
+	}
+
+	/// <summary>
+	/// Stands in for a resizer that carries its dimensions in the query string rather than the path, such as a digital asset management
+	/// system, so that a higher density candidate can only be produced by scaling those parameters.
+	/// </summary>
+	private static class QueryStringResizer
+	{
+		public static string GenerateVirtualPath(in DynamicImageOptions options)
+			=> FormattableString.Invariant($"{options.SourcePath}?width={options.Width}&height={options.Height}");
+
+		public static string ApplyPixelDensity(string url, int pixelDensity)
+		{
+			int queryStartIndex = url.IndexOf('?', StringComparison.Ordinal);
+
+			IEnumerable<string> parameters = url[(queryStartIndex + 1)..]
+				.Split('&')
+				.Select(parameter =>
+				{
+					string[] parts = parameter.Split('=');
+
+					return FormattableString.Invariant($"{parts[0]}={int.Parse(parts[1], CultureInfo.InvariantCulture) * pixelDensity}");
+				});
+
+			return $"{url[..queryStartIndex]}?{string.Join('&', parameters)}";
+		}
+	}
+
+	private sealed class QueryStringDynamicImageTagHelper(
+		ILogger<DynamicImageTagHelper> logger,
+		IUmbrellaWebHostingEnvironment umbrellaHostingEnvironment,
+		IMemoryCache cache,
+		ICacheKeyUtility cacheKeyUtility,
+		IResponsiveImageHelper responsiveImageHelper,
+		IDynamicImageUtility dynamicImageUtility,
+		DynamicImageTagHelperOptions dynamicImageTagHelperOptions)
+		: DynamicImageTagHelper(logger, umbrellaHostingEnvironment, cache, cacheKeyUtility, responsiveImageHelper, dynamicImageUtility, dynamicImageTagHelperOptions)
+	{
+		protected override string GenerateVirtualPath(in DynamicImageOptions options) => QueryStringResizer.GenerateVirtualPath(options);
+
+		protected override string ApplyPixelDensity(string sanitizedImageUrl, int pixelDensity) => QueryStringResizer.ApplyPixelDensity(sanitizedImageUrl, pixelDensity);
+	}
+
+	private sealed class QueryStringPictureSourceTagHelper(
+		ILogger<DynamicImagePictureSourceTagHelper> logger,
+		IUmbrellaWebHostingEnvironment umbrellaHostingEnvironment,
+		IMemoryCache cache,
+		ICacheKeyUtility cacheKeyUtility,
+		IResponsiveImageHelper responsiveImageHelper,
+		IDynamicImageUtility dynamicImageUtility,
+		DynamicImageTagHelperOptions dynamicImageTagHelperOptions)
+		: DynamicImagePictureSourceTagHelper(logger, umbrellaHostingEnvironment, cache, cacheKeyUtility, responsiveImageHelper, dynamicImageUtility, dynamicImageTagHelperOptions)
+	{
+		protected override string GenerateVirtualPath(in DynamicImageOptions options) => QueryStringResizer.GenerateVirtualPath(options);
+
+		protected override string ApplyPixelDensity(string sanitizedImageUrl, int pixelDensity) => QueryStringResizer.ApplyPixelDensity(sanitizedImageUrl, pixelDensity);
+	}
+
+	private static QueryStringPictureSourceTagHelper CreateQueryStringPictureSourceTagHelper()
+		=> new(
+			CoreUtilitiesMocks.CreateLogger<DynamicImagePictureSourceTagHelper>(),
+			Mocks.CreateUmbrellaWebHostingEnvironment(),
+			Mocks.CreateMemoryCache(),
+			CoreUtilitiesMocks.CreateCacheKeyUtility(),
+			CoreUtilitiesMocks.CreateResponsiveImageHelper(),
+			new DynamicImageUtility(CoreUtilitiesMocks.CreateLogger<DynamicImageUtility>()),
+			new DynamicImageTagHelperOptions());
+
 	private sealed record ChildSource(
 		DynamicImagePictureSourceTagHelper TagHelper,
 		TagHelperAttributeList DeclaredAttributes,
@@ -580,6 +693,11 @@ public class DynamicImageTagHelperTest
 				new DynamicImageUtility(CoreUtilitiesMocks.CreateLogger<DynamicImageUtility>()),
 				effectiveOptions);
 
+		return CreateChildSource(tagHelper, media, widthRequest, heightRequest);
+	}
+
+	private static ChildSource CreateChildSource(DynamicImagePictureSourceTagHelper tagHelper, string? media, int widthRequest, int heightRequest)
+	{
 		tagHelper.Media = media;
 		tagHelper.WidthRequest = widthRequest;
 		tagHelper.HeightRequest = heightRequest;

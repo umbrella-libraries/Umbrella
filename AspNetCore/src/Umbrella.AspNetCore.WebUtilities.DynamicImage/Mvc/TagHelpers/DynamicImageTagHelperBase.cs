@@ -277,7 +277,7 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 				string src = ResolveImageUrl(GenerateVirtualPath(options));
 
 				string? srcSet = sizeWidths.Count is 0
-					? ResponsiveImageHelper.GetPixelDensitySrcSetValue(src, ImageMaxPixelDensity)
+					? GetPixelDensitySrcSetValue(src)
 					: ResponsiveImageHelper.GetSizeSrcSetValue(sourcePath, SizeWidths ?? "", ImageMaxPixelDensity, WidthRequest, HeightRequest, x =>
 					{
 						DynamicImageOptions sizeOptions = CreateDynamicImageOptions(sourcePath, x.imageWidth, x.imageHeight, format);
@@ -286,6 +286,46 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 
 				return string.IsNullOrWhiteSpace(srcSet) ? src : srcSet;
 			}) ?? string.Empty;
+	}
+
+	/// <summary>
+	/// Gets the value of the <c>srcset</c> attribute containing a candidate for each pixel density up to
+	/// <see cref="ResponsiveImageTagHelper.ImageMaxPixelDensity"/> for the specified URL.
+	/// </summary>
+	/// <remarks>
+	/// The candidates above 1x are produced by <see cref="ApplyPixelDensity(string, int)"/>, which is handed the whole URL including any query
+	/// string. This is deliberately not delegated to <see cref="IResponsiveImageHelper.GetPixelDensitySrcSetValue"/>, which removes the query
+	/// string before applying the density, because a <see cref="GenerateVirtualPath(in DynamicImageOptions)"/> override that carries its
+	/// resizing parameters in the query string can only scale them if it sees them.
+	/// </remarks>
+	/// <param name="url">The URL of the 1x candidate, exactly as it should appear in the attribute.</param>
+	/// <returns>The <c>srcset</c> value, or an empty string when the maximum pixel density does not call for more than one candidate.</returns>
+	protected string GetPixelDensitySrcSetValue(string url)
+	{
+		Guard.IsNotNullOrWhiteSpace(url);
+
+		IReadOnlyCollection<int> pixelDensities = ResponsiveImageHelper.GetPixelDensities(ImageMaxPixelDensity);
+
+		if (pixelDensities.Count < 2)
+			return string.Empty;
+
+		return string.Join(", ", pixelDensities
+			.OrderBy(x => x)
+			.Select(density => $"{(density is 1 ? url : ApplyPixelDensity(url, density))} {density}x"));
+	}
+
+	/// <inheritdoc/>
+	/// <remarks>
+	/// Unlike the base implementation, this receives the URL exactly as <see cref="GenerateVirtualPath(in DynamicImageOptions)"/> produced it,
+	/// including any query string, so that an override which places its resizing parameters in the query string can scale them. The default
+	/// implementation sets the query string aside and adds the density suffix to the file name, as the base does.
+	/// </remarks>
+	protected override string ApplyPixelDensity(string sanitizedImageUrl, int pixelDensity)
+	{
+		Guard.IsNotNullOrEmpty(sanitizedImageUrl);
+		Guard.IsGreaterThanOrEqualTo(pixelDensity, 1);
+
+		return ResponsiveImageHelper.GetPixelDensityImageUrl(sanitizedImageUrl, pixelDensity);
 	}
 
 	/// <inheritdoc/>

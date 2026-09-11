@@ -112,7 +112,7 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 		if (isExternalUrl)
 		{
 			output.Attributes.SetAttribute("src", sourcePath);
-			output.Attributes.SetAttribute("srcset", ResponsiveImageHelper.GetPixelDensitySrcSetValue(sourcePath, ImageMaxPixelDensity));
+			output.Attributes.SetAttribute("srcset", GetPixelDensitySrcSetValue(sourcePath));
 		}
 		else
 		{
