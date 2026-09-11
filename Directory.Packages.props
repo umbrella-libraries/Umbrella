@@ -66,7 +66,7 @@
     <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="6.0.1" Condition="'$(TargetFramework)' == 'net462' Or '$(TargetFramework)' == 'netstandard2.0'" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="8.0.0" Condition="'$(TargetFramework)' == 'net8.0'" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="9.0.20" Condition="'$(TargetFramework)' == 'net9.0'" />
-    <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.9.0" Condition="'$(TargetFramework)' == 'net10.0'" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.10.0" Condition="'$(TargetFramework)' == 'net10.0'" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="9.10.0" Condition="'$(TargetFramework)' == 'net9.0'" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" Condition="'$(TargetFramework)' == 'net10.0' Or '$(TargetFramework)' == 'net462'" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="6.0.3" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
@@ -137,7 +137,7 @@
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
     <PackageVersion Include="SkiaSharp" Version="4.152.0" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="4.152.0" />
-    <PackageVersion Include="StackExchange.Redis" Version="3.1.31" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.2.0" />
     <PackageVersion Include="System.Buffers" Version="4.6.1" />
     <PackageVersion Include="System.CommandLine" Version="2.0.12" />
     <PackageVersion Include="System.ComponentModel.Annotations" Version="5.0.0" />
