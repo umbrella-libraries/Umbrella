@@ -134,7 +134,8 @@ public class UmbrellaSharePointFileStorageProvider<TOptions> : UmbrellaFileStora
 					AuthorizeAsync,
 					Options.GraphServiceClient,
 					driveId,
-					false);
+					false,
+					Options.DownloadHttpClient);
 
 				await fileInfo.InitializeAsync(cancellationToken, item).ConfigureAwait(false);
 
@@ -198,7 +199,8 @@ public class UmbrellaSharePointFileStorageProvider<TOptions> : UmbrellaFileStora
 			AuthorizeAsync,
 			Options.GraphServiceClient,
 			driveId,
-			isNew);
+			isNew,
+			Options.DownloadHttpClient);
 
 		await fileInfo.InitializeAsync(cancellationToken, preLoadedItem).ConfigureAwait(false);
 

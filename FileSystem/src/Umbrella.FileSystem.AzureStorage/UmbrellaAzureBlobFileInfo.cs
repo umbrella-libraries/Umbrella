@@ -16,7 +16,7 @@ namespace Umbrella.FileSystem.AzureStorage;
 /// mechanism.
 /// </summary>
 /// <seealso cref="IUmbrellaFileInfo" />
-public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
+public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 {
 	#region Private Members
 	private long _length = -1;
@@ -374,6 +374,34 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaFileInfo
 		catch (Exception exc) when (Logger.WriteError(exc, new { destinationFile }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem moving the specified file to the specified destination file.", exc);
+		}
+	}
+
+	/// <inheritdoc />
+	public async Task<Stream> ReadRangeAsStreamAsync(long offset, long length, int? bufferSizeOverride = null, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		ThrowIfIsNew();
+		UmbrellaFileRangeStream.Validate(Length, offset, length, bufferSizeOverride);
+
+		if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false))
+			throw new UmbrellaFileAccessDeniedException(SubPath);
+
+		try
+		{
+			var response = await Blob.DownloadStreamingAsync(new BlobDownloadOptions
+			{
+				Range = new HttpRange(offset, length)
+			}, cancellationToken).ConfigureAwait(false);
+			return new UmbrellaFileRangeStream(response.Value.Content, length);
+		}
+		catch (OperationCanceledException)
+		{
+			throw;
+		}
+		catch (Exception exc) when (Logger.WriteError(exc, new { offset, length }))
+		{
+			throw new UmbrellaFileSystemException("There has been an error reading the Blob range.", exc);
 		}
 	}
 

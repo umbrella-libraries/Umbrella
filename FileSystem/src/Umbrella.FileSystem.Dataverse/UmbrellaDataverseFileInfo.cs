@@ -14,7 +14,7 @@ namespace Umbrella.FileSystem.Dataverse;
 /// as the underlying storage mechanism, encoding file content as a base64 string.
 /// </summary>
 /// <seealso cref="IUmbrellaFileInfo" />
-public record UmbrellaDataverseFileInfo : IUmbrellaFileInfo
+public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 {
 	#region Private Members
 	private readonly Guid _recordId;
@@ -185,6 +185,10 @@ public record UmbrellaDataverseFileInfo : IUmbrellaFileInfo
 
 			return Convert.FromBase64String(base64);
 		}
+		catch (OperationCanceledException)
+		{
+			throw;
+		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem reading the file to a byte array.", exc);
@@ -280,6 +284,27 @@ public record UmbrellaDataverseFileInfo : IUmbrellaFileInfo
 	}
 
 	/// <inheritdoc />
+	public async Task<Stream> ReadRangeAsStreamAsync(long offset, long length, int? bufferSizeOverride = null, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		ThrowIfIsNew();
+		UmbrellaFileRangeStream.Validate(Length, offset, length, bufferSizeOverride);
+
+		Stream source = await ReadAsStreamAsync(bufferSizeOverride, cancellationToken).ConfigureAwait(false);
+
+		try
+		{
+			_ = source.Seek(offset, SeekOrigin.Begin);
+			return new UmbrellaFileRangeStream(source, length);
+		}
+		catch
+		{
+			await source.DisposeAsync().ConfigureAwait(false);
+			throw;
+		}
+	}
+
+	/// <inheritdoc />
 	public async Task<Stream> ReadAsStreamAsync(int? bufferSizeOverride = null, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -296,6 +321,10 @@ public record UmbrellaDataverseFileInfo : IUmbrellaFileInfo
 			byte[] bytes = await ReadAsByteArrayAsync(bufferSizeOverride, cancellationToken).ConfigureAwait(false);
 
 			return new MemoryStream(bytes);
+		}
+		catch (OperationCanceledException)
+		{
+			throw;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
 		{

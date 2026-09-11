@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Net.Http.Headers;
 using Umbrella.AspNetCore.WebUtilities.Extensions;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.WebUtilities.Exceptions;
@@ -150,7 +151,8 @@ public class FileSystemMiddleware
 						return;
 					}
 
-					if (context.Request.IfModifiedSinceHeaderMatched(fileInfo.LastModified!.Value))
+					if (!context.Request.Headers.ContainsKey(HeaderNames.IfNoneMatch)
+						&& context.Request.IfModifiedSinceHeaderMatched(fileInfo.LastModified!.Value))
 					{
 						ApplyResponseHeaders();
 						context.Response.SendStatusCode(HttpStatusCode.NotModified);
@@ -159,20 +161,44 @@ public class FileSystemMiddleware
 					}
 				}
 
+				bool supportsRanges = fileInfo is IUmbrellaRangeReadableFileInfo && fileInfo.Length >= 0;
+				if (!isHeadRequest && supportsRanges && IfRangeMatches(context.Request, eTagValue, lastModifiedHeaderValue)
+					&& RangeHeaderValue.TryParse(context.Request.Headers.Range.ToString(), out RangeHeaderValue? range)
+					&& string.Equals(range.Unit.Value, "bytes", StringComparison.OrdinalIgnoreCase)
+					&& range.Ranges.Count == 1)
+				{
+					RangeItemHeaderValue requested = range.Ranges.Single();
+					long offset = requested.From ?? Math.Max(0, fileInfo.Length - requested.To!.Value);
+					long end = requested.From.HasValue ? Math.Min(requested.To ?? long.MaxValue, fileInfo.Length - 1) : fileInfo.Length - 1;
+					if (offset >= fileInfo.Length || end < offset)
+					{
+						ApplyResponseHeaders();
+						context.Response.StatusCode = StatusCodes.Status416RangeNotSatisfiable;
+						context.Response.GetTypedHeaders().ContentRange = new ContentRangeHeaderValue(fileInfo.Length);
+						context.Response.ContentLength = 0;
+						return;
+					}
+
+					long length = end - offset + 1;
+					// Opening the stream performs authorization before partial response headers are applied.
+					Stream source = await ((IUmbrellaRangeReadableFileInfo)fileInfo).ReadRangeAsStreamAsync(offset, length, cancellationToken: token);
+					using var boundedSource = new UmbrellaFileRangeStream(source, length);
+					ApplyResponseHeaders();
+					context.Response.StatusCode = StatusCodes.Status206PartialContent;
+					context.Response.Headers.AcceptRanges = "bytes";
+					context.Response.ContentType = fileInfo.ContentType ?? "application/octet-stream";
+					context.Response.ContentLength = length;
+					context.Response.GetTypedHeaders().ContentRange = new ContentRangeHeaderValue(offset, end, fileInfo.Length);
+					await boundedSource.CopyToAsync(context.Response.Body, token);
+					await context.Response.Body.FlushAsync(token);
+					return;
+				}
+
 				ApplyResponseHeaders();
 				context.Response.ContentType = fileInfo.ContentType ?? "application/octet-stream";
 				context.Response.ContentLength = fileInfo.Length;
-
-				// TODO: Build in support for Range request header and Content-Range response header using a 206 response code.
-				// Need to alter the following:
-
-				// fileInfo.WriteToStreamAsync
-				// fileInfo.ReadAsStreamAsync
-				// fileInfo.ReadAsByteArrayAsync
-
-				// Before altering the above, use read as stream or byte array to test the Range stuff works.
-				// Probably best to copy this middleware into the target project first to do the initial work
-				// before altering the file system.
+				if (supportsRanges)
+					context.Response.Headers.AcceptRanges = "bytes";
 
 				if (isHeadRequest)
 					return;
@@ -187,27 +213,79 @@ public class FileSystemMiddleware
 		}
 		catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
 		{
-			if (!context.Response.HasStarted)
+			if (context.Response.HasStarted)
+			{
+				context.Abort();
+			}
+			else
+			{
+				ClearFileResponseHeaders(context.Response);
 				_log.WriteDebug(new { Path = context.Request.Path.Value }, "The request was aborted by the client.");
+			}
 		}
 		catch (OperationCanceledException)
 		{
-			if (!context.Response.HasStarted)
-				context.Response.SendStatusCode(HttpStatusCode.RequestTimeout);
+			SendFailure(context, HttpStatusCode.RequestTimeout);
 		}
 		catch (UmbrellaFileSystemException exc) when (_log.WriteWarning(exc, new { Path = context.Request.Path.Value }))
 		{
 			// Just return a 404 NotFound so that any potential attacker isn't even aware the file exists.
-			context.Response.SendStatusCode(HttpStatusCode.NotFound);
+			SendFailure(context, HttpStatusCode.NotFound);
 		}
 		catch (UmbrellaFileAccessDeniedException exc) when (_log.WriteWarning(exc, new { Path = context.Request.Path.Value }))
 		{
 			// Just return a 404 NotFound so that any potential attacker isn't even aware the file exists.
-			context.Response.SendStatusCode(HttpStatusCode.NotFound);
+			SendFailure(context, HttpStatusCode.NotFound);
 		}
 		catch (Exception exc) when (_log.WriteError(exc, new { Path = context.Request.Path.Value }))
 		{
+			if (context.Response.HasStarted)
+			{
+				context.Abort();
+				return;
+			}
+
+			ClearFileResponseHeaders(context.Response);
+			context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 			throw new UmbrellaWebException("An error has occurred whilst executing the request.", exc);
+		}
+	}
+
+	private static bool IfRangeMatches(HttpRequest request, string? eTag, string? lastModified)
+	{
+		if (!request.Headers.ContainsKey(HeaderNames.IfRange))
+			return true;
+		if (!RangeConditionHeaderValue.TryParse(request.Headers.IfRange.ToString(), out RangeConditionHeaderValue? condition))
+			return false;
+		if (condition.EntityTag is not null)
+			return !condition.EntityTag.IsWeak && string.Equals(condition.EntityTag.ToString(), eTag, StringComparison.Ordinal);
+		return condition.LastModified.HasValue && lastModified is not null
+			&& string.Equals(condition.LastModified.Value.ToString("R"), lastModified, StringComparison.Ordinal);
+	}
+
+	private static void ClearFileResponseHeaders(HttpResponse response)
+	{
+		_ = response.Headers.Remove(HeaderNames.ContentRange);
+		_ = response.Headers.Remove(HeaderNames.AcceptRanges);
+		response.ContentLength = null;
+		response.ContentType = null;
+		_ = response.Headers.Remove(HeaderNames.ETag);
+		_ = response.Headers.Remove(HeaderNames.LastModified);
+		_ = response.Headers.Remove(HeaderNames.Expires);
+		response.Headers.CacheControl = "no-store";
+		response.StatusCode = StatusCodes.Status200OK;
+	}
+
+	private static void SendFailure(HttpContext context, HttpStatusCode status)
+	{
+		if (context.Response.HasStarted)
+		{
+			context.Abort();
+		}
+		else
+		{
+			ClearFileResponseHeaders(context.Response);
+			context.Response.SendStatusCode(status);
 		}
 	}
 

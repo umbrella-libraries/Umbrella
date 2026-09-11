@@ -12,7 +12,7 @@ namespace Umbrella.FileSystem.Disk;
 /// An implementation of <see cref="IUmbrellaFileInfo"/> that uses the physical disk as the underlying storage mechanism.
 /// </summary>
 /// <seealso cref="IUmbrellaFileInfo" />
-public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
+public record UmbrellaDiskFileInfo : IUmbrellaRangeReadableFileInfo
 {
 	#region Private Members
 	private readonly string _metadataFullFileName;
@@ -348,6 +348,31 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 	}
 
 	/// <inheritdoc />
+	public async Task<Stream> ReadRangeAsStreamAsync(long offset, long length, int? bufferSizeOverride = null, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		ThrowIfIsNew();
+		UmbrellaFileRangeStream.Validate(Length, offset, length, bufferSizeOverride);
+
+		Stream source = await ReadAsStreamAsync(bufferSizeOverride, cancellationToken).ConfigureAwait(false);
+
+		try
+		{
+			_ = source.Seek(offset, SeekOrigin.Begin);
+			return new UmbrellaFileRangeStream(source, length);
+		}
+		catch
+		{
+#if NETSTANDARD2_0
+			source.Dispose();
+#else
+			await source.DisposeAsync().ConfigureAwait(false);
+#endif
+			throw;
+		}
+	}
+
+	/// <inheritdoc />
 	public async Task<Stream> ReadAsStreamAsync(int? bufferSizeOverride = null, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -362,6 +387,10 @@ public record UmbrellaDiskFileInfo : IUmbrellaFileInfo
 				throw new UmbrellaFileAccessDeniedException(SubPath);
 
 			return new FileStream(PhysicalFileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSizeOverride ?? UmbrellaFileSystemConstants.SmallBufferSize, true);
+		}
+		catch (OperationCanceledException)
+		{
+			throw;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
 		{

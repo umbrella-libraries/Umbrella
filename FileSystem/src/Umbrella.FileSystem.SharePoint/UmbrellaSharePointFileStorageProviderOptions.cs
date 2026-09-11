@@ -1,3 +1,4 @@
+using System.Net.Http;
 using CommunityToolkit.Diagnostics;
 using Microsoft.Graph;
 using Umbrella.FileSystem.Abstractions;
@@ -10,6 +11,16 @@ namespace Umbrella.FileSystem.SharePoint;
 /// </summary>
 public class UmbrellaSharePointFileStorageProviderOptions : UmbrellaFileStorageProviderOptionsBase, ISanitizableUmbrellaOptions, IValidatableUmbrellaOptions
 {
+	private static readonly HttpClient _defaultDownloadClient = new(new SocketsHttpHandler
+	{
+		PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+		UseCookies = false
+	});
+
+	/// <summary>The reusable client for preauthenticated download URLs. Must not attach Graph credentials or authorization headers.</summary>
+	/// <remarks>The caller owns a supplied client. The default client is shared for the process lifetime.</remarks>
+	public HttpClient DownloadHttpClient { get; set; } = _defaultDownloadClient;
+
 	/// <summary>
 	/// The Microsoft Graph site ID for the SharePoint site, e.g. <c>contoso.sharepoint.com:/sites/MySite:</c>.
 	/// </summary>
@@ -66,5 +77,6 @@ public class UmbrellaSharePointFileStorageProviderOptions : UmbrellaFileStorageP
 		Guard.IsNotNullOrWhiteSpace(SiteId);
 		Guard.IsNotNullOrWhiteSpace(DriveName);
 		Guard.IsNotNull(GraphServiceClient);
+		Guard.IsNotNull(DownloadHttpClient);
 	}
 }

@@ -12,6 +12,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\Internal\src\Umbrella.Internal.Mocks\Umbrella.Internal.Mocks.csproj" />
 		<ProjectReference Include="..\..\src\Umbrella.AspNetCore.WebUtilities\Umbrella.AspNetCore.WebUtilities.csproj" />
+		<ProjectReference Include="..\..\src\Umbrella.AspNetCore.WebUtilities.FileSystem\Umbrella.AspNetCore.WebUtilities.FileSystem.csproj" />
 	</ItemGroup>
 
 </Project>

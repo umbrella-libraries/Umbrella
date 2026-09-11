@@ -1,4 +1,6 @@
-﻿using CommunityToolkit.Diagnostics;
+﻿using System.Net.Http;
+using System.Net.Http.Headers;
+using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
@@ -14,10 +16,11 @@ namespace Umbrella.FileSystem.SharePoint;
 /// underlying storage mechanism.
 /// </summary>
 /// <seealso cref="IUmbrellaFileInfo" />
-public record UmbrellaSharePointFileInfo : IUmbrellaFileInfo
+public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 {
 	#region Private Members
 	private readonly GraphServiceClient _graphServiceClient;
+	private readonly HttpClient _downloadClient;
 	private readonly string _driveId;
 	private readonly string _sharePointRelativePath;
 	private long _length = -1;
@@ -82,7 +85,8 @@ public record UmbrellaSharePointFileInfo : IUmbrellaFileInfo
 		UmbrellaFileAccessAuthorizor accessAuthorizor,
 		GraphServiceClient graphServiceClient,
 		string driveId,
-		bool isNew)
+		bool isNew,
+		HttpClient downloadClient)
 	{
 		Logger = logger;
 		Provider = provider;
@@ -90,6 +94,7 @@ public record UmbrellaSharePointFileInfo : IUmbrellaFileInfo
 		GenericTypeConverter = genericTypeConverter;
 
 		_graphServiceClient = graphServiceClient;
+		_downloadClient = downloadClient;
 		_driveId = driveId;
 		_sharePointRelativePath = sharePointRelativePath;
 
@@ -366,6 +371,79 @@ public record UmbrellaSharePointFileInfo : IUmbrellaFileInfo
 		catch (Exception exc) when (Logger.WriteError(exc, new { destinationFile }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem moving the specified file to the specified destination file.", exc);
+		}
+	}
+
+	/// <inheritdoc />
+	public async Task<Stream> ReadRangeAsStreamAsync(long offset, long length, int? bufferSizeOverride = null, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		ThrowIfIsNew();
+		UmbrellaFileRangeStream.Validate(Length, offset, length, bufferSizeOverride);
+
+		if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Read, cancellationToken).ConfigureAwait(false))
+			throw new UmbrellaFileAccessDeniedException(SubPath);
+
+		try
+		{
+			DriveItem? item = await _graphServiceClient.Drives[_driveId].Root.ItemWithPath(_sharePointRelativePath)
+				.GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+			if (item?.AdditionalData.TryGetValue("@microsoft.graph.downloadUrl", out object? value) != true
+				|| value is not string downloadUrl || !Uri.TryCreate(downloadUrl, UriKind.Absolute, out Uri? uri)
+				|| uri.Scheme != Uri.UriSchemeHttps)
+			{
+				throw new UmbrellaFileSystemException("SharePoint did not return a valid download URL.");
+			}
+
+			using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+			request.Headers.Range = new RangeHeaderValue(offset, offset + length - 1);
+			var response = await _downloadClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+			try
+			{
+				if (response.StatusCode == HttpStatusCode.PartialContent)
+				{
+					var range = response.Content.Headers.ContentRange;
+					if (range is null || range.Unit != "bytes" || range.From != offset
+						|| range.To != offset + length - 1 || range.Length != Length
+						|| (response.Content.Headers.ContentLength is long actualLength && actualLength != length))
+					{
+						throw new UmbrellaFileSystemException("SharePoint returned an unexpected content range.");
+					}
+				}
+				else if (response.StatusCode != HttpStatusCode.OK)
+				{
+					throw new UmbrellaFileSystemException("SharePoint range download failed with status " + (int)response.StatusCode + ".");
+				}
+
+				Stream source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+				if (response.StatusCode == HttpStatusCode.OK && offset > 0)
+				{
+					byte[] buffer = new byte[bufferSizeOverride ?? UmbrellaFileSystemConstants.LargeBufferSize];
+					long remaining = offset;
+					while (remaining > 0)
+					{
+						int read = await source.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, remaining)), cancellationToken).ConfigureAwait(false);
+						if (read == 0)
+							throw new EndOfStreamException("SharePoint content ended before the range start.");
+						remaining -= read;
+					}
+				}
+
+				return new UmbrellaFileRangeStream(source, length, response);
+			}
+			catch
+			{
+				response.Dispose();
+				throw;
+			}
+		}
+		catch (OperationCanceledException)
+		{
+			throw;
+		}
+		catch (Exception exc) when (Logger.WriteError(exc, new { offset, length }))
+		{
+			throw new UmbrellaFileSystemException("There has been an error reading the SharePoint range.", exc);
 		}
 	}
 
