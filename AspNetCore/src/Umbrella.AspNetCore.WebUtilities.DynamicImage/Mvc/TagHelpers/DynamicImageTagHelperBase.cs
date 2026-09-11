@@ -269,6 +269,20 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	protected virtual string? GetSourceMimeType(DynamicImageFormat format) => format.ToMimeTypeString();
 
 	/// <summary>
+	/// Gets the highest pixel density actually worth generating a candidate for. Defaults to
+	/// <see cref="ResponsiveImageTagHelper.ImageMaxPixelDensity"/>.
+	/// </summary>
+	/// <remarks>
+	/// Override this to lower the ceiling when something known only to the derived type rules the higher candidates out - most
+	/// commonly the intrinsic size of the image, which nothing here can see. Offering a 3x candidate for a 767px crop of a
+	/// 1440px asset asks the resizer to upscale four times over and hands the browser an image softer than the 1x it replaced,
+	/// and because the browser picks the densest candidate it believes is available, it is the wrong result rather than merely
+	/// a wasteful one. Returning a value above <see cref="ResponsiveImageTagHelper.ImageMaxPixelDensity"/> is not meaningful;
+	/// this is a ceiling, not a floor.
+	/// </remarks>
+	protected virtual int EffectiveMaxPixelDensity => ImageMaxPixelDensity;
+
+	/// <summary>
 	/// Gets the value of the <c>srcset</c> attribute for the specified source path and format using the current tag helper configuration.
 	/// </summary>
 	/// <param name="sourcePath">The source path with the configured prefix already removed.</param>
@@ -278,7 +292,7 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	{
 		Guard.IsNotNullOrWhiteSpace(sourcePath);
 
-		string cacheKey = CacheKeyUtility.Create<DynamicImageTagHelperBase>($"{sourcePath}:{VersionToken}:{WidthRequest}:{HeightRequest}:{ResizeMode}:{format}:{FilterQuality}:{QualityRequest}:{FocalPointX}:{FocalPointY}:{FocalPointApproval}:{ImageMaxPixelDensity}:{SizeWidths}");
+		string cacheKey = CacheKeyUtility.Create<DynamicImageTagHelperBase>($"{sourcePath}:{VersionToken}:{WidthRequest}:{HeightRequest}:{ResizeMode}:{format}:{FilterQuality}:{QualityRequest}:{FocalPointX}:{FocalPointY}:{FocalPointApproval}:{EffectiveMaxPixelDensity}:{SizeWidths}");
 
 		return Cache.GetOrCreate(
 			cacheKey,
@@ -294,7 +308,7 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 
 				string? srcSet = sizeWidths.Count is 0
 					? GetPixelDensitySrcSetValue(src)
-					: ResponsiveImageHelper.GetSizeSrcSetValue(sourcePath, SizeWidths ?? "", ImageMaxPixelDensity, WidthRequest, HeightRequest, x =>
+					: ResponsiveImageHelper.GetSizeSrcSetValue(sourcePath, SizeWidths ?? "", EffectiveMaxPixelDensity, WidthRequest, HeightRequest, x =>
 					{
 						DynamicImageOptions sizeOptions = CreateDynamicImageOptions(sourcePath, x.imageWidth, x.imageHeight, format);
 						return ResolveImageUrl(GenerateVirtualPath(sizeOptions));
@@ -306,7 +320,7 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 
 	/// <summary>
 	/// Gets the value of the <c>srcset</c> attribute containing a candidate for each pixel density up to
-	/// <see cref="ResponsiveImageTagHelper.ImageMaxPixelDensity"/> for the specified URL.
+	/// <see cref="EffectiveMaxPixelDensity"/> for the specified URL.
 	/// </summary>
 	/// <remarks>
 	/// The candidates above 1x are produced by <see cref="ApplyPixelDensity(string, int)"/>, which is handed the whole URL including any query
@@ -320,7 +334,7 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	{
 		Guard.IsNotNullOrWhiteSpace(url);
 
-		IReadOnlyCollection<int> pixelDensities = ResponsiveImageHelper.GetPixelDensities(ImageMaxPixelDensity);
+		IReadOnlyCollection<int> pixelDensities = ResponsiveImageHelper.GetPixelDensities(EffectiveMaxPixelDensity);
 
 		if (pixelDensities.Count < 2)
 			return string.Empty;
