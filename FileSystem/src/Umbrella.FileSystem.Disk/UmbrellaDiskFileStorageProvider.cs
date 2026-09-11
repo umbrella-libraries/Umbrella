@@ -58,33 +58,25 @@ public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProv
 	#endregion
 
 	/// <inheritdoc />
-	public Task DeleteDirectoryAsync(string subpath, CancellationToken cancellationToken = default)
+	public async Task DeleteDirectoryAsync(string subpath, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		Guard.IsNotNullOrWhiteSpace(subpath);
-
 		try
 		{
 			string physicalPath = CleanPath(subpath);
-
-			if (Logger.IsEnabled(LogLevel.Debug))
-				Logger.WriteDebug(new { subpath, physicalPath }, "Directory");
-
-			if (Directory.Exists(physicalPath))
+			try
 			{
-				try
-				{
-					Directory.Delete(physicalPath, true);
-				}
-				catch
-				{
-					_ = Logger.WriteWarning(state: new { subpath, physicalPath }, message: "The specified directory to be deleted no longer exists, most likely because of a race condition.");
-				}
+				Directory.Delete(physicalPath, true);
+			}
+			catch (DirectoryNotFoundException)
+			{
+				// Already absent, including a retry after metadata cleanup failed.
 			}
 
-			return Task.CompletedTask;
+			await DeleteDirectoryMetadataAsync(subpath, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem deleting the specified directory.", exc);
 		}
@@ -111,7 +103,7 @@ public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProv
 			UmbrellaDiskFileInfo[] files = directoryInfo
 				.GetFiles()
 				.Where(x => !x.Extension.Equals(UmbrellaDiskFileStorageConstants.MetadataFileExtension, StringComparison.OrdinalIgnoreCase))
-				.Select(x => new UmbrellaDiskFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, SanitizeSubPathCore($"{subpath}/{x.Name}"), this, AuthorizeAsync, x, false))
+				.Select(x => new UmbrellaDiskFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, SanitizeSubPathCore($"{subpath}/{x.Name}"), this, AuthorizeAsync, x, false, MetadataProvider, MetadataNamespace))
 				.ToArray();
 
 			var lstResult = new List<UmbrellaDiskFileInfo>();
@@ -126,10 +118,20 @@ public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProv
 
 			return lstResult;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem enumerating the files in the specified directory.", exc);
 		}
+	}
+
+	/// <inheritdoc />
+	protected override IUmbrellaFileMetadataProvider CreateDefaultMetadataProvider() => new UmbrellaDiskFileMetadataProvider(GenericTypeConverter, LoggerFactory.CreateLogger<UmbrellaDiskFileMetadataProvider>());
+
+	/// <inheritdoc />
+	protected override Task<bool> AuthorizeMissingFileDeletionAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken)
+		{
+		Guard.IsNotNull(fileInfo);
+		return ((UmbrellaDiskFileInfo)fileInfo).AuthorizeMissingFileDeletionAsync(cancellationToken);
 	}
 
 	#region Overridden Methods
@@ -150,7 +152,7 @@ public class UmbrellaDiskFileStorageProvider<TOptions> : UmbrellaFileStorageProv
 		if (!isNew && !physicalFileInfo.Exists)
 			return null;
 
-		var fileInfo = new UmbrellaDiskFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, cleanedSubPath, this, AuthorizeAsync, physicalFileInfo, isNew);
+		var fileInfo = new UmbrellaDiskFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, cleanedSubPath, this, AuthorizeAsync, physicalFileInfo, isNew, MetadataProvider, MetadataNamespace);
 
 		return await FinalizeResolvedFileAsync(fileInfo, subpath, cancellationToken).ConfigureAwait(false);
 	}

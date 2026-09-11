@@ -1,9 +1,8 @@
-using CommunityToolkit.Diagnostics;
+﻿using CommunityToolkit.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Xrm.Sdk.Query;
-using System.Globalization;
 using Umbrella.FileSystem.Abstractions;
 using Umbrella.Utilities.TypeConverters.Abstractions;
 
@@ -16,13 +15,16 @@ namespace Umbrella.FileSystem.Dataverse;
 /// <seealso cref="IUmbrellaFileInfo" />
 public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 {
+	private readonly UmbrellaFileMetadataManager _metadata;
+
+	internal Task<bool> AuthorizeMissingFileDeletionAsync(CancellationToken cancellationToken)
+		=> _metadata.AuthorizeMissingFileDeletionAsync(cancellationToken);
+
 	#region Private Members
 	private readonly Guid _recordId;
 	private readonly UmbrellaDataverseFileStorageProviderOptions _options;
 	private long _length = -1;
 	private string? _cachedBase64;
-	private Dictionary<string, object?>? _metadataCache;
-	private readonly Dictionary<string, object?> _pendingMetadataAttributes = new(StringComparer.OrdinalIgnoreCase);
 	#endregion
 
 	#region Protected Properties
@@ -71,7 +73,9 @@ public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 		UmbrellaDataverseFileStorageProviderOptions options,
 		UmbrellaFileAccessAuthorizor accessAuthorizor,
 		Guid recordId,
-		bool isNew)
+		bool isNew,
+		IUmbrellaFileMetadataProvider metadataProvider,
+		string? metadataNamespace)
 	{
 		Logger = logger;
 		GenericTypeConverter = genericTypeConverter;
@@ -81,8 +85,12 @@ public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 		AccessAuthorizor = accessAuthorizor;
 		_recordId = recordId;
 		IsNew = isNew;
+		_metadata = new(metadataProvider, new(this, metadataNamespace, SubPath), accessAuthorizor);
 	}
 	#endregion
+
+	internal Guid RecordId => _recordId;
+	internal UmbrellaDataverseFileStorageProviderOptions MetadataOptions => _options;
 
 	#region Internal Methods
 	internal void Initialize(string? base64Content, DateTimeOffset? lastModified, string? contentType, long? length = null)
@@ -131,7 +139,7 @@ public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 
 			return true;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem determining if the file exists.", exc);
 		}
@@ -159,12 +167,13 @@ public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 				await _options.DataverseClient.UpdateAsync(entity, cancellationToken).ConfigureAwait(false);
 			}
 
+			await _metadata.DeleteAsync(cancellationToken).ConfigureAwait(false);
 			_cachedBase64 = null;
 			_length = -1;
 
 			return true;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem deleting the file.", exc);
 		}
@@ -189,7 +198,7 @@ public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 		{
 			throw;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem reading the file to a byte array.", exc);
 		}
@@ -213,7 +222,7 @@ public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 			byte[] bytes = await ReadAsByteArrayAsync(bufferSizeOverride, cancellationToken).ConfigureAwait(false);
 			await target.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem writing the file to the specified stream.", exc);
 		}
@@ -251,7 +260,7 @@ public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 			LastModified = DateTimeOffset.UtcNow;
 			IsNew = false;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem writing to the file from the specified byte array.", exc);
 		}
@@ -277,7 +286,7 @@ public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 
 			await WriteFromByteArrayAsync(ms.ToArray(), bufferSizeOverride, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem writing to the file from the specified stream.", exc);
 		}
@@ -326,7 +335,7 @@ public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 		{
 			throw;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem reading the file as a stream.", exc);
 		}
@@ -349,134 +358,25 @@ public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 		=> throw new NotSupportedException("Move is not supported by the Dataverse file provider.");
 
 	/// <inheritdoc />
-	public async Task<T> GetMetadataValueAsync<T>(string key, T fallback = default!, Func<string?, T>? customValueConverter = null, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		ThrowIfIsNew();
-		Guard.IsNotNullOrWhiteSpace(key);
-
-		try
-		{
-			if (!_options.MetadataColumnMappings.TryGetValue(key, out DataverseMetadataColumnMapping? mapping))
-				return fallback;
-
-			// Pending writes take precedence over the cache
-			if (_pendingMetadataAttributes.TryGetValue(mapping.ColumnName, out object? pendingValue))
-				return GenericTypeConverter.Convert(ConvertAttributeToString(pendingValue), fallback, customValueConverter)!;
-
-			if (_metadataCache is null)
-				await ReloadMetadataAsync(cancellationToken).ConfigureAwait(false);
-
-			if (_metadataCache is null || !_metadataCache.TryGetValue(mapping.ColumnName, out object? rawValue))
-				return fallback;
-
-			return GenericTypeConverter.Convert(ConvertAttributeToString(rawValue), fallback, customValueConverter)!;
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { key, fallback, customValueConverter }))
-		{
-			throw new UmbrellaFileSystemException("There has been an error getting the metadata value for the specified key.", exc);
-		}
-	}
+	public Task<T> GetMetadataValueAsync<T>(string key, T fallback = default!, Func<string?, T>? customValueConverter = null, CancellationToken cancellationToken = default)
+		=> _metadata.GetMetadataValueAsync(key, fallback, customValueConverter, cancellationToken);
 
 	/// <inheritdoc />
-	public async Task SetMetadataValueAsync<T>(string key, T value, bool writeChanges = true, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		ThrowIfIsNew();
-		Guard.IsNotNullOrWhiteSpace(key);
-
-		try
-		{
-			if (!_options.MetadataColumnMappings.TryGetValue(key, out DataverseMetadataColumnMapping? mapping))
-				return;
-
-			object? dataverseAttribute = ConvertToDataverseAttribute(mapping, value);
-
-			_pendingMetadataAttributes[mapping.ColumnName] = dataverseAttribute;
-
-			_metadataCache ??= new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-			_metadataCache[mapping.ColumnName] = dataverseAttribute;
-
-			if (writeChanges)
-				await WriteMetadataChangesAsync(cancellationToken).ConfigureAwait(false);
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { key, value, writeChanges }))
-		{
-			throw new UmbrellaFileSystemException("There has been an error setting the metadata value for the specified key.", exc);
-		}
-	}
+	public Task SetMetadataValueAsync<T>(string key, T value, bool writeChanges = true, CancellationToken cancellationToken = default)
+		=> _metadata.SetMetadataValueAsync(key, value, writeChanges, cancellationToken);
 
 	/// <inheritdoc />
-	public async Task RemoveMetadataValueAsync(string key, bool writeChanges = true, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		ThrowIfIsNew();
-		Guard.IsNotNullOrWhiteSpace(key);
-
-		try
-		{
-			if (!_options.MetadataColumnMappings.TryGetValue(key, out DataverseMetadataColumnMapping? mapping))
-				return;
-
-			_pendingMetadataAttributes[mapping.ColumnName] = null;
-
-			if (writeChanges)
-				await WriteMetadataChangesAsync(cancellationToken).ConfigureAwait(false);
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { key, writeChanges }))
-		{
-			throw new UmbrellaFileSystemException("There has been an error removing the metadata value for the specified key.", exc);
-		}
-	}
+	public Task RemoveMetadataValueAsync(string key, bool writeChanges = true, CancellationToken cancellationToken = default)
+		=> _metadata.RemoveMetadataValueAsync(key, writeChanges, cancellationToken);
 
 	/// <inheritdoc />
-	public async Task ClearMetadataAsync(bool writeChanges = true, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		ThrowIfIsNew();
-
-		try
-		{
-			foreach (DataverseMetadataColumnMapping mapping in _options.MetadataColumnMappings.Values)
-				_pendingMetadataAttributes[mapping.ColumnName] = null;
-
-			if (writeChanges)
-				await WriteMetadataChangesAsync(cancellationToken).ConfigureAwait(false);
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { writeChanges }))
-		{
-			throw new UmbrellaFileSystemException("There has been an error clearing the metadata.", exc);
-		}
-	}
+	public Task ClearMetadataAsync(bool writeChanges = true, CancellationToken cancellationToken = default)
+		=> _metadata.ClearMetadataAsync(writeChanges, cancellationToken);
 
 	/// <inheritdoc />
-	public async Task WriteMetadataChangesAsync(CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		ThrowIfIsNew();
+	public Task WriteMetadataChangesAsync(CancellationToken cancellationToken = default)
+		=> _metadata.WriteMetadataChangesAsync(cancellationToken);
 
-		if (_pendingMetadataAttributes.Count is 0)
-			return;
-
-		try
-		{
-			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Update, cancellationToken).ConfigureAwait(false))
-				throw new UmbrellaFileAccessDeniedException(SubPath);
-
-			var entity = new Entity(_options.TableName, _recordId);
-
-			foreach (var (columnName, attributeValue) in _pendingMetadataAttributes)
-				entity[columnName] = attributeValue;
-
-			await _options.DataverseClient.UpdateAsync(entity, cancellationToken).ConfigureAwait(false);
-
-			_pendingMetadataAttributes.Clear();
-		}
-		catch (Exception exc) when (Logger.WriteError(exc))
-		{
-			throw new UmbrellaFileSystemException("There has been an error writing the metadata changes.", exc);
-		}
-	}
 	#endregion
 
 	#region Private Methods
@@ -505,34 +405,6 @@ public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 		return base64;
 	}
 
-	private async Task ReloadMetadataAsync(CancellationToken cancellationToken)
-	{
-		if (_options.MetadataColumnMappings.Count is 0)
-		{
-			_metadataCache = [];
-			return;
-		}
-
-		string[] columnNames = [.. _options.MetadataColumnMappings.Values.Select(m => m.ColumnName)];
-
-		Entity entity = await _options.DataverseClient.RetrieveAsync(
-			_options.TableName,
-			_recordId,
-			new ColumnSet(columnNames),
-			cancellationToken).ConfigureAwait(false);
-
-		_metadataCache = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-
-		foreach (string columnName in columnNames)
-		{
-			_metadataCache[columnName] = entity.Contains(columnName) ? entity[columnName] : null;
-		}
-
-		// Overlay any already-pending changes so subsequent reads reflect local state
-		foreach (var (col, val) in _pendingMetadataAttributes)
-			_metadataCache[col] = val;
-	}
-
 	private void ThrowIfIsNew()
 	{
 		if (IsNew)
@@ -548,36 +420,5 @@ public record UmbrellaDataverseFileInfo : IUmbrellaRangeReadableFileInfo
 		return (base64.Length * 3L / 4L) - padding;
 	}
 
-	private static string? ConvertAttributeToString(object? value) => value switch
-	{
-		null => null,
-		string s => s,
-		bool b => b.ToString(CultureInfo.InvariantCulture),
-		int i => i.ToString(CultureInfo.InvariantCulture),
-		decimal d => d.ToString(CultureInfo.InvariantCulture),
-		DateTime dt => dt.ToString("O", CultureInfo.InvariantCulture),
-		EntityReference er => er.Id.ToString(),
-		_ => value.ToString(),
-	};
-
-	private static object? ConvertToDataverseAttribute(DataverseMetadataColumnMapping mapping, object? value)
-	{
-		if (value is null)
-			return null;
-
-		return mapping.ColumnType switch
-		{
-			DataverseMetadataColumnType.Text => value.ToString(),
-			DataverseMetadataColumnType.Boolean => Convert.ToBoolean(value, CultureInfo.InvariantCulture),
-			DataverseMetadataColumnType.Integer => Convert.ToInt32(value, CultureInfo.InvariantCulture),
-			DataverseMetadataColumnType.Decimal => Convert.ToDecimal(value, CultureInfo.InvariantCulture),
-			DataverseMetadataColumnType.DateTime => Convert.ToDateTime(value, CultureInfo.InvariantCulture),
-			DataverseMetadataColumnType.Lookup or DataverseMetadataColumnType.Owner =>
-				new EntityReference(
-					mapping.LookupTableName!,
-					value is Guid g ? g : Guid.Parse(value.ToString()!)),
-			_ => value.ToString(),
-		};
-	}
 	#endregion
 }

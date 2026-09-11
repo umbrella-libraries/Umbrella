@@ -18,6 +18,11 @@ namespace Umbrella.FileSystem.SharePoint;
 /// <seealso cref="IUmbrellaFileInfo" />
 public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 {
+	private readonly UmbrellaFileMetadataManager _metadata;
+
+	internal Task<bool> AuthorizeMissingFileDeletionAsync(CancellationToken cancellationToken)
+		=> _metadata.AuthorizeMissingFileDeletionAsync(cancellationToken);
+
 	#region Private Members
 	private readonly GraphServiceClient _graphServiceClient;
 	private readonly HttpClient _downloadClient;
@@ -86,7 +91,9 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 		GraphServiceClient graphServiceClient,
 		string driveId,
 		bool isNew,
-		HttpClient downloadClient)
+		HttpClient downloadClient,
+		IUmbrellaFileMetadataProvider metadataProvider,
+		string? metadataNamespace)
 	{
 		Logger = logger;
 		Provider = provider;
@@ -103,6 +110,7 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 		IsNew = isNew;
 
 		_contentType = mimeTypeUtility.GetMimeType(Name);
+		_metadata = new(metadataProvider, new(this, metadataNamespace, SubPath), accessAuthorizor);
 	}
 	#endregion
 
@@ -138,13 +146,15 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 				.DeleteAsync(cancellationToken: cancellationToken)
 				.ConfigureAwait(false);
 
+			await _metadata.DeleteAsync(cancellationToken).ConfigureAwait(false);
 			return true;
 		}
 		catch (ODataError odataError) when (odataError.ResponseStatusCode == 404)
 		{
+			await _metadata.DeleteAsync(cancellationToken).ConfigureAwait(false);
 			return false;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem deleting the file.", exc);
 		}
@@ -177,7 +187,7 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 		{
 			return false;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem determining if the file exists.", exc);
 		}
@@ -204,7 +214,7 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 
 			return ms.ToArray();
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem reading the file to a byte array.", exc);
 		}
@@ -229,7 +239,7 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 
 			await spStream.CopyToAsync(target, bufferSizeOverride ?? UmbrellaFileSystemConstants.LargeBufferSize, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem writing the file to the specified stream.", exc);
 		}
@@ -281,7 +291,7 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 			if (result is not null)
 				PopulateFromDriveItem(result);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem writing to the file from the specified stream.", exc);
 		}
@@ -304,7 +314,7 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 
 			return destinationFile;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { destinationSubpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { destinationSubpath }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem copying the file to the specified destination path.", exc);
 		}
@@ -325,12 +335,15 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Create, cancellationToken).ConfigureAwait(false))
 				throw new UmbrellaFileAccessDeniedException(SubPath);
 
-			using Stream sourceStream = await ReadAsStreamAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-			await destinationFile.WriteFromStreamAsync(sourceStream, cancellationToken: cancellationToken).ConfigureAwait(false);
+			await _metadata.CopyToAsync(((UmbrellaSharePointFileInfo)destinationFile)._metadata, async token =>
+			{
+				using Stream sourceStream = await ReadAsStreamAsync(cancellationToken: token).ConfigureAwait(false);
+				await destinationFile.WriteFromStreamAsync(sourceStream, cancellationToken: token).ConfigureAwait(false);
+			}, cancellationToken).ConfigureAwait(false);
 
 			return destinationFile;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { destinationFile }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { destinationFile }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem copying the file to the specified destination file.", exc);
 		}
@@ -349,7 +362,7 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 
 			return destinationFile;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { destinationSubpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { destinationSubpath }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem moving the file to the specified destination path.", exc);
 		}
@@ -368,7 +381,7 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 
 			return destinationFile;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { destinationFile }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { destinationFile }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem moving the specified file to the specified destination file.", exc);
 		}
@@ -441,7 +454,7 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 		{
 			throw;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { offset, length }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { offset, length }))
 		{
 			throw new UmbrellaFileSystemException("There has been an error reading the SharePoint range.", exc);
 		}
@@ -463,7 +476,7 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 
 			return await GetContentStreamAsync(cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been an error reading the SharePoint file as a stream.", exc);
 		}
@@ -471,23 +484,24 @@ public record UmbrellaSharePointFileInfo : IUmbrellaRangeReadableFileInfo
 
 	/// <inheritdoc />
 	public Task<T> GetMetadataValueAsync<T>(string key, T fallback = default!, Func<string?, T>? customValueConverter = null, CancellationToken cancellationToken = default)
-		=> throw new NotSupportedException("Metadata is not supported by the SharePoint file provider.");
+		=> _metadata.GetMetadataValueAsync(key, fallback, customValueConverter, cancellationToken);
 
 	/// <inheritdoc />
 	public Task SetMetadataValueAsync<T>(string key, T value, bool writeChanges = true, CancellationToken cancellationToken = default)
-		=> throw new NotSupportedException("Metadata is not supported by the SharePoint file provider.");
+		=> _metadata.SetMetadataValueAsync(key, value, writeChanges, cancellationToken);
 
 	/// <inheritdoc />
 	public Task RemoveMetadataValueAsync(string key, bool writeChanges = true, CancellationToken cancellationToken = default)
-		=> throw new NotSupportedException("Metadata is not supported by the SharePoint file provider.");
+		=> _metadata.RemoveMetadataValueAsync(key, writeChanges, cancellationToken);
 
 	/// <inheritdoc />
 	public Task ClearMetadataAsync(bool writeChanges = true, CancellationToken cancellationToken = default)
-		=> throw new NotSupportedException("Metadata is not supported by the SharePoint file provider.");
+		=> _metadata.ClearMetadataAsync(writeChanges, cancellationToken);
 
 	/// <inheritdoc />
 	public Task WriteMetadataChangesAsync(CancellationToken cancellationToken = default)
-		=> throw new NotSupportedException("Metadata is not supported by the SharePoint file provider.");
+		=> _metadata.WriteMetadataChangesAsync(cancellationToken);
+
 	#endregion
 
 	#region Private Methods

@@ -94,7 +94,7 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 		{
 			ContainerResolutionCache?.Clear();
 		}
-		catch (Exception exc) when (Logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem clearing the container resolution cache.", exc);
 		}
@@ -121,7 +121,10 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 			BlobContainerClient container = ServiceClient.GetBlobContainerClient(containerName);
 
 			if (!await container.ExistsAsync(cancellationToken).ConfigureAwait(false))
+			{
+				await DeleteDirectoryMetadataAsync(cleanedPath, cancellationToken).ConfigureAwait(false);
 				return;
+			}
 
 			if (parts.Length == 1)
 			{
@@ -140,8 +143,10 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 					_ = await blob.DeleteIfExistsAsync(DeleteSnapshotsOption.IncludeSnapshots, cancellationToken: cancellationToken).ConfigureAwait(false);
 				}
 			}
+
+			await DeleteDirectoryMetadataAsync(cleanedPath, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem deleting the specified directory.", exc);
 		}
@@ -171,7 +176,7 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 
 			List<BlobClient> lstBlob = await container.GetBlobsByDirectoryAsync(string.Join(DirectorySeparator, parts.Skip(1)), cancellationToken: cancellationToken).ConfigureAwait(false);
 
-			UmbrellaAzureBlobFileInfo[] files = lstBlob.Select(x => new UmbrellaAzureBlobFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, $"/{parts[0]}/{x.Name}", this, AuthorizeAsync, x, false)).ToArray();
+			UmbrellaAzureBlobFileInfo[] files = lstBlob.Select(x => new UmbrellaAzureBlobFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, SanitizeSubPathCore($"/{parts[0]}/{x.Name}"), this, AuthorizeAsync, x, false, MetadataProvider, MetadataNamespace)).ToArray();
 
 			var lstResult = new List<UmbrellaAzureBlobFileInfo>();
 
@@ -187,13 +192,34 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 
 			return lstResult;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem enumerating the files in the specified directory.", exc);
 		}
 	}
 
+	/// <inheritdoc />
+	protected override IUmbrellaFileMetadataProvider CreateDefaultMetadataProvider() => new UmbrellaAzureBlobFileMetadataProvider(GenericTypeConverter);
+
+	/// <inheritdoc />
+	protected override Task<bool> AuthorizeMissingFileDeletionAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken)
+		{
+		Guard.IsNotNull(fileInfo);
+		return ((UmbrellaAzureBlobFileInfo)fileInfo).AuthorizeMissingFileDeletionAsync(cancellationToken);
+	}
+
 	#region Overridden Methods
+	/// <inheritdoc />
+	protected override Task<IUmbrellaFileInfo?> GetMissingFileInfoAsync(string subpath, CancellationToken cancellationToken)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		string path = SanitizeSubPathCore(subpath);
+		string[] parts = path.Split(_directorySeparatorArray, StringSplitOptions.RemoveEmptyEntries);
+		BlobClient blob = ServiceClient.GetBlobContainerClient(NormalizeContainerName(parts[0])).GetBlobClient(string.Join("/", parts.Skip(1)));
+		return Task.FromResult<IUmbrellaFileInfo?>(new UmbrellaAzureBlobFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter,
+			path, this, AuthorizeAsync, blob, true, MetadataProvider, MetadataNamespace));
+	}
+
 	/// <inheritdoc />
 	public override void InitializeOptions(UmbrellaFileStorageProviderOptionsBase options)
 	{
@@ -227,7 +253,7 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 
 		BlobContainerClient container = ServiceClient.GetBlobContainerClient(containerName);
 
-		if (ContainerResolutionCache is not null && !ContainerResolutionCache.ContainsKey(containerName))
+		if (isNew && ContainerResolutionCache is not null && !ContainerResolutionCache.ContainsKey(containerName))
 		{
 			await _containerCacheLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -254,7 +280,7 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 		if (!isNew && !await blob.ExistsAsync(cancellationToken).ConfigureAwait(false))
 			return null;
 
-		var fileInfo = new UmbrellaAzureBlobFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, cleanedPath, this, AuthorizeAsync, blob, isNew);
+		var fileInfo = new UmbrellaAzureBlobFileInfo(FileInfoLoggerInstance, MimeTypeUtility, GenericTypeConverter, cleanedPath, this, AuthorizeAsync, blob, isNew, MetadataProvider, MetadataNamespace);
 		await fileInfo.InitializeAsync(cancellationToken).ConfigureAwait(false);
 
 		return await FinalizeResolvedFileAsync(fileInfo, subpath, cancellationToken).ConfigureAwait(false);

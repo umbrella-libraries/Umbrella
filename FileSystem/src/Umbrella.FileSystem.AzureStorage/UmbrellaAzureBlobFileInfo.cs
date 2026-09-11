@@ -18,6 +18,12 @@ namespace Umbrella.FileSystem.AzureStorage;
 /// <seealso cref="IUmbrellaFileInfo" />
 public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 {
+	private readonly UmbrellaFileMetadataManager _metadata;
+
+	internal Task<bool> AuthorizeMissingFileDeletionAsync(CancellationToken cancellationToken)
+		=> _metadata.AuthorizeMissingFileDeletionAsync(cancellationToken);
+	private readonly bool _nativeMetadata;
+
 	#region Private Members
 	private long _length = -1;
 	private string? _contentType;
@@ -86,7 +92,9 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 		IUmbrellaAzureBlobFileStorageProvider provider,
 		UmbrellaFileAccessAuthorizor accessAuthorizor,
 		BlobClient blob,
-		bool isNew)
+		bool isNew,
+		IUmbrellaFileMetadataProvider metadataProvider,
+		string? metadataNamespace)
 	{
 		Logger = logger;
 		Provider = provider;
@@ -99,6 +107,8 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 		Name = Path.GetFileName(subpath);
 
 		ContentType = mimeTypeUtility.GetMimeType(Name);
+		_metadata = new(metadataProvider, new(this, metadataNamespace, SubPath), accessAuthorizor);
+		_nativeMetadata = metadataProvider is UmbrellaAzureBlobFileMetadataProvider;
 	}
 	#endregion
 
@@ -138,9 +148,11 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Delete, cancellationToken).ConfigureAwait(false))
 				throw new UmbrellaFileAccessDeniedException(SubPath);
 
-			return await Blob.DeleteIfExistsAsync(DeleteSnapshotsOption.IncludeSnapshots, cancellationToken: cancellationToken).ConfigureAwait(false);
+			bool deleted = await Blob.DeleteIfExistsAsync(DeleteSnapshotsOption.IncludeSnapshots, cancellationToken: cancellationToken).ConfigureAwait(false);
+			await _metadata.DeleteAsync(cancellationToken).ConfigureAwait(false);
+			return deleted;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem deleting the file.", exc);
 		}
@@ -163,7 +175,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 			// The container is in the process of being deleted which is fine and means the Blob is on its way to Blob heaven.
 			return false;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem determining if the file exists.", exc);
 		}
@@ -193,7 +205,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 
 			return bytes;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem reading the file to a byte array.", exc);
 		}
@@ -216,7 +228,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 
 			_ = await Blob.DownloadToAsync(target, transferOptions: CreateStorageTransferOptions(bufferSizeOverride), cancellationToken: cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem writing the file to the specified stream.", exc);
 		}
@@ -237,7 +249,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 			using var ms = new MemoryStream(bytes);
 			await WriteFromStreamAsync(ms, bufferSizeOverride, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem writing to the file from the specified bytes.", exc);
 		}
@@ -257,12 +269,15 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 			if (!await AccessAuthorizor(this, IsNew ? UmbrellaFileOperationType.Create : UmbrellaFileOperationType.Update, cancellationToken).ConfigureAwait(false))
 				throw new UmbrellaFileAccessDeniedException(SubPath);
 
-			stream.Position = 0;
+			if (stream.CanSeek)
+				stream.Position = 0;
 
 			_ = await Blob.UploadAsync(
 				stream,
 				new BlobHttpHeaders { ContentType = ContentType },
-				_blobProperties?.Metadata,
+				_nativeMetadata && !IsNew
+					? (await _metadata.ReadPersistedMetadataAsync(cancellationToken).ConfigureAwait(false)).ToDictionary(x => x.Key, x => x.Value?.ToString() ?? "")
+					: [],
 				transferOptions: CreateStorageTransferOptions(bufferSizeOverride),
 				cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -271,7 +286,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 			// Trigger a call to this to ensure property population
 			await InitializeAsync(cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem writing to the file from the specified stream.", exc);
 		}
@@ -296,7 +311,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 
 			return destinationFile;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { destinationSubpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { destinationSubpath }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem copying the file to the specified destination path.", exc);
 		}
@@ -321,19 +336,27 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 
 			var blobDestinationFile = (UmbrellaAzureBlobFileInfo)destinationFile;
 
-			_ = await blobDestinationFile.Blob.StartCopyFromUriAsync(Blob.Uri, cancellationToken: cancellationToken).ConfigureAwait(false);
-
-			// In order to ensure we know the size of the destination file we can set it here
-			// and then use the real value from the Blob once it becomes available after the copy operation
-			// has completed.
-			blobDestinationFile.Length = Length;
-			blobDestinationFile.IsNew = false;
-
-			await blobDestinationFile.InitializeAsync(cancellationToken).ConfigureAwait(false);
+			await _metadata.CopyToAsync(blobDestinationFile._metadata, async token =>
+			{
+				if (_nativeMetadata && blobDestinationFile._nativeMetadata)
+				{
+					var copy = await blobDestinationFile.Blob.StartCopyFromUriAsync(Blob.Uri, new BlobCopyFromUriOptions(), token).ConfigureAwait(false);
+					_ = await copy.WaitForCompletionAsync(token).ConfigureAwait(false);
+					blobDestinationFile.Length = Length;
+					blobDestinationFile.IsNew = false;
+					await blobDestinationFile.InitializeAsync(token).ConfigureAwait(false);
+				}
+				else
+				{
+					// A server-side copy implicitly copies native metadata. Stream custom-backend copies instead.
+					using Stream content = await ReadAsStreamAsync(cancellationToken: token).ConfigureAwait(false);
+					await blobDestinationFile.WriteFromStreamAsync(content, cancellationToken: token).ConfigureAwait(false);
+				}
+			}, cancellationToken).ConfigureAwait(false);
 
 			return destinationFile;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { destinationFile }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { destinationFile }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem copying the file to the specified destination file.", exc);
 		}
@@ -352,7 +375,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 
 			return destinationFile;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { destinationSubpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { destinationSubpath }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem moving the file to the specified destination path.", exc);
 		}
@@ -371,7 +394,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 
 			return destinationFile;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { destinationFile }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { destinationFile }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem moving the specified file to the specified destination file.", exc);
 		}
@@ -399,7 +422,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 		{
 			throw;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { offset, length }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { offset, length }))
 		{
 			throw new UmbrellaFileSystemException("There has been an error reading the Blob range.", exc);
 		}
@@ -424,126 +447,31 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 
 			return response.Content;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException("There has been an error reading the Blob as a Stream.", exc);
 		}
 	}
 
 	/// <inheritdoc />
-	public async Task<T> GetMetadataValueAsync<T>(string key, T fallback = default!, Func<string?, T>? customValueConverter = null, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		ThrowIfIsNew();
-		Guard.IsNotNullOrWhiteSpace(key);
-
-		try
-		{
-			if (_blobProperties is not null && _blobProperties.Metadata.TryGetValue(key, out string? rawValue))
-				return await Task.FromResult(GenericTypeConverter.Convert(rawValue, fallback, customValueConverter)!).ConfigureAwait(false);
-
-			return default!;
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { key, fallback, customValueConverter }))
-		{
-			throw new UmbrellaFileSystemException("There has been an error getting the metadata value for the specified key.", exc);
-		}
-	}
+	public Task<T> GetMetadataValueAsync<T>(string key, T fallback = default!, Func<string?, T>? customValueConverter = null, CancellationToken cancellationToken = default)
+		=> _metadata.GetMetadataValueAsync(key, fallback, customValueConverter, cancellationToken);
 
 	/// <inheritdoc />
-	public async Task SetMetadataValueAsync<T>(string key, T value, bool writeChanges = true, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		ThrowIfIsNew();
-		Guard.IsNotNullOrWhiteSpace(key);
-
-		try
-		{
-			if (_blobProperties is not null)
-			{
-				if (value is null)
-				{
-					_ = _blobProperties.Metadata.Remove(key);
-				}
-				else
-				{
-					_blobProperties.Metadata[key] = value.ToString();
-				}
-
-				if (writeChanges)
-					await WriteMetadataChangesAsync(cancellationToken).ConfigureAwait(false);
-			}
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { key, value, writeChanges }))
-		{
-			throw new UmbrellaFileSystemException("There has been an error setting the metadata value for the specified key.", exc);
-		}
-	}
+	public Task SetMetadataValueAsync<T>(string key, T value, bool writeChanges = true, CancellationToken cancellationToken = default)
+		=> _metadata.SetMetadataValueAsync(key, value, writeChanges, cancellationToken);
 
 	/// <inheritdoc />
-	public async Task RemoveMetadataValueAsync(string key, bool writeChanges = true, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		ThrowIfIsNew();
-		Guard.IsNotNullOrWhiteSpace(key);
-
-		try
-		{
-			if (_blobProperties is not null)
-			{
-				_ = _blobProperties.Metadata.Remove(key);
-
-				if (writeChanges)
-					await WriteMetadataChangesAsync(cancellationToken).ConfigureAwait(false);
-			}
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { key, writeChanges }))
-		{
-			throw new UmbrellaFileSystemException("There has been an error removing the metadata value for the specified key.", exc);
-		}
-	}
+	public Task RemoveMetadataValueAsync(string key, bool writeChanges = true, CancellationToken cancellationToken = default)
+		=> _metadata.RemoveMetadataValueAsync(key, writeChanges, cancellationToken);
 
 	/// <inheritdoc />
-	public async Task ClearMetadataAsync(bool writeChanges = true, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		ThrowIfIsNew();
-
-		try
-		{
-			if (_blobProperties is not null)
-			{
-				_blobProperties.Metadata.Clear();
-
-				if (writeChanges)
-					await WriteMetadataChangesAsync(cancellationToken).ConfigureAwait(false);
-			}
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { writeChanges }))
-		{
-			throw new UmbrellaFileSystemException("There has been an error clearing the metadata.", exc);
-		}
-	}
+	public Task ClearMetadataAsync(bool writeChanges = true, CancellationToken cancellationToken = default)
+		=> _metadata.ClearMetadataAsync(writeChanges, cancellationToken);
 
 	/// <inheritdoc />
-	public async Task WriteMetadataChangesAsync(CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		ThrowIfIsNew();
-
-		try
-		{
-			if (!await AccessAuthorizor(this, UmbrellaFileOperationType.Update, cancellationToken).ConfigureAwait(false))
-				throw new UmbrellaFileAccessDeniedException(SubPath);
-
-			if (_blobProperties is not null)
-				_ = await Blob.SetMetadataAsync(_blobProperties.Metadata, cancellationToken: cancellationToken).ConfigureAwait(false);
-		}
-		catch (Exception exc) when (Logger.WriteError(exc))
-		{
-			throw new UmbrellaFileSystemException("There has been an error writing the metadata changes.", exc);
-		}
-	}
+	public Task WriteMetadataChangesAsync(CancellationToken cancellationToken = default)
+		=> _metadata.WriteMetadataChangesAsync(cancellationToken);
 
 	/// <inheritdoc />
 	public async Task<TUserId> GetCreatedByIdAsync<TUserId>(CancellationToken cancellationToken = default)
@@ -554,7 +482,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 		{
 			return await GetMetadataValueAsync<TUserId>(UmbrellaFileSystemConstants.CreatedByIdMetadataKey, cancellationToken: cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc))
 		{
 			throw new UmbrellaFileSystemException("There has been an error getting the id.", exc);
 		}
@@ -569,7 +497,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 		{
 			await SetMetadataValueAsync(UmbrellaFileSystemConstants.CreatedByIdMetadataKey, value, writeChanges, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc))
 		{
 			throw new UmbrellaFileSystemException("There has been an error setting the id.", exc);
 		}
@@ -584,7 +512,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 		{
 			return await GetMetadataValueAsync<string>(UmbrellaFileSystemConstants.FileNameMetadataKey, cancellationToken: cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc))
 		{
 			throw new UmbrellaFileSystemException("There has been an error getting the file name.", exc);
 		}
@@ -599,7 +527,7 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 		{
 			await SetMetadataValueAsync(UmbrellaFileSystemConstants.FileNameMetadataKey, value, writeChanges, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc))
 		{
 			throw new UmbrellaFileSystemException("There has been an error setting the file name.", exc);
 		}

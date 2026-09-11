@@ -70,23 +70,35 @@ public class UmbrellaDataverseFileStorageProvider<TOptions> : UmbrellaFileStorag
 			string logicalPath = SanitizeSubPathCore(subpath);
 			string[] parts = logicalPath.TrimStart('/').Split('/');
 
+			if (!string.Equals(parts[0], Options.TableName, StringComparison.OrdinalIgnoreCase))
+				throw new ArgumentException("The directory must belong to the configured Dataverse table.", nameof(subpath));
+
 			if (parts.Length >= 2)
 			{
 				// /tableName/recordId — clear or delete the single record's file
 				if (!Guid.TryParse(parts[1], out Guid recordId))
 					throw new ArgumentException($"The record ID segment '{parts[1]}' in subpath '{subpath}' is not a valid GUID.");
 
-				if (Options.DeleteRecordOnFileDelete)
+				try
 				{
-					await Options.DataverseClient.DeleteAsync(Options.TableName, recordId, cancellationToken).ConfigureAwait(false);
+					if (Options.DeleteRecordOnFileDelete)
+					{
+						await Options.DataverseClient.DeleteAsync(Options.TableName, recordId, cancellationToken).ConfigureAwait(false);
+					}
+					else
+					{
+						var entity = new Entity(Options.TableName, recordId);
+						entity[Options.DataColumnName] = null;
+						entity[Options.FileNameColumnName] = null;
+						await Options.DataverseClient.UpdateAsync(entity, cancellationToken).ConfigureAwait(false);
+					}
 				}
-				else
+				catch (System.ServiceModel.FaultException<OrganizationServiceFault> exc) when (exc.Detail?.ErrorCode == -2147185406)
 				{
-					var entity = new Entity(Options.TableName, recordId);
-					entity[Options.DataColumnName] = null;
-					entity[Options.FileNameColumnName] = null;
-					await Options.DataverseClient.UpdateAsync(entity, cancellationToken).ConfigureAwait(false);
+					// Already absent.
 				}
+
+				logicalPath = $"/{Options.TableName.ToLowerInvariant()}/{recordId:D}";
 			}
 			else
 			{
@@ -103,9 +115,20 @@ public class UmbrellaDataverseFileStorageProvider<TOptions> : UmbrellaFileStorag
 					}
 				};
 
-				EntityCollection results = await Options.DataverseClient.RetrieveMultipleAsync(query, cancellationToken).ConfigureAwait(false);
+				// Collect all pages before deleting so paging is not affected by our mutations.
+				query.PageInfo = new PagingInfo { PageNumber = 1, Count = 5000 };
+				var records = new List<Entity>();
+				while (true)
+				{
+					EntityCollection page = await Options.DataverseClient.RetrieveMultipleAsync(query, cancellationToken).ConfigureAwait(false);
+					records.AddRange(page.Entities);
+					if (!page.MoreRecords)
+						break;
+					query.PageInfo.PageNumber++;
+					query.PageInfo.PagingCookie = page.PagingCookie;
+				}
 
-				foreach (Entity record in results.Entities)
+				foreach (Entity record in records)
 				{
 					Guid recordId = record.Id;
 
@@ -122,8 +145,10 @@ public class UmbrellaDataverseFileStorageProvider<TOptions> : UmbrellaFileStorag
 					}
 				}
 			}
+
+			await DeleteDirectoryMetadataAsync(logicalPath, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem deleting the specified directory.", exc);
 		}
@@ -181,7 +206,7 @@ public class UmbrellaDataverseFileStorageProvider<TOptions> : UmbrellaFileStorag
 					if (string.IsNullOrWhiteSpace(fileName))
 						continue;
 
-					string itemSubPath = $"/{Options.TableName}/{recordId:D}/{fileName}";
+					string itemSubPath = SanitizeSubPathCore($"/{Options.TableName}/{recordId:D}/{fileName}");
 					string? contentType = MimeTypeUtility.GetMimeType(fileName);
 					DateTime? modifiedOn = record.GetAttributeValue<DateTime?>("modifiedon");
 					long? fileSize = string.IsNullOrWhiteSpace(Options.FileSizeColumnName)
@@ -196,7 +221,7 @@ public class UmbrellaDataverseFileStorageProvider<TOptions> : UmbrellaFileStorag
 						Options,
 						AuthorizeAsync,
 						recordId,
-						false);
+						false, MetadataProvider, MetadataNamespace);
 
 					fileInfo.Initialize(null, modifiedOn.HasValue ? new DateTimeOffset(modifiedOn.Value, TimeSpan.Zero) : null, contentType, fileSize);
 
@@ -209,12 +234,22 @@ public class UmbrellaDataverseFileStorageProvider<TOptions> : UmbrellaFileStorag
 				return lstResult;
 			}
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem enumerating the files in the specified directory.", exc);
 		}
 	}
 	#endregion
+
+	/// <inheritdoc />
+	protected override IUmbrellaFileMetadataProvider CreateDefaultMetadataProvider() => new UmbrellaDataverseFileMetadataProvider(GenericTypeConverter);
+
+	/// <inheritdoc />
+	protected override Task<bool> AuthorizeMissingFileDeletionAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken)
+		{
+		Guard.IsNotNull(fileInfo);
+		return ((UmbrellaDataverseFileInfo)fileInfo).AuthorizeMissingFileDeletionAsync(cancellationToken);
+	}
 
 	#region Overridden Methods
 	/// <inheritdoc />
@@ -238,6 +273,8 @@ public class UmbrellaDataverseFileStorageProvider<TOptions> : UmbrellaFileStorag
 
 		if (!Guid.TryParse(recordIdSegment, out Guid recordId))
 			throw new ArgumentException($"The record ID segment '{recordIdSegment}' in subpath '{subpath}' is not a valid GUID.");
+
+		logicalPath = SanitizeSubPathCore($"/{Options.TableName}/{recordId:D}/{fileName}");
 
 		DateTimeOffset? lastModified = null;
 
@@ -286,7 +323,7 @@ public class UmbrellaDataverseFileStorageProvider<TOptions> : UmbrellaFileStorag
 			Options,
 			AuthorizeAsync,
 			recordId,
-			isNew);
+			isNew, MetadataProvider, MetadataNamespace);
 
 		fileInfo.Initialize(null, lastModified, contentType, fileSize);
 

@@ -10,6 +10,12 @@ namespace Umbrella.FileSystem.Abstractions;
 /// </summary>
 public abstract class UmbrellaFileStorageProviderOptionsBase : IServicesResolverUmbrellaOptions, IUmbrellaFileStorageProviderOptions
 {
+	/// <summary>Gets or sets an exclusive metadata backend. Null selects the storage provider's native implementation.</summary>
+	public IUmbrellaFileMetadataProvider? MetadataProvider { get; set; }
+
+	/// <summary>Gets or sets the stable application namespace required for a custom metadata backend.</summary>
+	public string? MetadataNamespace { get; set; }
+
 	/// <summary>
 	/// Gets or sets a value indicating whether access to files that do not have a registered <see cref="IUmbrellaFileAuthorizationHandler"/> should be permitted.
 	/// </summary>

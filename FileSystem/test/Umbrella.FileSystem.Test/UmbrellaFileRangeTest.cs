@@ -1,4 +1,4 @@
-using System.Net.Http;
+﻿using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
 using Azure;
@@ -191,8 +191,12 @@ public class UmbrellaFileRangeTest
 		return file;
 	}
 
-	private static T Construct<T>(params object[] args) => (T)typeof(T).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
-		.Single(x => x.GetParameters().Length == args.Length).Invoke(args);
+	private static T Construct<T>(params object[] args)
+	{
+		object?[] constructorArgs = [.. args, new UmbrellaUnsupportedFileMetadataProvider(), null];
+		return (T)typeof(T).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)
+			.Single(x => x.GetParameters().Length == constructorArgs.Length).Invoke(constructorArgs);
+	}
 	private static async Task<byte[]> ReadAllAsync(Stream source)
 	{
 		using var target = new MemoryStream();

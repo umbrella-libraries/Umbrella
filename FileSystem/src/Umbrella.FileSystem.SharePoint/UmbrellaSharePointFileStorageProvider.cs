@@ -68,23 +68,23 @@ public class UmbrellaSharePointFileStorageProvider<TOptions> : UmbrellaFileStora
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		Guard.IsNotNullOrWhiteSpace(subpath);
-
 		try
 		{
 			string logicalPath = SanitizeSubPathCore(subpath);
-			string spFolderPath = GetSharePointPath(logicalPath);
 			string driveId = await GetDriveIdAsync(cancellationToken).ConfigureAwait(false);
+			try
+			{
+				await Options.GraphServiceClient.Drives[driveId].Root.ItemWithPath(GetSharePointPath(logicalPath))
+					.DeleteAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+			}
+			catch (ODataError error) when (error.ResponseStatusCode == 404)
+			{
+				// Already absent; metadata cleanup is still required.
+			}
 
-			await Options.GraphServiceClient.Drives[driveId].Root
-				.ItemWithPath(spFolderPath)
-				.DeleteAsync(cancellationToken: cancellationToken)
-				.ConfigureAwait(false);
+			await DeleteDirectoryMetadataAsync(logicalPath, cancellationToken).ConfigureAwait(false);
 		}
-		catch (ODataError odataError) when (odataError.ResponseStatusCode == 404)
-		{
-			// Directory doesn't exist — nothing to do.
-		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem deleting the specified directory.", exc);
 		}
@@ -122,7 +122,7 @@ public class UmbrellaSharePointFileStorageProvider<TOptions> : UmbrellaFileStora
 					continue;
 
 				string spItemPath = spFolderPath + "/" + item.Name;
-				string logicalItemPath = GetLogicalPath(spItemPath);
+				string logicalItemPath = SanitizeSubPathCore(GetLogicalPath(spItemPath));
 
 				var fileInfo = new UmbrellaSharePointFileInfo(
 					FileInfoLoggerInstance,
@@ -135,7 +135,7 @@ public class UmbrellaSharePointFileStorageProvider<TOptions> : UmbrellaFileStora
 					Options.GraphServiceClient,
 					driveId,
 					false,
-					Options.DownloadHttpClient);
+					Options.DownloadHttpClient, MetadataProvider, MetadataNamespace);
 
 				await fileInfo.InitializeAsync(cancellationToken, item).ConfigureAwait(false);
 
@@ -151,12 +151,19 @@ public class UmbrellaSharePointFileStorageProvider<TOptions> : UmbrellaFileStora
 		{
 			return Array.Empty<IUmbrellaFileInfo>();
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath }))
 		{
 			throw new UmbrellaFileSystemException("There has been a problem enumerating the files in the specified directory.", exc);
 		}
 	}
 	#endregion
+
+	/// <inheritdoc />
+	protected override Task<bool> AuthorizeMissingFileDeletionAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken)
+		{
+		Guard.IsNotNull(fileInfo);
+		return ((UmbrellaSharePointFileInfo)fileInfo).AuthorizeMissingFileDeletionAsync(cancellationToken);
+	}
 
 	#region Overridden Methods
 	/// <inheritdoc />
@@ -200,7 +207,7 @@ public class UmbrellaSharePointFileStorageProvider<TOptions> : UmbrellaFileStora
 			Options.GraphServiceClient,
 			driveId,
 			isNew,
-			Options.DownloadHttpClient);
+			Options.DownloadHttpClient, MetadataProvider, MetadataNamespace);
 
 		await fileInfo.InitializeAsync(cancellationToken, preLoadedItem).ConfigureAwait(false);
 

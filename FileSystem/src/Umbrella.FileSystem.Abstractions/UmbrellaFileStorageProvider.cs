@@ -58,6 +58,27 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 	/// Gets the options.
 	/// </summary>
 	protected TOptions Options { get; private set; } = null!;
+
+	/// <summary>Gets the backend selected when this provider was initialized.</summary>
+	protected IUmbrellaFileMetadataProvider MetadataProvider { get; private set; } = null!;
+
+	/// <summary>Gets the metadata namespace captured during initialization.</summary>
+	protected string? MetadataNamespace { get; private set; }
+
+	/// <summary>Creates the native metadata backend. Custom file providers may override this factory.</summary>
+	protected virtual IUmbrellaFileMetadataProvider CreateDefaultMetadataProvider() => new UmbrellaUnsupportedFileMetadataProvider();
+
+	/// <summary>Authorizes deletion of metadata whose content is already absent.</summary>
+	protected virtual Task<bool> AuthorizeMissingFileDeletionAsync(IUmbrellaFileInfo fileInfo, CancellationToken cancellationToken)
+		=> AuthorizeAsync(fileInfo, UmbrellaFileOperationType.Delete, cancellationToken);
+
+	/// <summary>Constructs an absent file's metadata identity without creating content or storage containers.</summary>
+	protected virtual Task<IUmbrellaFileInfo?> GetMissingFileInfoAsync(string subpath, CancellationToken cancellationToken)
+		=> GetFileAsync(subpath, true, cancellationToken);
+
+	/// <summary>Cleans metadata after a directory has been completely deleted.</summary>
+	protected Task DeleteDirectoryMetadataAsync(string subpath, CancellationToken cancellationToken)
+		=> MetadataProvider.DeleteDirectoryAsync(MetadataNamespace, SanitizeSubPathCore(subpath), cancellationToken);
 	#endregion
 
 	#region Constructors		
@@ -99,7 +120,12 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 		if (Options is not null)
 			throw new UmbrellaFileSystemException("The options have already been initialized for this instance.");
 
+		Guard.IsNotNull(options);
+		if (options.MetadataProvider is not null)
+			Guard.IsNotNullOrWhiteSpace(options.MetadataNamespace);
 		Options = (TOptions)options;
+		MetadataNamespace = options.MetadataNamespace;
+		MetadataProvider = options.MetadataProvider ?? CreateDefaultMetadataProvider();
 	}
 
 	/// <inheritdoc />
@@ -119,7 +145,7 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 				? throw new UmbrellaFileAccessDeniedException(subpath)
 				: fileInfo;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath }))
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -135,7 +161,7 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 		{
 			return await GetFileAsync(subpath, false, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath }))
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -151,9 +177,19 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 		{
 			IUmbrellaFileInfo? fileInfo = await GetAsync(subpath, cancellationToken).ConfigureAwait(false);
 
-			return fileInfo is null || await fileInfo.DeleteAsync(cancellationToken).ConfigureAwait(false);
+			if (fileInfo is not null)
+				return await fileInfo.DeleteAsync(cancellationToken).ConfigureAwait(false);
+
+			// Construct an identity for cleanup without invoking create authorization.
+			fileInfo = await GetMissingFileInfoAsync(subpath, cancellationToken).ConfigureAwait(false);
+			if (fileInfo is null)
+				throw new UmbrellaFileNotFoundException(subpath);
+			if (!await AuthorizeMissingFileDeletionAsync(fileInfo, cancellationToken).ConfigureAwait(false))
+				throw new UmbrellaFileAccessDeniedException(subpath);
+			await MetadataProvider.DeleteFileAsync(new(fileInfo, MetadataNamespace, fileInfo.SubPath), cancellationToken).ConfigureAwait(false);
+			return true;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath }))
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -169,7 +205,7 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 		{
 			return await fileInfo.DeleteAsync(cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { fileInfo }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { fileInfo }))
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -190,7 +226,7 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 				? throw new UmbrellaFileNotFoundException(sourceSubpath)
 				: await sourceFile.CopyAsync(destinationSubpath, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceSubpath, destinationSubpath }) && exc is not UmbrellaFileNotFoundException)
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { sourceSubpath, destinationSubpath }) && exc is not UmbrellaFileNotFoundException)
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -212,7 +248,7 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 				? throw new UmbrellaFileNotFoundException(destinationSubpath)
 				: await sourceFile.CopyAsync(destinationFile, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceFile, destinationSubpath }) && exc is not UmbrellaFileNotFoundException)
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { sourceFile, destinationSubpath }) && exc is not UmbrellaFileNotFoundException)
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -230,7 +266,7 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 		{
 			return await sourceFile.CopyAsync(destinationFile, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceFile, destinationFile }) && exc is not UmbrellaFileNotFoundException)
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { sourceFile, destinationFile }) && exc is not UmbrellaFileNotFoundException)
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -251,7 +287,7 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 				? throw new UmbrellaFileNotFoundException(sourceSubpath)
 				: await sourceFile.MoveAsync(destinationSubpath, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceSubpath, destinationSubpath }) && exc is not UmbrellaFileNotFoundException)
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { sourceSubpath, destinationSubpath }) && exc is not UmbrellaFileNotFoundException)
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -273,7 +309,7 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 				? throw new UmbrellaFileNotFoundException(destinationSubpath)
 				: await sourceFile.MoveAsync(destinationFile, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceFile, destinationSubpath }) && exc is not UmbrellaFileNotFoundException)
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { sourceFile, destinationSubpath }) && exc is not UmbrellaFileNotFoundException)
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -291,7 +327,7 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 		{
 			return await sourceFile.MoveAsync(destinationFile, cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { sourceFile, destinationFile }) && exc is not UmbrellaFileNotFoundException)
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { sourceFile, destinationFile }) && exc is not UmbrellaFileNotFoundException)
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -311,7 +347,7 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 
 			return file;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath, bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath, bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -331,7 +367,7 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 
 			return file;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath, bufferSizeOverride }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath, bufferSizeOverride }))
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
@@ -349,7 +385,7 @@ public abstract partial class UmbrellaFileStorageProvider<TFileInfo, TOptions>
 
 			return file is not null;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { subpath }))
+		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc, new { subpath }))
 		{
 			throw new UmbrellaFileSystemException(exc.Message, exc);
 		}
