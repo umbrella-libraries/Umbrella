@@ -97,6 +97,13 @@
         "server",
         "start"
       ]
+    },
+    "atlassian": {
+      "type": "http",
+      "url": "https://mcp.atlassian.com/v2/mcp",
+      "headers": {
+        "Authorization": "${ATLASSIAN_MCP_AUTH_HEADER}"
+      }
     }
   },
   "servers": {
@@ -197,6 +204,13 @@
         "server",
         "start"
       ]
+    },
+    "atlassian": {
+      "type": "http",
+      "url": "https://mcp.atlassian.com/v2/mcp",
+      "headers": {
+        "Authorization": "${ATLASSIAN_MCP_AUTH_HEADER}"
+      }
     }
   }
 }

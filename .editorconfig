@@ -22,6 +22,15 @@ charset = utf-8-bom
 indent_size = 4
 charset = utf-8
 
+# JSON files
+# JSON in this repo is written by tooling (PowerShell ConvertTo-Json, the dotnet
+# CLI, npm) which always emits spaces and no BOM, so it cannot honour the
+# repo-wide tab default. Match the tooling rather than fight it.
+[*.json]
+indent_style = space
+indent_size = 2
+charset = utf-8
+
 ###############################
 # .NET Coding Conventions     #
 ###############################
