@@ -246,11 +246,27 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 		if (!string.IsNullOrWhiteSpace(media))
 			source.Attributes.Add("media", media);
 
-		source.Attributes.Add("type", format.ToMimeTypeString());
+		string? mimeType = GetSourceMimeType(format);
+
+		if (!string.IsNullOrWhiteSpace(mimeType))
+			source.Attributes.Add("type", mimeType);
+
 		source.Attributes.Add("srcset", GetSrcSetValue(sourcePath, format));
 
 		return source;
 	}
+
+	/// <summary>
+	/// Gets the value of the <c>type</c> attribute for a generated <![CDATA[<source>]]> tag in the specified format.
+	/// </summary>
+	/// <remarks>
+	/// Browsers only use the type to skip a source in a format they cannot decode, so it is optional. A source whose format cannot be
+	/// guaranteed, for example one resized by an external service that ignores the requested format, should return <see langword="null"/>
+	/// to omit the attribute rather than declare a format the bytes may not match.
+	/// </remarks>
+	/// <param name="format">The image format the source was generated for.</param>
+	/// <returns>The mime type, or <see langword="null"/> to omit the attribute.</returns>
+	protected virtual string? GetSourceMimeType(DynamicImageFormat format) => format.ToMimeTypeString();
 
 	/// <summary>
 	/// Gets the value of the <c>srcset</c> attribute for the specified source path and format using the current tag helper configuration.

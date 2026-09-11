@@ -25,12 +25,27 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
 [HtmlTargetElement("dynamic-image", Attributes = "image,width-request,height-request", TagStructure = TagStructure.NormalOrSelfClosing)]
 public class DynamicImageTagHelper : DynamicImageTagHelperBase
 {
+	/// <summary>
+	/// The name of the attribute used to specify the value of <see cref="PictureClass"/>.
+	/// </summary>
+	protected const string PictureClassAttributeName = "picture-class";
+
 	private DynamicImagePictureContext? _pictureContext;
 
 	/// <summary>
 	/// Gets the name of the output tag.
 	/// </summary>
 	protected override string OutputTagName => "picture";
+
+	/// <summary>
+	/// Gets or sets the value of the <c>class</c> attribute applied to the generated <c>&lt;picture&gt;</c> element.
+	/// </summary>
+	/// <remarks>
+	/// Every other attribute declared on the element, including <c>class</c>, is moved onto the generated <c>&lt;img&gt;</c>, so this is the
+	/// only way to style the wrapper directly.
+	/// </remarks>
+	[HtmlAttributeName(PictureClassAttributeName)]
+	public string? PictureClass { get; set; }
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="DynamicImageTagHelper"/> class.
@@ -158,6 +173,11 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 
 		_ = content.AppendHtml(image);
 		output.Attributes.Clear();
+
+		// The attributes have just been moved onto the img, so this is the only attribute the picture itself carries.
+		if (!string.IsNullOrWhiteSpace(PictureClass))
+			output.Attributes.SetAttribute("class", PictureClass.Trim());
+
 		output.TagName = OutputTagName;
 		output.TagMode = TagMode.StartTagAndEndTag;
 		_ = output.Content.SetHtmlContent(content);

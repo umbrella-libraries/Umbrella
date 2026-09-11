@@ -555,6 +555,90 @@ public class DynamicImageTagHelperTest
 	}
 
 	[Fact]
+	public async Task ProcessAsync_PictureClassIsAppliedToThePictureAndClassToTheImage()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		tagHelper.PictureClass = " hero__picture ";
+		var (ctx, output) = CreateContextAndOutput();
+		output.Attributes.Add("class", "hero__image");
+		tagHelper.Init(ctx);
+
+		await tagHelper.ProcessAsync(ctx, output);
+
+		// The class declared on the element belongs to the img along with every other passthrough attribute, so the wrapper needs an
+		// attribute of its own.
+		string html = RenderOutput(output);
+		Assert.StartsWith("<picture class=\"hero__picture\">", html, StringComparison.Ordinal);
+		Assert.Contains("<img alt=\"hello\" class=\"hero__image\"", html, StringComparison.Ordinal);
+		Assert.DoesNotContain("hero__picture\" src", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_ExternalUrlPictureClassIsApplied()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		tagHelper.PictureClass = "hero__picture";
+		var (ctx, output) = CreateContextAndOutput("https://cdn.example.com/images/test.jpg");
+		tagHelper.Init(ctx);
+
+		await tagHelper.ProcessAsync(ctx, output);
+
+		string html = RenderOutput(output);
+		Assert.StartsWith("<picture class=\"hero__picture\">", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_WithoutPictureClassThePictureHasNoAttributes()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		var (ctx, output) = CreateContextAndOutput();
+		tagHelper.Init(ctx);
+
+		await tagHelper.ProcessAsync(ctx, output);
+
+		string html = RenderOutput(output);
+		Assert.StartsWith("<picture><", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_SourceTypeIsOmittedWhenTheMimeTypeIsUnknown()
+	{
+		// The parent's own format sources still declare their type, so they are turned off to isolate the art directed sources.
+		DynamicImageTagHelper tagHelper = CreateTagHelper(new DynamicImageTagHelperOptions { PictureSourceFormats = [] });
+		ChildSource child = CreateChildSource(CreateUnknownMimeTypePictureSourceTagHelper(), "(min-width: 1200px)", widthRequest: 600, heightRequest: 800);
+
+		string html = await RenderWithChildrenAsync(tagHelper, children: child);
+
+		// The type only lets a browser skip a format it cannot decode, so a source that cannot vouch for its format leaves it off rather
+		// than declaring one the bytes may not match.
+		Assert.Contains("<source media=\"(min-width: 1200px)\" srcset=\"/dynamicimage/600/800/Crop/jpg/images/test.webp\"", html, StringComparison.Ordinal);
+		Assert.DoesNotContain("type=", html, StringComparison.Ordinal);
+	}
+
+	private sealed class UnknownMimeTypePictureSourceTagHelper(
+		ILogger<DynamicImagePictureSourceTagHelper> logger,
+		IUmbrellaWebHostingEnvironment umbrellaHostingEnvironment,
+		IMemoryCache cache,
+		ICacheKeyUtility cacheKeyUtility,
+		IResponsiveImageHelper responsiveImageHelper,
+		IDynamicImageUtility dynamicImageUtility,
+		DynamicImageTagHelperOptions dynamicImageTagHelperOptions)
+		: DynamicImagePictureSourceTagHelper(logger, umbrellaHostingEnvironment, cache, cacheKeyUtility, responsiveImageHelper, dynamicImageUtility, dynamicImageTagHelperOptions)
+	{
+		protected override string? GetSourceMimeType(DynamicImageFormat format) => null;
+	}
+
+	private static UnknownMimeTypePictureSourceTagHelper CreateUnknownMimeTypePictureSourceTagHelper()
+		=> new(
+			CoreUtilitiesMocks.CreateLogger<DynamicImagePictureSourceTagHelper>(),
+			Mocks.CreateUmbrellaWebHostingEnvironment(),
+			Mocks.CreateMemoryCache(),
+			CoreUtilitiesMocks.CreateCacheKeyUtility(),
+			CoreUtilitiesMocks.CreateResponsiveImageHelper(),
+			new DynamicImageUtility(CoreUtilitiesMocks.CreateLogger<DynamicImageUtility>()),
+			new DynamicImageTagHelperOptions());
+
+	[Fact]
 	public async Task ProcessAsync_PixelDensityCandidatesUseTheApplyPixelDensityOverride()
 	{
 		QueryStringDynamicImageTagHelper tagHelper = CreateTagHelper<QueryStringDynamicImageTagHelper>();
