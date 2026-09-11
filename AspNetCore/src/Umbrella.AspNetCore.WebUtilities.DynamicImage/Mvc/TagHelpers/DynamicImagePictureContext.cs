@@ -71,14 +71,23 @@ public sealed class DynamicImagePictureContext
 	public required string? SizeWidths { get; init; }
 
 	/// <summary>
-	/// Gets the normalised X coordinate of the focal point of the parent image.
+	/// Gets or sets the normalised X coordinate of the focal point of the parent image.
 	/// </summary>
-	public required double? FocalPointX { get; init; }
+	/// <remarks>
+	/// Settable, unlike the other inherited values, because a parent that reads its focal point from image metadata cannot know it when this
+	/// context is created. <see cref="DynamicImageTagHelper.Init(TagHelperContext)" /> runs before the metadata has been fetched, so a parent
+	/// obtaining one asynchronously assigns it here before executing its child content, and any source that has not declared its own then
+	/// inherits it. Assigning it after the child content has been executed has no effect on the sources already generated.
+	/// </remarks>
+	public required double? FocalPointX { get; set; }
 
 	/// <summary>
-	/// Gets the normalised Y coordinate of the focal point of the parent image.
+	/// Gets or sets the normalised Y coordinate of the focal point of the parent image.
 	/// </summary>
-	public required double? FocalPointY { get; init; }
+	/// <remarks>
+	/// See <see cref="FocalPointX" />.
+	/// </remarks>
+	public required double? FocalPointY { get; set; }
 
 	/// <summary>
 	/// Gets the source tags contributed by nested <see cref="DynamicImagePictureSourceTagHelper"/> instances, in declaration order.
