@@ -26,9 +26,19 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage.Mvc.TagHelpers;
 public class DynamicImageTagHelper : DynamicImageTagHelperBase
 {
 	/// <summary>
-	/// The name of the attribute used to specify the value of <see cref="PictureClass"/>.
+	/// The attributes that describe the image itself rather than the element wrapping it, and are therefore rendered on the generated
+	/// <c>&lt;img&gt;</c> even when declared in the view.
 	/// </summary>
-	protected const string PictureClassAttributeName = "picture-class";
+	/// <remarks>
+	/// These are the content attributes HTML defines on <c>img</c>, plus the accessibility attributes, which belong on the element carrying
+	/// the image role. Everything else a view declares - <c>class</c>, <c>id</c>, <c>style</c>, <c>title</c>, <c>data-</c> attributes - is
+	/// left on the <c>&lt;picture&gt;</c>, which is the element the view wrote.
+	/// </remarks>
+	private static readonly HashSet<string> _imageAttributeNames = new(StringComparer.OrdinalIgnoreCase)
+	{
+		"alt", "crossorigin", "decoding", "fetchpriority", "height", "ismap", "loading",
+		"longdesc", "referrerpolicy", "sizes", "src", "srcset", "usemap", "width"
+	};
 
 	private DynamicImagePictureContext? _pictureContext;
 
@@ -38,14 +48,14 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 	protected override string OutputTagName => "picture";
 
 	/// <summary>
-	/// Gets or sets the value of the <c>class</c> attribute applied to the generated <c>&lt;picture&gt;</c> element.
+	/// Gets the attributes applied to the generated <c>&lt;img&gt;</c>.
 	/// </summary>
 	/// <remarks>
-	/// Every other attribute declared on the element, including <c>class</c>, is moved onto the generated <c>&lt;img&gt;</c>, so this is the
-	/// only way to style the wrapper directly.
+	/// Everything this tag helper generates for the image itself - the <c>src</c>, the <c>srcset</c>, the loading hints - belongs here rather
+	/// than on the output, because the output is the <c>&lt;picture&gt;</c>. Anything the view declared on the element stays on the output and
+	/// is therefore rendered on the <c>&lt;picture&gt;</c>, which is the element the view actually wrote.
 	/// </remarks>
-	[HtmlAttributeName(PictureClassAttributeName)]
-	public string? PictureClass { get; set; }
+	protected TagHelperAttributeList ImageAttributes { get; } = [];
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="DynamicImageTagHelper"/> class.
@@ -126,19 +136,19 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 
 		if (isExternalUrl)
 		{
-			output.Attributes.SetAttribute("src", sourcePath);
-			output.Attributes.SetAttribute("srcset", GetPixelDensitySrcSetValue(sourcePath));
+			ImageAttributes.SetAttribute("src", sourcePath);
+			ImageAttributes.SetAttribute("srcset", GetPixelDensitySrcSetValue(sourcePath));
 		}
 		else
 		{
-			ApplyResolvedSourcePath(output, sourcePath);
-			output.Attributes.SetAttribute("srcset", GetSrcSetValue(sourcePath, ImageFormat));
+			ApplyResolvedSourcePath(output, ImageAttributes, sourcePath);
+			ImageAttributes.SetAttribute("srcset", GetSrcSetValue(sourcePath, ImageFormat));
 		}
 
 		if (ImageLazyLoading)
 		{
-			output.Attributes.SetAttribute("loading", "lazy");
-			output.Attributes.SetAttribute("decoding", "async");
+			ImageAttributes.SetAttribute("loading", "lazy");
+			ImageAttributes.SetAttribute("decoding", "async");
 		}
 
 		// Executing the child content is what runs any nested dynamic-source tag helpers. They suppress their own output and instead
@@ -163,25 +173,47 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 				_ = content.AppendHtml(BuildSourceTag(sourcePath, format));
 		}
 
+		// Everything the view declared is on the output, which is the picture. Those that describe the image rather than the wrapper are moved
+		// across, so that alt in particular lands where it means something. The rest stay where the view put them.
+		foreach (TagHelperAttribute attribute in output.Attributes.Where(x => IsImageAttribute(x.Name)).ToArray())
+		{
+			// Anything already generated wins. The declared src is the path the resized URLs were derived from, not a value to render.
+			if (!ImageAttributes.ContainsName(attribute.Name))
+				ImageAttributes.SetAttribute(attribute);
+
+			_ = output.Attributes.Remove(attribute);
+		}
+
 		var image = new TagBuilder("img")
 		{
 			TagRenderMode = TagRenderMode.SelfClosing
 		};
 
-		foreach (TagHelperAttribute attribute in output.Attributes)
+		foreach (TagHelperAttribute attribute in ImageAttributes)
 			image.Attributes[attribute.Name] = attribute.Value?.ToString() ?? string.Empty;
 
 		_ = content.AppendHtml(image);
-		output.Attributes.Clear();
-
-		// The attributes have just been moved onto the img, so this is the only attribute the picture itself carries.
-		if (!string.IsNullOrWhiteSpace(PictureClass))
-			output.Attributes.SetAttribute("class", PictureClass.Trim());
 
 		output.TagName = OutputTagName;
 		output.TagMode = TagMode.StartTagAndEndTag;
 		_ = output.Content.SetHtmlContent(content);
 	}
+
+	/// <summary>
+	/// Determines whether an attribute declared in the view describes the image rather than the <c>&lt;picture&gt;</c> wrapping it, and should
+	/// therefore be rendered on the generated <c>&lt;img&gt;</c>.
+	/// </summary>
+	/// <param name="name">The attribute name.</param>
+	/// <returns><see langword="true" /> if the attribute belongs on the image; otherwise <see langword="false" />.</returns>
+	/// <remarks>
+	/// Accessibility attributes are included because the image is the element carrying the role, so a label or description declared in the
+	/// view has to travel with it rather than being left on a wrapper that conveys nothing.
+	/// </remarks>
+	protected virtual bool IsImageAttribute(string name)
+		=> !string.IsNullOrEmpty(name)
+			&& (_imageAttributeNames.Contains(name)
+				|| name.StartsWith("aria-", StringComparison.OrdinalIgnoreCase)
+				|| name.Equals("role", StringComparison.OrdinalIgnoreCase));
 
 	/// <summary>
 	/// Resolves the source path of the image described by the specified tag helper context.

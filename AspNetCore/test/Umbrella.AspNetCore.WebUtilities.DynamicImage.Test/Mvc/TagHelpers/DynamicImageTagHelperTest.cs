@@ -555,30 +555,61 @@ public class DynamicImageTagHelperTest
 	}
 
 	[Fact]
-	public async Task ProcessAsync_PictureClassIsAppliedToThePictureAndClassToTheImage()
+	public async Task ProcessAsync_DeclaredClassIsAppliedToThePictureAndNotTheImage()
 	{
 		DynamicImageTagHelper tagHelper = CreateTagHelper();
-		tagHelper.PictureClass = " hero__picture ";
 		var (ctx, output) = CreateContextAndOutput();
-		output.Attributes.Add("class", "hero__image");
+		output.Attributes.Add("class", "hero__picture");
 		tagHelper.Init(ctx);
 
 		await tagHelper.ProcessAsync(ctx, output);
 
-		// The class declared on the element belongs to the img along with every other passthrough attribute, so the wrapper needs an
-		// attribute of its own.
+		// The element the view wrote is the picture, so what it declared stays there.
 		string html = RenderOutput(output);
 		Assert.StartsWith("<picture class=\"hero__picture\">", html, StringComparison.Ordinal);
-		Assert.Contains("<img alt=\"hello\" class=\"hero__image\"", html, StringComparison.Ordinal);
-		Assert.DoesNotContain("hero__picture\" src", html, StringComparison.Ordinal);
+		Assert.DoesNotContain("<img class=", html, StringComparison.Ordinal);
 	}
 
 	[Fact]
-	public async Task ProcessAsync_ExternalUrlPictureClassIsApplied()
+	public async Task ProcessAsync_DeclaredImageAttributesAreAppliedToTheImage()
 	{
 		DynamicImageTagHelper tagHelper = CreateTagHelper();
-		tagHelper.PictureClass = "hero__picture";
+		var (ctx, output) = CreateContextAndOutput();
+		output.Attributes.Add("aria-describedby", "caption");
+		tagHelper.Init(ctx);
+
+		await tagHelper.ProcessAsync(ctx, output);
+
+		// alt and the accessibility attributes describe the image rather than the wrapper, so they travel with it.
+		string html = RenderOutput(output);
+		Assert.StartsWith("<picture>", html, StringComparison.Ordinal);
+		Assert.Contains("alt=\"hello\"", html, StringComparison.Ordinal);
+		Assert.Contains("aria-describedby=\"caption\"", html, StringComparison.Ordinal);
+		Assert.DoesNotContain("<picture alt", html, StringComparison.Ordinal);
+		Assert.DoesNotContain("<picture aria-describedby", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_DeclaredDataAttributeIsAppliedToThePicture()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
+		var (ctx, output) = CreateContextAndOutput();
+		output.Attributes.Add("data-index", "2");
+		tagHelper.Init(ctx);
+
+		await tagHelper.ProcessAsync(ctx, output);
+
+		// A data attribute addresses the element the view wrote, so a selector combining it with the class still matches.
+		string html = RenderOutput(output);
+		Assert.StartsWith("<picture data-index=\"2\">", html, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public async Task ProcessAsync_ExternalUrlDeclaredClassIsApplied()
+	{
+		DynamicImageTagHelper tagHelper = CreateTagHelper();
 		var (ctx, output) = CreateContextAndOutput("https://cdn.example.com/images/test.jpg");
+		output.Attributes.Add("class", "hero__picture");
 		tagHelper.Init(ctx);
 
 		await tagHelper.ProcessAsync(ctx, output);
@@ -588,7 +619,7 @@ public class DynamicImageTagHelperTest
 	}
 
 	[Fact]
-	public async Task ProcessAsync_WithoutPictureClassThePictureHasNoAttributes()
+	public async Task ProcessAsync_WithoutDeclaredAttributesThePictureHasNone()
 	{
 		DynamicImageTagHelper tagHelper = CreateTagHelper();
 		var (ctx, output) = CreateContextAndOutput();

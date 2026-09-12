@@ -174,20 +174,26 @@ public abstract class DynamicImageTagHelperBase : ResponsiveImageTagHelper
 	}
 
 	/// <summary>
-	/// Sets the <c>src</c> attribute and tag name of the output from an already resolved source path.
+	/// Sets the tag name of the output and the <c>src</c> attribute of the image from an already resolved source path.
 	/// </summary>
 	/// <param name="output">A stateful HTML element used to generate an HTML tag.</param>
+	/// <param name="imageAttributes">The attributes of the image the <c>src</c> is applied to.</param>
 	/// <param name="sourcePath">The source path with the configured prefix already removed.</param>
-	protected void ApplyResolvedSourcePath(TagHelperOutput output, string sourcePath)
+	/// <remarks>
+	/// The <c>src</c> is applied to <paramref name="imageAttributes" /> rather than to the output because the two are not always the same
+	/// element. Where the output is a wrapper, it carries what the view declared and the image carries what this tag helper generated.
+	/// </remarks>
+	protected void ApplyResolvedSourcePath(TagHelperOutput output, TagHelperAttributeList imageAttributes, string sourcePath)
 	{
 		Guard.IsNotNull(output);
+		Guard.IsNotNull(imageAttributes);
 		Guard.IsNotNullOrWhiteSpace(sourcePath);
 
 		ValidateSizeRequests();
 
 		DynamicImageOptions options = CreateDynamicImageOptions(sourcePath, WidthRequest, HeightRequest);
 
-		output.Attributes.SetAttribute("src", ResolveImageUrl(GenerateVirtualPath(options)));
+		imageAttributes.SetAttribute("src", ResolveImageUrl(GenerateVirtualPath(options)));
 		output.TagName = OutputTagName;
 	}
 
