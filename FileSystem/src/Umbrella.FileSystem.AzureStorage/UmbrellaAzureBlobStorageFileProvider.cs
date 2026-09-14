@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -49,10 +50,18 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 
 	#region Private Static Members
 	private static readonly char[] _directorySeparatorArray = ['/'];
+
+	/// <summary>
+	/// Azure guarantees a deleted container name cannot be reused for at least 30 seconds. Reads of blobs inside a
+	/// container deleted by this provider are suppressed for that period because the blobs can continue to report as
+	/// existing until the asynchronous deletion completes.
+	/// </summary>
+	private static readonly long _containerDeletionSuppressionTicks = 30 * Stopwatch.Frequency;
 	#endregion
 
 	#region Private Members
 	private readonly SemaphoreSlim _containerCacheLock = new(1, 1);
+	private readonly ConcurrentDictionary<string, long> _containerDeletionSuppressions = new();
 	#endregion
 
 	#region Protected Properties
@@ -93,6 +102,7 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 		try
 		{
 			ContainerResolutionCache?.Clear();
+			_containerDeletionSuppressions.Clear();
 		}
 		catch (Exception exc) when (exc is not OperationCanceledException && Logger.WriteError(exc))
 		{
@@ -131,8 +141,9 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 				// Just delete the container
 				_ = await container.DeleteIfExistsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
-				// Remove from the resolution cache.
-				_ = (ContainerResolutionCache?.TryRemove(containerName, out bool success));
+				// Azure removes the container asynchronously, so blobs inside it can continue to report as existing
+				// for a period after this call returns. Suppress reads of them until the reuse window has elapsed.
+				await SuppressContainerAsync(containerName, cancellationToken).ConfigureAwait(false);
 			}
 			else
 			{
@@ -170,6 +181,10 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 			string containerName = UmbrellaAzureBlobStorageFileProvider<TOptions>.NormalizeContainerName(parts[0]);
 
 			BlobContainerClient container = ServiceClient.GetBlobContainerClient(containerName);
+
+			// Keep enumeration consistent with GetAsync and ExistsAsync while the container is being deleted.
+			if (IsContainerSuppressed(containerName))
+				return Array.Empty<IUmbrellaFileInfo>();
 
 			if (!await container.ExistsAsync(cancellationToken).ConfigureAwait(false))
 				return Array.Empty<IUmbrellaFileInfo>();
@@ -263,6 +278,10 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 				{
 					_ = await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
+					// Re-creating the container supersedes any suppression recorded by an earlier delete. This runs under
+					// the same lock as SuppressContainerAsync so the two cannot interleave.
+					_ = _containerDeletionSuppressions.TryRemove(containerName, out _);
+
 					// The value can be anything here but we need to use ConcurrentDictioary because there isn't a ConcurrentHashSet type.
 					// Could implement our own locking mechanism around a HashSet but not worth it. Maybe consider in the future or see TODO above.
 					_ = ContainerResolutionCache.TryAdd(containerName, true);
@@ -275,6 +294,11 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 		}
 
 		BlobClient blob = container.GetBlobClient(blobName);
+
+		// A container deleted through this provider is reaped asynchronously by Azure. Until that completes, blobs inside
+		// it can still report as existing, so treat them as gone for the duration of the reuse window.
+		if (!isNew && IsContainerSuppressed(containerName))
+			return null;
 
 		// The call to ExistsAsync should force the properties of the blob to be populated
 		if (!isNew && !await blob.ExistsAsync(cancellationToken).ConfigureAwait(false))
@@ -306,6 +330,38 @@ public class UmbrellaAzureBlobStorageFileProvider<TOptions> : UmbrellaFileStorag
 
 	#region Private Methods
 	private static string NormalizeContainerName(string containerName) => containerName.TrimToLowerInvariant();
+
+	private bool IsContainerSuppressed(string containerName)
+	{
+		if (!_containerDeletionSuppressions.TryGetValue(containerName, out long expiresAt))
+			return false;
+
+		if (Stopwatch.GetTimestamp() < expiresAt)
+			return true;
+
+		// The reuse window has elapsed, so stop suppressing and let storage be the source of truth again. Remove only if
+		// the entry still holds the timestamp just read, so a suppression written concurrently by DeleteDirectoryAsync
+		// is not discarded. The ICollection form is a compare-and-remove and is the only one available on netstandard2.0.
+		var expiredEntry = new KeyValuePair<string, long>(containerName, expiresAt);
+		_ = ((ICollection<KeyValuePair<string, long>>)_containerDeletionSuppressions).Remove(expiredEntry);
+
+		return false;
+	}
+
+	private async Task SuppressContainerAsync(string containerName, CancellationToken cancellationToken)
+	{
+		await _containerCacheLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+		try
+		{
+			_ = (ContainerResolutionCache?.TryRemove(containerName, out bool _));
+			_containerDeletionSuppressions[containerName] = Stopwatch.GetTimestamp() + _containerDeletionSuppressionTicks;
+		}
+		finally
+		{
+			_ = _containerCacheLock.Release();
+		}
+	}
 	#endregion
 
 	#region IDisposable Support
