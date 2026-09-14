@@ -123,7 +123,7 @@
     <PackageVersion Include="Microsoft.Owin.Host.SystemWeb" Version="4.2.3" />
     <PackageVersion Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.27" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.0" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.0" />
     <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.7.23" />
     <PackageVersion Include="Moq" Version="4.20.72" />
@@ -137,7 +137,7 @@
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
     <PackageVersion Include="SkiaSharp" Version="4.152.0" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="4.152.0" />
-    <PackageVersion Include="StackExchange.Redis" Version="3.2.0" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.2.1" />
     <PackageVersion Include="System.Buffers" Version="4.6.1" />
     <PackageVersion Include="System.CommandLine" Version="2.0.12" />
     <PackageVersion Include="System.ComponentModel.Annotations" Version="5.0.0" />
@@ -154,9 +154,9 @@
     <PackageVersion Include="Xamarin.CommunityToolkit" Version="2.0.6" />
     <PackageVersion Include="Xamarin.Essentials" Version="1.8.1" />
     <PackageVersion Include="Xamarin.Forms" Version="5.0.0.2662" />
-    <PackageVersion Include="xunit.v3.assert" Version="4.0.0" />
-    <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.0" />
-    <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.0" />
+    <PackageVersion Include="xunit.v3.assert" Version="4.0.1" />
+    <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.1" />
+    <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.1" />
     <PackageVersion Include="Xunit.v3.Priority" Version="1.1.18" />
   </ItemGroup>
   <ItemGroup>
