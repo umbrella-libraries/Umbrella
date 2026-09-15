@@ -63,6 +63,64 @@ public sealed class UmbrellaDynamicImageTest
 	}
 
 	[Fact]
+	public async Task GeneratedImageAttributesOverrideAdditionalAttributes()
+	{
+		string html = await RenderAsync(additionalAttributes: new Dictionary<string, object>
+		{
+			["src"] = "/images/declared.jpg",
+			["srcset"] = "declared-srcset",
+			["loading"] = "eager",
+			["decoding"] = "sync",
+			["alt"] = "Description",
+			["data-test"] = "preserved"
+		});
+
+		string imageHtml = GetImageHtml(html);
+		string generatedUrl = "/dynamicimage/100/50/Crop/jpg/images/test.jpg";
+		Assert.Contains($"src=\"{generatedUrl}\"", imageHtml, StringComparison.Ordinal);
+		Assert.Contains($"srcset=\"{generatedUrl}\"", imageHtml, StringComparison.Ordinal);
+		Assert.Contains("loading=\"lazy\"", imageHtml, StringComparison.Ordinal);
+		Assert.Contains("decoding=\"async\"", imageHtml, StringComparison.Ordinal);
+		Assert.Contains("alt=\"Description\"", imageHtml, StringComparison.Ordinal);
+		Assert.Contains("data-test=\"preserved\"", imageHtml, StringComparison.Ordinal);
+		Assert.DoesNotContain("declared-srcset", imageHtml, StringComparison.Ordinal);
+		Assert.DoesNotContain("loading=\"eager\"", imageHtml, StringComparison.Ordinal);
+		Assert.DoesNotContain("decoding=\"sync\"", imageHtml, StringComparison.Ordinal);
+		Assert.Equal(1, imageHtml.Split(" src=\"").Length - 1);
+		Assert.Equal(1, imageHtml.Split(" srcset=\"").Length - 1);
+		Assert.Equal(1, imageHtml.Split(" loading=\"").Length - 1);
+		Assert.Equal(1, imageHtml.Split(" decoding=\"").Length - 1);
+	}
+
+	[Fact]
+	public async Task AdditionalImageAttributesRemainWhenNoReplacementIsGenerated()
+	{
+		string html = await RenderAsync(
+			url: "https://cdn.example.com/images/test.jpg",
+			lazyLoadingEnabled: false,
+			additionalAttributes: new Dictionary<string, object>
+			{
+				["src"] = "https://declared.example.com/image.jpg",
+				["srcset"] = "declared-srcset",
+				["loading"] = "eager",
+				["decoding"] = "sync",
+				["class"] = "image-class"
+			});
+
+		string imageHtml = GetImageHtml(html);
+		Assert.Contains("src=\"https://cdn.example.com/images/test.jpg\"", imageHtml, StringComparison.Ordinal);
+		Assert.Contains("srcset=\"declared-srcset\"", imageHtml, StringComparison.Ordinal);
+		Assert.Contains("loading=\"eager\"", imageHtml, StringComparison.Ordinal);
+		Assert.Contains("decoding=\"sync\"", imageHtml, StringComparison.Ordinal);
+		Assert.Contains("class=\"image-class\"", imageHtml, StringComparison.Ordinal);
+		Assert.DoesNotContain("https://declared.example.com/image.jpg", imageHtml, StringComparison.Ordinal);
+		Assert.Equal(1, imageHtml.Split(" src=\"").Length - 1);
+		Assert.Equal(1, imageHtml.Split(" srcset=\"").Length - 1);
+		Assert.Equal(1, imageHtml.Split(" loading=\"").Length - 1);
+		Assert.Equal(1, imageHtml.Split(" decoding=\"").Length - 1);
+	}
+
+	[Fact]
 	public async Task Art_directed_sources_render_before_the_format_sources_and_the_image()
 	{
 		string html = await RenderAsync(childSources: [new ArtDirectedSource("(max-width: 599px)", 600, 800)]);
@@ -253,12 +311,22 @@ public sealed class UmbrellaDynamicImageTest
 		public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; init; }
 	}
 
+	private static string GetImageHtml(string html)
+	{
+		int startIndex = html.IndexOf("<img", StringComparison.Ordinal);
+		int endIndex = html.IndexOf('>', startIndex);
+
+		return html[startIndex..(endIndex + 1)];
+	}
+
 	private static Task<string> RenderAsync(
 		UmbrellaDynamicImageOptions? options = null,
 		string url = "/images/test.jpg",
 		string? versionToken = null,
-		IReadOnlyCollection<ArtDirectedSource>? childSources = null)
-		=> RenderAsync<UmbrellaDynamicImage>(options, url, versionToken, childSources);
+		IReadOnlyCollection<ArtDirectedSource>? childSources = null,
+		bool lazyLoadingEnabled = true,
+		IReadOnlyDictionary<string, object>? additionalAttributes = null)
+		=> RenderAsync<UmbrellaDynamicImage>(options, url, versionToken, childSources, lazyLoadingEnabled, additionalAttributes);
 
 	private static Task<string> RenderAsync<TImage>(
 		string url,
@@ -270,7 +338,9 @@ public sealed class UmbrellaDynamicImageTest
 		UmbrellaDynamicImageOptions? options,
 		string url,
 		string? versionToken,
-		IReadOnlyCollection<ArtDirectedSource>? childSources)
+		IReadOnlyCollection<ArtDirectedSource>? childSources,
+		bool lazyLoadingEnabled = true,
+		IReadOnlyDictionary<string, object>? additionalAttributes = null)
 		where TImage : UmbrellaDynamicImage
 	{
 		var services = new ServiceCollection();
@@ -287,7 +357,8 @@ public sealed class UmbrellaDynamicImageTest
 			[nameof(UmbrellaDynamicImage.Url)] = url,
 			[nameof(UmbrellaDynamicImage.WidthRequest)] = 100,
 			[nameof(UmbrellaDynamicImage.HeightRequest)] = 50,
-			[nameof(UmbrellaDynamicImage.MaxPixelDensity)] = 1
+			[nameof(UmbrellaDynamicImage.MaxPixelDensity)] = 1,
+			[nameof(UmbrellaDynamicImage.LazyLoadingEnabled)] = lazyLoadingEnabled
 		};
 
 		if (versionToken is not null)
@@ -295,6 +366,9 @@ public sealed class UmbrellaDynamicImageTest
 
 		if (childSources is { Count: > 0 })
 			parameters[nameof(UmbrellaDynamicImage.ChildContent)] = BuildChildContent(childSources);
+
+		if (additionalAttributes is not null)
+			parameters[nameof(UmbrellaDynamicImage.AdditionalAttributes)] = additionalAttributes;
 
 		return await renderer.Dispatcher.InvokeAsync(async () =>
 		{

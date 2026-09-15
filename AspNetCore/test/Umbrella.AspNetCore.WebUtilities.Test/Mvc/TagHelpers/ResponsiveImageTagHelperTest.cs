@@ -55,6 +55,67 @@ public class ResponsiveImageTagHelperTest
 	}
 
 	[Fact]
+	public async Task GeneratedAttributesReplaceDeclaredValuesWithoutDuplicates()
+	{
+		var tagHelper = CreateTagHelper();
+		tagHelper.ImageMaxPixelDensity = 2;
+
+		var ctx = Mocks.CreateTagHelperContext(
+		[
+			new TagHelperAttribute("src", "/path/to/image.png"),
+			new TagHelperAttribute("image-density", 2)
+		]);
+
+		var output = Mocks.CreateImageTagHelperOutput(
+		[
+			new TagHelperAttribute("srcset", "declared-srcset"),
+			new TagHelperAttribute("loading", "eager"),
+			new TagHelperAttribute("decoding", "sync"),
+			new TagHelperAttribute("data-test", "preserved")
+		], "img");
+
+		await tagHelper.ProcessAsync(ctx, output);
+
+		Assert.Equal("/path/to/image.png 1x, /path/to/image@2x.png 2x", output.Attributes["srcset"]?.Value);
+		Assert.Equal("lazy", output.Attributes["loading"]?.Value);
+		Assert.Equal("async", output.Attributes["decoding"]?.Value);
+		Assert.Equal("preserved", output.Attributes["data-test"]?.Value);
+		_ = Assert.Single(output.Attributes, x => x.Name is "srcset");
+		_ = Assert.Single(output.Attributes, x => x.Name is "loading");
+		_ = Assert.Single(output.Attributes, x => x.Name is "decoding");
+	}
+
+	[Fact]
+	public async Task DeclaredAttributesRemainWhenNoReplacementIsGenerated()
+	{
+		var tagHelper = CreateTagHelper();
+		tagHelper.ImageMaxPixelDensity = 1;
+		tagHelper.ImageLazyLoading = false;
+
+		var ctx = Mocks.CreateTagHelperContext(
+		[
+			new TagHelperAttribute("src", "/path/to/image.png"),
+			new TagHelperAttribute("image-density", 1)
+		]);
+
+		var output = Mocks.CreateImageTagHelperOutput(
+		[
+			new TagHelperAttribute("srcset", "declared-srcset"),
+			new TagHelperAttribute("loading", "eager"),
+			new TagHelperAttribute("decoding", "sync")
+		], "img");
+
+		await tagHelper.ProcessAsync(ctx, output);
+
+		Assert.Equal("declared-srcset", output.Attributes["srcset"]?.Value);
+		Assert.Equal("eager", output.Attributes["loading"]?.Value);
+		Assert.Equal("sync", output.Attributes["decoding"]?.Value);
+		_ = Assert.Single(output.Attributes, x => x.Name is "srcset");
+		_ = Assert.Single(output.Attributes, x => x.Name is "loading");
+		_ = Assert.Single(output.Attributes, x => x.Name is "decoding");
+	}
+
+	[Fact]
 	public async Task GenerateFailedAsync() => await Assert.ThrowsAsync<UmbrellaException>(async () =>
 	{
 		var tagHelper = CreateTagHelper();

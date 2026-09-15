@@ -111,12 +111,12 @@ public class ResponsiveImageTagHelper : TagHelper
 				});
 
 			if (!string.IsNullOrWhiteSpace(srcsetValue))
-				output.Attributes.Add("srcset", srcsetValue);
+				output.Attributes.SetAttribute("srcset", srcsetValue);
 
 			if (ImageLazyLoading)
 			{
-				output.Attributes.Add("loading", "lazy");
-				output.Attributes.Add("decoding", "async");
+				output.Attributes.SetAttribute("loading", "lazy");
+				output.Attributes.SetAttribute("decoding", "async");
 			}
 		}
 	}
