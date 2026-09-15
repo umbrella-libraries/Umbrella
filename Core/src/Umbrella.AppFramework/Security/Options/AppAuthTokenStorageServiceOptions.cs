@@ -24,7 +24,7 @@ public class AppAuthTokenStorageServiceOptions : ISanitizableUmbrellaOptions, IV
 
 	/// <summary>
 	/// Gets or sets a value indicating whether the auth token should be stored in local storage, or scoped to the session. If session storage
-	/// is not supported on the target platform, e.g. Xamarin, then local storage will be used instead which means this value is effectively ignored.
+	/// is not supported on the target platform, e.g. MAUI, then local storage will be used instead which means this value is effectively ignored.
 	/// </summary>
 	/// <remarks>Defaults to <see langword="true"/>.</remarks>
 	public bool UseAuthTokenLocalStorage { get; set; } = true;

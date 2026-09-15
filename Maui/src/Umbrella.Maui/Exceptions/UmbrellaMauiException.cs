@@ -3,7 +3,7 @@
 namespace Umbrella.Maui.Exceptions;
 
 /// <summary>
-/// Represents an exception in the Umbrella.Xamarin library.
+/// Represents an exception in the Umbrella.Maui library.
 /// </summary>
 /// <seealso cref="UmbrellaException" />
 public class UmbrellaMauiException : UmbrellaException

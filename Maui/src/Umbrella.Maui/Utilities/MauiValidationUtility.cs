@@ -233,9 +233,9 @@ public class MauiValidationUtility : IMauiValidationUtility
 	/// <param name="page">The page.</param>
 	/// <param name="deep">if set to <c>true</c> performs deep model validation.</param>
 	/// <param name="resultsModifier">The results modifier.</param>
-	/// <exception cref="NotSupportedException">The specified view cannot be handled by the Xamarin Validation Utility. Please override the {nameof(AttachViewChangedEventHandler)} method and handle explicitly.</exception>
+	/// <exception cref="NotSupportedException">The specified view cannot be handled by the MAUI Validation Utility. Please override the {nameof(AttachViewChangedEventHandler)} method and handle explicitly.</exception>
 	protected virtual void AttachViewChangedEventHandler(string propertyName, View view, object model, Page page, bool deep, Func<List<ValidationResult>, IReadOnlyCollection<ValidationResult>>? resultsModifier)
-		=> throw new NotSupportedException($"The specified view cannot be handled by the Xamarin Validation Utility. Please override the {nameof(AttachViewChangedEventHandler)} method and handle explicitly.");
+		=> throw new NotSupportedException($"The specified view cannot be handled by the MAUI Validation Utility. Please override the {nameof(AttachViewChangedEventHandler)} method and handle explicitly.");
 
 	private static string[] GetValidatablePropertyNames(object model)
 	{

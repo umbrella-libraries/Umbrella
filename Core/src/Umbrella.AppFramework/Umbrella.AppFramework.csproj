@@ -6,7 +6,7 @@
 
 	<PropertyGroup>
 		<PackageId>Umbrella.AppFramework</PackageId>
-		<Description>This package contains the core framework code which supports the Umbrella.Xamarin and Umbrella.AspNetCore.Blazor packages.</Description>
+		<Description>This package contains the core framework code which supports the Umbrella.Maui and Umbrella.AspNetCore.Blazor packages.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>

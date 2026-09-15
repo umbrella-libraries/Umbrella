@@ -9,7 +9,7 @@ namespace Umbrella.Maui.Controls;
 /// A control that extends the <see cref="ImageButton"/> control to provide checkbox and radiobutton behaviour.
 /// </summary>
 /// <seealso cref="ImageButton" />
-[SuppressMessage("Usage", "CA2211:Non-constant fields should not be visible", Justification = "Required by Xamarin's conventions.")]
+[SuppressMessage("Usage", "CA2211:Non-constant fields should not be visible", Justification = "Required by MAUI's conventions.")]
 public class ToggleImageButton : ImageButton
 {
 	/// <summary>

@@ -9,7 +9,7 @@ namespace Umbrella.AppFramework.Services.Messages;
 /// when an update is available for the current version of the target application.
 /// </summary>
 /// <remarks>
-/// This is primarily for use with installed client applications, e.g. Xamarin, where a newer version of the client application
+/// This is primarily for use with installed client applications, e.g. MAUI, where a newer version of the client application
 /// has been made available for the user to download and the user needs to be notified.
 /// </remarks>
 public class AppUpdateStateChangedMessage : ValueChangedMessage<(bool updateRequired, string message)>

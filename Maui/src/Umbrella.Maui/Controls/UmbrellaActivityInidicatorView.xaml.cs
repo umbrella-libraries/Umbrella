@@ -14,7 +14,7 @@ namespace Umbrella.Maui.Controls;
 /// </summary>
 /// <seealso cref="ContentView" />
 [XamlCompilation(XamlCompilationOptions.Compile)]
-[System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2211:Non-constant fields should not be visible", Justification = "Required by Xamarin's conventions.")]
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2211:Non-constant fields should not be visible", Justification = "Required by MAUI's conventions.")]
 public partial class UmbrellaActivityInidicatorView : ContentView
 {
 	/// <summary>

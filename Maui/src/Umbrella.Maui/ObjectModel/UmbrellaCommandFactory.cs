@@ -10,7 +10,7 @@ using Umbrella.Utilities.Networking.Abstractions;
 namespace Umbrella.Maui.ObjectModel;
 
 /// <summary>
-/// A factory used to create instances of <see cref="ICommand"/> for use with views and view models in Xamarin.
+/// A factory used to create instances of <see cref="ICommand"/> for use with views and view models in MAUI.
 /// </summary>
 /// <seealso cref="IUmbrellaCommandFactory"/>
 public class UmbrellaCommandFactory : IUmbrellaCommandFactory

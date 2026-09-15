@@ -12,9 +12,9 @@ namespace Umbrella.AppFramework.UI;
 /// A base class used to provide common functionality for application view models and shared UI handlers.
 /// </summary>
 /// <remarks>
-/// This class underpines multiple application frameworks, e.g. Blazor and Xamarin.
+/// This class underpines multiple application frameworks, e.g. Blazor and MAUI.
 /// Whilst implementing <see cref="INotifyPropertyChanged"/> is not required for Blazor, it is required
-/// for Xamarin to be able to detect changes in property values.
+/// for MAUI to be able to detect changes in property values.
 /// </remarks>
 /// <seealso cref="INotifyPropertyChanged" />
 public abstract class UmbrellaUIHandlerBase : INotifyPropertyChanged

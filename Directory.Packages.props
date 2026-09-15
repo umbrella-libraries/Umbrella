@@ -151,9 +151,6 @@
     <PackageVersion Include="Testcontainers" Version="4.15.0" />
     <PackageVersion Include="Testcontainers.MsSql" Version="4.15.0" />
     <PackageVersion Include="Tomlyn" Version="2.10.1" />
-    <PackageVersion Include="Xamarin.CommunityToolkit" Version="2.0.6" />
-    <PackageVersion Include="Xamarin.Essentials" Version="1.8.1" />
-    <PackageVersion Include="Xamarin.Forms" Version="5.0.0.2662" />
     <PackageVersion Include="xunit.v3.assert" Version="4.0.1" />
     <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.1" />
     <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.1" />

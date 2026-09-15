@@ -14,7 +14,7 @@ using Umbrella.Maui.Utilities.Abstractions;
 namespace Umbrella.Maui.ViewModels;
 
 /// <summary>
-/// A base view model which all Xamarin view models should extend.
+/// A base view model which all MAUI view models should extend.
 /// </summary>
 /// <seealso cref="UmbrellaUIHandlerBase" />
 public abstract class ViewModelBase : UmbrellaUIHandlerBase
@@ -50,7 +50,7 @@ public abstract class ViewModelBase : UmbrellaUIHandlerBase
 	/// <summary>
 	/// Gets or sets the current page.
 	/// </summary>
-	/// <remarks>This is required for ViewModels which need access to the current Xamarin page, e.g. it needs to be passed to the <see cref="IMauiValidationUtility"/>.</remarks>
+	/// <remarks>This is required for ViewModels which need access to the current MAUI page, e.g. it needs to be passed to the <see cref="IMauiValidationUtility"/>.</remarks>
 	/// <exception cref="Exception">The CurrentPage property has not been set.</exception>
 	public Page? CurrentPage
 	{
