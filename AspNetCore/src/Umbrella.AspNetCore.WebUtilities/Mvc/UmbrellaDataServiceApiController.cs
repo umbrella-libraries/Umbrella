@@ -95,6 +95,10 @@ public abstract class UmbrellaDataServiceApiController<TDataService> : UmbrellaA
 
 			return OperationResult<TResult>(result);
 		}
+		catch (Exception exc) when (TryCreateExceptionResult(exc, out IActionResult exceptionResult))
+		{
+			return exceptionResult;
+		}
 		catch (Exception exc) when (Logger.WriteError(exc, logState, returnValue: !IsDevelopment, methodName: memberName, filePath: filePath, lineNumber: lineNumber))
 		{
 			return InternalServerError(errorMessage);
@@ -134,6 +138,10 @@ public abstract class UmbrellaDataServiceApiController<TDataService> : UmbrellaA
 			IOperationResult result = await operation(DataService.Value, cancellationToken).ConfigureAwait(false);
 
 			return OperationResult(result);
+		}
+		catch (Exception exc) when (TryCreateExceptionResult(exc, out IActionResult exceptionResult))
+		{
+			return exceptionResult;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, logState, returnValue: !IsDevelopment, methodName: memberName, filePath: filePath, lineNumber: lineNumber))
 		{

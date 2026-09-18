@@ -5,8 +5,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Umbrella.AspNetCore.WebUtilities.Mvc;
+using Umbrella.Utilities.Http.Constants;
 using Umbrella.Utilities.Primitives;
 using Umbrella.Utilities.Primitives.Abstractions;
+using Umbrella.Utilities.Threading.RateLimiting.Exceptions;
 
 namespace Umbrella.AspNetCore.WebUtilities.Test.Mvc;
 
@@ -123,6 +125,44 @@ public class UmbrellaDataServiceApiControllerTest
 
 		var objectResult = Assert.IsType<ObjectResult>(result);
 		Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+		_ = Assert.Single(logger.Messages);
+	}
+
+	[Fact]
+	public async Task ExecuteOperationAsync_RateLimitExceeded_Returns429WithRetryAfter()
+	{
+		DateTime retryAfterDateUtc = new(2026, 9, 19, 0, 0, 0, DateTimeKind.Utc);
+		var controller = CreateController(service => service.Setup(x => x.FindAsync(It.IsAny<CancellationToken>()))
+			.ThrowsAsync(new RateLimitExceededException("Try again later.", retryAfterDateUtc)));
+
+		IActionResult result = await controller.GetAsync((service, token) => service.FindAsync(token), "Error.", cancellationToken: TestContext.Current.CancellationToken);
+
+		var objectResult = Assert.IsType<ObjectResult>(result);
+		Assert.Equal(StatusCodes.Status429TooManyRequests, objectResult.StatusCode);
+		Assert.Equal("Sat, 19 Sep 2026 00:00:00 GMT", controller.Response.Headers.RetryAfter);
+
+		var problemDetails = Assert.IsType<UmbrellaProblemDetails>(objectResult.Value);
+		Assert.Equal(HttpProblemCodes.RateLimitExceeded, problemDetails.Code);
+		Assert.Equal("Try again later.", problemDetails.Detail);
+	}
+
+	[Fact]
+	public async Task ExecuteOperationAsync_RateLimitUnavailable_Returns503AndLogs()
+	{
+		var logger = new CapturingLogger();
+		var controller = CreateController(
+			service => service.Setup(x => x.FindAsync(It.IsAny<CancellationToken>()))
+				.ThrowsAsync(new RateLimitUnavailableException("Temporarily unavailable.", new InvalidOperationException("Database unavailable."))),
+			logger: logger);
+
+		IActionResult result = await controller.GetAsync((service, token) => service.FindAsync(token), "Error.", cancellationToken: TestContext.Current.CancellationToken);
+
+		var objectResult = Assert.IsType<ObjectResult>(result);
+		Assert.Equal(StatusCodes.Status503ServiceUnavailable, objectResult.StatusCode);
+
+		var problemDetails = Assert.IsType<UmbrellaProblemDetails>(objectResult.Value);
+		Assert.Equal(HttpProblemCodes.RateLimitUnavailable, problemDetails.Code);
+		Assert.Equal("Temporarily unavailable.", problemDetails.Detail);
 		_ = Assert.Single(logger.Messages);
 	}
 

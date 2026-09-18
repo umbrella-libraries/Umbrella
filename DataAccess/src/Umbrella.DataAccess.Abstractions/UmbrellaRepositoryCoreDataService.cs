@@ -15,6 +15,7 @@ using Umbrella.Utilities.Primitives;
 using Umbrella.Utilities.Primitives.Abstractions;
 using Umbrella.Utilities.Security.Abstractions;
 using Umbrella.Utilities.Threading.Abstractions;
+using Umbrella.Utilities.Threading.RateLimiting.Exceptions;
 
 namespace Umbrella.DataAccess.Abstractions;
 
@@ -170,7 +171,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 
 			throw;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { pageNumber, pageSize, sorters = sorters?.ToSortExpressionDescriptors(), filters = filters?.ToFilterExpressionDescriptors() }, returnValue: !HostingEnvironment.IsDevelopment()))
+		catch (Exception exc) when (!IsRateLimitException(exc) && Logger.WriteError(exc, new { pageNumber, pageSize, sorters = sorters?.ToSortExpressionDescriptors(), filters = filters?.ToFilterExpressionDescriptors() }, returnValue: !HostingEnvironment.IsDevelopment()))
 		{
 			return OperationResult<TPaginatedResultModel>.GenericFailure("An error has occurred whilst trying to get the list of items.");
 		}
@@ -253,7 +254,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 
 			throw;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { id }, returnValue: !HostingEnvironment.IsDevelopment()))
+		catch (Exception exc) when (!IsRateLimitException(exc) && Logger.WriteError(exc, new { id }, returnValue: !HostingEnvironment.IsDevelopment()))
 		{
 			return OperationResult<TModel>.GenericFailure("An error has occurred whilst trying to get the specified item.");
 		}
@@ -366,7 +367,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 
 			throw;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, returnValue: !HostingEnvironment.IsDevelopment()))
+		catch (Exception exc) when (!IsRateLimitException(exc) && Logger.WriteError(exc, returnValue: !HostingEnvironment.IsDevelopment()))
 		{
 			return OperationResult<TResultModel>.GenericFailure("An error has occurred whilst trying to create the item.");
 		}
@@ -486,7 +487,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 
 			throw;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, returnValue: !HostingEnvironment.IsDevelopment()))
+		catch (Exception exc) when (!IsRateLimitException(exc) && Logger.WriteError(exc, returnValue: !HostingEnvironment.IsDevelopment()))
 		{
 			return OperationResult<TResultModel>.GenericFailure("There has been a problem updating the specified item.");
 		}
@@ -566,7 +567,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 
 			throw;
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { id }, returnValue: !HostingEnvironment.IsDevelopment()))
+		catch (Exception exc) when (!IsRateLimitException(exc) && Logger.WriteError(exc, new { id }, returnValue: !HostingEnvironment.IsDevelopment()))
 		{
 			return OperationResult.GenericFailure("There has been a problem deleting the specified item.");
 		}
@@ -598,7 +599,7 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 				? OperationResult.NoContent()
 				: OperationResult.NotFound("The specified item could not be found.");
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, new { id }, returnValue: !HostingEnvironment.IsDevelopment()))
+		catch (Exception exc) when (!IsRateLimitException(exc) && Logger.WriteError(exc, new { id }, returnValue: !HostingEnvironment.IsDevelopment()))
 		{
 			return OperationResult.GenericFailure("An error has occurred whilst trying to get the specified item.");
 		}
@@ -622,9 +623,12 @@ public class UmbrellaRepositoryCoreDataService : IUmbrellaRepositoryCoreDataServ
 
 			return OperationResult<int>.Success(count);
 		}
-		catch (Exception exc) when (Logger.WriteError(exc, returnValue: !HostingEnvironment.IsDevelopment()))
+		catch (Exception exc) when (!IsRateLimitException(exc) && Logger.WriteError(exc, returnValue: !HostingEnvironment.IsDevelopment()))
 		{
 			return OperationResult<int>.GenericFailure("An error has occurred whilst trying to get the specified item.");
 		}
 	}
+
+	private static bool IsRateLimitException(Exception exception)
+		=> exception is RateLimitExceededException or RateLimitUnavailableException;
 }

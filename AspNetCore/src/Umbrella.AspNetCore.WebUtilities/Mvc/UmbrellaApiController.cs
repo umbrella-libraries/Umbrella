@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Globalization;
 using System.Security.Claims;
 using CommunityToolkit.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
@@ -15,6 +16,7 @@ using Umbrella.AspNetCore.WebUtilities.Extensions;
 using Umbrella.Utilities.Http.Constants;
 using Umbrella.Utilities.Primitives;
 using Umbrella.Utilities.Primitives.Abstractions;
+using Umbrella.Utilities.Threading.RateLimiting.Exceptions;
 
 namespace Umbrella.AspNetCore.WebUtilities.Mvc;
 
@@ -51,6 +53,28 @@ public abstract class UmbrellaApiController : ControllerBase
 		Logger = logger;
 		HostingEnvironment = hostingEnvironment;
 
+	}
+
+	/// <summary>
+	/// Attempts to create an HTTP result for a known application exception.
+	/// </summary>
+	protected virtual bool TryCreateExceptionResult(Exception exception, out IActionResult result)
+	{
+		Guard.IsNotNull(exception);
+
+		switch (exception)
+		{
+			case RateLimitExceededException rateLimitExceededException:
+				result = TooManyRequests(rateLimitExceededException.Message, rateLimitExceededException.RetryAfterDateUtc, HttpProblemCodes.RateLimitExceeded);
+				return true;
+			case RateLimitUnavailableException rateLimitUnavailableException:
+				_ = Logger.WriteError(rateLimitUnavailableException);
+				result = ServiceUnavailable(rateLimitUnavailableException.Message, HttpProblemCodes.RateLimitUnavailable);
+				return true;
+			default:
+				result = null!;
+				return false;
+		}
 	}
 
 	/// <summary>
@@ -242,6 +266,22 @@ public abstract class UmbrellaApiController : ControllerBase
 	/// <param name="code">The error code.</param>
 	/// <returns>A <see cref="ObjectResult"/> of 429.</returns>
 	protected virtual ObjectResult TooManyRequests(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: StatusCodes.Status429TooManyRequests, title: "Too Many Requests", code: code);
+
+	/// <summary>
+	/// Creates a 429 TooManyRequests response and sets the Retry-After header to the specified UTC date.
+	/// </summary>
+	protected virtual ObjectResult TooManyRequests(string reason, DateTime retryAfterDateUtc, string? code = null)
+	{
+		DateTime normalizedRetryDateUtc = retryAfterDateUtc.Kind is DateTimeKind.Utc ? retryAfterDateUtc : retryAfterDateUtc.ToUniversalTime();
+		Response.Headers.RetryAfter = normalizedRetryDateUtc.ToString("R", CultureInfo.InvariantCulture);
+
+		return TooManyRequests(reason, code);
+	}
+
+	/// <summary>
+	/// Creates a 503 ServiceUnavailable <see cref="ObjectResult"/> with the specified reason.
+	/// </summary>
+	protected virtual ObjectResult ServiceUnavailable(string reason, string? code = null) => UmbrellaProblem(reason, statusCode: StatusCodes.Status503ServiceUnavailable, title: "Service Unavailable", code: code);
 
 	/// <summary>
 	/// Creates a 500 InternalServerError <see cref="ObjectResult"/> with the specified reason.

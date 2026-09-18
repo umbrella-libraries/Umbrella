@@ -152,6 +152,10 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 
 			return OperationResult<TPaginatedResultModel>(result);
 		}
+		catch (Exception exc) when (TryCreateExceptionResult(exc, out IActionResult exceptionResult))
+		{
+			return exceptionResult;
+		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { pageNumber, pageSize, sorters = sorters?.ToSortExpressionDescriptors(), filters = filters?.ToFilterExpressionDescriptors() }, returnValue: !IsDevelopment))
 		{
 			return InternalServerError("An error has occurred whilst trying to get the list of items.");
@@ -236,6 +240,10 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 				.ConfigureAwait(false);
 
 			return OperationResult<TModel>(result);
+		}
+		catch (Exception exc) when (TryCreateExceptionResult(exc, out IActionResult exceptionResult))
+		{
+			return exceptionResult;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { id }, returnValue: !IsDevelopment))
 		{
@@ -327,6 +335,10 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 				.ConfigureAwait(false);
 
 			return OperationResult<TResultModel>(result);
+		}
+		catch (Exception exc) when (TryCreateExceptionResult(exc, out IActionResult exceptionResult))
+		{
+			return exceptionResult;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, returnValue: !IsDevelopment))
 		{
@@ -424,6 +436,10 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 
 			return OperationResult<TResultModel>(result);
 		}
+		catch (Exception exc) when (TryCreateExceptionResult(exc, out IActionResult exceptionResult))
+		{
+			return exceptionResult;
+		}
 		catch (Exception exc) when (Logger.WriteError(exc, returnValue: !IsDevelopment))
 		{
 			return InternalServerError("There has been a problem updating the specified item.");
@@ -500,6 +516,10 @@ public abstract class UmbrellaDataAccessApiController : UmbrellaApiController
 				.ConfigureAwait(false);
 
 			return OperationResult(result);
+		}
+		catch (Exception exc) when (TryCreateExceptionResult(exc, out IActionResult exceptionResult))
+		{
+			return exceptionResult;
 		}
 		catch (Exception exc) when (Logger.WriteError(exc, new { id }, returnValue: !IsDevelopment))
 		{

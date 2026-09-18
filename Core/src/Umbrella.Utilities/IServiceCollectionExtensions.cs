@@ -43,6 +43,8 @@ using Umbrella.Utilities.Spatial;
 using Umbrella.Utilities.Spatial.Abstractions;
 using Umbrella.Utilities.Threading;
 using Umbrella.Utilities.Threading.Abstractions;
+using Umbrella.Utilities.Threading.RateLimiting;
+using Umbrella.Utilities.Threading.RateLimiting.Abstractions;
 using Umbrella.Utilities.TypeConverters;
 using Umbrella.Utilities.TypeConverters.Abstractions;
 
@@ -151,6 +153,22 @@ public static class IServiceCollectionExtensions
 		_ = services.ConfigureUmbrellaOptions(secureRandomStringGeneratorOptionsBuilder);
 		_ = services.ConfigureUmbrellaOptions(umbrellaConsoleHostingEnvironmentOptionsBuilder);
 		_ = services.ConfigureUmbrellaOptions(objectGraphValidatorOptionsBuilder);
+
+		return services;
+	}
+
+	/// <summary>
+	/// Adds a scoped rate-limit manager and persistence provider for the specified partition and resource key types.
+	/// </summary>
+	public static IServiceCollection AddUmbrellaRateLimiting<TPartitionKey, TResourceKey, TStore>(this IServiceCollection services)
+		where TPartitionKey : notnull
+		where TResourceKey : notnull
+		where TStore : class, IRateLimitStore<TPartitionKey, TResourceKey>
+	{
+		Guard.IsNotNull(services, nameof(services));
+
+		_ = services.AddScoped<IRateLimitStore<TPartitionKey, TResourceKey>, TStore>();
+		_ = services.AddScoped<IRateLimitManager<TPartitionKey, TResourceKey>, RateLimitManager<TPartitionKey, TResourceKey>>();
 
 		return services;
 	}

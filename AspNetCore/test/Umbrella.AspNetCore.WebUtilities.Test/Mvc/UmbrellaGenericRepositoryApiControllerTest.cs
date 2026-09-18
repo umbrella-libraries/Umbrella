@@ -11,11 +11,13 @@ using Umbrella.Utilities.Data.Filtering;
 using Umbrella.Utilities.Data.Models;
 using Umbrella.Utilities.Data.Pagination;
 using Umbrella.Utilities.Data.Sorting;
+using Umbrella.Utilities.Http.Constants;
 using Umbrella.Utilities.Mapping.Abstractions;
 using Umbrella.Utilities.Primitives;
 using Umbrella.Utilities.Primitives.Abstractions;
 using Umbrella.Utilities.Security.Abstractions;
 using Umbrella.Utilities.Threading.Abstractions;
+using Umbrella.Utilities.Threading.RateLimiting.Exceptions;
 
 namespace Umbrella.AspNetCore.WebUtilities.Test.Mvc;
 
@@ -47,9 +49,26 @@ public class UmbrellaGenericRepositoryApiControllerTest
 		Assert.True(controller.BeforeReadCalled);
 	}
 
+	[Fact]
+	public async Task GetAsync_WhenReadThrowsRateLimitExceeded_Returns429WithRetryAfter()
+	{
+		DateTime retryAfterDateUtc = new(2026, 9, 19, 0, 0, 0, DateTimeKind.Utc);
+		TestGenericRepositoryApiController controller = CreateController(
+			readException: new RateLimitExceededException("Try again later.", retryAfterDateUtc));
+
+		IActionResult result = await controller.GetAsync(1, TestContext.Current.CancellationToken);
+
+		var objectResult = Assert.IsType<ObjectResult>(result);
+		Assert.Equal(StatusCodes.Status429TooManyRequests, objectResult.StatusCode);
+		Assert.Equal("Sat, 19 Sep 2026 00:00:00 GMT", controller.Response.Headers.RetryAfter);
+		var problemDetails = Assert.IsType<UmbrellaProblemDetails>(objectResult.Value);
+		Assert.Equal(HttpProblemCodes.RateLimitExceeded, problemDetails.Code);
+	}
+
 	private static TestGenericRepositoryApiController CreateController(
 		IOperationResult? beforeSearchSlimResult = null,
-		IOperationResult? beforeReadResult = null)
+		IOperationResult? beforeReadResult = null,
+		Exception? readException = null)
 	{
 		var repository = new Mock<ITestRepository>();
 		IWebHostEnvironment hostingEnvironment = CreateWebHostEnvironment();
@@ -70,7 +89,8 @@ public class UmbrellaGenericRepositoryApiControllerTest
 			new Lazy<ITestRepository>(() => repository.Object),
 			dataAccessService,
 			beforeSearchSlimResult,
-			beforeReadResult);
+			beforeReadResult,
+			readException);
 	}
 
 	private static IWebHostEnvironment CreateWebHostEnvironment()
@@ -127,6 +147,7 @@ public class UmbrellaGenericRepositoryApiControllerTest
 	{
 		private readonly IOperationResult? _beforeSearchSlimResult;
 		private readonly IOperationResult? _beforeReadResult;
+		private readonly Exception? _readException;
 
 		public bool BeforeSearchSlimCalled { get; private set; }
 		public bool BeforeReadCalled { get; private set; }
@@ -138,11 +159,13 @@ public class UmbrellaGenericRepositoryApiControllerTest
 			Lazy<ITestRepository> repository,
 			IUmbrellaRepositoryCoreDataService dataAccessService,
 			IOperationResult? beforeSearchSlimResult,
-			IOperationResult? beforeReadResult)
+			IOperationResult? beforeReadResult,
+			Exception? readException)
 			: base(logger, hostingEnvironment, mapper, repository, dataAccessService)
 		{
 			_beforeSearchSlimResult = beforeSearchSlimResult;
 			_beforeReadResult = beforeReadResult;
+			_readException = readException;
 			ControllerContext = new ControllerContext
 			{
 				HttpContext = new DefaultHttpContext()
@@ -159,6 +182,14 @@ public class UmbrellaGenericRepositoryApiControllerTest
 		{
 			BeforeSearchSlimCalled = true;
 			return Task.FromResult(_beforeSearchSlimResult);
+		}
+
+		protected override Task<TestEntity?> LoadReadEntityAsync(int id, bool trackChanges, IncludeMap<TestEntity>? includeMap, RepoOptions? options, IEnumerable<RepoOptions>? childOptions, CancellationToken cancellationToken)
+		{
+			if (_readException is not null)
+				return Task.FromException<TestEntity?>(_readException);
+
+			return base.LoadReadEntityAsync(id, trackChanges, includeMap, options, childOptions, cancellationToken);
 		}
 
 		protected override Task<IOperationResult?> BeforeReadAsync(int id, CancellationToken cancellationToken)
