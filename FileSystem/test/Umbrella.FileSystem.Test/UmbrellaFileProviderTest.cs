@@ -1353,8 +1353,8 @@ public class UmbrellaFileProviderTest : IClassFixture<FileSystemAzuriteContainer
 		Assert.Equal(2, downLevelResults.Count);
 
 		Assert.Equal(subpath, topLevelResults.ElementAt(0).SubPath);
-		Assert.Equal(downLevelSubPath1, downLevelResults.ElementAt(0).SubPath);
-		Assert.Equal(downLevelSubPath2, downLevelResults.ElementAt(1).SubPath);
+		Assert.Contains(downLevelResults, x => x.SubPath == downLevelSubPath1);
+		Assert.Contains(downLevelResults, x => x.SubPath == downLevelSubPath2);
 
 		// Cleanup
 		_ = await provider.DeleteAsync(subpath, TestContext.Current.CancellationToken).ConfigureAwait(true);

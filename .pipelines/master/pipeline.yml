@@ -30,10 +30,10 @@ stages:
     - checkout: self
       fetchDepth: 0
 
-    - task: NodeTool@0
+    - task: UseNode@1
       displayName: Install Node.js
       inputs:
-        versionSpec: 22.x
+        version: 22.x
 
     - task: Npm@1
       displayName: NPM CI (Umbrella.AspNetCore.Blazor)
