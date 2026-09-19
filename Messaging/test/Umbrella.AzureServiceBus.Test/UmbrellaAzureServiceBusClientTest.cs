@@ -1,46 +1,28 @@
 using Azure.Messaging.ServiceBus;
 using Azure.Storage.Blobs;
-
-#if !AZUREDEVOPS
-using Microsoft.Extensions.Configuration;
-#endif
 using Umbrella.AzureServiceBus.Abstractions;
 using Umbrella.AzureServiceBus.Plugins;
 using Umbrella.Internal.Mocks;
 
 namespace Umbrella.AzureServiceBus.Test;
 
-public class UmbrellaAzureServiceBusClientTest
+public class UmbrellaAzureServiceBusClientTest : IClassFixture<ServiceBusContainerFixture>
 {
 	private const string TestSmallQueueName = "test-small";
 	private const string TestLargeQueueName = "test-large";
 	private const string BlobContainerName = "service-bus-claim-check";
 	private const string BlobMetadataReferenceKey = "BlobReference";
-
-#if AZUREDEVOPS
-    private static readonly string _storageConnectionString = Environment.GetEnvironmentVariable("StorageConnectionString")!;
-    private static readonly string _serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString")!;
-#else
-#pragma warning disable CA1802 // Use literals where appropriate
-	private static readonly string _storageConnectionString = "UseDevelopmentStorage=true";
-	private static readonly string _serviceBusConnectionString = "";
-#pragma warning restore CA1802 // Use literals where appropriate
-#endif
+	private readonly string _storageConnectionString;
+	private readonly string _serviceBusConnectionString;
 
 	private static readonly ReadOnlyMemory<byte> _smallMessageBody = GetRandomBuffer(1024 * 200);
 	private static readonly ReadOnlyMemory<byte> _largeMessageBody = GetRandomBuffer(1024 * 1024 * 2);
-
-#if !AZUREDEVOPS
-#pragma warning disable CA1810 // Initialize reference type static fields inline
-	static UmbrellaAzureServiceBusClientTest()
-#pragma warning restore CA1810 // Initialize reference type static fields inline
+	public UmbrellaAzureServiceBusClientTest(ServiceBusContainerFixture fixture)
 	{
-		var builder = new ConfigurationBuilder().AddUserSecrets<UmbrellaAzureServiceBusClientTest>();
-		var config = builder.Build();
-
-		_serviceBusConnectionString = config["ServiceBusConnectionString"]!;
+		ArgumentNullException.ThrowIfNull(fixture);
+		_storageConnectionString = fixture.StorageConnectionString;
+		_serviceBusConnectionString = fixture.ServiceBusConnectionString;
 	}
-#endif
 
 	[Fact]
 	public async Task CreateSendReceieveCompletePluginMessageSmallAsync()
@@ -100,7 +82,7 @@ public class UmbrellaAzureServiceBusClientTest
 		Assert.True(nextMessage is null || nextMessage.MessageId != message.MessageId);
 	}
 
-	private static UmbrellaAzureServiceBusClient CreateClient(bool addClaimCheckPlugin)
+	private UmbrellaAzureServiceBusClient CreateClient(bool addClaimCheckPlugin)
 	{
 		// Define Plugins
 		IReadOnlyCollection<IUmbrellaAzureServiceBusPlugin> plugins = addClaimCheckPlugin ?
@@ -141,7 +123,7 @@ public class UmbrellaAzureServiceBusClientTest
 		return text;
 	}
 
-	private static async Task<BlobClient> GetBlobClientAsync(string blobName, CancellationToken cancellationToken)
+	private async Task<BlobClient> GetBlobClientAsync(string blobName, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 

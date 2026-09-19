@@ -13,18 +13,12 @@ using Umbrella.Utilities.Helpers;
 
 namespace Umbrella.DynamicImage.Test.Caching;
 
-public class DynamicImageCacheTest
+public class DynamicImageCacheTest : IClassFixture<DynamicImageAzuriteContainerFixture>
 {
-#if AZUREDEVOPS
-#pragma warning disable IDE1006 // Naming Styles
-	private static readonly string StorageConnectionString = Environment.GetEnvironmentVariable("StorageConnectionString")!;
-#pragma warning restore IDE1006 // Naming Styles
-#else
-	private const string StorageConnectionString = "UseDevelopmentStorage=true";
-#endif
 	private const string TestFileName = "aspnet-mvc-logo.png";
+	private static string _storageConnectionString = null!;
 
-	private static readonly List<IDynamicImageCache> _cacheList =
+	private static readonly List<Func<IDynamicImageCache>> _cacheList =
 	[
 		CreateDynamicImageMemoryCache(),
 		CreateDynamicImageDiskCache(),
@@ -32,6 +26,12 @@ public class DynamicImageCacheTest
 	];
 
 	public static List<object[]> CacheListMemberData = _cacheList.Select(x => new object[] { x }).ToList();
+
+	public DynamicImageCacheTest(DynamicImageAzuriteContainerFixture fixture)
+	{
+		ArgumentNullException.ThrowIfNull(fixture);
+		_storageConnectionString = fixture.ConnectionString;
+	}
 
 	private static string? _baseDirectory;
 
@@ -41,8 +41,8 @@ public class DynamicImageCacheTest
 		{
 			if (string.IsNullOrEmpty(_baseDirectory))
 			{
-				string baseDirectory = AppContext.BaseDirectory.ToLowerInvariant();
-				int indexToEndAt = baseDirectory.IndexOf(PathHelper.PlatformNormalize($@"\bin\{DebugUtility.BuildConfiguration}\net10.0"), StringComparison.Ordinal);
+				string baseDirectory = AppContext.BaseDirectory;
+				int indexToEndAt = baseDirectory.IndexOf(PathHelper.PlatformNormalize($@"\bin\{DebugUtility.BuildConfiguration}\net10.0"), StringComparison.OrdinalIgnoreCase);
 				_baseDirectory = baseDirectory.Remove(indexToEndAt, baseDirectory.Length - indexToEndAt);
 			}
 
@@ -52,9 +52,10 @@ public class DynamicImageCacheTest
 
 	[Theory]
 	[MemberData(nameof(CacheListMemberData))]
-	public async Task AddAsync_RemoveAsync_BytesAsync(IDynamicImageCache cache)
+	public async Task AddAsync_RemoveAsync_BytesAsync(Func<IDynamicImageCache> cacheFactory)
 	{
-		Guard.IsNotNull(cache);
+		Guard.IsNotNull(cacheFactory);
+		IDynamicImageCache cache = cacheFactory();
 
 		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
 
@@ -89,9 +90,10 @@ public class DynamicImageCacheTest
 
 	[Theory]
 	[MemberData(nameof(CacheListMemberData))]
-	public async Task AddAsync_RemoveAsync_StreamAsync(IDynamicImageCache cache)
+	public async Task AddAsync_RemoveAsync_StreamAsync(Func<IDynamicImageCache> cacheFactory)
 	{
-		Guard.IsNotNull(cache);
+		Guard.IsNotNull(cacheFactory);
+		IDynamicImageCache cache = cacheFactory();
 
 		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
 
@@ -132,9 +134,10 @@ public class DynamicImageCacheTest
 
 	[Theory]
 	[MemberData(nameof(CacheListMemberData))]
-	public async Task GetAsync_NotExistsAsync(IDynamicImageCache cache)
+	public async Task GetAsync_NotExistsAsync(Func<IDynamicImageCache> cacheFactory)
 	{
-		Guard.IsNotNull(cache);
+		Guard.IsNotNull(cacheFactory);
+		IDynamicImageCache cache = cacheFactory();
 
 		string path = PathHelper.PlatformNormalize($@"{BaseDirectory}\doesnotexist.png");
 
@@ -151,9 +154,10 @@ public class DynamicImageCacheTest
 
 	[Theory]
 	[MemberData(nameof(CacheListMemberData))]
-	public async Task AddAsync_GetAsync_ExpiredAsync(IDynamicImageCache cache)
+	public async Task AddAsync_GetAsync_ExpiredAsync(Func<IDynamicImageCache> cacheFactory)
 	{
-		Guard.IsNotNull(cache);
+		Guard.IsNotNull(cacheFactory);
+		IDynamicImageCache cache = cacheFactory();
 
 		string path = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
 
@@ -174,7 +178,7 @@ public class DynamicImageCacheTest
 		Assert.Null(cachedItem);
 	}
 
-	private static DynamicImageDiskCache CreateDynamicImageDiskCache()
+	private static Func<IDynamicImageCache> CreateDynamicImageDiskCache() => () =>
 	{
 		var options = new UmbrellaDiskFileStorageProviderOptions
 		{
@@ -196,20 +200,20 @@ public class DynamicImageCacheTest
 			new DynamicImageCacheCoreOptions(),
 			provider,
 			new DynamicImageDiskCacheOptions());
-	}
+	};
 
-	private static DynamicImageMemoryCache CreateDynamicImageMemoryCache() => new(
+	private static Func<IDynamicImageCache> CreateDynamicImageMemoryCache() => () => new DynamicImageMemoryCache(
 			CoreUtilitiesMocks.CreateLogger<DynamicImageMemoryCache>(),
 			CoreUtilitiesMocks.CreateCache(),
 			CoreUtilitiesMocks.CreateCacheKeyUtility(),
 			new DynamicImageCacheCoreOptions(),
 			new DynamicImageMemoryCacheOptions());
 
-	private static DynamicImageAzureBlobStorageCache CreateDynamicImageAzureBlobStorageCache()
+	private static Func<IDynamicImageCache> CreateDynamicImageAzureBlobStorageCache() => () =>
 	{
 		var options = new UmbrellaAzureBlobStorageFileProviderOptions
 		{
-			StorageConnectionString = StorageConnectionString,
+			StorageConnectionString = _storageConnectionString,
 			AllowUnhandledFileAuthorizationChecks = true
 		};
 
@@ -229,7 +233,7 @@ public class DynamicImageCacheTest
 			new DynamicImageCacheCoreOptions(),
 			provider,
 			blobStorageCacheOptions);
-	}
+	};
 
 	private static UmbrellaFileAuthorizationHandlerRegistry CreateAuthorizationHandlerRegistry()
 		=> new UmbrellaFileAuthorizationHandlerRegistry([]);

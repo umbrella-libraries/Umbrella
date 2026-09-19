@@ -24,12 +24,10 @@ public class SecureStringGeneratorBenchmark
 	[Benchmark]
 	public string Generate() => _secureStringGenerator.Generate(20, 5, 5);
 
-#if !AzureDevOps
 	[Benchmark(Baseline = true)]
 	public string GenerateOld() =>
 #pragma warning disable CS0612 // Type or member is obsolete
 		_secureStringGenerator.GenerateOld(20, 5, 5);
 #pragma warning restore CS0612 // Type or member is obsolete
 
-#endif
 }

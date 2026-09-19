@@ -20,27 +20,13 @@ internal static class DebugUtility
 		}
 	}
 
-	public static bool IsAzureDevOps
-	{
-		get
-		{
-			bool isAzureDevOps = false;
-
-			IAmAzureDevOps(ref isAzureDevOps);
-
-			return isAzureDevOps;
-		}
-	}
-
 	public static string BuildConfiguration
 	{
 		get
 		{
 			string configuration = "release";
 
-#if AZUREDEVOPS
-                configuration = "azuredevops";
-#elif DEBUG
+#if DEBUG
 			configuration = "debug";
 #endif
 
@@ -50,7 +36,4 @@ internal static class DebugUtility
 
 	[Conditional("DEBUG")]
 	private static void IAmDebug(ref bool isDebugMode) => isDebugMode = true;
-
-	[Conditional("AZUREDEVOPS")]
-	private static void IAmAzureDevOps(ref bool isAzureDevOps) => isAzureDevOps = true;
 }

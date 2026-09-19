@@ -27,7 +27,7 @@ public sealed class DistributedRedisSynchronizationRoot : ISynchronizationRoot
 
 	internal async ValueTask<ISynchronizationRoot> WaitAsync(CancellationToken cancellationToken = default)
 	{
-		_handle = await _lock.TryAcquireAsync(cancellationToken: cancellationToken);
+		_handle = await _lock.AcquireAsync(cancellationToken: cancellationToken);
 
 		return this;
 	}

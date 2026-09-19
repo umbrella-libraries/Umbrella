@@ -128,7 +128,6 @@ public class SecureRandomStringGenerator : ISecureRandomStringGenerator
 		}
 	}
 
-#if !AzureDevOps
 	[Obsolete]
 	[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
 	internal string GenerateOld(int length = 8, int numbers = 0, int upperCaseCharacters = 0, int specialCharacters = 0)
@@ -207,7 +206,6 @@ public class SecureRandomStringGenerator : ISecureRandomStringGenerator
 			throw;
 		}
 	}
-#endif
 	#endregion
 
 	#region Private Members
