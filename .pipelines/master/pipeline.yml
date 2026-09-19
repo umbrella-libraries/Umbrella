@@ -86,7 +86,7 @@ stages:
         command: restore
         projects: Umbrella Code Libraries.sln
         feedsToUse: config
-        nugetConfigPath: NuGet.config
+        nugetConfigPath: NuGet.Config
 
     - task: DotNetCoreCLI@2
       displayName: Build
@@ -201,7 +201,7 @@ stages:
           FileSystem/test/Umbrella.FileSystem.Test/Umbrella.FileSystem.Test.csproj
           Messaging/test/Umbrella.AzureServiceBus.Test/Umbrella.AzureServiceBus.Test.csproj
         feedsToUse: config
-        nugetConfigPath: NuGet.config
+        nugetConfigPath: NuGet.Config
 
     - task: PowerShell@2
       displayName: Test container-backed packages
