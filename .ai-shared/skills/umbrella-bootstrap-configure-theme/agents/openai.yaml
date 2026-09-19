@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure Bootstrap Theme"
+  short_description: "Configure Bootstrap theming and shared helper APIs"
+  default_prompt: "Use $umbrella-bootstrap-configure-theme to configure or maintain the relevant front-end tooling in this repository, preserving project-specific behaviour."

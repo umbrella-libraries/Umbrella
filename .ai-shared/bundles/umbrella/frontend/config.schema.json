@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Umbrella front-end repository configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "baselineVersion",
+    "profile",
+    "projects"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "baselineVersion": {
+      "const": 1
+    },
+    "profile": {
+      "enum": [
+        "blazor",
+        "mvc-razor",
+        "hybrid"
+      ]
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "node": {
+          "type": "string",
+          "minLength": 1
+        },
+        "npm": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pinFile": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+        }
+      }
+    },
+    "browserslist": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "projects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "packagePath"
+        ],
+        "properties": {
+          "packagePath": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          },
+          "dotnetProject": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          },
+          "lockOwner": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          },
+          "entries": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+            }
+          },
+          "generatedRoots": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+            },
+            "uniqueItems": true
+          },
+          "scopedStyles": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "razor",
+                "cshtml"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "sharedHelpers": {
+            "type": "object",
+            "additionalProperties": false,
+            "if": {
+              "properties": { "strategy": { "const": "copy" } },
+              "required": ["strategy"]
+            },
+            "then": { "required": ["destination"] },
+            "required": [
+              "source",
+              "strategy"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+              },
+              "strategy": {
+                "enum": [
+                  "direct",
+                  "copy"
+                ]
+              },
+              "destination": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+              }
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "upgradePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowPrerelease": {
+          "type": "boolean"
+        },
+        "excludedPackages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "coordinatedGroups": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule",
+          "path",
+          "reason"
+        ],
+        "properties": {
+          "rule": {
+            "enum": [
+              "FE001",
+              "FE002",
+              "FE003",
+              "FE004",
+              "FE005",
+              "FE006",
+              "FE007",
+              "FE008",
+              "FE009",
+              "FE010",
+              "FE011",
+              "FE012",
+              "FE013",
+              "FE014"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

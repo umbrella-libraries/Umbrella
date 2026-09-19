@@ -1,0 +1,4 @@
+interface:
+  display_name: "Migrate Sass Modules"
+  short_description: "Migrate Sass modules without changing theme output"
+  default_prompt: "Use $umbrella-scss-migrate-sass-modules to configure or maintain the relevant front-end tooling in this repository, preserving project-specific behaviour."

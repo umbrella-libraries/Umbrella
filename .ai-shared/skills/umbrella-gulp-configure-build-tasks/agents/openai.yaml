@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure Gulp Build Tasks"
+  short_description: "Repair Gulp sequencing, errors and file watchers"
+  default_prompt: "Use $umbrella-gulp-configure-build-tasks to configure or maintain the relevant front-end tooling in this repository, preserving project-specific behaviour."

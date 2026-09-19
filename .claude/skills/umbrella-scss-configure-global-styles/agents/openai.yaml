@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure Global SCSS"
+  short_description: "Configure global SCSS, PostCSS and asset ordering"
+  default_prompt: "Use $umbrella-scss-configure-global-styles to configure or maintain the relevant front-end tooling in this repository, preserving project-specific behaviour."

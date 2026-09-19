@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure .NET Scoped SCSS"
+  short_description: "Configure Blazor and Razor scoped Sass compilation"
+  default_prompt: "Use $umbrella-dotnet-configure-scoped-scss to configure or maintain the relevant front-end tooling in this repository, preserving project-specific behaviour."

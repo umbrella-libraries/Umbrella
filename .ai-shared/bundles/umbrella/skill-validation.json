@@ -34,6 +34,20 @@
     { "name": "umbrella-dotnet-scaffold-service", "mode": "mutating", "fixture": "data-access-solution", "validations": ["source-scope", "build", "analyzers"] },
     { "name": "umbrella-dotnet-scaffold-test-project", "mode": "mutating", "fixture": "test-solution", "validations": ["source-scope", "build", "tests"] },
     { "name": "umbrella-dotnet-standardize-test-projects", "mode": "mutating", "fixture": "test-solution", "validations": ["source-scope", "build", "tests"] },
-    { "name": "umbrella-nuget-safe-upgrade", "mode": "mutating", "fixture": "package-solution", "validations": ["source-scope", "restore", "resolved-packages", "build", "tests"] }
+    { "name": "umbrella-nuget-safe-upgrade", "mode": "mutating", "fixture": "package-solution", "validations": ["source-scope", "restore", "resolved-packages", "build", "tests"] },
+    {"name": "umbrella-frontend-audit-toolchain", "mode": "read-only", "fixture": "frontend-multi-project", "validations": ["no-source-change", "report"]},
+    {"name": "umbrella-npm-configure", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
+    {"name": "umbrella-npm-safe-upgrade", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
+    {"name": "umbrella-webpack-configure", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
+    {"name": "umbrella-typescript-configure", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
+    {"name": "umbrella-gulp-configure-build-tasks", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
+    {"name": "umbrella-scss-configure-global-styles", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
+    {"name": "umbrella-dotnet-configure-scoped-scss", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
+    {"name": "umbrella-scss-standardize-shared-helpers", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
+    {"name": "umbrella-dotnet-integrate-frontend-build", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
+    {"name": "umbrella-frontend-standardize-toolchain", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
+    {"name": "umbrella-scss-migrate-sass-modules", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
+    {"name": "umbrella-webpack-audit-bundles", "mode": "read-only", "fixture": "frontend-multi-project", "validations": ["no-source-change", "report"]},
+    {"name": "umbrella-bootstrap-configure-theme", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]}
   ]
 }

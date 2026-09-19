@@ -1,0 +1,4 @@
+interface:
+  display_name: "Integrate .NET Front-End Builds"
+  short_description: "Integrate assets with .NET build, publish and CI"
+  default_prompt: "Use $umbrella-dotnet-integrate-frontend-build to configure or maintain the relevant front-end tooling in this repository, preserving project-specific behaviour."

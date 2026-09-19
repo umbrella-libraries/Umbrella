@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure Webpack"
+  short_description: "Configure Webpack assets and manifest contracts"
+  default_prompt: "Use $umbrella-webpack-configure to configure or maintain the relevant front-end tooling in this repository, preserving project-specific behaviour."

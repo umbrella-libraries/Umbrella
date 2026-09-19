@@ -1,0 +1,4 @@
+interface:
+  display_name: "Safely Upgrade NPM Packages"
+  short_description: "Upgrade NPM packages with compatibility checks"
+  default_prompt: "Use $umbrella-npm-safe-upgrade to configure or maintain the relevant front-end tooling in this repository, preserving project-specific behaviour."

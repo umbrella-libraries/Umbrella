@@ -1,0 +1,4 @@
+interface:
+  display_name: "Standardize Shared SCSS Helpers"
+  short_description: "Align shared Sass helpers and dependency watching"
+  default_prompt: "Use $umbrella-scss-standardize-shared-helpers to configure or maintain the relevant front-end tooling in this repository, preserving project-specific behaviour."

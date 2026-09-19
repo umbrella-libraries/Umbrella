@@ -1,0 +1,40 @@
+{
+  "$schema": ".ai-shared/bundles/umbrella/frontend/config.schema.json",
+  "baselineVersion": 1,
+  "profile": "blazor",
+  "projects": [
+    {
+      "packagePath": "Web/Example.Web.Server",
+      "dotnetProject": "Web/Example.Web.Server/Example.Web.Server.csproj",
+      "lockOwner": "Web/Example.Web.Server",
+      "entries": {
+        "site": "Web/Example.Web.Server/Static/scripts/index.ts"
+      },
+      "generatedRoots": [
+        "Web/Example.Web.Server/wwwroot/dist"
+      ],
+      "scopedStyles": [
+        "razor"
+      ]
+    },
+    {
+      "packagePath": "Web/Example.Web.Client",
+      "dotnetProject": "Web/Example.Web.Client/Example.Web.Client.csproj",
+      "lockOwner": "Web/Example.Web.Client",
+      "scopedStyles": [
+        "razor"
+      ],
+      "sharedHelpers": {
+        "source": "Web/Example.Web.Server/Static/styles/helpers",
+        "strategy": "copy",
+        "destination": "Web/Example.Web.Client/Static/styles/helpers"
+      }
+    }
+  ],
+  "upgradePolicy": {
+    "allowPrerelease": false,
+    "excludedPackages": [],
+    "coordinatedGroups": []
+  },
+  "exceptions": []
+}

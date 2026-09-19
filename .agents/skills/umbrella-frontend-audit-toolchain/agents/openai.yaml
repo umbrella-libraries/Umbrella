@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Front-End Toolchain"
+  short_description: "Inventory and compare front-end configuration"
+  default_prompt: "Use $umbrella-frontend-audit-toolchain to review the relevant front-end tooling in this repository, preserving project-specific behaviour."

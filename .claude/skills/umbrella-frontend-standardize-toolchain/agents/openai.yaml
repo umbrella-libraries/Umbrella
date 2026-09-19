@@ -1,0 +1,4 @@
+interface:
+  display_name: "Standardize Front-End Toolchain"
+  short_description: "Coordinate setup and alignment of front-end tooling"
+  default_prompt: "Use $umbrella-frontend-standardize-toolchain to configure or maintain the relevant front-end tooling in this repository, preserving project-specific behaviour."

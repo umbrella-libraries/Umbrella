@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure TypeScript"
+  short_description: "Align TypeScript checks and browser compilation"
+  default_prompt: "Use $umbrella-typescript-configure to configure or maintain the relevant front-end tooling in this repository, preserving project-specific behaviour."

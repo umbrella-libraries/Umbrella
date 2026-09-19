@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Webpack Bundles"
+  short_description: "Measure production bundles and optimization options"
+  default_prompt: "Use $umbrella-webpack-audit-bundles to review the relevant front-end tooling in this repository, preserving project-specific behaviour."

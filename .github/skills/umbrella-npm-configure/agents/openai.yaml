@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure NPM"
+  short_description: "Align NPM runtimes, lockfiles and command contracts"
+  default_prompt: "Use $umbrella-npm-configure to configure or maintain the relevant front-end tooling in this repository, preserving project-specific behaviour."
