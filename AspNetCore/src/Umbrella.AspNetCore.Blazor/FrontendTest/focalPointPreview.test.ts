@@ -11,12 +11,18 @@ describe("local focal preview", () =>
 		expect(focalCropRectangle(400, 200, 100, 100, 1, 1)).toEqual({ x: 200, y: 0, width: 200, height: 200 });
 		expect(focalCropRectangle(200, 400, 100, 100, 1, 1)).toEqual({ x: 0, y: 200, width: 200, height: 200 });
 	});
-	it("draws the existing image and replaces pending load callbacks with the latest selection", () =>
+	it("draws the existing image independently of source density and replaces pending load callbacks with the latest selection", () =>
 	{
 		const selector = document.createElement("div");
 		const image = document.createElement("img");
 		image.src = "/dynamicimage/400/200/ScaleDown/jpg/image.jpg";
-		Object.defineProperties(image, { naturalWidth: { value: 400 }, naturalHeight: { value: 200 }, complete: { value: false } });
+		image.srcset = "/dynamicimage/400/200/ScaleDown/avif/image@1x.avif 1x, /dynamicimage/400/200/ScaleDown/avif/image@3x.avif 3x";
+		Object.defineProperties(image, {
+			naturalWidth: { value: 400 },
+			naturalHeight: { value: 200 },
+			complete: { value: false },
+			currentSrc: { value: "/dynamicimage/400/200/ScaleDown/avif/image@3x.avif" }
+		});
 		selector.append(image);
 		const canvas = document.createElement("canvas");
 		const drawImage = vi.fn();
@@ -24,7 +30,8 @@ describe("local focal preview", () =>
 		updateFocalPointPreview(selector, canvas, 100, 100, 0, 0);
 		updateFocalPointPreview(selector, canvas, 100, 100, 1, 1);
 		image.dispatchEvent(new Event("load"));
-		expect(drawImage).toHaveBeenCalledExactlyOnceWith(image, 200, 0, 200, 200, 0, 0, 100, 100);
+		expect(drawImage).toHaveBeenCalledExactlyOnceWith(image, -100, -0, 200, 100);
 		expect(image.getAttribute("src")).toBe("/dynamicimage/400/200/ScaleDown/jpg/image.jpg");
+		expect(image.currentSrc).toBe("/dynamicimage/400/200/ScaleDown/avif/image@3x.avif");
 	});
 });

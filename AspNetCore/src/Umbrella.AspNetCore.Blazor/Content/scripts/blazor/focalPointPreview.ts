@@ -36,7 +36,18 @@ export function updateFocalPointPreview(selector: HTMLElement, canvas: HTMLCanva
 		const scale = Math.min(1, crop.width / width, crop.height / height);
 		canvas.width = Math.max(1, Math.round(width * scale));
 		canvas.height = Math.max(1, Math.round(height * scale));
-		context.drawImage(image, crop.x, crop.y, crop.width, crop.height, 0, 0, canvas.width, canvas.height);
+
+		// Draw the whole image and let the canvas clip the overflow. A srcset candidate can use a
+		// higher physical pixel density than image.naturalWidth/image.naturalHeight report, so using
+		// the crop as a source rectangle would address the wrong region of that decoded bitmap.
+		const scaleX = canvas.width / crop.width;
+		const scaleY = canvas.height / crop.height;
+		context.drawImage(
+			image,
+			-crop.x * scaleX,
+			-crop.y * scaleY,
+			image.naturalWidth * scaleX,
+			image.naturalHeight * scaleY);
 	};
 	image.addEventListener("load", draw, { signal: subscription.signal });
 	if (image.complete)
