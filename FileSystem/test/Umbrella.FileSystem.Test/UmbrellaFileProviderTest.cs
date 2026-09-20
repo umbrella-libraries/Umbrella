@@ -514,6 +514,32 @@ public class UmbrellaFileProviderTest : IClassFixture<FileSystemAzuriteContainer
 		Assert.True(deleted);
 	}
 
+	[Fact]
+	public async Task SaveAsyncStream_NonSeekableStream_UploadsCompleteContentToAzureBlobAsync()
+	{
+		var provider = _azureBlobProvider();
+		await using var cleanup = provider as IAsyncDisposable;
+
+		string physicalPath = PathHelper.PlatformNormalize($@"{BaseDirectory}\{TestFileName}");
+		byte[] expectedBytes = await File.ReadAllBytesAsync(physicalPath, TestContext.Current.CancellationToken).ConfigureAwait(true);
+		using Stream innerStream = File.OpenRead(physicalPath);
+		using var stream = new NonSeekableReadStream(innerStream);
+		string subpath = $"/images/non-seekable-{Guid.NewGuid():N}.png";
+
+		try
+		{
+			IUmbrellaFileInfo fileInfo = await provider.SaveAsync(subpath, stream, cancellationToken: TestContext.Current.CancellationToken).ConfigureAwait(true);
+
+			CheckWrittenFileAssertions(provider, fileInfo, expectedBytes.Length, Path.GetFileName(subpath));
+			byte[] actualBytes = await fileInfo.ReadAsByteArrayAsync(cancellationToken: TestContext.Current.CancellationToken).ConfigureAwait(true);
+			Assert.Equal(expectedBytes, actualBytes);
+		}
+		finally
+		{
+			_ = await provider.DeleteAsync(subpath, CancellationToken.None).ConfigureAwait(true);
+		}
+	}
+
 	[Theory]
 	[MemberData(nameof(ProvidersMemberData))]
 	public async Task SaveAsyncBytes_ExistsAsync_DeletePathAsync(Func<IUmbrellaFileStorageProvider> providerFunc)
@@ -1542,6 +1568,22 @@ public class UmbrellaFileProviderTest : IClassFixture<FileSystemAzuriteContainer
 			DataversePathAdapterProvider => Assert.IsType<UmbrellaDataverseFileInfo>(file),
 			_ => throw new InvalidOperationException("Unsupported provider."),
 		};
+	}
+
+	private sealed class NonSeekableReadStream(Stream inner) : Stream
+	{
+		public override bool CanRead => inner.CanRead;
+		public override bool CanSeek => false;
+		public override bool CanWrite => false;
+		public override long Length => throw new NotSupportedException();
+		public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+		public override void Flush() => inner.Flush();
+		public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+		public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) => inner.ReadAsync(buffer, offset, count, cancellationToken);
+		public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => inner.ReadAsync(buffer, cancellationToken);
+		public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+		public override void SetLength(long value) => throw new NotSupportedException();
+		public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 	}
 
 	private sealed class DataversePathAdapterProvider(

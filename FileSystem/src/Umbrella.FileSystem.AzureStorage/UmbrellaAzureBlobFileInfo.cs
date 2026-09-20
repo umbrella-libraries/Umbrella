@@ -269,6 +269,8 @@ public record UmbrellaAzureBlobFileInfo : IUmbrellaRangeReadableFileInfo
 			if (!await AccessAuthorizor(this, IsNew ? UmbrellaFileOperationType.Create : UmbrellaFileOperationType.Update, cancellationToken).ConfigureAwait(false))
 				throw new UmbrellaFileAccessDeniedException(SubPath);
 
+			// Azure Storage supports forward-only streams by buffering upload blocks internally.
+			// Rewind seekable streams to preserve the existing whole-stream upload behaviour.
 			if (stream.CanSeek)
 				stream.Position = 0;
 
