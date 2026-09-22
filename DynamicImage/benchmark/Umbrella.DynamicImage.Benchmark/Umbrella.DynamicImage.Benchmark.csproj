@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
-		<TargetFrameworks>net462;net8.0;net9.0;net10.0</TargetFrameworks>
+		<TargetFramework>net10.0</TargetFramework>
 		<IsPackable>false</IsPackable>
 		<NoWarn>CS1591</NoWarn>
 	</PropertyGroup>
@@ -15,11 +15,16 @@
 
 	<ItemGroup>
 		<PackageReference Include="BenchmarkDotNet" />
-		<PackageReference Include="Moq" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Umbrella.DynamicImage.Abstractions\Umbrella.DynamicImage.Abstractions.csproj" />
+		<ProjectReference Include="..\..\src\Umbrella.DynamicImage.FreeImage\Umbrella.DynamicImage.FreeImage.csproj" />
+		<ProjectReference Include="..\..\src\Umbrella.DynamicImage.NetVips\Umbrella.DynamicImage.NetVips.csproj" />
+		<ProjectReference Include="..\..\src\Umbrella.DynamicImage.SkiaSharp\Umbrella.DynamicImage.SkiaSharp.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Update="Fixtures\*.jpg;Fixtures\*.png" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 </Project>
