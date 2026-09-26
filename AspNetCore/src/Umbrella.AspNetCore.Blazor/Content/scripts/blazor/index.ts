@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { BrowserEventAggregator } from "./browserEventAggregator";
 import { updateFocalPointPreview } from "./focalPointPreview";
+import { DialogScrollLock } from "./dialogScrollLock";
 
 const dialogFocusableSelector = [
 	"a[href]",
@@ -40,6 +41,8 @@ export class UmbrellaBlazorInterop
 	#browserEventAggregator: BrowserEventAggregator | null = null;
 	#imageFocalPointSelectors = new WeakSet<HTMLElement>();
 	#dialogs = new Array<DialogRegistration>();
+	#dialogScrollLock = new DialogScrollLock();
+	#dialogObserver: MutationObserver | null = null;
 	#backgroundInertState = new Map<HTMLElement, boolean>();
 	#dialogHostCount = 0;
 	#lastFocusedOutsideDialogs: HTMLElement | null = null;
@@ -145,6 +148,12 @@ export class UmbrellaBlazorInterop
 	public disposeDialogHost(): void
 	{
 		this.#dialogHostCount = Math.max(0, this.#dialogHostCount - 1);
+		if (this.#dialogHostCount === 0)
+		{
+			for (const registration of [...this.#dialogs].reverse())
+				this.disposeDialog(registration.id);
+		}
+
 		this.detachDialogListenersWhenUnused();
 	}
 
@@ -416,6 +425,29 @@ export class UmbrellaBlazorInterop
 		this.restoreBackgroundInertState();
 
 		const activeDialog = this.getActiveDialog();
+		if (activeDialog)
+		{
+			this.#dialogScrollLock.lock();
+			if (!this.#dialogObserver)
+			{
+				// Navigation or removal outside the normal disposal path must not leave the page locked.
+				this.#dialogObserver = new MutationObserver(() =>
+				{
+					for (const registration of [...this.#dialogs].reverse())
+					{
+						if (!registration.surface.isConnected || !registration.backdrop.isConnected)
+							this.disposeDialog(registration.id);
+					}
+				});
+				this.#dialogObserver.observe(document.body, { childList: true, subtree: true });
+			}
+		}
+		else
+		{
+			this.#dialogObserver?.disconnect();
+			this.#dialogObserver = null;
+			this.#dialogScrollLock.unlock();
+		}
 
 		for (const registration of this.#dialogs)
 		{
