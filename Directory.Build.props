@@ -1,6 +1,6 @@
 <Project>
 	<PropertyGroup>
-		<Version>10.0.0-preview-0103</Version>
+		<Version>10.0.0-preview-0104</Version>
 
 		<Nullable>enable</Nullable>
 		<WarningsAsErrors>nullable</WarningsAsErrors>
