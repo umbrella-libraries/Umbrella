@@ -7,6 +7,9 @@
 
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+		<PackageReference Include="Testcontainers.Azurite" />
+		<ProjectReference Include="../../../FileSystem/src/Umbrella.FileSystem.AzureStorage/Umbrella.FileSystem.AzureStorage.csproj" />
+		<ProjectReference Include="../../../FileSystem/src/Umbrella.FileSystem.Disk/Umbrella.FileSystem.Disk.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

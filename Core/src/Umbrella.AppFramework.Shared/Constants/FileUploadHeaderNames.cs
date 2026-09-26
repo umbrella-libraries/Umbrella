@@ -21,7 +21,7 @@ public static class FileUploadHeaderNames
 	/// </summary>
 	/// <remarks>
 	/// The value should be a <see langword="string"/> that can be parsed to an <see langword="enum"/> on the server
-	/// when being used with the <c>FileUploadController</c> from the <c>Umbrella.AspNetCore.WebUtilities</c> project,
+	/// when used with <c>UmbrellaFileUploadController&lt;TUploadType&gt;</c> from <c>Umbrella.AspNetCore.WebUtilities.FileSystem</c>,
 	/// e.g. <c>Image</c>, <c>Document</c>, etc.
 	/// </remarks>
 	public const string UploadType = "X-FileUploadType";

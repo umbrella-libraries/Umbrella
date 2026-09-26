@@ -339,7 +339,10 @@ public record UmbrellaDiskFileInfo : IUmbrellaRangeReadableFileInfo
 
 			using (var fs = new FileStream(PhysicalFileInfo.FullName, FileMode.Create, FileAccess.Write, FileShare.Write, bufferSize, true))
 			{
-				stream.Position = 0;
+				// Preserve rewinding for seekable streams while supporting forward-only request bodies.
+				if (stream.CanSeek)
+					stream.Position = 0;
+
 				await stream.CopyToAsync(fs, bufferSize, cancellationToken).ConfigureAwait(false);
 			}
 

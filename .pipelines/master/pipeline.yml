@@ -122,6 +122,11 @@ stages:
           foreach ($testProject in $testProjects) {
             Write-Host "Running tests for '$($testProject.FullName)'."
 
+            $testFilterArguments = @()
+            if ($testProject.Name -eq 'Umbrella.AspNetCore.WebUtilities.Test.csproj') {
+              $testFilterArguments = @('--filter-not-method', '*ConcreteControllers_ControlAuthorization_AndStreamToAzurite')
+            }
+
             & dotnet test `
               --project $testProject.FullName `
               --configuration '$(buildConfiguration)' `
@@ -131,7 +136,8 @@ stages:
               --report-trx `
               --coverage `
               --coverage-output-format cobertura `
-              --coverage-output coverage.cobertura.xml
+              --coverage-output coverage.cobertura.xml `
+              @testFilterArguments
 
             if ($LASTEXITCODE -ne 0) {
               Write-Host "dotnet test failed for '$($testProject.FullName)' with exit code $LASTEXITCODE."
@@ -196,6 +202,7 @@ stages:
       inputs:
         command: restore
         projects: |
+          AspNetCore/test/Umbrella.AspNetCore.WebUtilities.Test/Umbrella.AspNetCore.WebUtilities.Test.csproj
           Core/test/Umbrella.Utilities.Threading.Redis.Test/Umbrella.Utilities.Threading.Redis.Test.csproj
           DynamicImage/test/Umbrella.DynamicImage.Test/Umbrella.DynamicImage.Test.csproj
           FileSystem/test/Umbrella.FileSystem.Test/Umbrella.FileSystem.Test.csproj
@@ -213,6 +220,7 @@ stages:
           $ErrorActionPreference = 'Stop'
           $env:UMBRELLA_FILESYSTEM_DISABLED_PROVIDERS = 'SharePoint,Dataverse'
           $testProjects = @(
+            'AspNetCore/test/Umbrella.AspNetCore.WebUtilities.Test/Umbrella.AspNetCore.WebUtilities.Test.csproj'
             'Core/test/Umbrella.Utilities.Threading.Redis.Test/Umbrella.Utilities.Threading.Redis.Test.csproj'
             'DynamicImage/test/Umbrella.DynamicImage.Test/Umbrella.DynamicImage.Test.csproj'
             'FileSystem/test/Umbrella.FileSystem.Test/Umbrella.FileSystem.Test.csproj'
@@ -223,6 +231,11 @@ stages:
           foreach ($testProject in $testProjects) {
             Write-Host "Running container tests for '$testProject'."
 
+            $testFilterArguments = @()
+            if ($testProject.EndsWith('Umbrella.AspNetCore.WebUtilities.Test.csproj')) {
+              $testFilterArguments = @('--filter-method', '*ConcreteControllers_ControlAuthorization_AndStreamToAzurite')
+            }
+
             & dotnet test `
               --project $testProject `
               --configuration '$(buildConfiguration)' `
@@ -231,7 +244,8 @@ stages:
               --report-trx `
               --coverage `
               --coverage-output-format cobertura `
-              --coverage-output coverage.cobertura.xml
+              --coverage-output coverage.cobertura.xml `
+              @testFilterArguments
 
             if ($LASTEXITCODE -ne 0) {
               Write-Host "dotnet test failed for '$testProject' with exit code $LASTEXITCODE."

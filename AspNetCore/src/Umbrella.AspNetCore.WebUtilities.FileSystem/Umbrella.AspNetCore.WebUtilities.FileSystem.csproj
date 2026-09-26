@@ -6,7 +6,7 @@
 
 	<PropertyGroup>
 		<PackageId>Umbrella.AspNetCore.WebUtilities.FileSystem</PackageId>
-		<Description>This package contains middleware to be used in conjunction with the Umbrella.FileSystem.* packages.</Description>
+		<Description>This package contains middleware and an extensible upload controller for use with the Umbrella.FileSystem.* packages.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>
