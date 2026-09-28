@@ -29,6 +29,7 @@
     { "name": "umbrella-dotnet-scaffold-email-sender", "mode": "mutating", "fixture": "aspnetcore-server", "validations": ["source-scope", "build", "analyzers"] },
     { "name": "umbrella-dotnet-scaffold-file-authorization-handler", "mode": "mutating", "fixture": "file-backed-solution", "validations": ["source-scope", "build", "analyzers"] },
     { "name": "umbrella-dotnet-scaffold-file-handler", "mode": "mutating", "fixture": "file-backed-solution", "validations": ["source-scope", "build", "analyzers"] },
+    { "name": "umbrella-dotnet-scaffold-file-upload-controller", "mode": "mutating", "fixture": "file-backed-solution", "validations": ["source-scope", "restore", "resolved-packages", "build", "analyzers", "tests"] },
     { "name": "umbrella-dotnet-scaffold-mapperly-factories", "mode": "mutating", "fixture": "mapperly-solution", "validations": ["source-scope", "build", "analyzers"] },
     { "name": "umbrella-dotnet-scaffold-resource-auth-handler", "mode": "mutating", "fixture": "api-controller", "validations": ["source-scope", "build", "analyzers", "tests"] },
     { "name": "umbrella-dotnet-scaffold-service", "mode": "mutating", "fixture": "data-access-solution", "validations": ["source-scope", "build", "analyzers"] },

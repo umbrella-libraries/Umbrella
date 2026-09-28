@@ -15,6 +15,10 @@ Add an API controller whose endpoint surface does not fit the two generic CRUD p
 
 ## Pattern selection (decide first)
 
+For raw-body temporary-file uploads, use `umbrella-dotnet-scaffold-file-upload-controller`
+instead. Its specialized base owns the action and exposes upload hooks; the generic
+intermediate-base and hand-written action rules below do not apply to that workflow.
+
 1. Standard CRUD over one entity, standard endpoint shapes → **do not use this skill**: use `umbrella-dotnet-scaffold-api-repo-controller` (Pattern 1) or `umbrella-dotnet-scaffold-api-data-service-controller` (Pattern 2).
 2. Repository-backed entity, non-standard endpoint shapes, no service abstraction needed → Variant A below.
 3. Operations belong on a controller service (shared interface, SSR pre-rendering, or the logic-in-service convention) with a non-standard endpoint shape, and every delegated operation returns `IOperationResult` or `IOperationResult<T>` → Variant C below. A plain `Task<T>` method is not compatible with `ExecuteOperationAsync`; use Variant B or change the service contract deliberately.

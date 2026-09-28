@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold File Upload Controller"
+  short_description: "Create or migrate streaming upload controllers"
+  default_prompt: "Use $umbrella-dotnet-scaffold-file-upload-controller to create or migrate a raw-body upload endpoint while preserving its authorization, client contract and streaming behavior."
