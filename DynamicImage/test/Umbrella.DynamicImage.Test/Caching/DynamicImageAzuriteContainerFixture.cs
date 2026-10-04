@@ -7,6 +7,8 @@ public sealed class DynamicImageAzuriteContainerFixture : IAsyncLifetime
 	private const string AzuriteImage = "mcr.microsoft.com/azure-storage/azurite:3.37.0";
 	private readonly AzuriteContainer _container = new AzuriteBuilder(AzuriteImage)
 		.WithInMemoryPersistence()
+		// Azure Storage SDK releases can request API versions newer than Azurite supports.
+		.WithCommand("--skipApiVersionCheck")
 		.Build();
 
 	public string ConnectionString => _container.GetConnectionString();

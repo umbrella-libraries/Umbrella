@@ -9,6 +9,8 @@ public sealed class ServiceBusContainerFixture : IAsyncLifetime
 	private const string ServiceBusImage = "mcr.microsoft.com/azure-messaging/servicebus-emulator:2.0.1";
 	private readonly AzuriteContainer _azuriteContainer = new AzuriteBuilder(AzuriteImage)
 		.WithInMemoryPersistence()
+		// Azure Storage SDK releases can request API versions newer than Azurite supports.
+		.WithCommand("--skipApiVersionCheck")
 		.Build();
 	private readonly ServiceBusContainer _serviceBusContainer = new ServiceBusBuilder(ServiceBusImage)
 		.WithAcceptLicenseAgreement(true)

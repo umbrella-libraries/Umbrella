@@ -25,7 +25,11 @@ public class UmbrellaFileUploadHttpTest
 	public async Task ConcreteControllers_ControlAuthorization_AndStreamToAzurite()
 	{
 		var cancellationToken = TestContext.Current.CancellationToken;
-		await using var container = new AzuriteBuilder("mcr.microsoft.com/azure-storage/azurite:3.37.0").WithInMemoryPersistence().Build();
+		await using var container = new AzuriteBuilder("mcr.microsoft.com/azure-storage/azurite:3.37.0")
+			.WithInMemoryPersistence()
+			// Azure Storage SDK releases can request API versions newer than Azurite supports.
+			.WithCommand("--skipApiVersionCheck")
+			.Build();
 		await container.StartAsync(cancellationToken);
 		using var provider = new UmbrellaAzureBlobStorageFileProvider(
 			CoreUtilitiesMocks.CreateLoggerFactory<UmbrellaAzureBlobStorageFileProvider>(),
