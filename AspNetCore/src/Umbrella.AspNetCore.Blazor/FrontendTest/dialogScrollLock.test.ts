@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UmbrellaBlazorInterop } from "../Content/scripts/blazor/index";
 
 let interop: UmbrellaBlazorInterop;
-let scrollTo: ReturnType<typeof vi.fn>;
+let scrollTo: ReturnType<typeof vi.fn<(x: number, y: number) => void>>;
 
 beforeEach(() =>
 {
@@ -16,7 +16,7 @@ beforeEach(() =>
 	{
 		callback(0); return 1;
 	});
-	scrollTo = vi.fn();
+	scrollTo = vi.fn<(x: number, y: number) => void>();
 	vi.spyOn(window, "scrollTo").mockImplementation(scrollTo);
 	vi.stubGlobal("innerWidth", 1000);
 	vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(980);

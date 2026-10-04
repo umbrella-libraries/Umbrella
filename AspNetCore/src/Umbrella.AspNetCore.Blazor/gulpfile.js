@@ -5,6 +5,7 @@ const { spawn } = require("child_process");
 const rename = require("gulp-rename");
 const postcss = require("gulp-postcss");
 const cssnano = require("cssnano");
+const path = require("path");
 
 const sass = gulpSass(dartSass);
 
@@ -42,6 +43,24 @@ function createWebpackTask(options = {})
 		});
 	};
 }
+
+function typecheckTask()
+{
+	// TypeScript 7 owns type checking; API-based tools use the TypeScript 6 compatibility package.
+	const compilerPath = path.join(path.dirname(require.resolve("@typescript/native/package.json")), "bin", "tsc");
+
+	return new Promise((resolve, reject) =>
+	{
+		const compilerProcess = spawn(process.execPath, [compilerPath, "--noEmit"], { stdio: "inherit", cwd: __dirname });
+
+		compilerProcess.on("error", reject);
+		compilerProcess.on("close", code => code === 0
+			? resolve()
+			: reject(new Error(`TypeScript 7 exited with code ${code}`)));
+	});
+}
+
+gulp.task("typecheck", typecheckTask);
 
 async function lintTask()
 {
@@ -128,11 +147,11 @@ gulp.task("build-scoped-sass", createSassBuildTasks(false));
 
 gulp.task("build-release-scoped-sass", createSassBuildTasks(true));
 
-gulp.task("build", gulp.series("lint", buildWebpack, "build-scoped-sass"));
+gulp.task("build", gulp.series("typecheck", "lint", buildWebpack, "build-scoped-sass"));
 
-gulp.task("build-analyze", gulp.series("lint", buildAnalyzeWebpack, "build-scoped-sass"));
+gulp.task("build-analyze", gulp.series("typecheck", "lint", buildAnalyzeWebpack, "build-scoped-sass"));
 
-gulp.task("build-release", gulp.series("lint", buildReleaseWebpack, "build-release-scoped-sass"));
+gulp.task("build-release", gulp.series("typecheck", "lint", buildReleaseWebpack, "build-release-scoped-sass"));
 
 gulp.task("clean-scoped-sass", async () =>
 {

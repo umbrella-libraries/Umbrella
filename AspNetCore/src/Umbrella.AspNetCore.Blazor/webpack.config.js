@@ -50,7 +50,12 @@ module.exports = async (env, argv) =>
 		},
 		module: {
 			rules: [
-				{ test: /\.ts$/, exclude: /(node_modules|bower_components)/, use: "ts-loader" },
+				{
+					test: /\.ts$/,
+					exclude: /(node_modules|bower_components)/,
+					// TypeScript 7 checks the project before bundling. ts-loader needs the TypeScript 6 API for emission.
+					use: { loader: "ts-loader", options: { transpileOnly: true } }
+				},
 				{
 					test: /\.(css|scss)$/,
 					use: [MiniCssExtractPlugin.loader,
