@@ -70,6 +70,16 @@ Recommendation rules:
 - If the context constructor uses non-generic `DbContextOptions`, the concrete factory may need to remove or replace both `DbContextOptions<TDbContext>` and `DbContextOptions`.
 - Keep Testcontainers tests in a collection that disables parallelization unless the suite has been explicitly designed for concurrent containers.
 
+When SQL Server migrations or deployment-script coverage are relevant, also capture:
+
+- pipeline script generation commands, migration ranges and options (especially `--idempotent`), plus the SQL execution runner and its batch/error handling;
+- custom SQL in `Up` and `Down` that copies then drops columns, references objects absent after migration/rollback, or defines batch-first views/procedures/triggers;
+- whether such SQL uses a Unicode `EXEC`/`sp_executesql` wrapper with correct quote escaping;
+- whether existing tests only call `MigrateAsync`/`EnsureCreated` or start a factory, versus execute the generated deployment script on SQL Server;
+- disposable SQL Server availability and version/compatibility, pre-migration data setup, and startup migration/seeding that must be disabled to preserve test states.
+
+Use [SQL Server script validation](../umbrella-dotnet-add-ef-migration/references/sql-server-script-validation.md) to report gaps for fresh, seeded upgrade, already migrated, repeat-execution, and supported rollback scenarios. Runtime migration success alone does not prove idempotent-script rerun safety. Keep this audit read-only; describe proposed checks and unavailable prerequisites without executing migrations.
+
 ## Configuration and external services audit
 
 List all required options and external services created during startup:
@@ -121,6 +131,7 @@ Return a short readiness report with:
 - server project and entry-point hook status;
 - authentication scheme and test auth strategy;
 - DbContext type, constructor shape, migrations assembly, and replacement notes;
+- SQL Server deployment-script coverage and gaps, including history/data assertions and unavailable validation prerequisites when relevant;
 - sign-in/sign-out handler requirements and claim-omission capabilities;
 - required test config overrides;
 - external services and isolation risks;

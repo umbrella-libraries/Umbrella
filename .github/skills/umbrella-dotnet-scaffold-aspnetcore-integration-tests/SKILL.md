@@ -243,6 +243,12 @@ protected override void ReplaceDbContextRegistration(IServiceCollection services
 
 Do not use EF InMemory as a substitute for SQL Server controller integration tests unless the user explicitly asks for a fast smoke-only suite.
 
+### Migration deployment-script coverage
+
+When migration validation is in scope, use [SQL Server script validation](../umbrella-dotnet-add-ef-migration/references/sql-server-script-validation.md). A container factory that calls `MigrateAsync`, or a successful first application, does not test idempotent deployment-script reruns. Provision separate disposable databases and control automatic startup migration/seeding so fresh, pre-migration seeded, and already migrated states survive until the script is executed.
+
+Execute the pipeline's generated SQL artifact with proper `GO` handling and failure propagation. Cover fresh creation, upgrade with representative preserved data, already migrated schema, repeated execution of the same script, and supported rollback/reapplication. Assert actual data and migration history, not merely a successful connection or empty pending-migrations list. Review `Up`/`Down` raw SQL for deferred parsing/binding, batch-first DDL, and Unicode quote escaping using the reference. Include these tests when requested; a factory-only scaffold should report this coverage as outstanding rather than add an unrelated migration suite.
+
 ## xUnit collections
 
 Create separate collections for local and container-backed factories:
@@ -330,3 +336,4 @@ Report:
 - DbContext replacement details;
 - config overrides and external-service caveats;
 - validation results and warnings.
+- when migration validation is in scope, deployment-script scenario results, history/data assertions, and unexecuted SQL Server checks; Docker/SQL Server unavailability is a limitation, not a passing result.

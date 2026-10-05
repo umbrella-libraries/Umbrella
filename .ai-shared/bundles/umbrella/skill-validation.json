@@ -4,7 +4,7 @@
     { "name": "umbrella-blazor-register-nav-item", "mode": "mutating", "fixture": "blazor-solution", "validations": ["source-scope", "build", "analyzers"] },
     { "name": "umbrella-blazor-scaffold-index-page", "mode": "mutating", "fixture": "blazor-solution", "validations": ["source-scope", "build", "analyzers"] },
     { "name": "umbrella-blazor-scaffold-manage-page", "mode": "mutating", "fixture": "blazor-solution", "validations": ["source-scope", "build", "analyzers"] },
-    { "name": "umbrella-dotnet-add-ef-migration", "mode": "mutating", "fixture": "ef-solution", "validations": ["source-scope", "migration-review", "build"] },
+    { "name": "umbrella-dotnet-add-ef-migration", "mode": "mutating", "fixture": "ef-solution", "validations": ["source-scope", "migration-review", "build", "tests"] },
     { "name": "umbrella-dotnet-audit-api-controller-response-contract", "mode": "read-only", "fixture": "api-controller", "validations": ["no-source-change", "report"] },
     { "name": "umbrella-dotnet-audit-aspnetcore-integration-test-readiness", "mode": "read-only", "fixture": "aspnetcore-server", "validations": ["no-source-change", "report"] },
     { "name": "umbrella-dotnet-audit-server-bootstrap", "mode": "read-only", "fixture": "aspnetcore-server", "validations": ["no-source-change", "report"] },

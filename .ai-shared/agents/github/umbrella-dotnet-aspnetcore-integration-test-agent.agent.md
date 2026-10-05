@@ -23,4 +23,6 @@ Require the readiness report to distinguish the startup environment from the app
 
 Add focused factory self-tests for every non-default environment, authentication, database-provider, emulator, or external-service replacement introduced by the scaffold.
 
+When SQL Server migration validation is in scope, require the readiness audit to identify pipeline script generation/range/options, raw `Up`/`Down` SQL hazards, and actual script-execution coverage. Follow `umbrella-dotnet-add-ef-migration`'s `references\sql-server-script-validation.md`: execute the deployment artifact on isolated disposable SQL Server databases for fresh, seeded upgrade, already migrated, repeat execution, and supported rollback/reapplication scenarios, asserting history and preserved data. Control automatic startup migration/seeding to retain each scenario's initial state. Factory startup and `MigrateAsync` success do not establish idempotent-script rerun safety. Report unavailable SQL Server checks as outstanding; keep migration suites out of a factory-only scaffold unless requested.
+
 Verify restore, build, and `dotnet test --verbosity minimal` for the new project without legacy VSTest logger arguments. Report any external-service risks, package vulnerabilities, zero-test runner behavior, Docker/Testcontainers requirements, and memory-pressure considerations.
