@@ -11,7 +11,7 @@
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <PackageVersion Include="Azure.Messaging.ServiceBus" Version="7.21.0" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.27.0" Condition="'$(TargetFramework)' == 'netstandard2.0' Or '$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net9.0'" />
-    <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.0" Condition="'$(TargetFramework)' == 'net10.0'" />
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.1" Condition="'$(TargetFramework)' == 'net10.0'" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="Brotli.NET" Version="2.1.1" />
     <PackageVersion Include="CommunityToolkit.Diagnostics" Version="8.4.2" />
@@ -113,7 +113,7 @@
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="6.0.36" Condition="'$(TargetFramework)' == 'net462' Or '$(TargetFramework)' == 'netstandard2.0'" />
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="8.0.31" Condition="'$(TargetFramework)' == 'net8.0'" />
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="9.0.20" Condition="'$(TargetFramework)' == 'net9.0'" />
-    <PackageVersion Include="Microsoft.Graph" Version="6.7.0" />
+    <PackageVersion Include="Microsoft.Graph" Version="6.8.0" />
     <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.23.0" />
     <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.110" Condition="'$(TargetFramework)' == 'net10.0'" />
     <PackageVersion Include="Microsoft.Maui.Controls" Version="9.0.120" Condition="'$(TargetFramework)' == 'net9.0'" />
@@ -123,8 +123,8 @@
     <PackageVersion Include="Microsoft.Owin.Host.SystemWeb" Version="4.2.3" />
     <PackageVersion Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.27" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.11.2" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.4.1" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.0" />
     <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.7.23" />
     <PackageVersion Include="Moq" Version="4.21.0" />
     <PackageVersion Include="ncrontab" Version="3.4.0" />
