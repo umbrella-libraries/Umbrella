@@ -13,7 +13,7 @@ namespace Umbrella.AspNetCore.Shared.Components.Abstractions;
 /// <seealso cref="IAsyncDisposable"/>
 public abstract class UmbrellaComponentBase : ComponentBase, IAsyncDisposable
 {
-	private Lazy<CancellationTokenSource>? _cancellationTokenSource;
+	private Lazy<(CancellationTokenSource Source, CancellationToken Token)>? _cancellationTokenSource;
 	private bool _disposedValue;
 
 	[Inject]
@@ -59,10 +59,18 @@ public abstract class UmbrellaComponentBase : ComponentBase, IAsyncDisposable
 	{
 		get
 		{
-			if (_cancellationTokenSource is not null)
+			// Keep the token readable by request handlers that finish after component disposal.
+			if (_cancellationTokenSource is { IsValueCreated: true })
 				return _cancellationTokenSource.Value.Token;
 
-			_cancellationTokenSource = new Lazy<CancellationTokenSource>(() => CancellationTokenSource.CreateLinkedTokenSource(HttpContextService.RequestAborted));
+			if (_disposedValue)
+				return new CancellationToken(canceled: true);
+
+			_cancellationTokenSource ??= new Lazy<(CancellationTokenSource Source, CancellationToken Token)>(() =>
+			{
+				var source = CancellationTokenSource.CreateLinkedTokenSource(HttpContextService.RequestAborted);
+				return (source, source.Token);
+			});
 
 			return _cancellationTokenSource.Value.Token;
 		}
@@ -90,27 +98,31 @@ public abstract class UmbrellaComponentBase : ComponentBase, IAsyncDisposable
 	/// </param>
 	protected virtual async ValueTask DisposeAsync(bool disposing)
 	{
-		if (!_disposedValue)
-		{
-			if (disposing)
-			{
-				if (_cancellationTokenSource is { IsValueCreated: true })
-				{
-					if (_cancellationTokenSource.Value.IsCancellationRequested)
-					{
-#if NET8_0_OR_GREATER
-						await _cancellationTokenSource.Value.CancelAsync();
-#else
-						await Task.Yield();
-						_cancellationTokenSource.Value.Cancel();
-#endif
-					}
+		if (_disposedValue)
+			return;
 
-					_cancellationTokenSource.Value.Dispose();
+		_disposedValue = true;
+
+		if (disposing && _cancellationTokenSource is { IsValueCreated: true })
+		{
+			CancellationTokenSource source = _cancellationTokenSource.Value.Source;
+
+			try
+			{
+				if (!source.IsCancellationRequested)
+				{
+#if NET8_0_OR_GREATER
+					await source.CancelAsync();
+#else
+					await Task.Yield();
+					source.Cancel();
+#endif
 				}
 			}
-
-			_disposedValue = true;
+			finally
+			{
+				source.Dispose();
+			}
 		}
 	}
 
