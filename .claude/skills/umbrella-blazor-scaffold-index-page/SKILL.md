@@ -23,6 +23,10 @@ Add a Blazor index page that renders a paginated, sortable, filterable grid for 
 
 ---
 
+## Request failure handling
+
+The grid base owns the request lifecycle in the minimal scaffold below. If the page adds custom loading or other request handlers, read [Blazor request failures and component cancellation](../../../.ai-shared/bundles/umbrella/blazor-request-failures.md). Use the inherited lifetime token, distinguish navigation cancellation from timeouts, and complete failed loads with an error view and retry. Follow the installed base implementation before adding custom handlers.
+
 ## Step 1 -- Create the folder
 
 **Folder:** `Web\<AppName>.Web.Client\Pages\Admin\<Name>Management\`
@@ -128,3 +132,4 @@ If discovery showed that sibling feature folders use a local `_Imports.razor`, a
 8. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.
 9. Any required feature-local `_Imports.razor` exists, and Create/Edit links resolve to an implemented or concurrently scaffolded manage route.
 10. `Slim<Name>Model` has a record-level `[Display(Name = "<Friendly Singular>")]` attribute for friendly inherited UI text.
+11. Custom request handlers, if added, follow the shared cancellation/error guidance and verify the relevant timeout, retry, disposal, and missing-resource behaviours. Keep the minimal grid scaffold delegated to its framework base.

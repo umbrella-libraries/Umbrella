@@ -21,12 +21,17 @@ Add a Blazor manage page that handles both create and edit for a feature. The pa
 
 ---
 
+## Request failure handling
+
+Read [Blazor request failures and component cancellation](../../../.ai-shared/bundles/umbrella/blazor-request-failures.md) before implementing load, save, or upload handlers. Pass the inherited lifetime token to requests, distinguish expected navigation cancellation from an uncancelled timeout, and complete the load state transition with an inline error and retry. Use the application's existing error messages/resources in place of the example literals below where available.
+
 ## Step 1 -- Create Manage.razor
 
 **File:** `Web\<AppName>.Web.Client\Pages\Admin\<Name>Management\Manage.razor`
 
 ```razor
 @inherits ManageBase
+@using Umbrella.AspNetCore.Blazor.Components.StateViews
 @page "/admin/<route-plural>/manage"
 @page "/admin/<route-plural>/manage/{Id:int}"
 
@@ -65,6 +70,9 @@ Add a Blazor manage page that handles both create and edit for a feature. The pa
                     </div>
                 </EditForm>
             </Success>
+            <Error>
+                <ErrorStateView Message="@LoadErrorMessage" OnReloadButtonClick="ReloadAsync" />
+            </Error>
         </UmbrellaModelLayoutStateView>
     </section>
 </div>
@@ -74,7 +82,7 @@ Add a Blazor manage page that handles both create and edit for a feature. The pa
 - Two `@page` directives: the create route (no ID) and the edit route (`{Id:int}`).
 - `@inherits ManageBase` only — no C# logic in the `.razor` beyond the `@{...}` title block.
 - `UmbrellaModelLayoutStateView` wraps the form — always present; it handles the loading/error/success state machine.
-- `CurrentState` and `ReloadCallback` come from the base class — do not define them.
+- `CurrentState` and `ReloadAsync` come from the base class — do not define them. Bind the layout view and its custom error fragment to `ReloadAsync`; the fragment uses `LoadErrorMessage` from the code-behind. Reuse an existing `ErrorStateView` import if it is already provided by `_Imports.razor`.
 - Form fields: add one `<div class="form-group">` per genuinely user-editable property. Use `form-floating` for text inputs. Check existing manage pages for the right component per field type (`UmbrellaInputText`, `UmbrellaInputTextArea`, `UmbrellaInputSelect`, etc.). A file-provider filename is not a raw text field: either implement the complete upload/preview workflow below or omit it from this page and explicitly report that file editing is out of scope.
 - Cancel button always links back to the index route.
 - Submit button label changes based on `Id.HasValue`.
@@ -108,6 +116,7 @@ When the feature includes image/file upload:
 ```csharp
 using <AppName>.Web.Client.Data.Services.Abstractions;
 using <AppName>.Web.Shared.Models.Api.<Feature>;
+using Umbrella.Utilities.Http.Abstractions;
 
 namespace <AppName>.Web.Client.Pages.Admin.<Name>Management;
 
@@ -120,6 +129,10 @@ public abstract class ManageBase : <AppName>ClientComponentBase
     [Inject]
     private I<Name>Service Repository { get; set; } = null!;
 
+    private const string LoadFailureMessage = "The page could not be loaded. Please try again.";
+    private const string TimeoutFailureMessage = "The server took too long to respond. Please try again.";
+
+    protected string LoadErrorMessage { get; private set; } = LoadFailureMessage;
     protected <Name>Model? Model { get; private set; }
     protected CreateUpdate<Name>ModelBase? CreateUpdateModel { get; private set; }
 
@@ -127,6 +140,9 @@ public abstract class ManageBase : <AppName>ClientComponentBase
 
     protected override async Task OnInitializedAsync()
     {
+        CurrentState = LayoutState.Loading;
+        LoadErrorMessage = LoadFailureMessage;
+
         try
         {
             if (!Id.HasValue)
@@ -137,28 +153,32 @@ public abstract class ManageBase : <AppName>ClientComponentBase
                 return;
             }
 
-            var result = await Repository.FindByIdAsync(Id.Value);
+            var result = await Repository.FindByIdAsync(Id.Value, cancellationToken: CancellationToken);
 
             if (result.IsSuccess && result.Result is not null)
             {
                 Model = result.Result;
-                CreateUpdateModel = await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result);
+                CreateUpdateModel = await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result, cancellationToken: CancellationToken);
 
                 CurrentState = LayoutState.Success;
 
                 return;
             }
-            else
-            {
-                await ShowOperationResultErrorMessageAsync(result);
-            }
-        }
-        catch (Exception exc) when (Logger.WriteError(exc, new { Id }))
-        {
-            await DialogUtility.ShowDangerMessageAsync();
-        }
 
-        CurrentState = LayoutState.Error;
+            LoadErrorMessage = result is IHttpOperationResult httpResult && httpResult.ProblemDetails?.Status is 408 or 504
+                ? TimeoutFailureMessage
+                : LoadFailureMessage;
+            CurrentState = LayoutState.Error;
+        }
+        catch (Exception exc) when (
+            !(exc is OperationCanceledException && CancellationToken.IsCancellationRequested)
+            && Logger.WriteError(exc, new { Id }, ignoreCancellationExceptions: false))
+        {
+            LoadErrorMessage = exc is OperationCanceledException or TimeoutException
+                ? TimeoutFailureMessage
+                : LoadFailureMessage;
+            CurrentState = LayoutState.Error;
+        }
     }
 
     protected async Task SubmitFormAsync()
@@ -173,7 +193,7 @@ public abstract class ManageBase : <AppName>ClientComponentBase
 
             if (CreateUpdateModel is Create<Name>Model createModel)
             {
-                var result = await Repository.CreateAsync(createModel);
+                var result = await Repository.CreateAsync(createModel, cancellationToken: CancellationToken);
 
                 if (result.IsSuccess)
                 {
@@ -187,7 +207,7 @@ public abstract class ManageBase : <AppName>ClientComponentBase
             }
             else if (CreateUpdateModel is Update<Name>Model updateModel)
             {
-                var result = await Repository.UpdateAsync(updateModel);
+                var result = await Repository.UpdateAsync(updateModel, cancellationToken: CancellationToken);
 
                 if (result.IsSuccess && result.Result is not null)
                 {
@@ -197,7 +217,7 @@ public abstract class ManageBase : <AppName>ClientComponentBase
                     // concurrency stamp and any server-computed fields — avoids a full page reload.
                     // Requires IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>
                     // in Client.Data. If that mapper does not exist yet, use ReloadAsync() as a fallback.
-                    _ = await Mapper.MapAsync(result.Result, updateModel);
+                    _ = await Mapper.MapAsync(result.Result, updateModel, cancellationToken: CancellationToken);
 
                     // Fallback (use when the client-side result mapper has not been created yet):
                     // await ReloadAsync();
@@ -212,7 +232,9 @@ public abstract class ManageBase : <AppName>ClientComponentBase
         {
             await DialogUtility.ShowDangerMessageAsync(ClientErrorMessages.Concurrency);
         }
-        catch (Exception exc) when (Logger.WriteError(exc, new { Model, CreateUpdateModel }))
+        catch (Exception exc) when (
+            !(exc is OperationCanceledException && CancellationToken.IsCancellationRequested)
+            && Logger.WriteError(exc, new { Model, CreateUpdateModel }, ignoreCancellationExceptions: false))
         {
             await DialogUtility.ShowDangerMessageAsync();
         }
@@ -225,8 +247,8 @@ public abstract class ManageBase : <AppName>ClientComponentBase
 - `[Authorize(PolicyName)]` on the class, not in the `.razor` file.
 - `[Inject] private I<Name>Service Repository { get; set; } = null!;` — the property is always named `Repository` by convention, regardless of the type name.
 - `CreateUpdateModel` is typed as the exact discovered shared create/update base (illustrated as `CreateUpdate<Name>ModelBase?`), so both sealed concrete create and update models can be assigned without duplicating their shared property contract.
-- `OnInitializedAsync`: if no `Id`, construct an empty `Create<Name>Model` and set `CurrentState = LayoutState.Success`. If `Id` is set, load from `Repository.FindByIdAsync` and use `await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result)` to populate `CreateUpdateModel`.
-- `SubmitFormAsync`: pattern-match on `CreateUpdateModel` type to call the correct method. After a successful create, navigate to the index route. After a successful update, prefer `_ = await Mapper.MapAsync(result.Result, updateModel)` to refresh the concurrency stamp in place — this requires `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` in `Client.Data`. If that mapper does not exist yet, fall back to `await ReloadAsync()` and leave a `// TODO: Mapper` comment.
+- `OnInitializedAsync`: if no `Id`, construct an empty `Create<Name>Model` and set `CurrentState = LayoutState.Success`. If `Id` is set, load from `Repository.FindByIdAsync` and use `await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result, cancellationToken: CancellationToken)` to populate `CreateUpdateModel`.
+- `SubmitFormAsync`: pattern-match on `CreateUpdateModel` type to call the correct method. After a successful create, navigate to the index route. After a successful update, prefer `_ = await Mapper.MapAsync(result.Result, updateModel, cancellationToken: CancellationToken)` to refresh the concurrency stamp in place — this requires `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` in `Client.Data`. If that mapper does not exist yet, fall back to `await ReloadAsync()` and leave a `// TODO: Mapper` comment.
 - `Mapper` is a `protected` property on `UmbrellaComponentBase` (the Umbrella framework base) — no injection needed in derived components. The `Mapper.MapAsync` calls require client-side mapper classes in `Web.Client.Data\Mappings\Api\`: `IUmbrellaMapperlyNewInstanceMapper<<Name>Model, Update<Name>Model>` for load, and `IUmbrellaMapperlyExistingInstanceMapper<Update<Name>ResultModel, Update<Name>Model>` for post-save refresh. Use the `umbrella-dotnet-scaffold-mapperly-factories` skill to create them.
 - Concurrency exception is caught specifically with a dedicated user message.
 - `System.ComponentModel.DataAnnotations` is needed if `ValidationResult` is referenced — add the `using` if required.
@@ -268,7 +290,9 @@ public async Task<IOperationResult?> UploadFileToTempDirectoryAsync(UmbrellaFile
 
         return fileUploadResult;
     }
-    catch (Exception exc) when (Logger.WriteError(exc))
+    catch (Exception exc) when (
+        !(exc is OperationCanceledException && CancellationToken.IsCancellationRequested)
+        && Logger.WriteError(exc, new { evt.FileName, evt.Type }, ignoreCancellationExceptions: false))
     {
         await DialogUtility.ShowDangerMessageAsync();
     }
@@ -294,12 +318,15 @@ protected void OnDeleteImage()
 2. `[Authorize(PolicyName)]` is on the code-behind class, not in the `.razor` file.
 3. `[Inject]` property is named `Repository` and typed as the service interface.
 4. `CreateUpdateModel` is typed as the shared create/update model base (`CreateUpdate<Name>ModelBase?`), not an input interface or one concrete request type.
-5. `OnInitializedAsync` uses `await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result)` to populate the edit form — no manual property assignment.
+5. `OnInitializedAsync` uses `await Mapper.MapAsync<<Name>Model, Update<Name>Model>(result.Result, cancellationToken: CancellationToken)` to populate the edit form — no manual property assignment.
 6. `OnInitializedAsync` sets `CurrentState = LayoutState.Success` on both the create and edit success paths, and `LayoutState.Error` on failure.
-7. `SubmitFormAsync` pattern-matches on `Create<Name>Model` vs `Update<Name>Model` — navigates after create; after update calls `_ = await Mapper.MapAsync(result.Result, updateModel)` to refresh the model in place.
+7. `SubmitFormAsync` pattern-matches on `Create<Name>Model` vs `Update<Name>Model` — navigates after create; after update calls `_ = await Mapper.MapAsync(result.Result, updateModel, cancellationToken: CancellationToken)` to refresh the model in place.
 8. `UmbrellaConcurrencyException` is caught and handled with `ClientErrorMessages.Concurrency`.
 9. `UmbrellaModelLayoutStateView` wraps the form content in the `.razor`.
 10. Client-side mapper classes exist in `Web.Client.Data\Mappings\Api\` for the `<Name>Model → Update<Name>Model` and `Update<Name>ResultModel → Update<Name>Model` mappings.
 11. When the displayed file uses Dynamic Image URL fingerprinting, its model declares `ImageVersionToken`, mappings assign URL/token together, and `UmbrellaFileImagePreviewUpload` receives and forwards `VersionToken`.
 12. A successful upload while editing sets the matching replacement flag (`ReplaceExistingImage`, `ReplaceExistingFile`, or the feature-specific equivalent) after assigning the temporary provider filename. Do not rely only on the delete/replace button handler; image-preview upload controls can upload directly over an existing preview.
 13. Read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` and build with the installed analyzers enabled.
+14. Load/retry starts in `LayoutState.Loading`, resets the prior error message, and reaches `LayoutState.Error` on handled failure; the inline error fragment offers retry and identifies timeouts.
+15. Load, save, upload, and async mapping calls pass the component lifetime token where supported. Their exception filters suppress only token-confirmed navigation cancellation and use `ignoreCancellationExceptions: false` for other failures.
+16. When changing request handling, verify timeout/retry, disposal during a pending request, and applicable transient-failure versus missing-resource behaviour as described in the shared reference.
