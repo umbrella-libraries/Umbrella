@@ -163,6 +163,7 @@ stages:
 
     - task: PublishCodeCoverageResults@2
       displayName: Publish code coverage
+      retryCountOnTaskFailure: 3
       condition: succeededOrFailed()
       inputs:
         summaryFileLocation: $(Build.SourcesDirectory)/**/*.cobertura.xml
@@ -271,6 +272,7 @@ stages:
 
     - task: PublishCodeCoverageResults@2
       displayName: Publish container test coverage
+      retryCountOnTaskFailure: 3
       condition: succeededOrFailed()
       inputs:
         summaryFileLocation: $(Build.SourcesDirectory)/**/*.cobertura.xml
