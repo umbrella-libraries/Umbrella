@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Umbrella.FileSystem.Abstractions;
 
 namespace Umbrella.FileSystem.SharePoint.Test;
@@ -6,6 +7,25 @@ namespace Umbrella.FileSystem.SharePoint.Test;
 public class UmbrellaSharePointMetadataSchemaTest
 {
 	private static CancellationToken Token => TestContext.Current.CancellationToken;
+
+	[Fact]
+	public async Task MultilineCreationOmitsAppendChangesPropertyAndRemainsCompatibleOnRepeatedSetup()
+	{
+		using var fixture = new SharePointGraphFixture { EnableAppendOnlyWhenCreationPropertyPresent = true };
+		fixture.Map("Notes", SharePointMetadataColumnType.MultilineText);
+
+		await UmbrellaSharePointMetadataSchema.EnsureAsync(fixture.Options, Token);
+
+		var creation = Assert.Single(fixture.Requests, request => request.Method == "POST");
+		using var body = JsonDocument.Parse(creation.Body!);
+		var text = body.RootElement.GetProperty("text");
+		Assert.True(text.GetProperty("allowMultipleLines").GetBoolean());
+		Assert.False(text.TryGetProperty("appendChangesToExistingText", out _));
+
+		fixture.Requests.Clear();
+		await UmbrellaSharePointMetadataSchema.EnsureAsync(fixture.Options, Token);
+		Assert.All(fixture.Requests, request => Assert.Equal("GET", request.Method));
+	}
 
 	[Theory]
 	[InlineData(SharePointMetadataColumnType.Text, "text")]
@@ -47,6 +67,7 @@ public class UmbrellaSharePointMetadataSchemaTest
 	[InlineData("type")]
 	[InlineData("readonly")]
 	[InlineData("append")]
+	[InlineData("appendmultiline")]
 	[InlineData("richtext")]
 	[InlineData("choices")]
 	[InlineData("multichoice")]
@@ -54,7 +75,13 @@ public class UmbrellaSharePointMetadataSchemaTest
 	{
 		using var fixture = new SharePointGraphFixture();
 		fixture.Map("missing", SharePointMetadataColumnType.Boolean);
-		fixture.Map("existing", mismatch is "choices" or "multichoice" ? SharePointMetadataColumnType.Choice : SharePointMetadataColumnType.Text,
+		var columnType = mismatch switch
+		{
+			"choices" or "multichoice" => SharePointMetadataColumnType.Choice,
+			"appendmultiline" => SharePointMetadataColumnType.MultilineText,
+			_ => SharePointMetadataColumnType.Text
+		};
+		fixture.Map("existing", columnType,
 			"existing", mismatch is "choices" or "multichoice" ? ["Draft"] : []);
 		var column = new Dictionary<string, object?> { ["name"] = "existing", ["text"] = new { allowMultipleLines = false, textType = "plain" } };
 		switch (mismatch)
@@ -65,6 +92,7 @@ public class UmbrellaSharePointMetadataSchemaTest
 				break;
 			case "readonly": column["readOnly"] = true; break;
 			case "append": column["text"] = new { appendChangesToExistingText = true }; break;
+			case "appendmultiline": column["text"] = new { allowMultipleLines = true, appendChangesToExistingText = true, textType = "plain" }; break;
 			case "richtext": column["text"] = new { textType = "richText" }; break;
 			default:
 				_ = column.Remove("text");

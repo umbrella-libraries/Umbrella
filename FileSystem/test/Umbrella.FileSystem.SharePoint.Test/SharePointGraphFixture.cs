@@ -26,6 +26,7 @@ internal sealed class SharePointGraphFixture : IDisposable
 	internal HttpStatusCode RaceStatus { get; set; } = HttpStatusCode.Conflict;
 	internal bool PageColumns { get; set; }
 	internal bool PageDrives { get; set; }
+	internal bool EnableAppendOnlyWhenCreationPropertyPresent { get; set; }
 	internal static GenericTypeConverter Converter { get; } = new(NullLogger<GenericTypeConverter>.Instance);
 
 	internal SharePointGraphFixture()
@@ -80,6 +81,15 @@ internal sealed class SharePointGraphFixture : IDisposable
 			Assert.Equal(HttpMethod.Post, request.Method);
 			var column = JsonSerializer.Deserialize<Dictionary<string, object?>>(body!)!;
 			string name = column["name"]!.ToString()!;
+			if (EnableAppendOnlyWhenCreationPropertyPresent && column.TryGetValue("text", out object? facet) && facet is JsonElement text
+				&& text.TryGetProperty("allowMultipleLines", out JsonElement multiline) && multiline.GetBoolean())
+			{
+				// SharePoint enables append-only mode when the property is supplied, even as false.
+				var returnedText = text.Deserialize<Dictionary<string, object?>>()!;
+				returnedText["appendChangesToExistingText"] = text.TryGetProperty("appendChangesToExistingText", out _);
+				column["text"] = returnedText;
+			}
+
 			if (name == FailColumn)
 				return Error(HttpStatusCode.BadRequest);
 			if (name == RaceColumn)

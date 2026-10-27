@@ -184,15 +184,19 @@ public class UmbrellaSharePointMetadataIntegrationTest
 
 		internal async Task SetUnrelatedFieldAsync(IUmbrellaFileInfo file, string value, CancellationToken cancellationToken)
 		{
-			var item = await _graph.Drives[_driveId].Root.ItemWithPath(Options.SubPathTranslator!(file.SubPath)).GetAsync(cancellationToken: cancellationToken);
-			_ = await _graph.Sites[Options.SiteId].Lists[_listId].Items[item!.SharepointIds!.ListItemId].Fields
+			var item = await _graph.Drives[_driveId].Root.ItemWithPath(Options.SubPathTranslator!(file.SubPath))
+				.GetAsync(config => config.QueryParameters.Select = ["sharepointIds"], cancellationToken: cancellationToken);
+			string itemId = Assert.IsType<string>(item?.SharepointIds?.ListItemId);
+			_ = await _graph.Sites[Options.SiteId].Lists[_listId].Items[itemId].Fields
 				.PatchAsync(new FieldValueSet { AdditionalData = new Dictionary<string, object> { [_prefix + "Unrelated"] = value } }, cancellationToken: cancellationToken);
 		}
 
 		internal async Task<string?> GetUnrelatedFieldAsync(IUmbrellaFileInfo file, CancellationToken cancellationToken)
 		{
-			var item = await _graph.Drives[_driveId].Root.ItemWithPath(Options.SubPathTranslator!(file.SubPath)).GetAsync(cancellationToken: cancellationToken);
-			var fields = await _graph.Sites[Options.SiteId].Lists[_listId].Items[item!.SharepointIds!.ListItemId].Fields.GetAsync(cancellationToken: cancellationToken);
+			var item = await _graph.Drives[_driveId].Root.ItemWithPath(Options.SubPathTranslator!(file.SubPath))
+				.GetAsync(config => config.QueryParameters.Select = ["sharepointIds"], cancellationToken: cancellationToken);
+			string itemId = Assert.IsType<string>(item?.SharepointIds?.ListItemId);
+			var fields = await _graph.Sites[Options.SiteId].Lists[_listId].Items[itemId].Fields.GetAsync(cancellationToken: cancellationToken);
 			return fields?.AdditionalData[_prefix + "Unrelated"]?.ToString();
 		}
 

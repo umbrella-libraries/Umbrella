@@ -105,7 +105,9 @@ public static class UmbrellaSharePointMetadataSchema
 		{
 			case SharePointMetadataColumnType.Text:
 			case SharePointMetadataColumnType.MultilineText:
-				column.Text = new TextColumn { AllowMultipleLines = mapping.ColumnType == SharePointMetadataColumnType.MultilineText, TextType = "plain", AppendChangesToExistingText = false };
+				// SharePoint enables append-only multiline text when appendChangesToExistingText
+				// is supplied, even as false. Omit it to retain replacement-text semantics.
+				column.Text = new TextColumn { AllowMultipleLines = mapping.ColumnType == SharePointMetadataColumnType.MultilineText, TextType = "plain" };
 				break;
 			case SharePointMetadataColumnType.Boolean:
 				column.Boolean = new BooleanColumn();
