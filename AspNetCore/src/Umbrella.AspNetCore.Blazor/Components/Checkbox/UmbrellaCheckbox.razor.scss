@@ -8,6 +8,9 @@
 	--u-checkbox-spacing
 	--u-checkbox-border-width
 	--u-checkbox-border-radius
+	--u-checkbox-focus-color
+	--u-checkbox-focus-width
+	--u-checkbox-focus-offset
 */
 
 .u-checkbox
@@ -19,18 +22,41 @@
 	$spacing: 8px;
 	$borderWidth: 1px;
 	$borderRadius: 5px;
+	$focusWidth: 2px;
+	$focusOffset: 2px;
 
 	position: relative;
 
 	&__input
 	{
-		display: none;
+		// Transparent and laid over the custom box rather than display: none so the native input stays in the accessibility tree
+		// and the tab order, and so pointer events aimed at the input itself (e.g. by test tools locating it by role) reach it.
+		position: absolute;
+		top: 50%;
+		left: 0;
+		z-index: 1;
+		width: var(--u-checkbox-width, $width);
+		height: var(--u-checkbox-height, $height);
+		margin: 0;
+		padding: 0;
+		transform: translateY(-50%);
+		opacity: 0;
+		cursor: pointer;
 
 		&:checked
 		{
 			& + label::before
 			{
 				background: var(--u-checkbox-color-primary, $colorPrimary);
+			}
+		}
+
+		&:focus-visible
+		{
+			& + label::before
+			{
+				outline: var(--u-checkbox-focus-width, $focusWidth) solid var(--u-checkbox-focus-color, var(--u-checkbox-color-primary, $colorPrimary));
+				outline-offset: var(--u-checkbox-focus-offset, $focusOffset);
 			}
 		}
 	}
