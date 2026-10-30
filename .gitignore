@@ -12,6 +12,13 @@ BenchmarkDotNet.Artifacts
 CodeCoverage
 TestResults
 coverage.json
+
+# Generated test reports and diagnostic artifacts
+*.trx
+*.cobertura.xml
+*.binlog
+/artifacts/
+
 /FileSystem/test/Umbrella.FileSystem.Test/images
 node_modules
 **/wwwroot/dist/**
