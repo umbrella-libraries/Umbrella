@@ -1,11 +1,8 @@
-﻿using System.Globalization;
-using System.Text;
+﻿using CommunityToolkit.Diagnostics;
 using CsvHelper;
-using CsvHelper.Configuration;
 using Microsoft.Extensions.Logging;
 using Umbrella.Utilities.Csv.Abstractions;
 using Umbrella.Utilities.Csv.Exceptions;
-using Umbrella.Utilities.Csv.Extensions;
 
 namespace Umbrella.Utilities.Csv;
 
@@ -14,6 +11,19 @@ namespace Umbrella.Utilities.Csv;
 /// </summary>
 public class CsvService : ICsvService
 {
+	private static readonly CsvWriterOptions _defaultWriterOptions = new()
+	{
+		WriteByteOrderMark = true,
+		Quoting = CsvQuoting.WhenNeededOrWhitespace
+	};
+
+	private static readonly CsvReaderOptions _defaultReaderOptions = new()
+	{
+		Separator = ',',
+		MalformedData = CsvMalformedDataHandling.Throw,
+		MissingField = CsvMissingFieldHandling.Throw
+	};
+
 	private readonly ILogger _logger;
 
 	/// <summary>
@@ -26,46 +36,38 @@ public class CsvService : ICsvService
 	}
 
 	/// <inheritdoc />
-	public async ValueTask<byte[]> GenerateAsync<TModel>(IEnumerable<TModel> items, ClassMap<TModel>? map = null, CancellationToken cancellationToken = default)
+	public async ValueTask<byte[]> GenerateAsync<TModel>(IEnumerable<TModel> items, CsvWriterOptions? options = null, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		Guard.IsNotNull(items);
 
 		try
 		{
 			using MemoryStream ms = new();
-			using StreamWriter sw = new(ms, new UTF8Encoding(true));
+			await using var csvWriter = CsvWriter.Create(ms, options ?? _defaultWriterOptions, leaveOpen: true);
 
-			using CsvWriter csvWriter = new(sw, CultureInfo.InvariantCulture);
-
-			if (map is not null)
-				csvWriter.Context.RegisterClassMap(map);
-			else
-				csvWriter.Context.RegisterClassMap(FriendlyHeaderNameClassMap<TModel>.Instance);
-
-			csvWriter.WriteRecords(items);
-
-			await sw.FlushAsync(cancellationToken);
+			await csvWriter.WriteRecordsAsync(items, cancellationToken);
+			cancellationToken.ThrowIfCancellationRequested();
+			await csvWriter.FlushAsync(cancellationToken);
 
 			return ms.ToArray();
 		}
-		catch (Exception exc) when (_logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && _logger.WriteError(exc, new { options }))
 		{
 			throw new UmbrellaCsvException("There has been a problem generating the CSV.", exc);
 		}
 	}
 
 	/// <inheritdoc />
-	public async Task<IReadOnlyCollection<T>> ParseFromStreamAsync<T>(Stream stream, CsvConfiguration? config = default, CancellationToken cancellationToken = default)
+	public async Task<IReadOnlyCollection<T>> ParseFromStreamAsync<T>(Stream stream, CsvReaderOptions? options = null, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		Guard.IsNotNull(stream);
 
 		try
 		{
-			using var reader = new StreamReader(stream);
-
-			config ??= new CsvConfiguration(CultureInfo.InvariantCulture);
-
-			using var csv = new CsvReader(reader, config);
+			await using var inputStream = stream;
+			await using var csv = CsvReader.Create(inputStream, options ?? _defaultReaderOptions, leaveOpen: true);
 
 			IAsyncEnumerable<T> sequence = csv.GetRecordsAsync<T>(cancellationToken);
 
@@ -73,25 +75,17 @@ public class CsvService : ICsvService
 
 			await foreach (var item in sequence)
 			{
+				cancellationToken.ThrowIfCancellationRequested();
 				result.Add(item);
 			}
 
+			cancellationToken.ThrowIfCancellationRequested();
+
 			return result;
 		}
-		catch (Exception exc) when (_logger.WriteError(exc))
+		catch (Exception exc) when (exc is not OperationCanceledException && _logger.WriteError(exc, new { options }))
 		{
 			throw new UmbrellaCsvException("There has been a problem parsing the CSV.", exc);
 		}
-	}
-}
-
-file sealed class FriendlyHeaderNameClassMap<T> : ClassMap<T>
-{
-	public static FriendlyHeaderNameClassMap<T> Instance { get; } = new();
-
-	public FriendlyHeaderNameClassMap()
-	{
-		AutoMap(CultureInfo.InvariantCulture);
-		MemberMaps.EnsureFriendlyHeaderNames();
 	}
 }
