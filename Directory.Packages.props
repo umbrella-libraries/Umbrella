@@ -153,9 +153,9 @@
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
     <PackageVersion Include="SkiaSharp" Version="4.154.0" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="4.154.0" />
-    <PackageVersion Include="StackExchange.Redis" Version="3.4.29" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
-    <PackageVersion Include="StackExchange.Redis" Version="2.13.17" Condition="'$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net9.0'" />
-    <PackageVersion Include="StackExchange.Redis" Version="3.4.29" Condition="'$(TargetFramework)' == 'net10.0'" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.4.31" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
+    <PackageVersion Include="StackExchange.Redis" Version="2.13.23" Condition="'$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net9.0'" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.4.31" Condition="'$(TargetFramework)' == 'net10.0'" />
     <PackageVersion Include="System.Buffers" Version="4.6.1" />
     <PackageVersion Include="System.CommandLine" Version="2.0.14" />
     <PackageVersion Include="System.ComponentModel.Annotations" Version="5.0.0" />
