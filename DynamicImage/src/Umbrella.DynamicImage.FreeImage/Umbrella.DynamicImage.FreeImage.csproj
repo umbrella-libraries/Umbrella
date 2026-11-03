@@ -11,6 +11,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="FreeImage.Standard" />
+		<PackageReference Include="System.Drawing.Common" />
 	</ItemGroup>
 
 	<ItemGroup>

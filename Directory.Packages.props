@@ -148,6 +148,7 @@
     <PackageVersion Include="NetVips" Version="3.2.0" />
     <PackageVersion Include="NetVips.Native.linux-x64" Version="8.18.7" />
     <PackageVersion Include="NetVips.Native.win-x64" Version="8.18.7" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageVersion Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
     <PackageVersion Include="PolySharp" Version="1.16.0" />
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
@@ -159,10 +160,13 @@
     <PackageVersion Include="System.Buffers" Version="4.6.1" />
     <PackageVersion Include="System.CommandLine" Version="2.0.14" />
     <PackageVersion Include="System.ComponentModel.Annotations" Version="5.0.0" />
-    <PackageVersion Include="System.Drawing.Common" Version="10.0.14" />
+    <!-- FreeImage requires the patched cross-platform netstandard2.0-compatible line. -->
+    <PackageVersion Include="System.Drawing.Common" Version="4.7.2" Condition="'$(MSBuildProjectName)' == 'Umbrella.DynamicImage.FreeImage'" />
+    <PackageVersion Include="System.Drawing.Common" Version="10.0.14" Condition="'$(MSBuildProjectName)' != 'Umbrella.DynamicImage.FreeImage'" />
     <PackageVersion Include="System.Net.Http.Json" Version="10.0.14" Condition="'$(TargetFramework)' == 'netstandard2.0' Or '$(TargetFramework)' == 'net462'" />
     <PackageVersion Include="System.Net.Http.Json" Version="6.0.2" Condition="'$(TargetFramework)' != 'netstandard2.0' And '$(TargetFramework)' != 'net462'" />
     <PackageVersion Include="System.Runtime.Loader" Version="4.3.0" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="9.0.21" Condition="'$(TargetFramework)' == 'net10.0'" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.14" Condition="'$(TargetFramework)' == 'net10.0'" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.5" Condition="'$(TargetFramework)' == 'net8.0'" />
     <PackageVersion Include="System.Security.Cryptography.Xml" Version="9.0.22" Condition="'$(TargetFramework)' == 'net9.0'" />
