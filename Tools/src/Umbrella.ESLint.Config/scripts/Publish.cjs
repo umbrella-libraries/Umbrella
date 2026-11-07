@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
@@ -38,7 +39,13 @@ function publish(directory, execute = runNpm)
 	const existing = execute(["view", identity, "dist.integrity", "--json"]);
 	if (existing.status === 0)
 	{
-		if (JSON.parse(existing.stdout || "null") !== integrity)
+		let publishedIntegrity = JSON.parse(existing.stdout?.trim() || "null");
+		if (publishedIntegrity === null || publishedIntegrity === "")
+		{
+			publishedIntegrity = downloadIntegrity(identity, execute);
+		}
+
+		if (publishedIntegrity !== integrity)
 		{
 			throw new Error(`${identity} already exists with different contents. Bump Version in Directory.Build.props.`);
 		}
@@ -66,6 +73,41 @@ function publish(directory, execute = runNpm)
 	}
 
 	return `Published ${identity} with tag ${tag}.`;
+}
+
+function downloadIntegrity(identity, execute)
+{
+	// Azure Artifacts can omit dist.integrity. Use authenticated npm to fetch the
+	// exact version into a separate directory so the tested local tarball stays intact.
+	const temporaryRoot = path.resolve(os.tmpdir());
+	const downloadDirectory = fs.mkdtempSync(path.join(temporaryRoot, "umbrella-published-"));
+	try
+	{
+		const result = execute(["pack", identity, "--json", "--ignore-scripts", "--prefer-online", "--pack-destination", downloadDirectory]);
+		if (result.status !== 0)
+		{
+			throw new Error(`Cannot download existing ${identity} (exit ${result.status}); publication aborted.`);
+		}
+
+		const packed = JSON.parse(result.stdout);
+		const filename = packed?.[0]?.filename;
+		if (!Array.isArray(packed) || packed.length !== 1 || typeof filename !== "string" ||
+			path.basename(filename) !== filename || !filename.endsWith(".tgz"))
+		{
+			throw new Error(`Unexpected npm pack response for ${identity}; publication aborted.`);
+		}
+
+		return "sha512-" + crypto.createHash("sha512").update(fs.readFileSync(path.join(downloadDirectory, filename))).digest("base64");
+	}
+	finally
+	{
+		if (path.dirname(downloadDirectory) !== temporaryRoot || !path.basename(downloadDirectory).startsWith("umbrella-published-"))
+		{
+			throw new Error("Refusing to remove an unexpected download directory.");
+		}
+
+		fs.rmSync(downloadDirectory, { recursive: true, force: true });
+	}
 }
 
 module.exports = { publish };
