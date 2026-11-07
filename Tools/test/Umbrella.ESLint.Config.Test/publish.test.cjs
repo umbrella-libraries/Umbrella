@@ -11,7 +11,7 @@ function fixture(t, version = "10.0.0-preview-0115")
 	const directory = fs.mkdtempSync(path.join(os.tmpdir(), "umbrella-publish-test-"));
 	t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
 	const bytes = Buffer.from("tested tarball");
-	const info = { name: "umbrella-eslint-config", version, filename: "package.tgz", integrity: "sha512-" + crypto.createHash("sha512").update(bytes).digest("base64") };
+	const info = { name: "@umbrella-libraries/eslint-config", version, filename: "package.tgz", integrity: "sha512-" + crypto.createHash("sha512").update(bytes).digest("base64") };
 	fs.writeFileSync(path.join(directory, info.filename), bytes);
 	fs.writeFileSync(path.join(directory, "pack-info.json"), JSON.stringify(info));
 	return { directory, info };

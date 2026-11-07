@@ -1,4 +1,4 @@
-# umbrella-eslint-config
+# @umbrella-libraries/eslint-config
 
 Umbrella's shared type-aware TypeScript linting and formatting standards. Requires Node
 22.22.3+, 24.15.0+, or 26+, ESLint 10.12+ within major 10, and a TypeScript compiler API
@@ -8,11 +8,15 @@ supported by typescript-eslint (currently >=4.8.4 <6.1.0).
 
 Connect NPM to the Umbrella Azure Artifacts development feed using **Connect to feed**
 in Azure DevOps. Keep authentication in your user configuration or CI credential task.
-For an unscoped package, use the feed registry explicitly when installing it; configure
-the consuming project for that feed (including its public-package upstream) as appropriate.
+Map the Umbrella scope to that feed in the consuming project's `.npmrc`, leaving other
+packages on the project's usual registry. Keep credentials out of this file:
+
+```ini
+@umbrella-libraries:registry=<feed-npm-registry-url>
+```
 
 ```sh
-npm install --save-dev umbrella-eslint-config@next --registry=<feed-npm-registry-url>
+npm install --save-dev @umbrella-libraries/eslint-config@next
 npm install --save-dev eslint@^10.12.0 typescript@npm:@typescript/typescript6@6.0.2
 ```
 
@@ -23,7 +27,7 @@ API compatibility alias shown above for linting; their compiler can remain separ
 Place this `eslint.config.cjs` beside your `package.json` and `tsconfig.json`:
 
 ```javascript
-const umbrella = require("umbrella-eslint-config");
+const umbrella = require("@umbrella-libraries/eslint-config");
 
 module.exports = [
 	...umbrella({
@@ -39,7 +43,7 @@ module.exports = [
 ];
 ```
 
-ES modules can use `import umbrella from "umbrella-eslint-config"` and
+ES modules can use `import umbrella from "@umbrella-libraries/eslint-config"` and
 `tsconfigRootDir: import.meta.dirname` in `eslint.config.mjs`.
 The required `files` patterns are relative to the consuming ESLint config; their sources
 must belong to the consumer's TypeScript project. `ignores` adds global exclusions to
@@ -72,5 +76,11 @@ An identical published version is skipped. Changed contents with the same versio
 bump the shared Umbrella version before releasing them. Auth/network failures also fail
 the publishing job. Feed publication is not part of local validation.
 
-New Umbrella-owned NPM packages use the `umbrella-` prefix and the existing category/src
+New Umbrella-owned published NPM packages use the `@umbrella-libraries` scope and the existing category/src
 and category/test folder layout. Third-party packages keep their upstream names.
+
+The earlier `umbrella-eslint-config` package is a separate package identity; consumers
+switching from it must update their dependency and ESLint imports to the scoped name.
+The scope does not change versioning: releases still use the shared .NET version.
+Publishing to Azure Artifacts does not reserve the scope on public npm; the matching npm
+organization must be owned before public publication is configured.

@@ -46,7 +46,7 @@ test("stamps only staged files, produces a deterministic portable package and re
 	const consumer = path.join(temporary, "consumer");
 	fs.mkdirSync(consumer);
 	fs.writeFileSync(path.join(consumer, "package.json"), JSON.stringify({ name: "umbrella-package-test-consumer", private: true, dependencies: {
-		"umbrella-eslint-config": `file:${tarball.replaceAll("\\", "/")}`,
+		"@umbrella-libraries/eslint-config": `file:${tarball.replaceAll("\\", "/")}`,
 		eslint: "10.12.0", typescript: "npm:@typescript/typescript6@6.0.2"
 	} }));
 	run(process.execPath, [process.env.npm_execpath, "install", "--ignore-scripts", "--no-audit", "--no-fund"], { cwd: consumer });

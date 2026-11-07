@@ -23,7 +23,7 @@ function runNpm(args)
 function publish(directory, execute = runNpm)
 {
 	const info = JSON.parse(fs.readFileSync(path.join(directory, "pack-info.json"), "utf8"));
-	if (info.name !== "umbrella-eslint-config" || path.basename(info.filename) !== info.filename || !info.filename.endsWith(".tgz"))
+	if (info.name !== "@umbrella-libraries/eslint-config" || path.basename(info.filename) !== info.filename || !info.filename.endsWith(".tgz"))
 	{
 		throw new Error("Unexpected package identity or tarball path.");
 	}

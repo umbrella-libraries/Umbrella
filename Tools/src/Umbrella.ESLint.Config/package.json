@@ -1,5 +1,5 @@
 {
-  "name": "umbrella-eslint-config",
+  "name": "@umbrella-libraries/eslint-config",
   "version": "0.0.0",
   "private": true,
   "description": "Shared Umbrella type-aware TypeScript and formatting standards for ESLint.",

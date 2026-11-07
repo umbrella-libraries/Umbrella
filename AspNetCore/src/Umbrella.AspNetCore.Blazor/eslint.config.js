@@ -1,4 +1,4 @@
-const umbrella = require("umbrella-eslint-config");
+const umbrella = require("@umbrella-libraries/eslint-config");
 
 module.exports = umbrella({
 	tsconfigRootDir: __dirname,

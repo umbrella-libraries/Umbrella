@@ -8,7 +8,7 @@ const { pathToFileURL } = require("node:url");
 
 const packageRoot = process.env.UMBRELLA_ESLINT_CONSUMER || path.resolve(__dirname, "../../src/Umbrella.ESLint.Config");
 const fromPackage = createRequire(path.join(packageRoot, "package.json"));
-const configPath = process.env.UMBRELLA_ESLINT_CONSUMER ? fromPackage.resolve("umbrella-eslint-config") : path.join(packageRoot, "index.cjs");
+const configPath = process.env.UMBRELLA_ESLINT_CONSUMER ? fromPackage.resolve("@umbrella-libraries/eslint-config") : path.join(packageRoot, "index.cjs");
 const umbrella = fromPackage(configPath);
 const { ESLint } = fromPackage("eslint");
 let fixture;

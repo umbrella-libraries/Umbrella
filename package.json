@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "test": "npm run test --workspaces",
-    "test:eslint": "npm run test --workspace umbrella-eslint-config",
+    "test:eslint": "npm run test --workspace @umbrella-libraries/eslint-config",
     "lint": "npm run lint --workspace umbrella.aspnetcore.blazor",
     "typecheck": "npm run typecheck --workspace umbrella.aspnetcore.blazor",
     "build": "npm run build --workspace umbrella.aspnetcore.blazor",
