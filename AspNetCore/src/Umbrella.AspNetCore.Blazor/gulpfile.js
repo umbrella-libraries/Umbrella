@@ -108,7 +108,7 @@ const paths = {
 	]
 };
 
-const sassOptions = { loadPaths: ['node_modules'] };
+const sassOptions = { loadPaths: require.resolve.paths("sass") };
 
 function createSassBuildTasks(minify = false)
 {

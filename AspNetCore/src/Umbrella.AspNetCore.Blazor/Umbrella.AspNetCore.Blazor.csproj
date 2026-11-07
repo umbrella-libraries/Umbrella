@@ -16,7 +16,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Content Remove="package-lock.json" />
 		<Content Remove="package.json" />
 		<Content Remove="tsconfig.json" />
 		<Content Remove="Content\**" />
@@ -42,7 +41,6 @@
 		<None Include="Components\Messages\ErrorMessage.razor" />
 		<None Include="Components\Messages\SuccessMessage.razor" />
 		<None Include="Components\Messages\WarningMessage.razor" />
-		<None Include="package-lock.json" />
 		<None Include="package.json" />
 		<None Include="tsconfig.json" />
 		<None Include="Content\**" />

@@ -33,13 +33,43 @@ stages:
     - task: UseNode@1
       displayName: Install Node.js
       inputs:
-        version: 22.x
+        version: 24.16.0
+
+    - script: npm install --global npm@11.13.0
+      displayName: Select NPM 11.13.0
 
     - task: Npm@1
-      displayName: NPM CI (Umbrella.AspNetCore.Blazor)
+      displayName: NPM CI (workspace)
       inputs:
         command: ci
-        workingDir: AspNetCore/src/Umbrella.AspNetCore.Blazor
+        workingDir: $(Build.SourcesDirectory)
+
+    - task: Npm@1
+      displayName: Test shared ESLint configuration
+      inputs:
+        command: custom
+        workingDir: $(Build.SourcesDirectory)
+        customCommand: run test:eslint
+
+    - task: Npm@1
+      displayName: Pack shared ESLint configuration
+      inputs:
+        command: custom
+        workingDir: $(Build.SourcesDirectory)
+        customCommand: run pack:eslint
+
+    - task: Npm@1
+      displayName: Test packed ESLint configuration in an independent consumer
+      inputs:
+        command: custom
+        workingDir: $(Build.SourcesDirectory)
+        customCommand: run test:eslint-package
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish NPM package artifact
+      inputs:
+        targetPath: $(Build.SourcesDirectory)/artifacts/npm
+        artifact: npm-packages
 
     - task: Npm@1
       displayName: NPM Test (Umbrella.AspNetCore.Blazor)
@@ -304,3 +334,33 @@ stages:
         publishVstsFeed: $(feedId)
         allowPackageConflicts: true
         verbosityPush: Normal
+
+  - job: PublishNpm
+    displayName: Publish NPM packages
+    pool:
+      vmImage: windows-latest
+    steps:
+    - checkout: none
+
+    - task: UseNode@1
+      displayName: Install Node.js
+      inputs:
+        version: 24.16.0
+
+    - script: npm install --global npm@11.13.0
+      displayName: Select NPM 11.13.0
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download tested NPM package
+      inputs:
+        artifact: npm-packages
+        targetPath: $(Pipeline.Workspace)/npm-packages
+
+    - task: Npm@1
+      displayName: Publish tested ESLint package to ADO feed
+      inputs:
+        command: custom
+        workingDir: $(Pipeline.Workspace)/npm-packages
+        customCommand: run publish:feed
+        customRegistry: useFeed
+        customFeed: $(feedId)

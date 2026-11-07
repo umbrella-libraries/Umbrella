@@ -26,10 +26,6 @@
 
 		"lib": [ "ES2024", "DOM", "DOM.Iterable" ],
 
-		"typeRoots": [
-			"./node_modules/@types",
-			"./Content/Scripts/types"
-		],
 		"types": [ "webpack-env", "node" ]
 	},
 	"exclude": [

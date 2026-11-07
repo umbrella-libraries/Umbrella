@@ -1,0 +1,27 @@
+{
+  "name": "umbrella-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "npm@11.13.0",
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0 || >=26.0.0",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "Tools/src/Umbrella.ESLint.Config",
+    "AspNetCore/src/Umbrella.AspNetCore.Blazor"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces",
+    "test:eslint": "npm run test --workspace umbrella-eslint-config",
+    "lint": "npm run lint --workspace umbrella.aspnetcore.blazor",
+    "typecheck": "npm run typecheck --workspace umbrella.aspnetcore.blazor",
+    "build": "npm run build --workspace umbrella.aspnetcore.blazor",
+    "build-release": "npm run build-release --workspace umbrella.aspnetcore.blazor",
+    "pack:eslint": "pwsh -NoProfile -File Tools/src/Umbrella.ESLint.Config/scripts/Pack.ps1",
+    "test:eslint-package": "node --test Tools/test/Umbrella.ESLint.Config.Test/package.test.cjs"
+  },
+  "devDependencies": {
+    "semver": "7.7.3"
+  }
+}

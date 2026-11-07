@@ -3,12 +3,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compile } from "sass";
 import path from "path";
+import { createRequire } from "node:module";
 
 const checkboxDirectory = path.join(__dirname, "..", "Components", "Checkbox");
 
 function compileScopedSass(fileName: string): string
 {
-	return compile(path.join(checkboxDirectory, fileName), { loadPaths: ["node_modules"] }).css;
+	const loadPaths = createRequire(import.meta.url).resolve.paths("sass") ?? [];
+	return compile(path.join(checkboxDirectory, fileName), { loadPaths }).css;
 }
 
 beforeEach(() =>
