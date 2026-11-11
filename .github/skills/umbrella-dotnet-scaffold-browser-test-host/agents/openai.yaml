@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Browser Test Host"
+  short_description: "Umbrella workflow for Scaffold Browser Test Host"
+  default_prompt: "Use $umbrella-dotnet-scaffold-browser-test-host to apply the Scaffold Browser Test Host workflow to this solution."

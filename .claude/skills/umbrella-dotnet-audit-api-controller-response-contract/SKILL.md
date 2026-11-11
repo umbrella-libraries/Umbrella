@@ -20,6 +20,13 @@ Walk the controller's base type chain (through any application-level intermediat
 3. `UmbrellaDataAccessApiController` — no fixed endpoints; each action composes the protected helpers (`ReadAllAsync`, `ReadAsync`, `CreateAsync`, `UpdateAsync`, `DeleteAsync`).
 4. `UmbrellaDataServiceApiController<TDataService>` — no fixed endpoints; each action composes the protected `ExecuteOperationAsync` envelope over one operation on the injected data service.
 5. `UmbrellaApiController` — no fixed endpoints; each action is hand-rolled using the status helper methods and/or `OperationResult` mapping.
+6. **An MVC controller outside the Umbrella hierarchy** (a plain `Controller` serving assets, fragments or JSON): derive
+   the contract from the `IActionResult` types each action returns.
+   - `ContentResult`, `FileResult` and `ViewComponentResult` set no status of their own, so a status set earlier by
+     middleware (a URL normalisation `301`) survives with the action's body.
+   - Without `[ApiController]`, model state is never enforced, so binding never produces a `400`.
+   - A `NotFound()` with no body is replaced by the status-code-pages body if the host has one.
+   - A `[Route]` without an `[HttpGet]`/`[HttpPost]` answers every HTTP method; a GET-only action may not answer `HEAD`.
 
 ## Step 2 — Resolve the configuration flags
 
@@ -55,11 +62,26 @@ For `UmbrellaDataAccessApiController` actions, record the `enableAuthorizationCh
 
 Record the resolved state and code in the contract report; the test generators consume it verbatim.
 
+**Look for attributes under `#if`** (for example `#if !DEBUG [ResponseCache(...)]`). Record the contract per build
+configuration and tell the generator to run the affected tests in both Debug and Release.
+
+**Record the test host's environment.** Catch-all filters guarded by `when (Logger.WriteError(..., returnValue:
+!IsDevelopment))` never catch in a `Development` host, so the action's own `500` can't be reached there. Mark it not
+testable in that host, and record what the host returns instead (the developer exception page, or a text/plain stack
+trace).
+
 ## Step 5 — Derive the contract
 
 - **Patterns 1 and 2**: start from the endpoint map (`SearchSlim`, `GET`, `POST`, `PUT`, `DELETE`, plus `ExistsById`/`TotalCount` for Pattern 2) and strike codes disabled by the flags recorded above.
 - **`UmbrellaDataAccessApiController`**: each action's contract is the union of the built-in statuses of the helpers it calls (`ReadAllAsync` → 200/403/500; `ReadAsync` → 200/404/403/500; `CreateAsync` → 201/400/403/500; `UpdateAsync` → 200/400/404/409/403/500; `DeleteAsync` → 204/404/403/409/500), minus imperative `403` where `enableAuthorizationChecks: false`, plus `422` if the action binds input, plus `401`/declarative `403` from attributes, plus callback-driven statuses.
 - **`UmbrellaDataServiceApiController`**: each action's contract is the union of the statuses of the `IOperationResult`s the composed service operation can return (for `UmbrellaRepositoryDataService`-derived services these match the Pattern 2 per-operation sets, including `405` from enablement flags and imperative `403` from authorization flags on the service; for custom services, enumerate the `IOperationResult` factory calls in the service method), plus the envelope `500` (assert the action's exact error message), plus `422` if the action binds input, plus `401`/declarative `403` from attributes.
+- **Every pattern**: the contract is more than the status-helper calls. Add the codes produced before the action runs:
+  - **model binding**: what each parameter's binder rejects, including custom binders (for example a JSON-array binder
+    rejecting `[`, `{}`, `[null]` or the wrong element type), non-numeric or overflowing numbers and malformed GUIDs;
+  - **routing**: send each action a wrong HTTP method and record what actually comes back (it may be `404`, not `405`);
+  - **middleware**: culture or `Accept-Language` handling, URL normalisation and redirects, CORS preflights.
+  When an ID parameter is only a filter on a downstream query, record that there is no `404` and test an ID that
+  doesn't exist.
 - **`UmbrellaApiController`**: the enumeration of status helper and `OperationResult` calls in the action body is the contract. Apply these rules: in-action `Unauthorized(...)` is a `401` with an `UmbrellaProblemDetails` body testable without `[Authorize]`; `ValidationProblem(ModelState)` is `400`, not `422`; `Conflict(...)` and `ConcurrencyConflict(...)` are both `409` distinguished by `code = ConcurrencyStampMismatch`; never infer a `404` from route shape — anti-enumeration endpoints deliberately return success for missing resources; note statuses gated on external dependencies (CAPTCHA, email, payment) that require test doubles. When the catch-all wraps persistence, include its `500` for data-layer constraint failures; a nonexistent mapped foreign key is a deterministic HTTP recipe when the relational provider enforces the constraint and the action does not prevalidate it.
 
 ## Output
@@ -72,3 +94,8 @@ Return a contract report with one row per endpoint/action and status code:
 Also list: the resolved base pattern, flag overrides and where they live, entity/model facts, authorization facts, host facts, and any statuses intentionally excluded (e.g. commit-time race `409`s that are real but not deterministically inducible over HTTP; `500`s requiring throwing fakes).
 
 Do not modify files in this skill.
+
+## Analyzer compatibility
+
+When the report leads to follow-up code changes, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` before
+making them, and build the affected projects with their installed analyzers enabled.

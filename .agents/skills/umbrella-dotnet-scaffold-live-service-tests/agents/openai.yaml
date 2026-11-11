@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Live Service Tests"
+  short_description: "Umbrella workflow for Scaffold Live Service Tests"
+  default_prompt: "Use $umbrella-dotnet-scaffold-live-service-tests to apply the Scaffold Live Service Tests workflow to this solution."

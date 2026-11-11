@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate Unit Tests"
+  short_description: "Umbrella workflow for host-free unit tests"
+  default_prompt: "Use $umbrella-dotnet-generate-unit-tests to apply the Generate Unit Tests workflow to one class in this solution."

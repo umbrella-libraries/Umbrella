@@ -19,7 +19,7 @@ Before writing files, either run `umbrella-dotnet-audit-aspnetcore-integration-t
 - EF Core `DbContext` type and constructor shape, or how the application creates its schema when it has no EF Core context;
 - database provider and migrations assembly;
 - required startup configuration values;
-- external services that must be isolated, including Azure Blob Storage/Azurite requirements;
+- external services the host reaches, including Azure Blob Storage/Azurite requirements, and the user's choice for each (see External services);
 - project package/version style.
 
 ## Packages and references
@@ -36,6 +36,7 @@ Rules:
 - Use the repo's package-version style. Omit `Version` under true CPM.
 - Add project references needed for the server, DbContext, migrations, shared auth/claim types, and shared policy types.
 - Do not add shared xUnit/MTP runner packages if the repo injects them centrally for `IsTestProject=true`.
+- Integration tests run against real services, so remove a centrally injected Moq with `<PackageReference Remove="Moq" />` unless the project genuinely needs it; Moq can also pull a `Castle.Core` version that conflicts with the application's.
 
 ## Program hook
 
@@ -121,6 +122,14 @@ Rules:
 - Avoid user secrets and cloud resources.
 - Use `Development` only when it disables production-only startup paths.
 - Replace unsafe services if startup itself opens network connections.
+
+## External services
+
+Prefer real integration: the real service or an emulator/container (SQL Server and Azurite via Testcontainers) wherever tests can call it reliably. Before isolating anything, list each external dependency the host reaches with a recommendation and reason (real service, emulator, inert configuration, stub) and **ask the user what to do for each one**. Never stub a dependency in place of a real service without confirmation.
+
+- Use `umbrella-dotnet-configure-integration-test-isolation` to make the host unable to reach anything the user did not choose: replace every external endpoint and secret in the test configuration with inert values (for example an unreachable loopback address), remove user-secrets sources, and add a smoke test proving the host uses the test database. Its Step 3 also covers keeping a dependency real (CI secret variables, a test tenant) and adding other containers or emulators.
+- Use `umbrella-dotnet-scaffold-wiremock-stub` only for dependencies the user chose to stub (no reliable test environment, rate limits, non-deterministic data, side effects or cost). Expose the stub from the factory so tests can arrange responses and read its request log.
+- Where a stub is chosen, `umbrella-dotnet-scaffold-live-service-tests` can verify the real service separately, in an opt-in project.
 
 ## Response contract host requirements
 
@@ -245,17 +254,21 @@ Do not use EF InMemory as a substitute for SQL Server controller integration tes
 
 ### Hosts without an EF Core `DbContext`
 
-`UmbrellaSqlServerAzuriteWebApplicationFactory<TProgram, TDbContext>` replaces an EF Core registration and calls `Migrate()`. Some hosts own their schema instead, for example an Optimizely CMS site, which creates its database schema on first start. For those, derive from `UmbrellaWebApplicationFactory<Program>`, implement `IAsyncLifetime`, and own the containers directly, keeping the same images as the Umbrella base:
+`UmbrellaSqlServerAzuriteWebApplicationFactory<TProgram, TDbContext>` replaces an EF Core registration and calls `Migrate()`. Some hosts own their schema instead, for example a site built on a framework or component library that creates its database schema on first start. For those, derive from `UmbrellaWebApplicationFactory<Program>`, implement `IAsyncLifetime`, and own the containers directly, keeping the same images as the Umbrella base:
 
 - Start `MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-CU16-ubuntu-22.04")` and an Azurite container in parallel in `InitializeAsync`.
 - Create a named database with `CREATE DATABASE` rather than letting the application write its schema into `master`, then pass a connection string with that `InitialCatalog`.
-- Inject connection strings with `builder.UseSetting(...)` in `ConfigureWebHostBuilder`, which reaches minimal-hosting `Program` configuration before startup reads it.
-- Let the application create its schema (for Optimizely, `DataAccessOptions.CreateDatabaseSchema = true` in the test host), then seed deterministic content in code after the host builds. Prefer seeding in code over pre-built database images: the data stays versioned with the tests and schema upgrades need no image rebuild.
+- Inject the connection strings as the **last** configuration source: in `ConfigureWebHostBuilder`, call `ConfigureAppConfiguration`, remove the user-secrets (`secrets.json`) source, then `AddInMemoryCollection(...)`. Do not use `builder.UseSetting(...)`: host settings are the first source, so a connection string in `appsettings.{Environment}.json` or user secrets silently wins. `umbrella-dotnet-configure-integration-test-isolation` (Step 2) has the full pattern, including values `Program` reads before `Build()`.
+- Let the application create its schema (enable the framework's create-schema option in the test host), then seed deterministic content in code after the host builds. Prefer seeding in code over pre-built database images: the data stays versioned with the tests and schema upgrades need no image rebuild.
 - Starting such a host is expensive, so share one per test assembly with xUnit v3 `[assembly: AssemblyFixture(typeof(<App>WebApplicationFactory))]` instead of a collection fixture. Keep read-only tests on the shared seed; tests that change shared data go in a `[CollectionDefinition(Name, DisableParallelization = true)]` collection or create and delete their own data.
 - Logging during assembly-fixture startup happens outside any test's output helper, so also add console logging and `[assembly: CaptureConsole]` to see host failures in test output.
 - When the application is a library rather than a site, create a minimal `Microsoft.NET.Sdk.Web` test host project (`IsTestProject=false`, `IsPackable=false`) with a `public partial class Program`, and reference it from the integration test project.
 
-Detect Docker before starting containers so local runs without Docker skip rather than fail, but never skip on CI: when `TF_BUILD` is set, let a missing Docker engine fail the run. Retry the probe (for example `docker version --format {{.Server.Version}}` with a timeout): a busy machine starting several test hosts can make the first call slow, and a false negative silently skips every container test. Container tests need a Linux agent (`vmImage: ubuntu-latest`); hosted Windows agents cannot run the Linux SQL Server and Azurite images.
+Detect Docker before starting containers so local runs without Docker skip rather than fail, but never skip on CI: when `TF_BUILD` is set, let a missing Docker engine fail the run. Probe `docker version --format {{.Server.Os}}` with a timeout, retried, and require `linux`, as `umbrella-dotnet-configure-integration-test-isolation` (Step 5) describes: a busy machine starting several test hosts can make the first call slow, a false negative silently skips every container test, and a Windows-containers engine cannot run the images. Container tests need a Linux agent (`vmImage: ubuntu-latest`); hosted Windows agents cannot run the Linux SQL Server and Azurite images.
+
+### Kestrel host mode for browser tests
+
+A real browser cannot reach the in-memory `TestServer`. When browser tests are in scope, add the opt-in Kestrel mode with `umbrella-dotnet-scaffold-browser-test-host` (Step 1). It names the switch `ServeOverKestrel`, because a `UseKestrel` property hides the public `UseKestrel()` methods `Microsoft.AspNetCore.Mvc.Testing` 10 adds (CS0108).
 
 ### Migration deployment-script coverage
 
@@ -263,9 +276,14 @@ When migration validation is in scope, use [SQL Server script validation](../umb
 
 Execute the pipeline's generated SQL artifact with proper `GO` handling and failure propagation. Cover fresh creation, upgrade with representative preserved data, already migrated schema, repeated execution of the same script, and supported rollback/reapplication. Assert actual data and migration history, not merely a successful connection or empty pending-migrations list. Review `Up`/`Down` raw SQL for deferred parsing/binding, batch-first DDL, and Unicode quote escaping using the reference. Include these tests when requested; a factory-only scaffold should report this coverage as outstanding rather than add an unrelated migration suite.
 
-## xUnit collections
+## xUnit collections and fixtures
 
-Create separate collections for local and container-backed factories:
+Choose how each factory is shared by its startup cost:
+
+- **Collection fixture (`ICollectionFixture<T>`)** for cheap factories: the local factory, and a container factory whose tests all live in one collection. The host starts when the collection's first test runs and stops when the collection finishes.
+- **Assembly fixture (`[assembly: AssemblyFixture(typeof(T))]`, xUnit v3)** for an expensive container host that several collections or test classes use (schema creation, seeding, a browser host). One host serves the whole test assembly; collections then only group tests and control parallelism (`[CollectionDefinition(Name, DisableParallelization = true)]` with no `ICollectionFixture`). `umbrella-dotnet-configure-integration-test-isolation` (Step 7) covers this model.
+
+Do not register the same factory type as both. By default, create separate collections for local and container-backed factories:
 
 ```csharp
 [CollectionDefinition(Name, DisableParallelization = true)]
@@ -286,6 +304,7 @@ Rules:
 - Put Testcontainers tests in the SQL collection. This collection may own both SQL Server and Azurite containers.
 - Keep parallelization disabled by default to reduce memory pressure and avoid multiple containers fighting for resources.
 - Do not share one factory type for local and SQL tests unless the app has no meaningful non-database integration tests.
+- xUnit only honours a `[CollectionDefinition]` declared in the test assembly itself. When factories and collection name constants live in a shared testing library used by several test projects, re-declare each collection definition in every test project that uses it.
 
 ## Smoke test
 
@@ -329,10 +348,10 @@ Run:
 ```powershell
 dotnet restore "<TestProject>"
 dotnet build "<TestProject>" --no-restore
-dotnet test "<TestProject>" --no-restore --no-build --verbosity minimal
+dotnet test "<TestProject>" --no-restore --no-build
 ```
 
-For Microsoft Testing Platform projects, do not add legacy VSTest `--logger` arguments. Use the reporting options exposed by the installed MTP extensions and confirm them with `dotnet test --help`.
+On the .NET 10 SDK, `dotnet test` runs Microsoft Testing Platform projects only when `global.json` contains `"test": { "runner": "Microsoft.Testing.Platform" }`; without it, run `dotnet run --project "<TestProject>"` instead. For Microsoft Testing Platform projects, do not add legacy VSTest `--logger` arguments. Use the reporting options exposed by the installed MTP extensions and confirm them with `dotnet test --help`.
 
 If Docker/Testcontainers tests are included immediately, run them only when Docker is available and the user expects the container cost.
 

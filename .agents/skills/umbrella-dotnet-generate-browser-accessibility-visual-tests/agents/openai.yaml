@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate Browser Accessibility and Visual Tests"
+  short_description: "Umbrella workflow for browser a11y and visual tests"
+  default_prompt: "Use $umbrella-dotnet-generate-browser-accessibility-visual-tests to apply the Generate Browser Accessibility and Visual Tests workflow to this solution."

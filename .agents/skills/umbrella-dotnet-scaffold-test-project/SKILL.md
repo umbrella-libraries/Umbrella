@@ -36,6 +36,38 @@ Before writing files:
 - For app-specific web tests, use the app namespace and layer in the name, for example `IndyRecords.Web.Server.Test`.
 - For general tests, use a clear feature/slice name such as `<App>.Architecture.Test` or `<App>.Mapperly.Test`.
 
+## Project layout
+
+Every repository follows the same layout, so a test is found in the same place in each one. Name a project after the
+production project it tests; a test project that starts the web host is never also the home of host-free unit tests.
+
+```text
+Test\
+	<App>.Architecture.Test\          layer and visibility rules
+	<App>.<Layer>.Test\               host-free unit tests for one production project, for example Core.Logic.Test or
+	                                  Web.Server.ModelFactories.Test; lower layers it references go in folders (Domain\, Shared\)
+	<App>.<Layer>.Testing\            IsTestProject=false: in-memory fakes and builders shared by unit test projects
+	<App>.Web.Server.Unit.Test\       host-free unit tests for classes in the server project itself (tag helpers, rewrite
+	                                  rules, middleware built by hand); only when there are such classes
+	<App>.Web.Server.Test\            integration tests that start the host (containers, WebApplicationFactory)
+	<App>.Web.Server.Testing\         IsTestProject=false: the factory, seeders, stubs and recorders shared by the server,
+	                                  browser and live test projects
+	<App>.Web.Browser.Test\           Playwright tests over the Kestrel host
+	<App>.Web.Client.Test\            bUnit component tests
+	<App>.Web.Live.Test\              opt-in checks against real external services
+```
+
+- A unit test project runs without Docker, a browser or the host. It references production projects and
+  `<App>.<Layer>.Testing` libraries only: never the host helper libraries (`*.Web.Server.Testing`, or a
+  framework-specific host helper library), Testcontainers, WireMock or Playwright.
+- Shared fakes go in the `<App>.<Layer>.Testing` library for the lowest layer whose types they need (for example
+  `<App>.Core.Logic.Testing` for a fake content repository), referenced by each unit test project that uses them. Never
+  put them in a host helper library, and never share them as linked source files. Fakes used by one project stay in
+  that project's folder.
+- A test that needs the running host (services only the host registers, routing, rendering, the database) belongs in
+  `<App>.Web.Server.Test`, even when it tests one class.
+- Add each new project to the solution's `Test` folder and to the test README's project table and helper map.
+
 ## Project file pattern
 
 Create the minimal project file:
@@ -74,6 +106,32 @@ Rules:
 	<Using Remove="Humanizer" />
 </ItemGroup>
 ```
+
+### Razor SDK variant for bUnit projects
+
+A Blazor component test project (bUnit) must compile `.razor` test files and the components' Razor output, so it uses the Razor SDK instead of the plain .NET SDK:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+	<PropertyGroup>
+		<IsTestProject>true</IsTestProject>
+		<NoWarn>$(NoWarn);CA1515;CA1707</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="bunit" />
+		<PackageReference Remove="Moq" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\Web\IndyRecords.Web.Client\IndyRecords.Web.Client.csproj" />
+	</ItemGroup>
+
+</Project>
+```
+
+Everything else in this skill applies unchanged. Remove a centrally injected Moq only when the project tests components with their real services, as the bUnit convention does. Use `umbrella-blazor-scaffold-bunit-test-project` for the full bUnit setup (package versions, interop conventions, an example component test); this skill only creates the shell.
 
 ## Optional smoke test
 
@@ -115,6 +173,8 @@ dotnet restore "<ProjectFile>"
 dotnet build "<ProjectFile>" --no-restore
 dotnet test "<ProjectFile>" --no-restore --no-build
 ```
+
+On the .NET 10 SDK, `dotnet test` runs Microsoft Testing Platform projects only when `global.json` contains `"test": { "runner": "Microsoft.Testing.Platform" }`; without it, use `dotnet run --project "<ProjectFile>"`. Check `global.json` when creating the first test project in a repository, and add the runner setting if the repo uses Microsoft Testing Platform.
 
 If the project intentionally contains zero tests, report that Microsoft Testing Platform may return a non-success zero-tests exit code. Prefer adding a real or wiring smoke test before committing.
 
