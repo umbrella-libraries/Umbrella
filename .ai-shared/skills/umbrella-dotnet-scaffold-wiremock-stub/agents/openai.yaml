@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold WireMock Stub"
+  short_description: "Umbrella workflow for Scaffold WireMock Stub"
+  default_prompt: "Use $umbrella-dotnet-scaffold-wiremock-stub to apply the Scaffold WireMock Stub workflow to this solution."

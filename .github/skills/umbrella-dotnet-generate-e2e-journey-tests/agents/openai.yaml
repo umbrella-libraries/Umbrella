@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate E2E Journey Tests"
+  short_description: "Umbrella workflow for Generate E2E Journey Tests"
+  default_prompt: "Use $umbrella-dotnet-generate-e2e-journey-tests to apply the Generate E2E Journey Tests workflow to this solution."

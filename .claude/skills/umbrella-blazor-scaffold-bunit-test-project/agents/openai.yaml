@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold bUnit Test Project"
+  short_description: "Umbrella workflow for Scaffold bUnit Test Project"
+  default_prompt: "Use $umbrella-blazor-scaffold-bunit-test-project to apply the Scaffold bUnit Test Project workflow to this solution."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate bUnit Component Tests"
+  short_description: "Umbrella workflow for Generate bUnit Component Tests"
+  default_prompt: "Use $umbrella-blazor-generate-bunit-component-tests to apply the Generate bUnit Component Tests workflow to this solution."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure Integration Test Isolation"
+  short_description: "Umbrella workflow for Configure Integration Test Isolation"
+  default_prompt: "Use $umbrella-dotnet-configure-integration-test-isolation to apply the Configure Integration Test Isolation workflow to this solution."

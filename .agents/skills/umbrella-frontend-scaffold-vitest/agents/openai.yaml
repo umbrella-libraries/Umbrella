@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Vitest"
+  short_description: "Umbrella workflow for Scaffold Vitest"
+  default_prompt: "Use $umbrella-frontend-scaffold-vitest to apply the Scaffold Vitest workflow to this solution."

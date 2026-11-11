@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate Vitest Component Tests"
+  short_description: "Umbrella workflow for Generate Vitest Component Tests"
+  default_prompt: "Use $umbrella-frontend-generate-vitest-component-tests to apply the Generate Vitest Component Tests workflow to this solution."

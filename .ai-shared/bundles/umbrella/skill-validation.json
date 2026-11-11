@@ -49,6 +49,17 @@
     {"name": "umbrella-frontend-standardize-toolchain", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
     {"name": "umbrella-scss-migrate-sass-modules", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
     {"name": "umbrella-webpack-audit-bundles", "mode": "read-only", "fixture": "frontend-multi-project", "validations": ["no-source-change", "report"]},
-    {"name": "umbrella-bootstrap-configure-theme", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]}
+    {"name": "umbrella-bootstrap-configure-theme", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "build", "tests"]},
+    { "name": "umbrella-blazor-generate-bunit-component-tests", "mode": "mutating", "fixture": "blazor-solution", "validations": ["source-scope", "build", "tests"] },
+    { "name": "umbrella-blazor-scaffold-bunit-test-project", "mode": "mutating", "fixture": "blazor-solution", "validations": ["source-scope", "restore", "build", "tests"] },
+    { "name": "umbrella-dotnet-configure-integration-test-isolation", "mode": "mutating", "fixture": "aspnetcore-server", "validations": ["source-scope", "build", "tests"] },
+    { "name": "umbrella-dotnet-generate-browser-accessibility-visual-tests", "mode": "mutating", "fixture": "aspnetcore-server", "validations": ["source-scope", "build", "tests"] },
+    { "name": "umbrella-dotnet-generate-e2e-journey-tests", "mode": "mutating", "fixture": "blazor-solution", "validations": ["source-scope", "build", "tests"] },
+    { "name": "umbrella-dotnet-generate-unit-tests", "mode": "mutating", "fixture": "test-solution", "validations": ["source-scope", "build", "tests"] },
+    { "name": "umbrella-dotnet-scaffold-browser-test-host", "mode": "mutating", "fixture": "aspnetcore-server", "validations": ["source-scope", "restore", "build", "tests"] },
+    { "name": "umbrella-dotnet-scaffold-live-service-tests", "mode": "mutating", "fixture": "aspnetcore-server", "validations": ["source-scope", "build", "tests"] },
+    { "name": "umbrella-dotnet-scaffold-wiremock-stub", "mode": "mutating", "fixture": "aspnetcore-server", "validations": ["source-scope", "restore", "build", "tests"] },
+    { "name": "umbrella-frontend-generate-vitest-component-tests", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "tests"] },
+    { "name": "umbrella-frontend-scaffold-vitest", "mode": "mutating", "fixture": "frontend-multi-project", "validations": ["source-scope", "restore", "tests"] }
   ]
 }

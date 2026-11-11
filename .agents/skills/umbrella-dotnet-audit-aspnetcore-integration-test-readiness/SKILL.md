@@ -69,7 +69,7 @@ Recommendation rules:
 - Preserve provider-specific options such as migrations assembly and query splitting in the test factory.
 - If the context constructor uses non-generic `DbContextOptions`, the concrete factory may need to remove or replace both `DbContextOptions<TDbContext>` and `DbContextOptions`.
 - Keep Testcontainers tests in a collection that disables parallelization unless the suite has been explicitly designed for concurrent containers.
-- If the application owns its schema without an EF Core context (for example an Optimizely CMS site, which creates its schema on first start), record how the schema is created and seeded instead, and recommend the "Hosts without an EF Core `DbContext`" pattern in `umbrella-dotnet-scaffold-aspnetcore-integration-tests` rather than `UmbrellaSqlServerAzuriteWebApplicationFactory`. Note any registrations the host needs from the application that a minimal test host must reproduce.
+- If the application owns its schema without an EF Core context (for example a site built on a framework that creates its schema on first start), record how the schema is created and seeded instead, and recommend the "Hosts without an EF Core `DbContext`" pattern in `umbrella-dotnet-scaffold-aspnetcore-integration-tests` rather than `UmbrellaSqlServerAzuriteWebApplicationFactory`. Note any registrations the host needs from the application that a minimal test host must reproduce.
 
 When SQL Server migrations or deployment-script coverage are relevant, also capture:
 
@@ -87,15 +87,17 @@ List all required options and external services created during startup:
 
 - `AddOptionsWithValidateOnStart<T>()`;
 - `builder.Configuration.Get<T>()` used before services are built;
-- Key Vault, App Insights, Data Protection, Blob Storage, email, AI clients, queues, service bus, health checks, HTTP clients, file systems, dynamic image providers.
-
+- Key Vault, App Insights, Data Protection, Blob Storage, email, AI clients, queues, service bus, health checks, HTTP clients, file systems, dynamic image providers;
 - every environment-name branch that enables production-only configuration, service registration, middleware, or health checks.
-For each item, classify it:
 
-- must be provided as inert test configuration;
-- should be replaced with a test double service;
-- safe as long as no endpoint touches it;
-- unsafe because startup itself opens a network connection.
+For each external dependency, recommend one treatment and give the reason:
+
+- **real service**: a test tenant, sandbox or test environment the tests can call reliably, with settings from CI secret variables; read-only unless the tests own the instance;
+- **emulator or container**: SQL Server, Azurite, Redis, a message-bus emulator and similar via Testcontainers;
+- **inert configuration**: an unreachable address or null value, because no tested path needs it to respond;
+- **stub**: a WireMock.Net stub, only when there is no reliable test environment, or there are rate limits, non-deterministic data, side effects or cost.
+
+Also record whether startup itself opens a connection to it (which makes inert configuration fail start-up) and any endpoint, such as a health check, that touches it. The report lists these recommendations as proposals: the user decides per dependency, and `umbrella-dotnet-configure-integration-test-isolation` applies the decisions. Tests never write to a shared external system, whichever treatment is chosen.
 
 Recommendation rules:
 
@@ -135,10 +137,14 @@ Return a short readiness report with:
 - SQL Server deployment-script coverage and gaps, including history/data assertions and unavailable validation prerequisites when relevant;
 - sign-in/sign-out handler requirements and claim-omission capabilities;
 - required test config overrides;
-- external services and isolation risks;
+- each external dependency with its recommended treatment (real service, emulator or container, inert configuration, stub) and reason, as a question for the user to answer per dependency, plus isolation risks;
 - proposed factory classes, collection names, and startup/application environment strategy;
 - packages/project references to add;
 - response contract host facts (claims propagation, validation failure status code, environment name, policy/handler coverage) when controller response-code tests are in scope;
 - validation commands.
 
 Do not modify files in this skill.
+
+## Analyzer compatibility
+
+This audit is read-only and changes no code. When its findings lead to code changes in a follow-up skill, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` before making them and build the affected projects with their installed analyzers enabled.
