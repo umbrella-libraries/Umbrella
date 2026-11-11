@@ -161,7 +161,7 @@
     <PackageVersion Include="Microsoft.Graph" Version="6.10.0" />
     <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.23.0" />
     <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.130" Condition="'$(TargetFramework)' == 'net10.0'" />
-    <PackageVersion Include="Microsoft.Maui.Controls" Version="11.0.0" Condition="'$(TargetFramework)' == 'net11.0'" />
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="11.0.10" Condition="'$(TargetFramework)' == 'net11.0'" />
     <PackageVersion Include="Microsoft.Maui.Controls" Version="9.0.120" Condition="'$(TargetFramework)' == 'net9.0'" />
     <PackageVersion Include="Microsoft.Maui.Controls.Compatibility" Version="10.0.130" Condition="'$(TargetFramework)' == 'net10.0'" />
     <PackageVersion Include="Microsoft.Maui.Controls.Compatibility" Version="9.0.120" Condition="'$(TargetFramework)' == 'net9.0'" />
@@ -186,8 +186,8 @@
     <PackageVersion Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
     <PackageVersion Include="PolySharp" Version="1.17.0" />
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
-    <PackageVersion Include="SkiaSharp" Version="4.155.0" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="4.155.0" />
+    <PackageVersion Include="SkiaSharp" Version="4.156.0" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="4.156.0" />
     <PackageVersion Include="StackExchange.Redis" Version="3.4.31" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
     <PackageVersion Include="StackExchange.Redis" Version="2.13.23" Condition="'$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net9.0'" />
     <PackageVersion Include="StackExchange.Redis" Version="3.4.31" Condition="'$(TargetFramework)' == 'net10.0'" />
