@@ -1,7 +1,8 @@
 {
   "$schema": "./.claude/skills/umbrella-nuget-safe-upgrade/nuget-upgrade-exclusions.schema.json",
   "packages": [
-    { "id": "AutoMapper", "reason": "Major version upgrade requires migration effort. Starting from version 15, it requires a licence." }
+    { "id": "AutoMapper", "reason": "Major version upgrade requires migration effort. Starting from version 15, it requires a licence." },
+    { "id": "System.Drawing.Common", "reason": "Review versions manually to preserve Umbrella.DynamicImage.FreeImage's patched cross-platform 4.7.2 pin." }
   ],
   "patterns": [],
   "frameworkCoupledFamilies": [
@@ -9,8 +10,10 @@
     "Microsoft.AspNetCore.",
     "Microsoft.EntityFrameworkCore",
     "Microsoft.Maui.",
+    "System.Drawing.Common",
     "System.Text.Json",
     "System.Net.Http.Json",
+    "System.Security.Cryptography.Pkcs",
     "System.Security.Cryptography.Xml"
   ],
   "frameworkMajorOverrides": {
