@@ -170,6 +170,7 @@ stages:
               --no-restore `
               --output Detailed `
               --report-trx `
+              --results-directory-layout per-module `
               --coverage `
               --coverage-output-format cobertura `
               --coverage-output coverage.cobertura.xml `
@@ -285,6 +286,7 @@ stages:
               --no-restore `
               --output Detailed `
               --report-trx `
+              --results-directory-layout per-module `
               --coverage `
               --coverage-output-format cobertura `
               --coverage-output coverage.cobertura.xml `
