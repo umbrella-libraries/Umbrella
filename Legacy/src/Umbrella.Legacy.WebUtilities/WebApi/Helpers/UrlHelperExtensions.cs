@@ -26,6 +26,7 @@ public static class UrlHelperExtensions
 		values.Add("httproute", "");
 		values.Add("controller", controller);
 
-		return helper.RouteUrl(routeName, new RouteValueDictionary(values)).ToLowerInvariant();
+		RouteValueDictionary routeValues = [with(values)];
+		return helper.RouteUrl(routeName, routeValues).ToLowerInvariant();
 	}
 }

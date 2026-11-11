@@ -34,11 +34,12 @@ public class DynamicImageTagHelper : DynamicImageTagHelperBase
 	/// the image role. Everything else a view declares - <c>class</c>, <c>id</c>, <c>style</c>, <c>title</c>, <c>data-</c> attributes - is
 	/// left on the <c>&lt;picture&gt;</c>, which is the element the view wrote.
 	/// </remarks>
-	private static readonly HashSet<string> _imageAttributeNames = new(StringComparer.OrdinalIgnoreCase)
-	{
+	private static readonly HashSet<string> _imageAttributeNames =
+	[
+		with(StringComparer.OrdinalIgnoreCase),
 		"alt", "crossorigin", "decoding", "fetchpriority", "height", "ismap", "loading",
 		"longdesc", "referrerpolicy", "sizes", "src", "srcset", "usemap", "width"
-	};
+	];
 
 	private DynamicImagePictureContext? _pictureContext;
 

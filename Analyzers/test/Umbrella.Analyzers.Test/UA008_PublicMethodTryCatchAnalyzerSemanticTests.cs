@@ -437,7 +437,7 @@ public class UA008_PublicMethodTryCatchAnalyzerSemanticTests : AnalyzerTestBase<
 	{
 		int index = source.IndexOf(methodName + "(", StringComparison.Ordinal);
 		int line = source.Take(index).Count(x => x == '\n') + 1;
-		int lineStart = source.LastIndexOf('\n', index);
+		int lineStart = source.LastIndexOf("\n", index, StringComparison.Ordinal);
 		int column = index - lineStart;
 
 		return Diagnostic(PublicMethodTryCatchAnalyzer.Rule, line, column, methodName);

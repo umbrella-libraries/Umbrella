@@ -26,7 +26,7 @@ public class ApiIntegrationCookieAuthenticationEventsOptions : ISanitizableUmbre
 		Guard.IsNotNull(ApiPathPrefixes);
 		Guard.HasSizeGreaterThan(ApiPathPrefixes, 0);
 
-		if (!ApiPathPrefixes.All(x => x.StartsWith('/')))
+		if (!ApiPathPrefixes.All(x => x.StartsWith("/", StringComparison.Ordinal)))
 			throw new UmbrellaWebException("All paths must start with a leading forward slash, '/'.");
 	}
 }

@@ -124,7 +124,7 @@ internal sealed class RepositoryAnalysis
 	public bool ContainsQueryable(ITypeSymbol returnType)
 	{
 		ITypeSymbol? payload = UnwrapAsyncReturnType(returnType);
-		return payload is not null && ContainsQueryableCore(payload, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default));
+		return payload is not null && ContainsQueryableCore(payload, [with(SymbolEqualityComparer.Default)]);
 	}
 
 	public static bool IsCommandMethodName(string methodName) =>

@@ -45,7 +45,7 @@ internal sealed class UmbrellaAuthorizeOperationSecurityTransformer : IOpenApiOp
 
 		string? defaultScheme = defaultAuthenticationScheme?.Name;
 
-		HashSet<string> schemes = new(StringComparer.OrdinalIgnoreCase);
+		HashSet<string> schemes = [with(StringComparer.OrdinalIgnoreCase)];
 
 		foreach (AuthorizeAttribute attribute in authorizeAttributes)
 		{

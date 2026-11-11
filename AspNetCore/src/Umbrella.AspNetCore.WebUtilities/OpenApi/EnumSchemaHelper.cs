@@ -35,7 +35,7 @@ internal static class EnumSchemaHelper
 	/// </remarks>
 	public static IReadOnlyList<object> GetDistinctValues(Type type) => _distinctValueCache.GetOrAdd(type, static x =>
 	{
-		HashSet<string> seen = new(StringComparer.Ordinal);
+		HashSet<string> seen = [with(StringComparer.Ordinal)];
 		List<object> distinct = [];
 
 		foreach (object value in Enum.GetValues(x))

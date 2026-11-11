@@ -197,7 +197,7 @@ public class WebpackBundleUtility : BundleUtility<WebpackBundleUtilityOptions>, 
 				{
 					string loweredPath = x.Value.ToLowerInvariant();
 
-					int idxLastSlash = loweredPath.LastIndexOf('/');
+					int idxLastSlash = loweredPath.LastIndexOf("/", StringComparison.Ordinal);
 
 					if (idxLastSlash != -1)
 						loweredPath = loweredPath[(idxLastSlash + 1)..];

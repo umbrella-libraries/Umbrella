@@ -16,7 +16,7 @@ public sealed class UmbrellaDialogTest
 	{
 		string html = await RenderAsync(new UmbrellaDialogInstance { Title = "Account details" });
 		int titleIdStart = html.IndexOf("id=\"u-dialog-title-", StringComparison.Ordinal) + 4;
-		int titleIdEnd = html.IndexOf('"', titleIdStart);
+		int titleIdEnd = html.IndexOf("\"", titleIdStart, StringComparison.Ordinal);
 
 		Assert.True(titleIdStart >= 4);
 		Assert.True(titleIdEnd > titleIdStart);

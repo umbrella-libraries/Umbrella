@@ -7,7 +7,7 @@ namespace Umbrella.WebUtilities.Security;
 /// </summary>
 public class PermissionsPolicyBuilder
 {
-	private readonly Dictionary<string, HashSet<string>> _permissionsDictionary = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, HashSet<string>> _permissionsDictionary = [with(StringComparer.OrdinalIgnoreCase)];
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="PermissionsPolicyBuilder"/> class.

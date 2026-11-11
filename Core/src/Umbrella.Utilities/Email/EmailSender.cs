@@ -47,7 +47,7 @@ public class EmailSender : IEmailSender
 		{
 			IReadOnlyCollection<string> DetermineRecipients(IEnumerable<string> emails)
 			{
-				HashSet<string> lstRecipientEmail = new(StringComparer.OrdinalIgnoreCase);
+				HashSet<string> lstRecipientEmail = [with(StringComparer.OrdinalIgnoreCase)];
 
 				foreach (string email in emails)
 				{

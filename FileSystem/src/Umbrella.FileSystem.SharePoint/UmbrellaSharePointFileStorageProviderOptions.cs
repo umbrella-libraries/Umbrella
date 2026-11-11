@@ -12,7 +12,7 @@ namespace Umbrella.FileSystem.SharePoint;
 public class UmbrellaSharePointFileStorageProviderOptions : UmbrellaFileStorageProviderOptionsBase, ISanitizableUmbrellaOptions, IValidatableUmbrellaOptions
 {
 	/// <summary>Maps logical metadata keys to typed SharePoint library columns. Column creation is explicit via <see cref="UmbrellaSharePointMetadataSchema.EnsureAsync"/>.</summary>
-	public Dictionary<string, SharePointMetadataColumnMapping> MetadataColumnMappings { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+	public Dictionary<string, SharePointMetadataColumnMapping> MetadataColumnMappings { get; set; } = [with(StringComparer.OrdinalIgnoreCase)];
 
 	private static readonly HttpClient _defaultDownloadClient = new(new SocketsHttpHandler
 	{

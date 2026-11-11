@@ -97,8 +97,8 @@ public class UmbrellaSharePointMetadataIntegrationTest
 	{
 		private readonly GraphServiceClient _graph;
 		private readonly string _prefix = "um" + Guid.NewGuid().ToString("N")[..20];
-		private readonly HashSet<string> _files = new(StringComparer.Ordinal);
-		private readonly HashSet<string> _columnNames = new(StringComparer.Ordinal);
+		private readonly HashSet<string> _files = [with(StringComparer.Ordinal)];
+		private readonly HashSet<string> _columnNames = [with(StringComparer.Ordinal)];
 		private string? _driveId;
 		private string? _listId;
 		internal UmbrellaSharePointFileStorageProviderOptions Options { get; }

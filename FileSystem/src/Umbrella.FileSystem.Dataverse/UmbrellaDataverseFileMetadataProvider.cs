@@ -43,7 +43,7 @@ public sealed class UmbrellaDataverseFileMetadataProvider(IGenericTypeConverter 
 		protected override async Task<Dictionary<string, object?>> ReadCoreAsync(CancellationToken cancellationToken)
 		{
 			if (options.MetadataColumnMappings.Count == 0)
-				return new(StringComparer.OrdinalIgnoreCase);
+				return [with(StringComparer.OrdinalIgnoreCase)];
 			var entity = await options.DataverseClient.RetrieveAsync(options.TableName, recordId,
 				new ColumnSet(options.MetadataColumnMappings.Values.Select(x => x.ColumnName).Distinct().ToArray()), cancellationToken).ConfigureAwait(false);
 			return options.MetadataColumnMappings.ToDictionary(x => x.Key,

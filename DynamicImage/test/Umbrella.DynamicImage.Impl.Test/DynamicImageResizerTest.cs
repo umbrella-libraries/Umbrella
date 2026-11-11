@@ -33,7 +33,7 @@ public class DynamicImageResizerTest
 			if (string.IsNullOrEmpty(_baseDirectory))
 			{
 				string baseDirectory = AppContext.BaseDirectory;
-				int indexToEndAt = baseDirectory.IndexOf(PathHelper.PlatformNormalize($@"\bin\{DebugUtility.BuildConfiguration}\net10.0"), StringComparison.OrdinalIgnoreCase);
+				int indexToEndAt = baseDirectory.IndexOf(PathHelper.PlatformNormalize($@"\bin\{DebugUtility.BuildConfiguration}\"), StringComparison.OrdinalIgnoreCase);
 				_baseDirectory = baseDirectory.Remove(indexToEndAt, baseDirectory.Length - indexToEndAt);
 			}
 

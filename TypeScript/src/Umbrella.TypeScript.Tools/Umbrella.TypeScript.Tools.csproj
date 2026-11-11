@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<AssemblyName>dotnet-umbrella-ts</AssemblyName>
 		<OutputType>Exe</OutputType>
-		<TargetFramework>net10.0</TargetFramework>
+		<TargetFrameworks>net10.0;net11.0</TargetFrameworks>
 		<NoWarn>CS1591</NoWarn>
 	</PropertyGroup>
 

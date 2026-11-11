@@ -314,7 +314,7 @@ public sealed class UmbrellaDynamicImageTest
 	private static string GetImageHtml(string html)
 	{
 		int startIndex = html.IndexOf("<img", StringComparison.Ordinal);
-		int endIndex = html.IndexOf('>', startIndex);
+		int endIndex = html.IndexOf(">", startIndex, StringComparison.Ordinal);
 
 		return html[startIndex..(endIndex + 1)];
 	}

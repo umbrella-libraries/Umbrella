@@ -1,8 +1,12 @@
 ﻿using System.Diagnostics;
+#if !NET11_0_OR_GREATER
 using System.Diagnostics.CodeAnalysis;
+#endif
 using System.Reflection;
 using Microsoft.AspNetCore.Components.Forms;
+#if !NET11_0_OR_GREATER
 using Umbrella.AspNetCore.Blazor.Components.Validation;
+#endif
 
 namespace Umbrella.AspNetCore.Blazor.Components.Form;
 
@@ -33,6 +37,7 @@ public class AsyncEditForm : EditForm, IDisposable
 		field?.SetValue(this, new Func<Task>(HandleSubmitAsync));
 	}
 
+#if !NET11_0_OR_GREATER
 	/// <inheritdoc />
 	protected override void OnAfterRender(bool firstRender)
 	{
@@ -65,6 +70,7 @@ public class AsyncEditForm : EditForm, IDisposable
 			await OnInvalidSubmit.InvokeAsync(EditContext);
 		}
 	}
+#endif
 
 	private async Task HandleSubmitAsync()
 	{
@@ -78,7 +84,16 @@ public class AsyncEditForm : EditForm, IDisposable
 		else
 		{
 			// Otherwise, the system implicitly runs validation on form submission
-			_ = EditContext.Validate(); // This will likely become ValidateAsync later
+#if NET11_0_OR_GREATER
+			bool isValid = await EditContext.ValidateAsync();
+
+			if (isValid && OnValidSubmit.HasDelegate)
+				await OnValidSubmit.InvokeAsync(EditContext);
+			else if (!isValid && OnInvalidSubmit.HasDelegate)
+				await OnInvalidSubmit.InvokeAsync(EditContext);
+#else
+			_ = EditContext.Validate();
+#endif
 		}
 	}
 
@@ -97,6 +112,7 @@ public class AsyncEditForm : EditForm, IDisposable
 	{
 		if (!_disposedValue)
 		{
+#if !NET11_0_OR_GREATER
 			if (disposing)
 			{
 				if (EditContext?.Properties.TryGetValue(nameof(ObjectGraphDataAnnotationsValidator), out object? value) is true && value is ObjectGraphDataAnnotationsValidator validator)
@@ -104,6 +120,7 @@ public class AsyncEditForm : EditForm, IDisposable
 					validator.OnObjectValidationCompleted -= Validator_OnObjectValidationCompleted;
 				}
 			}
+#endif
 
 			_disposedValue = true;
 		}

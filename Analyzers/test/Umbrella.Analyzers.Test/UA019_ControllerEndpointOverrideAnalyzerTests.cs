@@ -434,7 +434,7 @@ public class UA019_ControllerEndpointOverrideAnalyzerTests : AnalyzerTestBase<Co
 		int methodIndex = declarationIndex + declaration.IndexOf(methodName, StringComparison.Ordinal);
 		string precedingText = source[..methodIndex];
 		int line = precedingText.Count(static character => character == '\n') + 1;
-		int column = methodIndex - precedingText.LastIndexOf('\n');
+		int column = methodIndex - precedingText.LastIndexOf("\n", StringComparison.Ordinal);
 
 		return Diagnostic(
 			ControllerEndpointOverrideAnalyzer.Rule,

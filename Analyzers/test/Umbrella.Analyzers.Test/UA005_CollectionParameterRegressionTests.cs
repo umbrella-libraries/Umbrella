@@ -314,7 +314,7 @@ public class UA005_CollectionParameterRegressionTests : AnalyzerTestBase<Enumera
 	{
 		int index = source.IndexOf(parameterName, StringComparison.Ordinal);
 		int line = source[..index].Count(static character => character == '\n') + 1;
-		int lastLineBreak = source.LastIndexOf('\n', index);
+		int lastLineBreak = source.LastIndexOf("\n", index, StringComparison.Ordinal);
 		int column = index - lastLineBreak;
 
 		return Diagnostic(EnumerableParameterAnalyzer.Rule, line, column, parameterName, displayType);

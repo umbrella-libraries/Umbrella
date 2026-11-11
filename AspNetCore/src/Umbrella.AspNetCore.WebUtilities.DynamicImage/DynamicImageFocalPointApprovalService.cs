@@ -12,7 +12,7 @@ namespace Umbrella.AspNetCore.WebUtilities.DynamicImage;
 /// <summary>Issues and verifies deterministic image-bound focal approvals.</summary>
 public sealed class DynamicImageFocalPointApprovalService : IDynamicImageDescriptorFactory
 {
-	private readonly Dictionary<string, byte[]> _keys = new(StringComparer.Ordinal);
+	private readonly Dictionary<string, byte[]> _keys = [with(StringComparer.Ordinal)];
 	private readonly string _activeKeyId;
 	private readonly string _route;
 	private readonly string? _stripPrefix;

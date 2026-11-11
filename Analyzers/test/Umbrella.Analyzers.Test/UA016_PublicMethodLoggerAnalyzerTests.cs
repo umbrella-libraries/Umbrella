@@ -621,7 +621,7 @@ public class UA016_PublicMethodLoggerAnalyzerTests : AnalyzerTestBase<PublicMeth
 		int typeIndex = declarationIndex + declaration.IndexOf(typeName, StringComparison.Ordinal);
 		string precedingText = source[..typeIndex];
 		int line = precedingText.Count(static character => character == '\n') + 1;
-		int column = typeIndex - precedingText.LastIndexOf('\n');
+		int column = typeIndex - precedingText.LastIndexOf("\n", StringComparison.Ordinal);
 
 		return Diagnostic(PublicMethodLoggerAnalyzer.Rule, line, column);
 	}

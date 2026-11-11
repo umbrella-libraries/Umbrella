@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using CommunityToolkit.Diagnostics;
-using Umbrella.DataAnnotations;
 using Umbrella.Utilities.Annotations.Services.Abstractions;
 using Umbrella.Utilities.Primitives;
+using AsyncValidationAttribute = Umbrella.DataAnnotations.AsyncValidationAttribute;
 
 namespace Umbrella.Utilities.Annotations;
 

@@ -61,7 +61,7 @@ public static class DbContextExtensions
 
 		if (lastMigration is not null)
 		{
-			int idxUnderscore = lastMigration.LastIndexOf('_');
+			int idxUnderscore = lastMigration.LastIndexOf("_", StringComparison.Ordinal);
 
 			if (idxUnderscore >= 0)
 				return lastMigration[(idxUnderscore + 1)..];

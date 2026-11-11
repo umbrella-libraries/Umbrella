@@ -119,7 +119,7 @@ public class KnockoutPropertyTagHelper : TagHelper
 				return string.Empty;
 
 			string? exposedPropertyName = null;
-			int periodIdx = PropertyName.LastIndexOf('.');
+			int periodIdx = PropertyName.LastIndexOf(".", StringComparison.Ordinal);
 
 			if (periodIdx > -1)
 			{

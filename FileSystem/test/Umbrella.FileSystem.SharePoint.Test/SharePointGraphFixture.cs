@@ -16,7 +16,7 @@ internal sealed class SharePointGraphFixture : IDisposable
 	private readonly Handler _handler;
 	internal GraphServiceClient Graph { get; }
 	internal UmbrellaSharePointFileStorageProviderOptions Options { get; }
-	internal Dictionary<string, Dictionary<string, object?>> Files { get; } = new(StringComparer.Ordinal);
+	internal Dictionary<string, Dictionary<string, object?>> Files { get; } = [with(StringComparer.Ordinal)];
 	internal List<Dictionary<string, object?>> Columns { get; } = [];
 	internal List<(string Method, string Url, string? Body)> Requests { get; } = [];
 	internal bool FailPatch { get; set; }

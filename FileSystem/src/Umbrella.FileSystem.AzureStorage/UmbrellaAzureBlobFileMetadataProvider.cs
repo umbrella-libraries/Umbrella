@@ -45,7 +45,7 @@ public sealed class UmbrellaAzureBlobFileMetadataProvider(IGenericTypeConverter 
 
 		protected override async Task WriteCoreAsync(IReadOnlyDictionary<string, object?> changes, bool clear, CancellationToken cancellationToken)
 		{
-			Dictionary<string, object?> values = clear ? new(StringComparer.OrdinalIgnoreCase) : await ReadCoreAsync(cancellationToken).ConfigureAwait(false);
+			Dictionary<string, object?> values = clear ? [with(StringComparer.OrdinalIgnoreCase)] : await ReadCoreAsync(cancellationToken).ConfigureAwait(false);
 			foreach (var pair in changes)
 			{
 				if (pair.Value is null)

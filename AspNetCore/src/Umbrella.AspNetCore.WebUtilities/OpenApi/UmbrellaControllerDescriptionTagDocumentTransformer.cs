@@ -31,7 +31,7 @@ public sealed class UmbrellaControllerDescriptionTagDocumentTransformer : IOpenA
 			.Where(x => x is { IsClass: true, IsAbstract: false, IsPublic: true })
 			.Where(x => typeof(Microsoft.AspNetCore.Mvc.ControllerBase).IsAssignableFrom(x));
 
-		Dictionary<string, string?> tagDescriptions = new(StringComparer.OrdinalIgnoreCase);
+		Dictionary<string, string?> tagDescriptions = [with(StringComparer.OrdinalIgnoreCase)];
 
 		foreach (Type controllerType in controllerTypes)
 		{

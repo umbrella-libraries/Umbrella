@@ -212,14 +212,15 @@ public class DynamicImagePictureSourceTagHelper : DynamicImageTagHelperBase
 	/// <c>src</c> and <c>alt</c> are meaningless on a source tag, <c>srcset</c> and <c>type</c> are always generated, and <c>id</c> is
 	/// excluded because a single element generates several source tags and repeating an id would produce invalid HTML.
 	/// </remarks>
-	private static readonly HashSet<string> _nonPassthroughAttributeNames = new(StringComparer.OrdinalIgnoreCase)
-	{
+	private static readonly HashSet<string> _nonPassthroughAttributeNames =
+	[
+		with(StringComparer.OrdinalIgnoreCase),
 		"src",
 		"alt",
 		"srcset",
 		"type",
 		"id"
-	};
+	];
 
 	/// <summary>
 	/// Copies any attribute that is not bound to a tag helper property onto the generated source tag, e.g. <c>sizes</c> and <c>class</c>.

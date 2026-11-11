@@ -298,7 +298,7 @@ public abstract class BundleUtility<TOptions> : IBundleUtility
 		Guard.IsNotNull(bundleNameOrPath);
 
 		if (Path.HasExtension(bundleNameOrPath))
-			bundleNameOrPath = bundleNameOrPath[..bundleNameOrPath.LastIndexOf('.')];
+			bundleNameOrPath = bundleNameOrPath[..bundleNameOrPath.LastIndexOf(".", StringComparison.Ordinal)];
 
 		bundleNameOrPath += "." + bundleType;
 

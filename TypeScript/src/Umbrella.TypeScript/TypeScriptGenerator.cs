@@ -29,7 +29,7 @@ public class TypeScriptGenerator
 	/// <summary>
 	/// Gets the generators collection. Each .NET type marked for generation will be passed through each generator.
 	/// </summary>
-	public HashSet<IGenerator> Generators { get; } = new HashSet<IGenerator>(new GenericEqualityComparer<IGenerator, Type>(x => x.GetType()));
+	public HashSet<IGenerator> Generators { get; } = [with(new GenericEqualityComparer<IGenerator, Type>(x => x.GetType()))];
 	#endregion
 
 	#region Public Methods

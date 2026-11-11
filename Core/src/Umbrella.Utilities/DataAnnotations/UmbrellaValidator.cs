@@ -57,7 +57,11 @@ public class UmbrellaValidator : IUmbrellaValidator
 		{
 			var lstResult = new List<ValidationResult>();
 
+#if NET11_0_OR_GREATER
+			bool valid = await Validator.TryValidateObjectAsync(item, ctx, lstResult, true).ConfigureAwait(false);
+#else
 			bool valid = Validator.TryValidateObject(item, ctx, lstResult, true);
+#endif
 
 			return (valid, lstResult);
 		}

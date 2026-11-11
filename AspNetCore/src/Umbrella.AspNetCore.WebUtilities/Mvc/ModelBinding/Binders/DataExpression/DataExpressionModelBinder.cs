@@ -83,7 +83,7 @@ public abstract class DataExpressionModelBinder<TDescriptor> : IModelBinder
 			bool isEnumerable = underlyingOrModelType.IsAssignableToGenericType(typeof(IEnumerable<>));
 			Type deserializationType = isEnumerable ? EnumerableDescriptorType : DescriptorType;
 
-			if (isEnumerable && !value.StartsWith('[') && !value.EndsWith(']'))
+			if (isEnumerable && !value.StartsWith("[", StringComparison.Ordinal) && !value.EndsWith("]", StringComparison.Ordinal))
 				value = $"[{value}]";
 
 			object? model = JsonSerializer.Deserialize(value, deserializationType, BinderHelper.SerializerOptions);

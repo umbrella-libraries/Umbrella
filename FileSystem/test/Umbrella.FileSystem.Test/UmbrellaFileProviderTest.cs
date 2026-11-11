@@ -56,7 +56,7 @@ public class UmbrellaFileProviderTest : IClassFixture<FileSystemAzuriteContainer
 			if (string.IsNullOrEmpty(_baseDirectory))
 			{
 				string baseDirectory = AppContext.BaseDirectory;
-				int indexToEndAt = baseDirectory.IndexOf(PathHelper.PlatformNormalize($@"\bin\{DebugUtility.BuildConfiguration}\net10.0"), StringComparison.OrdinalIgnoreCase);
+				int indexToEndAt = baseDirectory.IndexOf(PathHelper.PlatformNormalize($@"\bin\{DebugUtility.BuildConfiguration}\"), StringComparison.OrdinalIgnoreCase);
 				_baseDirectory = baseDirectory.Remove(indexToEndAt, baseDirectory.Length - indexToEndAt);
 			}
 
@@ -1589,7 +1589,7 @@ public class UmbrellaFileProviderTest : IClassFixture<FileSystemAzuriteContainer
 		IOrganizationServiceAsync2 dataverseClient,
 		string tableName) : IUmbrellaFileStorageProvider, IAsyncDisposable
 	{
-		private readonly Dictionary<string, string> _dirGuidCache = new(StringComparer.OrdinalIgnoreCase);
+		private readonly Dictionary<string, string> _dirGuidCache = [with(StringComparer.OrdinalIgnoreCase)];
 
 		public async ValueTask DisposeAsync()
 		{

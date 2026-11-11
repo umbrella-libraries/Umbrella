@@ -85,7 +85,11 @@ internal sealed class UmbrellaDataExpressionParameterOperationTransformer : IOpe
 			// The value is a JSON document held in a single query string value, so it is described using the parameter
 			// content field. Specifying both content and schema is invalid, so the generated schema is discarded.
 			parameter.Schema = null;
+#if NET11_0_OR_GREATER
+			parameter.Content = new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal)
+#else
 			parameter.Content = new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal)
+#endif
 			{
 				["application/json"] = new OpenApiMediaType
 				{

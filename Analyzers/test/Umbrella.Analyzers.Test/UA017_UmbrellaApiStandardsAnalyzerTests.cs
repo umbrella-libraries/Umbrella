@@ -405,7 +405,7 @@ public class UA017_UmbrellaApiStandardsAnalyzerTests : AnalyzerTestBase<Umbrella
 		int index = source.IndexOf(marker, StringComparison.Ordinal);
 		string precedingText = source[..index];
 		int line = precedingText.Count(static character => character == '\n') + 1;
-		int column = index - precedingText.LastIndexOf('\n');
+		int column = index - precedingText.LastIndexOf("\n", StringComparison.Ordinal);
 
 		return Diagnostic(
 			UmbrellaApiStandardsAnalyzer.UseUmbrellaProducesResponseTypeRule,

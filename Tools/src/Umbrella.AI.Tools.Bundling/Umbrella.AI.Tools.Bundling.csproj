@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <NoWarn>CS1591</NoWarn>
     <PackageId>Umbrella.AI.Tools.Bundling</PackageId>
     <Description>The content-agnostic engine used to install and manage AI skills, agents, and MCP configuration bundles in target repositories. Consumed by repository-specific installer tools.</Description>

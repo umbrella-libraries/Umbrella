@@ -484,7 +484,7 @@ public class UA024_DataExpressionQueryParameterAnalyzerTests : AnalyzerTestBase<
 		int anchorIndex = declarationIndex + declaration.IndexOf(anchor, StringComparison.Ordinal);
 		string precedingText = source[..anchorIndex];
 		int line = precedingText.Count(static character => character == '\n') + 1;
-		int column = anchorIndex - precedingText.LastIndexOf('\n');
+		int column = anchorIndex - precedingText.LastIndexOf("\n", StringComparison.Ordinal);
 
 		return Diagnostic(
 			DataExpressionQueryParameterAnalyzer.Rule,

@@ -7,7 +7,7 @@ namespace Umbrella.CodingStandards.Tools.Test;
 public class CodingStandardsToolTest
 {
     private static string RepoRoot => GetRepoRoot();
-    private static string ToolRelativePath => Path.Combine("Tools", "src", "Umbrella.CodingStandards.Tools", "bin", GetBuildConfiguration(), "net10.0", "umbrella-coding-standards.dll");
+    private static string ToolRelativePath => Path.Combine("Tools", "src", "Umbrella.CodingStandards.Tools", "bin", GetBuildConfiguration(), new DirectoryInfo(AppContext.BaseDirectory).Name, "umbrella-coding-standards.dll");
 
     [Fact]
     public void ToolCopiesExpectedFiles()

@@ -294,6 +294,22 @@ public static class AsyncValidator
 		if (errors.Count > 0)
 			return errors;
 
+#if NET11_0_OR_GREATER
+		if (instance is IAsyncValidatableObject asyncValidatable)
+		{
+			await foreach (ValidationResult result in asyncValidatable.ValidateAsync(validationContext, cancellationToken).WithCancellation(cancellationToken).ConfigureAwait(false))
+			{
+				if (result != ValidationResult.Success)
+				{
+					errors.Add(new ValidationError(null, instance, result));
+
+					if (breakOnFirstError)
+						break;
+				}
+			}
+		}
+		else
+#endif
 		if (instance is IValidatableObject validatable)
 		{
 			var results = validatable.Validate(validationContext);
@@ -335,9 +351,7 @@ public static class AsyncValidator
 				{
 					if (attribute is RequiredAttribute reqAttr)
 					{
-						ValidationResult? validationResult = attribute is AsyncValidationAttribute asyncAttr
-							? await asyncAttr.GetValidationResultAsync(property.Value, property.Key, cancellationToken).ConfigureAwait(false)
-							: reqAttr.GetValidationResult(property.Value, property.Key);
+						ValidationResult? validationResult = await GetValidationResultAsync(property.Value, property.Key, attribute, cancellationToken).ConfigureAwait(false);
 
 						if (validationResult != ValidationResult.Success)
 							errors.Add(new ValidationError(reqAttr, property.Value, validationResult!));
@@ -373,9 +387,11 @@ public static class AsyncValidator
 
 			if (required is not null)
 			{
-				if (!await TryValidateAsync(value, validationContext, required, cancellationToken).ConfigureAwait(false))
+				ValidationResult? validationResult = await GetValidationResultAsync(value, validationContext, required, cancellationToken).ConfigureAwait(false);
+
+				if (validationResult != ValidationResult.Success)
 				{
-					validationError = new ValidationError(required, value, required.GetValidationResult(value, validationContext)!);
+					validationError = new ValidationError(required, value, validationResult!);
 
 					errors.Add(validationError);
 
@@ -390,12 +406,10 @@ public static class AsyncValidator
 		{
 			if (attr != required)
 			{
-				if (!await TryValidateAsync(value, validationContext, attr, cancellationToken).ConfigureAwait(false))
-				{
-					var validationResult = attr is AsyncValidationAttribute asyncAttr
-						? await asyncAttr.GetValidationResultAsync(value, validationContext, cancellationToken).ConfigureAwait(false)
-						: attr.GetValidationResult(value, validationContext);
+				ValidationResult? validationResult = await GetValidationResultAsync(value, validationContext, attr, cancellationToken).ConfigureAwait(false);
 
+				if (validationResult != ValidationResult.Success)
+				{
 					validationError = new ValidationError(attr, value, validationResult!);
 
 					errors.Add(validationError);
@@ -409,16 +423,19 @@ public static class AsyncValidator
 		return errors;
 	}
 
-	private static async Task<bool> TryValidateAsync(object? value, ValidationContext validationContext, ValidationAttribute attribute, CancellationToken cancellationToken)
+	private static async Task<ValidationResult?> GetValidationResultAsync(object? value, ValidationContext validationContext, ValidationAttribute attribute, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		Debug.Assert(validationContext != null);
 
-		ValidationResult? validationResult = attribute is AsyncValidationAttribute asyncAttribute
-			? await asyncAttribute.GetValidationResultAsync(value, validationContext!, cancellationToken).ConfigureAwait(false)
-			: attribute.GetValidationResult(value, validationContext!);
-
-		return validationResult == ValidationResult.Success;
+		return attribute switch
+		{
+			AsyncValidationAttribute asyncAttribute => await asyncAttribute.GetValidationResultAsync(value, validationContext!, cancellationToken).ConfigureAwait(false),
+#if NET11_0_OR_GREATER
+			System.ComponentModel.DataAnnotations.AsyncValidationAttribute nativeAsyncAttribute => await nativeAsyncAttribute.GetValidationResultAsync(value, validationContext, cancellationToken).ConfigureAwait(false),
+#endif
+			_ => attribute.GetValidationResult(value, validationContext)
+		};
 	}
 
 	private static ValidationContext CreateValidationContext(object instance, ValidationContext validationContext)

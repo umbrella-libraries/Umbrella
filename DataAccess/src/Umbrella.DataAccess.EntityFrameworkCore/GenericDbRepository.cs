@@ -469,7 +469,7 @@ public abstract class GenericDbRepository<TEntity, TDbContext, TRepoOptions, TEn
 	#region Events		
 	/// <summary>
 	/// Overriding this method allows you to perform custom validation on the entity before its state on the database context is affected.
-	/// By default, this calls into the <see cref="Validator.TryValidateObject(object, ValidationContext, ICollection{ValidationResult}, bool)"/> method.
+	/// By default, this validates the entity's data annotations.
 	/// By design, this doesn't recursively perform validation on the entity. If this is required, override this method and use the <see cref="IObjectGraphValidator"/>
 	/// by injecting it as a service or perform more extensive validation elsewhere.
 	/// </summary>
@@ -478,7 +478,11 @@ public abstract class GenericDbRepository<TEntity, TDbContext, TRepoOptions, TEn
 	/// <param name="childOptions">The child options.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>A <see cref="Task"/> used to await completion of this operation.</returns>
-	protected virtual Task<ICollection<ValidationResult>> ValidateEntityAsync(TEntity entity, TRepoOptions options, IEnumerable<RepoOptions>? childOptions, CancellationToken cancellationToken)
+	protected virtual
+#if NET11_0_OR_GREATER
+		async
+#endif
+		Task<ICollection<ValidationResult>> ValidateEntityAsync(TEntity entity, TRepoOptions options, IEnumerable<RepoOptions>? childOptions, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
@@ -486,9 +490,13 @@ public abstract class GenericDbRepository<TEntity, TDbContext, TRepoOptions, TEn
 
 		var ctx = new ValidationContext(entity);
 
+#if NET11_0_OR_GREATER
+		_ = await Validator.TryValidateObjectAsync(entity, ctx, lstValidationResult, true, cancellationToken).ConfigureAwait(false);
+		return lstValidationResult;
+#else
 		_ = Validator.TryValidateObject(entity, ctx, lstValidationResult, true);
-
 		return Task.FromResult(lstValidationResult);
+#endif
 	}
 
 	/// <summary>

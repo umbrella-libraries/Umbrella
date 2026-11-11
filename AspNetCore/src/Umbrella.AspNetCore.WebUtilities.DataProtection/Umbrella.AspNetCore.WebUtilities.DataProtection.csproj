@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+		<TargetFrameworks>net8.0;net9.0;net10.0;net11.0</TargetFrameworks>
 	</PropertyGroup>
 
 	<PropertyGroup>
@@ -22,7 +22,7 @@
 		<PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Keys" />
 	</ItemGroup>
 
-	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+	<ItemGroup Condition="('$(TargetFramework)' == 'net10.0' Or '$(TargetFramework)' == 'net11.0')">
 		<PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" />
 		<PackageReference Include="Azure.Extensions.AspNetCore.DataProtection.Keys" />
 	</ItemGroup>
@@ -35,7 +35,7 @@
 		<PackageReference Include="Azure.Identity" />
 	</ItemGroup>
 
-	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+	<ItemGroup Condition="('$(TargetFramework)' == 'net10.0' Or '$(TargetFramework)' == 'net11.0')">
 		<PackageReference Include="Azure.Identity" />
 	</ItemGroup>
 
@@ -47,7 +47,7 @@
 		<PackageReference Include="Azure.Storage.Blobs" />
 	</ItemGroup>
 
-	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+	<ItemGroup Condition="('$(TargetFramework)' == 'net10.0' Or '$(TargetFramework)' == 'net11.0')">
 		<PackageReference Include="Azure.Storage.Blobs" />
 	</ItemGroup>
 

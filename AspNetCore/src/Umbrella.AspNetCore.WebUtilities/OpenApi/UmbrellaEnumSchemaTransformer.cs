@@ -61,7 +61,7 @@ internal sealed class UmbrellaEnumSchemaTransformer : IOpenApiSchemaTransformer
 		}
 
 		List<JsonNode> members = [];
-		HashSet<string> seen = new(StringComparer.Ordinal);
+		HashSet<string> seen = [with(StringComparer.Ordinal)];
 		bool asString = false;
 
 		foreach (object value in values)

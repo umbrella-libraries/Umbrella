@@ -282,7 +282,7 @@ internal static partial class CodexMcpConfigManager
     {
         if (!TryGetManagedContent(content, out string? managedContent))
         {
-            serverNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            serverNames = [with(StringComparer.OrdinalIgnoreCase)];
             error = null;
             return false;
         }
@@ -335,11 +335,11 @@ internal static partial class CodexMcpConfigManager
             return content;
         }
 
-        int lineStart = content.LastIndexOf('\n', startIndex);
+        int lineStart = content.LastIndexOf("\n", startIndex, StringComparison.Ordinal);
         lineStart = lineStart < 0 ? 0 : lineStart + 1;
 
         int afterEndMarker = endIndex + endMarker.Length;
-        int lineEnd = content.IndexOf('\n', afterEndMarker);
+        int lineEnd = content.IndexOf("\n", afterEndMarker, StringComparison.Ordinal);
         lineEnd = lineEnd < 0 ? content.Length : lineEnd + 1;
 
         return content.Remove(lineStart, lineEnd - lineStart);
@@ -446,7 +446,7 @@ internal static partial class CodexMcpConfigManager
 
     private static bool TryReadMcpServerNames(string content, out HashSet<string> serverNames, out string? error)
     {
-        serverNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        serverNames = [with(StringComparer.OrdinalIgnoreCase)];
 
         if (string.IsNullOrWhiteSpace(content))
         {
@@ -558,7 +558,7 @@ internal static partial class CodexMcpConfigManager
         => content.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
 
     private static bool EndsWithNewLine(string content)
-        => content.EndsWith('\n') || content.EndsWith('\r');
+        => content.EndsWith("\n", StringComparison.Ordinal) || content.EndsWith("\r", StringComparison.Ordinal);
 
     private static bool EndsWithBlankLine(string content)
         => NormalizeNewLines(content).EndsWith("\n\n", StringComparison.Ordinal);

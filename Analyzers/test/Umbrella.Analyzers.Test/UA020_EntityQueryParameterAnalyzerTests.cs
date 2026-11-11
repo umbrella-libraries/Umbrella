@@ -294,7 +294,7 @@ public class LeadRepository
 		Assert.True(index >= 0, $"Could not find parameter '{parameterName}' in the test source.");
 
 		int line = source[..index].Count(character => character == '\n') + 1;
-		int previousNewLine = source.LastIndexOf('\n', index);
+		int previousNewLine = source.LastIndexOf("\n", index, StringComparison.Ordinal);
 		int column = index - previousNewLine;
 
 		return Diagnostic(EntityQueryParameterAnalyzer.Rule, line, column, parameterName, entityType);

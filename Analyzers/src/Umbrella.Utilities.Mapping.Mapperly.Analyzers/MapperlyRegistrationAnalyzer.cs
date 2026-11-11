@@ -321,7 +321,7 @@ public sealed class MapperlyRegistrationAnalyzer : DiagnosticAnalyzer
 		INamedTypeSymbol catalogReferenceAttributeSymbol)
 	{
 		ImmutableArray<INamedTypeSymbol>.Builder builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-		HashSet<INamedTypeSymbol> seenCatalogs = new(SymbolEqualityComparer.Default);
+		HashSet<INamedTypeSymbol> seenCatalogs = [with(SymbolEqualityComparer.Default)];
 
 		foreach (AttributeData attributeData in assemblySymbol.GetAttributes())
 		{

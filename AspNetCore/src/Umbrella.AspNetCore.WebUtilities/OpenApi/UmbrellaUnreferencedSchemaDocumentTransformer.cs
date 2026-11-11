@@ -36,7 +36,7 @@ public sealed class UmbrellaUnreferencedSchemaDocumentTransformer : IOpenApiDocu
 		if (schemas is not { Count: > 0 })
 			return Task.CompletedTask;
 
-		HashSet<string> reachable = new(StringComparer.Ordinal);
+		HashSet<string> reachable = [with(StringComparer.Ordinal)];
 
 		VisitPathItems(document.Paths, schemas, reachable);
 		VisitPathItems(document.Webhooks, schemas, reachable);
@@ -118,6 +118,10 @@ public sealed class UmbrellaUnreferencedSchemaDocumentTransformer : IOpenApiDocu
 			return;
 
 		VisitParameters(components.Parameters?.Values.ToArray(), schemas, reachable);
+
+#if NET11_0_OR_GREATER
+		VisitContent(components.MediaTypes, schemas, reachable);
+#endif
 
 		if (components.RequestBodies is not null)
 		{
@@ -238,14 +242,24 @@ public sealed class UmbrellaUnreferencedSchemaDocumentTransformer : IOpenApiDocu
 	/// <param name="content">The content.</param>
 	/// <param name="schemas">The component schemas.</param>
 	/// <param name="reachable">The set of reachable schema identifiers.</param>
-	private static void VisitContent(IDictionary<string, OpenApiMediaType>? content, IDictionary<string, IOpenApiSchema> schemas, HashSet<string> reachable)
+	private static void VisitContent(
+#if NET11_0_OR_GREATER
+		IDictionary<string, IOpenApiMediaType>? content,
+#else
+		IDictionary<string, OpenApiMediaType>? content,
+#endif
+		IDictionary<string, IOpenApiSchema> schemas,
+		HashSet<string> reachable)
 	{
 		if (content is null)
 			return;
 
-		foreach (OpenApiMediaType mediaType in content.Values)
+		foreach (var mediaType in content.Values)
 		{
 			VisitSchema(mediaType.Schema, schemas, reachable);
+#if NET11_0_OR_GREATER
+			VisitSchema(mediaType.ItemSchema, schemas, reachable);
+#endif
 		}
 	}
 

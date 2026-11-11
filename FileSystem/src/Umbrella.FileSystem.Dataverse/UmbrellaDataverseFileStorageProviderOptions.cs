@@ -73,7 +73,7 @@ public class UmbrellaDataverseFileStorageProviderOptions : UmbrellaFileStoragePr
 	/// Example: <c>{ ["Title"] = new DataverseMetadataColumnMapping { ColumnName = "subject", ColumnType = DataverseMetadataColumnType.Text } }</c>
 	/// </para>
 	/// </summary>
-	public Dictionary<string, DataverseMetadataColumnMapping> MetadataColumnMappings { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+	public Dictionary<string, DataverseMetadataColumnMapping> MetadataColumnMappings { get; set; } = [with(StringComparer.OrdinalIgnoreCase)];
 
 	/// <inheritdoc />
 	public void Sanitize()

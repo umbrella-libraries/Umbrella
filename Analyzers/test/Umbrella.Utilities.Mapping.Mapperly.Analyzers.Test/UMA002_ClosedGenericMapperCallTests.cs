@@ -368,7 +368,7 @@ public sealed class Consumer
 		Assert.True(index >= 0);
 
 		int line = source.Take(index).Count(x => x == '\n') + 1;
-		int lastNewLine = source.LastIndexOf('\n', index);
+		int lastNewLine = source.LastIndexOf("\n", index, StringComparison.Ordinal);
 		int column = index - lastNewLine;
 		return (line, column);
 	}

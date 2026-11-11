@@ -124,7 +124,7 @@ public class TrimmableSourceGenerator : IIncrementalGenerator
 		var trimStatements = GenerateTrimStatements(
 			typeSymbol,
 			"this",
-			new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default),
+			[with(SymbolEqualityComparer.Default)],
 			trimmingSymbols,
 			0,
 			3);

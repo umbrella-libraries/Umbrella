@@ -164,7 +164,7 @@ public static class QueryHelpers
 
 		while (scanIndex < textLength)
 		{
-			int delimiterIndex = queryString.IndexOf('&', scanIndex);
+			int delimiterIndex = queryString.IndexOf("&", scanIndex, StringComparison.Ordinal);
 			if (delimiterIndex == -1)
 			{
 				delimiterIndex = textLength;
@@ -182,7 +182,7 @@ public static class QueryHelpers
 				accumulator.Append(
 					Uri.UnescapeDataString(name.Replace('+', ' ')),
 					Uri.UnescapeDataString(value.Replace('+', ' ')));
-				equalIndex = queryString.IndexOf('=', delimiterIndex);
+				equalIndex = queryString.IndexOf("=", delimiterIndex, StringComparison.Ordinal);
 				if (equalIndex == -1)
 				{
 					equalIndex = textLength;
@@ -215,7 +215,7 @@ internal struct KeyValueAccumulator
 
 	public void Append(string key, string value)
 	{
-		_accumulator ??= new Dictionary<string, StringValues>(StringComparer.OrdinalIgnoreCase);
+		_accumulator ??= [with(StringComparer.OrdinalIgnoreCase)];
 
 		if (_accumulator.TryGetValue(key, out StringValues values))
 		{
@@ -235,7 +235,7 @@ internal struct KeyValueAccumulator
 				// Add zero count entry and move to data to expanding list dictionary
 				_accumulator[key] = default;
 
-				_expandingAccumulator ??= new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+				_expandingAccumulator ??= [with(StringComparer.OrdinalIgnoreCase)];
 
 				// Already 3 entries so use starting allocated as 8; then use List's expansion mechanism for more
 				var list = new List<string>(8);

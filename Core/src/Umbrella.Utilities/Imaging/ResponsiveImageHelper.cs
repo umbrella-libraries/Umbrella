@@ -143,7 +143,7 @@ public class ResponsiveImageHelper : IResponsiveImageHelper
 
 		try
 		{
-			int index = sanitizedImageUrl.LastIndexOf('.');
+			int index = sanitizedImageUrl.LastIndexOf(".", StringComparison.Ordinal);
 
 			if (index is not >= 0)
 				throw new InvalidOperationException("The image URL does not contain a file extension.");

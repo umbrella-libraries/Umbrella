@@ -18,7 +18,7 @@ public abstract class UmbrellaFileMetadataSession : IUmbrellaFileMetadataSession
 		Guard.IsNotNull(converter);
 		_converter = converter;
 		_keyComparer = keyComparer ?? StringComparer.Ordinal;
-		_pending = new(_keyComparer);
+		_pending = [with(_keyComparer)];
 	}
 
 	/// <inheritdoc />
@@ -73,8 +73,8 @@ public abstract class UmbrellaFileMetadataSession : IUmbrellaFileMetadataSession
 		cancellationToken.ThrowIfCancellationRequested();
 		if (!_clear && _pending.Count == 0)
 			return;
-		var updatedCache = _clear
-			? new Dictionary<string, object?>(_keyComparer)
+		Dictionary<string, object?> updatedCache = _clear
+			? [with(_keyComparer)]
 			: new Dictionary<string, object?>(_cache ?? await ReadCoreAsync(cancellationToken).ConfigureAwait(false), _keyComparer);
 		foreach (var pair in _pending)
 		{

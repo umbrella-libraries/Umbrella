@@ -143,7 +143,7 @@ public sealed class EntityQueryParameterAnalyzer : DiagnosticAnalyzer
 		if (IsEntityType(
 				parameterType,
 				iEntitySymbol,
-				new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default)))
+				[with(SymbolEqualityComparer.Default)]))
 		{
 			entityType = parameterType;
 			return true;
@@ -153,7 +153,7 @@ public sealed class EntityQueryParameterAnalyzer : DiagnosticAnalyzer
 			IsEntityType(
 				arrayType.ElementType,
 				iEntitySymbol,
-				new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default)))
+				[with(SymbolEqualityComparer.Default)]))
 		{
 			entityType = arrayType.ElementType;
 			return true;
@@ -164,7 +164,7 @@ public sealed class EntityQueryParameterAnalyzer : DiagnosticAnalyzer
 				iEntitySymbol,
 				iEnumerableSymbol,
 				iAsyncEnumerableSymbol,
-				new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default),
+				[with(SymbolEqualityComparer.Default)],
 				out entityType))
 		{
 			return true;
@@ -236,7 +236,7 @@ public sealed class EntityQueryParameterAnalyzer : DiagnosticAnalyzer
 			IsEntityType(
 				type.TypeArguments[0],
 				iEntitySymbol,
-				new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default)))
+				[with(SymbolEqualityComparer.Default)]))
 		{
 			entityType = type.TypeArguments[0];
 			return true;

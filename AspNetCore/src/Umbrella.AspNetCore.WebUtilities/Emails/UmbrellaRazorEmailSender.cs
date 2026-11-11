@@ -67,7 +67,7 @@ public abstract class UmbrellaRazorEmailSender : UmbrellaEmailSenderBase
 
 		try
 		{
-			viewPath = viewNameOrPath.StartsWith('~') ? viewNameOrPath : GetFullViewPath(viewNameOrPath);
+			viewPath = viewNameOrPath.StartsWith("~", StringComparison.Ordinal) ? viewNameOrPath : GetFullViewPath(viewNameOrPath);
 
 			string content = await ViewToStringRenderer.RenderViewToStringAsync(viewPath, model, cancellationToken: cancellationToken).ConfigureAwait(false);
 

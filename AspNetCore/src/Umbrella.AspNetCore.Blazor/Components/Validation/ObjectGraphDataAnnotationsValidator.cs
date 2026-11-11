@@ -52,15 +52,17 @@ public class ObjectGraphDataAnnotationsValidator : ComponentBase, IDisposable
 		EditContext.Properties[nameof(ObjectGraphDataAnnotationsValidator)] = this;
 	}
 
-	private async Task ValidateObjectAsync(object value)
+	private async Task ValidateObjectAsync(object value, CancellationToken cancellationToken = default)
 	{
+		cancellationToken.ThrowIfCancellationRequested();
+
 		if (value is null || _validationMessageStore is null || EditContext is null)
 			return;
 
 		// Construct a root ValidationContext similar to UmbrellaValidator usage.
 		var validationContext = new ValidationContext(value, ServiceProvider, null);
 
-		var (_, results) = await ObjectGraphValidator.TryValidateObjectAsync(value, validationContext, validateAllProperties: true, serviceProvider: ServiceProvider);
+		var (_, results) = await ObjectGraphValidator.TryValidateObjectAsync(value, validationContext, validateAllProperties: true, serviceProvider: ServiceProvider, cancellationToken: cancellationToken);
 
 		// Transfer results to the ValidationMessageStore
 		foreach (var validationResult in results)
@@ -119,14 +121,22 @@ public class ObjectGraphDataAnnotationsValidator : ComponentBase, IDisposable
 		}
 	}
 
-	[SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "Fine for event handlers.")]
+#if NET11_0_OR_GREATER
+	private void HandleOnValidationRequested(object? sender, ValidationRequestedEventArgs eventArgs)
+#else
+	[SuppressMessage("Usage", "VSTHRD100:Avoid async void methods", Justification = "Legacy validation requests complete through OnObjectValidationCompleted.")]
 	private async void HandleOnValidationRequested(object? sender, ValidationRequestedEventArgs eventArgs)
+#endif
 	{
 		_validationMessageStore?.Clear();
 
 		if (EditContext is not null)
 		{
+#if NET11_0_OR_GREATER
+			eventArgs.AddAsyncValidator(token => ValidateObjectAsync(EditContext.Model, token));
+#else
 			await ValidateObjectAsync(EditContext.Model);
+#endif
 		}
 	}
 
