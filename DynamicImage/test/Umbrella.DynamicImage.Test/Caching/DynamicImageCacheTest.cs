@@ -182,7 +182,8 @@ public class DynamicImageCacheTest : IClassFixture<DynamicImageAzuriteContainerF
 	{
 		var options = new UmbrellaDiskFileStorageProviderOptions
 		{
-			RootPhysicalPath = BaseDirectory,
+			// Each target framework has its own output directory when tests run concurrently.
+			RootPhysicalPath = AppContext.BaseDirectory,
 			AllowUnhandledFileAuthorizationChecks = true
 		};
 

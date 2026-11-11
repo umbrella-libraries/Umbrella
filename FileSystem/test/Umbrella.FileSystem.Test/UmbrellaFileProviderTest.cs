@@ -1466,7 +1466,8 @@ public class UmbrellaFileProviderTest : IClassFixture<FileSystemAzuriteContainer
 	{
 		var options = new UmbrellaDiskFileStorageProviderOptions
 		{
-			RootPhysicalPath = BaseDirectory,
+			// Each target framework has its own output directory when tests run concurrently.
+			RootPhysicalPath = AppContext.BaseDirectory,
 			AllowUnhandledFileAuthorizationChecks = true
 		};
 
