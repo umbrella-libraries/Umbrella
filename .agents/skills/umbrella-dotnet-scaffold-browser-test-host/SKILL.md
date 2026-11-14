@@ -30,6 +30,10 @@ Individual tests come later from `umbrella-dotnet-generate-browser-accessibility
 
    **Ask the user what to do with each host** (keep real, serve locally, or block) and record the answers in the `PageTest` base and the test README. Do not block a host the pages need without that answer.
 
+   When the user keeps a file the layout pins to one version with an `integrity` hash (an icon font's stylesheet, a script library), allow that version's URL prefix (for example `https://cdn.example.net/icons@2.1.4/`) rather than the whole host: nothing else on the host loads, and the file can't change under the baselines.
+8. Find the widths the layout changes at: the breakpoints the styles use (the framework's grid breakpoints, `media-breakpoint-up(...)` mixins, plain `@media` rules) and the widths the scripts switch at (`matchMedia`, `innerWidth` checks, a carousel's `breakpoints` option). Choose one width in each band, from the narrowest phone layout to the width where the containers stop growing (for example 375, 768, 992 and 1280), and confirm the list with the user. The visual tests run at every width and the accessibility tests at the narrowest and widest (Step 3).
+9. List what every page's layout renders from site-wide settings: the header and its menu, the footer, a cookie or announcement banner. **Ask the user** whether the browser host should show them as the live site does, with realistic content, and recommend it: every page screenshot and accessibility baseline includes them, so a test site with an unused header variant or an empty footer approves baselines visitors never see, and changing it later means reviewing every baseline again. The integration tests can keep their own seed (Step 2).
+
 ## Step 1 -- Add a Kestrel mode to the factory
 
 Browsers need a real socket; `TestServer` is in-memory only. Add a mode to the shared factory rather than a second factory hierarchy:
@@ -74,7 +78,7 @@ Use `umbrella-dotnet-scaffold-test-project` for the shell, named `<App>.Web.Brow
 </ItemGroup>
 ```
 
-- Add `PackageVersion` entries centrally in the test-only group; pick versions at least two weeks old that support the target framework. Any image library with exact comparison works; `Magick.NET-Q8-AnyCPU` is the reference choice.
+- Add `PackageVersion` entries centrally in the test-only group; pick versions at least two weeks old that support the target framework. Any image library with per-pixel access works; `Magick.NET-Q8-AnyCPU` is the reference choice.
 - Add a browser factory that only switches the mode:
 
 ```csharp
@@ -84,6 +88,24 @@ public sealed class IndyRecordsBrowserWebApplicationFactory : IndyRecordsWebAppl
 }
 ```
 
+- When the user chose a realistic site-wide header and footer (Preflight step 9), publish them in this factory after the shared seed and keep them for the host's life, so the integration tests' seed is unchanged:
+
+```csharp
+public sealed class IndyRecordsBrowserWebApplicationFactory : IndyRecordsWebApplicationFactory
+{
+	protected override bool ServeOverKestrel => true;
+
+	protected override async Task SeedAsync(IServiceProvider services, CancellationToken cancellationToken)
+	{
+		await base.SeedAsync(services, cancellationToken);
+
+		// The live site's header and footer, so every page and its baselines show what visitors see.
+		SiteHeaderAndFooter.ShowOnTheSite(services, Content);
+	}
+}
+```
+
+  Use the same content class the header and footer tests use, so the two never drift apart. Clear any cache that holds the rendered header (a `<cache>` tag helper, the output cache) after publishing, and say in the test README which seed each test project sees.
 - Share one host per assembly, with console capture for startup logs:
 
 ```csharp
@@ -116,8 +138,10 @@ public abstract class IndyRecordsPageTest : PageTest
 		ReducedMotion = ReducedMotion.Reduce,
 	};
 
-	// The hosts the user chose to keep real (Preflight step 7). Everything else off-host is aborted.
-	private static readonly string[] _allowedOffHostAuthorities = ["cdn.example.net"];
+	// The hosts the user chose to keep real (Preflight step 7), and pinned files kept by their version's URL prefix.
+	// Everything else off-host is aborted.
+	private static readonly string[] _allowedOffHostAuthorities = ["fonts.example.com"];
+	private static readonly string[] _allowedOffHostUrlPrefixes = ["https://cdn.example.net/icons@2.1.4/"];
 
 	public override async ValueTask InitializeAsync()
 	{
@@ -129,7 +153,9 @@ public abstract class IndyRecordsPageTest : PageTest
 		_ = await Context.RouteAsync("**/*", route =>
 		{
 			string authority = new Uri(route.Request.Url).Authority;
-			return authority == siteHost || _allowedOffHostAuthorities.Contains(authority, StringComparer.OrdinalIgnoreCase)
+			return authority == siteHost
+				|| _allowedOffHostAuthorities.Contains(authority, StringComparer.OrdinalIgnoreCase)
+				|| _allowedOffHostUrlPrefixes.Any(x => route.Request.Url.StartsWith(x, StringComparison.Ordinal))
 				? route.ContinueAsync()
 				: route.AbortAsync();
 		});
@@ -139,15 +165,19 @@ public abstract class IndyRecordsPageTest : PageTest
 
 Leave the allowlist empty when the user keeps nothing real. A resource served locally (copied into the test project and fulfilled with `route.FulfillAsync(new() { Path = ... })`) is another option for a required asset whose host is unreliable. Allowed hosts make the tests depend on that host being up; say so in the test README.
 
+Add `Shared\Viewports.cs` from `references\viewports.md` with the widths from Preflight step 8. The context's default viewport stays fixed for tests that don't depend on width; a test that does sets its width with `Viewports.SetAsync` before opening the page, and puts the width's name in its baseline names.
+
 Add small helpers the app needs, such as resolving a seeded item's URL through `Factory.HostServices`. Use the app's real locale and time zone; keep them fixed so dates and formatting do not vary by machine.
 
 ## Step 4 -- Add the visual snapshot helper
 
-Add a `VisualSnapshot.AssertMatchesAsync(byte[] screenshot, string snapshotName)` helper following `references\visual-snapshot.md`. Its contract:
+Add a `VisualSnapshot` helper following `references\visual-snapshot.md`, with `CaptureFullPageAsync(IPage page, params ILocator[] mask)` and `AssertMatchesAsync(byte[] screenshot, string snapshotName)`. Its contract:
 
 - baselines are per OS (`Snapshots\{name}.{windows|linux|macos}.png`), because fonts render differently on each;
 - baselines live in the source tree, found with `[CallerFilePath]`, so approving one is a normal reviewed change;
-- comparison is exact; on a size difference both images are padded, not resized, before diffing, so the change stays visible;
+- a pixel matches when each of its channels is within 2 levels of the baseline's: Chromium's anti-aliasing of rounded corners and scaled images varies by a level or so between runs of the same page, while a real change to text, layout or colour moves channels much further. Don't raise the tolerance to hide a difference;
+- on a size difference both images are padded, not resized, before diffing, so the change stays visible;
+- `CaptureFullPageAsync` takes a full-page screenshot with animations disabled and the caret hidden, and crops it to the window's width. A full-page screenshot is as wide as the page's content, so a carousel's off-screen slides, which the site clips (`overflow-x: hidden` on `html` or a wrapper), would otherwise widen it with content visitors never see;
 - a missing or different baseline fails the test and writes `.received.png` (and `.expected.png` and `.diff.png` when a baseline exists) to `bin\...\visual-artifacts`;
 - a baseline is never created or updated automatically. A person reviews the received image and copies it over the baseline.
 
@@ -208,6 +238,8 @@ dotnet test "<BrowserTestProject>" --no-build
 
 On the .NET 10 SDK, `dotnet test` runs Microsoft Testing Platform projects only when `global.json` contains `"test": { "runner": "Microsoft.Testing.Platform" }`; without it, use `dotnet run --project "<BrowserTestProject>"`.
 
+When the app has a Blazor WebAssembly client, build the browser test project with `--no-incremental` after changing the client, the server project or the configuration: an incremental build can leave stale fingerprinted `_framework\*.wasm` references in the static web assets, and every Blazor page then times out after a 404 for a `.wasm` file. Say so in the test README.
+
 The smoke test passes with Docker running and is skipped without it locally. Confirm the existing integration tests still pass with the factory change (Kestrel mode off).
 
 ## Analyzer compatibility
@@ -217,6 +249,7 @@ Before finishing, read `.ai-shared\bundles\umbrella\analyzer-compatibility.md` a
 ## References
 
 - `references\kestrel-factory.md`
+- `references\viewports.md`
 - `references\visual-snapshot.md`
 
 ## Output
@@ -225,7 +258,9 @@ Report:
 
 - how Kestrel mode was added (built-in or `CreateHost` override) and the members exposed;
 - the browser test project, packages and versions, assembly fixture and re-declared collections;
-- the PageTest base and its context settings;
+- the PageTest base, its context settings and the off-host allowlist (hosts and URL prefixes);
+- the widths in `Viewports` and where each comes from;
+- the site-wide header and footer decision, and where the browser host seeds them;
 - the visual helper path and baseline folder;
 - CI changes (browser install, artifacts) and anything changed in a generated template;
 - validation results.

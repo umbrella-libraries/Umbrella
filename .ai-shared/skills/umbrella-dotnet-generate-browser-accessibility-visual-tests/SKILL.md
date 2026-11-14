@@ -16,8 +16,9 @@ Check the setup exists before writing anything. Look for:
 1. A runnable test project referencing `Microsoft.Playwright.Xunit.v3` and `Deque.AxeCore.Playwright`.
 2. A factory serving the site with Kestrel on a loopback port (it exposes a server address, usually derived from the repo's `UmbrellaWebApplicationFactory<TProgram>`-based factory), registered as an assembly fixture.
 3. An abstract class deriving from Playwright's `PageTest` that sets fixed context options (base URL, viewport, device scale factor, locale, time zone, reduced motion) and aborts off-host requests except to an allowlist of hosts the user chose to keep.
-4. A visual snapshot helper that compares a screenshot with a per-OS baseline and writes received, expected and diff images to an artifacts folder.
-5. In **baseline mode** (Step 4), an accessibility baseline helper beside it. If the user chooses baseline mode and it is missing, create it from `references/accessibility-baseline.md`.
+4. A visual snapshot helper that compares a screenshot with a per-OS baseline, within a small per-channel tolerance, and writes received, expected and diff images to an artifacts folder, with a `CaptureFullPageAsync` that crops full-page screenshots to the window's width.
+5. A `Viewports` helper with the widths the layout changes at (`umbrella-dotnet-scaffold-browser-test-host`, `references/viewports.md`). If it or `CaptureFullPageAsync` is missing, add them from that skill's references before writing tests.
+6. In **baseline mode** (Step 4), an accessibility baseline helper beside it. If the user chooses baseline mode and it is missing, create it from `references/accessibility-baseline.md`.
 
 If any of these is missing, stop and run `umbrella-dotnet-scaffold-browser-test-host` first. Do not create a second base class, host or snapshot helper beside existing ones.
 
@@ -37,8 +38,11 @@ If the page depends on an external service (a search API, a video platform, a pa
 Write one private navigation helper shared by both tests. It must prove this is the right page, because an error page can also be accessible and can match a baseline approved by mistake:
 
 ```csharp
-private async Task GotoTrackListingAsync()
+private async Task GotoTrackListingAsync(string viewport)
 {
+	// Before navigating: pages choose a layout, image sources and carousel slide counts as they load.
+	await Viewports.SetAsync(Page, viewport);
+
 	IResponse? response = await Page.GotoAsync(TrackListingPath);
 
 	Assert.NotNull(response);
@@ -83,7 +87,7 @@ Keep the embedding element itself (the `iframe`, its `title`, its size) so axe s
 
 ## Step 4 -- Accessibility gate
 
-Mark every test with the repo's Docker-gated attribute (`[IndyRecordsFact]` here), not plain `[Fact]`: without Docker the host never starts and `ServerAddress` is null, so a plain `[Fact]` fails instead of skipping.
+Mark every test with the repo's Docker-gated attributes (`[IndyRecordsFact]` and `[IndyRecordsTheory]` here), not plain `[Fact]` or `[Theory]`: without Docker the host never starts and `ServerAddress` is null, so a plain `[Fact]` fails instead of skipping.
 
 The gate counts `serious` and `critical` violations. Choose its mode once per repo and record it in the test README; if the README doesn't say, **ask the user**:
 
@@ -98,7 +102,7 @@ private static readonly string[] _blockingImpacts = ["serious", "critical"];
 [IndyRecordsFact]
 public async Task TrackListingPage_HasNoSeriousAccessibilityViolations()
 {
-	await GotoTrackListingAsync();
+	await GotoTrackListingAsync(Viewports.Desktop);
 
 	AxeResult result = await Page.RunAxe();
 
@@ -111,16 +115,21 @@ public async Task TrackListingPage_HasNoSeriousAccessibilityViolations()
 **Baseline mode.** Reuse the repo's baseline helper (create it from `references/accessibility-baseline.md` if missing):
 
 ```csharp
-[IndyRecordsFact]
-public async Task TrackListingPage_HasNoNewAccessibilityViolations()
+public static TheoryData<string> AccessibilityViewports => [.. Viewports.Accessibility];
+
+[IndyRecordsTheory]
+[MemberData(nameof(AccessibilityViewports))]
+public async Task TrackListingPage_HasNoNewAccessibilityViolations(string viewport)
 {
-	await GotoTrackListingAsync();
+	await GotoTrackListingAsync(viewport);
 
 	AxeResult result = await Page.RunAxe();
 
-	await AccessibilityBaseline.AssertNoNewViolationsAsync(result, "track-listing-page");
+	await AccessibilityBaseline.AssertNoNewViolationsAsync(result, $"track-listing-page.{viewport}");
 }
 ```
+
+Run the gate at `Viewports.Accessibility`, the narrowest and widest layouts, where the DOM and styles differ most (the phone menu, stacked columns, elements shown at one width only). Each width has its own baseline (`track-listing-page.phone.json`). The strict-mode test takes the same theory data.
 
 - Each known violation is stored as rule id plus element selector in `Accessibility\Baselines\<name>.json`, with scoped-CSS attributes and generated IDs normalised so builds don't churn it. Axe evaluates the DOM, not pixels, so one baseline serves every OS.
 - Axe reports colour contrast over background images and gradients as *incomplete* (needs review), not as a violation, so a baseline never records it. Look at a screenshot of each page, not only the visual baseline pages, for text on gradients and images, and log anything hard to read in the known-issues backlog with the contrast measured from the screenshot.
@@ -135,37 +144,36 @@ In either mode, when the gate fails on a new defect (missing labels, low contras
 Take a full-page screenshot with animations disabled and the caret hidden, masking content that legitimately changes between runs (copyright years, dates, relative times, random or rotating content, counters):
 
 ```csharp
-[IndyRecordsFact]
-public async Task TrackListingPage_MatchesVisualBaseline()
+public static TheoryData<string> AllViewports => [.. Viewports.All];
+
+[IndyRecordsTheory]
+[MemberData(nameof(AllViewports))]
+public async Task TrackListingPage_MatchesVisualBaseline(string viewport)
 {
-	await GotoTrackListingAsync();
+	await GotoTrackListingAsync(viewport);
 	await Page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+	_ = await Page.EvaluateAsync("async () => { await document.fonts.ready; }");
 
 	// The footer shows the current year, so it is masked rather than failing the baseline every January.
-	byte[] screenshot = await Page.ScreenshotAsync(new()
-	{
-		FullPage = true,
-		Animations = ScreenshotAnimations.Disabled,
-		Caret = ScreenshotCaret.Hide,
-		Mask = [Page.Locator(".footer__copyright")],
-	});
+	byte[] screenshot = await VisualSnapshot.CaptureFullPageAsync(Page, Page.Locator(".footer__copyright"));
 
-	await VisualSnapshot.AssertMatchesAsync(screenshot, "track-listing-page");
+	await VisualSnapshot.AssertMatchesAsync(screenshot, $"track-listing-page.{viewport}");
 }
 ```
 
 Rules:
 
-- Use a kebab-case snapshot name unique in the project. The helper appends the platform (`track-listing-page.windows.png`, `track-listing-page.linux.png`).
-- Mask by the narrowest locator that covers the dynamic content; never mask the whole page or large layout regions.
-- Rely on the base class's fixed viewport, scale factor, locale, time zone and reduced motion. Do not set them per test.
+- Use a kebab-case snapshot name unique in the project, followed by the width's name. The helper appends the platform (`track-listing-page.phone.windows.png`, `track-listing-page.phone.linux.png`).
+- Take a baseline at every width in `Viewports.All`: layouts change at each breakpoint, and a defect often shows at one width only.
+- Mask by the narrowest locator that covers the dynamic content; never mask the whole page or large layout regions. Mask embedded third-party frames whose content the tests can't control (a marketing form's iframe) too.
+- Rely on the base class's fixed scale factor, locale, time zone and reduced motion, and take widths only from `Viewports`. Do not set them per test otherwise.
 - Wait for a specific state (network idle, a loaded image, a rendered element), never a fixed delay.
 - Wait for web fonts before the screenshot: `_ = await Page.EvaluateAsync("async () => { await document.fonts.ready; }");`.
 - Wait for the images in the first screen too (each `img` in the viewport is `complete` with a `naturalWidth`). A lazily loaded image, such as a header logo, can otherwise be missing from the screenshot.
 
 ## Step 6 -- Approve the baselines
 
-The first run fails with a missing baseline and writes `<name>.<platform>.received.png` to the artifacts folder (for example `bin\Debug\<tfm>\visual-artifacts`). A changed page writes `received`, `expected` and `diff` images. Baselines are never updated automatically.
+The first run fails with a missing baseline and writes `<name>.<viewport>.<platform>.received.png` to the artifacts folder (for example `bin\Debug\<tfm>\visual-artifacts`). A changed page writes `received`, `expected` and `diff` images. Baselines are never updated automatically.
 
 Approval workflow, to describe to the user rather than perform silently:
 
@@ -176,20 +184,41 @@ Approval workflow, to describe to the user rather than perform silently:
 
 Do not copy a received image you have not looked at, and do not commit a baseline of an error page.
 
-Accessibility baselines (baseline mode) follow the same review: compare `<name>.received.json` with the baseline, confirm each added entry is existing behaviour and each removed one is really fixed, then copy it to `Accessibility\Baselines\<name>.json`. They aren't per OS, so a local run is enough.
+### Reviewing a shared change
+
+A change to something every page shows (the header, the footer, a shared stylesheet, the browser version) changes most baselines at once. Review it as a whole, then in detail:
+
+- Run the whole suite once to collect every received file, and confirm only baseline tests failed.
+- For screenshots, compare each pair with a script that finds the vertical offset at which the old image's rows reappear in the new one, so you can see which band changed. Then look at pairs yourself at every width, including those whose rows matched least (a background gradient that stretches with the page defeats row matching), and confirm the page bodies are unchanged.
+- For accessibility baselines, element selectors change when the markup around an element changes, so a file diff overstates the change. Compare the count of each rule per file instead, and for each rule whose count changed, run axe on one affected page and read each node's HTML and message (for colour contrast, the colours and the ratio).
+- Axe reports colour contrast it can't measure (text over an image or gradient, or under an overlapping element) as incomplete. Moving an overlapping element, such as a sticky header, can turn those into violations that were always there. Approve them as existing defects, and say so in the report.
+- Log any new defect the change shows in the known-issues backlog before approving.
+
+Accessibility baselines (baseline mode) follow the same review: compare `<name>.<viewport>.received.json` with the baseline, confirm each added entry is existing behaviour and each removed one is really fixed, then copy it to `Accessibility\Baselines\<name>.json`. They aren't per OS, so a local run is enough.
 
 ## Covering many page types
 
 When the user wants every page type covered, don't write a class per page. Write one class with:
 
 - a private table, keyed by page `Type` (rows serialise and show in results), saying for each page type how to open it: the seeded page, any stub arrangement, a path suffix, the expected status, the page-specific locator, the expected `h1`, and whether it is a Blazor page;
-- one accessibility theory over every row, each with its own baseline name;
-- one visual theory over a few representative templates only (home, a content page, a lister, a details page, a landing page), to keep baseline upkeep small;
+- one accessibility theory over every row and `Viewports.Accessibility`, each with its own baseline name;
+- one visual theory over a few representative templates (home, a content page, a lister, a details page, a landing page) at every width, to keep baseline upkeep small. When the user wants full visual coverage, cover every row at every width instead, and tell them the number of baselines first (rows x widths x platforms);
 - the shared guarded navigation helper for both.
 
 Skip only what isn't a page (settings content types, for example) and pages another class already covers, and say why in the report.
 
 When the app serves another site on its own host name (for example `portal.localhost` on the same port), allow that host in the base class's off-host allowlist, add a helper that builds an absolute URL on it, and give the table a column for the host. Seed what that site's layout needs (logos, a page of each type) so the baselines don't record gaps that exist only in the test seed.
+
+## Site-wide header, menu and footer
+
+Page baselines show the header and footer closed and at rest, so they never check a menu's panels, the phone menu or a language list. When the user wants these covered, write separate classes for them (for example in `Navigation\`):
+
+- **Content.** One class fills the header and footer as an editor of the live site would: every panel layout the menu's view supports, optional fields chosen pairwise (description, call to action, style, link target), long titles, nested items, and every footer field. The browser host shows the same content on every page (`umbrella-dotnet-scaffold-browser-test-host`, Preflight step 9).
+- **Changes.** A test that needs other content (an optional field switched off, a minimal header) publishes a changed copy and restores the original afterwards, in the non-parallel mutation collection. Where publishing is slow, publish once per class through a class fixture. Clear any cache holding the rendered header (a `<cache>` tag helper's `MemoryCache`, the output cache) before and after each change.
+- **Visual.** Screenshot the component only (`Page.Locator(...).ScreenshotAsync`, or a clip to the header, the open panel or the footer), so a change elsewhere on the page doesn't fail them: the header closed at every width; each desktop panel open, and drilled into its nested items; the phone menu at its top level and in each panel, at the widths that show it; the search box and language list open; scrolled, when the header is sticky; and the footer over each background the layouts give it.
+- **Accessibility.** Run axe on the component alone (`await Page.Locator(".site-header").RunAxe()`) with each panel or menu level open, at the phone and desktop widths, against its own baselines; the page baselines cover the rest of the page.
+- **Behaviour.** Opening and closing with the pointer and the keyboard (Enter, Space, Escape and the Tab order); resizing across the width where the desktop menu becomes the phone menu, both ways; links going where the editor pointed them, with their targets; the search box submitting; any analytics events the script pushes.
+- Read the menu's view, script and stylesheet first: the widths where behaviour switches, what is hidden with `hidden` or `aria-hidden`, and what the stylesheet overrides (a `display: ... !important` on a `[hidden]` element leaves it in the tab order).
 
 ## Rules
 
@@ -224,6 +253,6 @@ Report:
 - how the page is arranged (seed, route) and the page-specific locator used;
 - external dependencies, the user's choice for each, and any routed placeholders;
 - the gate mode, axe violations found, baselined entries approved, and the app fixes made with the user's agreement;
-- masked regions and why;
+- the widths covered by each test, and masked regions and why;
 - baselines written or still awaiting approval (local and Linux), with the artifact paths;
 - build and test results.
