@@ -1486,6 +1486,9 @@ public class UmbrellaFileProviderTest : IClassFixture<FileSystemAzuriteContainer
 
 	private static DataversePathAdapterProvider CreateDataverseFileProvider()
 	{
+		Assert.SkipUnless(string.Equals(_sharePointConfig["Dataverse:RunIntegrationTests"], "true", StringComparison.OrdinalIgnoreCase),
+			"Set Dataverse__RunIntegrationTests=true and configure Dataverse to run live integration tests.");
+
 		var connectionOptions = new ConnectionOptions
 		{
 			ClientId = DataverseClientId,

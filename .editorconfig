@@ -340,6 +340,7 @@ dotnet_diagnostic.CA1001.severity = error
 dotnet_diagnostic.VSTHRD002.severity = error
 dotnet_diagnostic.IDE0062.severity = error
 dotnet_diagnostic.IDE0030.severity = error
+dotnet_diagnostic.IDE0330.severity = error
 
 # IDE0031: Use null propagation
 dotnet_diagnostic.IDE0031.severity = error
@@ -392,3 +393,7 @@ dotnet_diagnostic.SYSLIB1045.severity = error
 dotnet_diagnostic.CS0114.severity = error
 dotnet_diagnostic.CA1873.severity = error
 dotnet_diagnostic.CA2254.severity = error
+dotnet_diagnostic.CS1573.severity = error
+dotnet_diagnostic.CS8073.severity = error
+dotnet_diagnostic.ASPIRE012.severity = error
+dotnet_diagnostic.xUnit2031.severity = error

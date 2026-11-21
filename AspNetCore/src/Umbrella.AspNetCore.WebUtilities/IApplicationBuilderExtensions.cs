@@ -163,7 +163,6 @@ public static class IApplicationBuilderExtensions
 	/// <param name="builder">The builder.</param>
 	/// <param name="useTwoLetterISOLanguageName">Set to <see langword="true" /> to use the two-letter ISO language name; otherwise the full culture name will be used.</param>
 	/// <returns>The <see cref="IApplicationBuilder"/> instance.</returns>
-	[Obsolete("Use the Request Localization Middleware in ASP.NET")]
 	public static IApplicationBuilder UseUmbrellaContentLanguage(this IApplicationBuilder builder, bool useTwoLetterISOLanguageName = true)
 	{
 		return builder.Use((context, next) =>

@@ -85,6 +85,8 @@ internal static partial class CodexMcpConfigManager
     /// this bundle used to own it is being cleaned up by this very operation, so it must not be
     /// mistaken for user-authored content.
     /// </param>
+    /// <param name="updatedContent">The updated file content on success or the original content on failure.</param>
+    /// <param name="conflicts">Messages describing the conflicts or errors that prevented the update.</param>
     public static bool TryBuildUpdatedConfig(
         string existingContent,
         JsonObject unionServers,
